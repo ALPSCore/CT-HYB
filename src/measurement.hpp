@@ -1,0 +1,172 @@
+#pragma once
+
+#include <algorithm>
+#include <functional>
+
+#include <boost/multi_array.hpp>
+
+#include <Eigen/Dense>
+
+#include "resizable_matrix.hpp"
+#include "legendre.hpp"
+#include "operator.hpp"
+
+
+/**
+ * @brief Class for measurement of single-particle Green's function using Legendre basis
+ */
+template<typename SCALAR>
+class GreensFunctionLegendreMeasurement {
+public:
+  /**
+   * Constructor
+   *
+   * @param num_flavors    the number of flavors
+   * @param num_legendre   the number of legendre coefficients
+   * @param num_matsubara  the number of Matsubara frequencies
+   * @param beta           inverse temperature
+   */
+  GreensFunctionLegendreMeasurement(int num_flavors, int num_legendre, int num_matsubra, double beta) :
+    num_flavors_(num_flavors),
+    num_legendre_(num_legendre),
+    num_matsubara_(num_matsubra),
+    legendre_trans(num_matsubara_, num_legendre_),
+    beta_(beta),
+    temperature_(1.0/beta),
+    n_meas_(0),
+    g_meas_(boost::extents[num_flavors][num_flavors][num_legendre])
+  {
+    std::fill(g_meas_.origin(), g_meas_.origin()+g_meas_.num_elements(), 0.0);
+  }
+
+  /**
+   * Measure Green's function
+   *
+   * @param M the inverse matrix for hybridization function
+   * @param operators a set of annihilation and creation operators
+   */
+  void measure(const alps::ResizableMatrix<SCALAR>& M, const operator_container_t& operators,
+                      const operator_container_t& creation_operators,
+                      const operator_container_t& annihilation_operators,
+                      SCALAR sign
+  ) {
+    //Work array for P[x_l]
+    std::vector<double> Pl_vals(num_legendre_);
+    ++n_meas_;
+    operator_container_t::iterator it1, it2;
+    for (int k=0; k<M.size1(); k++) {
+      (k==0 ? it1 = annihilation_operators.begin() : it1++);
+      for (int l=0; l<M.size1(); l++) {
+        (l==0 ? it2 = creation_operators.begin() : it2++);
+        if (M(l,k)!=0.0) {
+          double argument = it1->time()-it2->time();
+          double bubble_sign=1;
+          if (argument > 0) {
+            bubble_sign = 1;
+          } else {
+            bubble_sign = -1;
+            argument += beta_;
+          }
+
+          const int flavor_a=it1->flavor();
+          const int flavor_c=it2->flavor();
+          assert(it1->type()==ANNIHILATION_OP);
+          assert(it2->type()==CREATION_OP);
+          const double x = 2*argument*temperature_-1.0;
+          assert (-0.01<x<1.01);
+          legendre_trans.compute_legendre(x, Pl_vals);
+          const SCALAR coeff = -M(l,k)*bubble_sign*sign*temperature_;
+          for (int il=0; il<num_legendre_; ++il) {
+            g_meas_[flavor_a][flavor_c][il] += coeff*legendre_trans.get_sqrt_2l_1()[il]*Pl_vals[il];
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Return the measured data in the original basis.
+   *
+   * @param rotmat_Delta   rotation matrix for Delta, which defines the single-particle basis for the perturbation expansion
+   */
+  template<typename Derived>
+  boost::multi_array<std::complex<double>,3> get_measured_legendre_coefficients(const Eigen::MatrixBase<Derived>& rotmat_Delta) const {
+    if (n_meas_==0) {
+      throw std::runtime_error("Error: n_meas_=0");
+    }
+
+    //Divide by the number of measurements
+    boost::multi_array<std::complex<double>,3> result(g_meas_);
+    std::transform(result.origin(), result.origin() + result.num_elements(), result.origin(),
+                   std::bind2nd(std::divides<std::complex<double> >(), 1.*n_meas_)
+    );
+
+    //Transform to the original basis
+    Eigen::Matrix<std::complex<double>,Eigen::Dynamic,Eigen::Dynamic> gf_tmp(num_flavors_,num_flavors_);
+    for (int il=0; il<num_legendre_; ++il) {
+      for (int flavor = 0; flavor < num_flavors_; ++flavor) {
+        for (int flavor2 = 0; flavor2 < num_flavors_; ++flavor2) {
+          gf_tmp(flavor, flavor2) = result[flavor][flavor2][il];
+        }
+      }
+      gf_tmp = rotmat_Delta * gf_tmp * rotmat_Delta.adjoint();
+      for (int flavor = 0; flavor < num_flavors_; ++flavor) {
+        for (int flavor2 = 0; flavor2 < num_flavors_; ++flavor2) {
+          result[flavor][flavor2][il] = gf_tmp(flavor, flavor2);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Clear all the data measured
+   */
+  void reset() {
+    n_meas_ = 0;
+    std::fill(g_meas_.origin(), g_meas_.origin()+g_meas_.num_elements(), 0.0);
+  }
+
+  /**
+   * Returns the number of legendre coefficients
+   */
+  inline int get_num_legendre() const {return num_legendre_;}
+
+private:
+  const int num_flavors_, num_legendre_, num_matsubara_;
+  const double beta_, temperature_;
+  LegendreTransformer legendre_trans;
+  int n_meas_;
+  boost::multi_array<std::complex<double>,3> g_meas_;
+};
+
+/**
+ * Helper for measuring kL and KR
+ */
+template<class OP>
+class Window: public std::unary_function<OP, bool> {
+public:
+
+  Window(const double itau_lower, const double itau_upper)
+    :lower_(itau_lower)
+    ,upper_(itau_upper)
+  {
+  }
+
+  bool operator()(const OP& op){
+    return (op.time() >= lower_) && (op.time()< upper_);
+  }
+private:
+  const double lower_;
+  const double upper_;
+};
+
+/**
+ * Measure kL and KR for fidelity susceptibility
+ */
+inline unsigned measure_kLkR(const operator_container_t& operators, const double beta, const double start=0.0) {
+  Window<psi> is_left(start, start+ 0.5*beta);
+  unsigned kL = std::count_if(operators.begin(), operators.end(), is_left);
+  return kL*(operators.size()-kL);
+}
