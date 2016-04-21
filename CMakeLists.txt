@@ -1,36 +1,47 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 project(ALPSCoreCTHYB CXX)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR})
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_SOURCE_DIR})
 
 # The project relies on the ALPSCore package. If ALPSCore is not found
 # automatically, specify its location using:
 # export ALPSCore_DIR=/location/to/ALPSCORE/
 find_package(ALPSCore REQUIRED)
-find_package (Boost 1.55.0 REQUIRED)
+find_package(Boost 1.55.0 REQUIRED)
 find_package(MPI REQUIRED)
+find_package(Eigen3 REQUIRED)
 
-#Eigen3
-include_directories("$ENV{EIGEN3_INCLUDE_DIR}")
 
 #include directories
-set(CHYB_LIBRARY_INCLUDE_DIRS $ENV{ALPS_CORE_ROOT}/include ${EIGEN3_INCLUDE_DIR} ${Boost_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH})
+set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH}) #rest taken care of by libraries dependencies 
 include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
-#library directories
-set(CHYB_LIBRARY_DIRS ${MPI_CXX_LIBRARIES})
-link_directories(${CHYB_LIBRARY_DIRS})
-
 #source files
-set(SOURCE_FILES ./src/legendre.cpp ./src/model.cpp ./src/model_detail/clustering.cpp ./src/operator.cpp ./src/util.cpp)
+set(LIB_FILES ./src/legendre.cpp ./src/model.cpp ./src/model_detail/clustering.cpp ./src/operator.cpp ./src/util.cpp)
+
+ADD_LIBRARY(hyb ${LIB_FILES})
+target_link_libraries(hyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES})
 
 #executable
-ADD_EXECUTABLE(hybmat ./src/main.cpp ${SOURCE_FILES})
-ADD_EXECUTABLE(gtest ./test/test.cpp ./test/gtest_main.cc ./test/gtest-all.cc ${SOURCE_FILES})
+ADD_EXECUTABLE(hybmat ./src/main.cpp)
+target_link_libraries(hybmat hyb)
 
-#libraries
-list(APPEND CHYB_LIBRARIES ${ALPSCore_LIBRARIES})
-target_link_libraries(hybmat ${CHYB_LIBRARIES})
-target_link_libraries(gtest ${CHYB_LIBRARIES})
+#testing setup
+option(Testing "Enable testing" ON)
+include(EnableGtests) #defined in ./cmake
+include_directories("test")
+list(APPEND LINK_ALL hyb)
 
+#testing source files
+set(unittest_src
+unittest
+)
+
+enable_testing(test)
+
+foreach(test ${unittest_src})
+    add_gtest(${test} test)
+endforeach(test)
+
+#installation
 install (TARGETS hybmat DESTINATION bin)
