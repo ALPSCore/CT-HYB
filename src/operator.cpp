@@ -35,9 +35,7 @@ int count_num_pairs(const operator_container_t& c_operators, const operator_cont
   double tau_low = std::min(t1,t2);
   double tau_high = std::max(t1,t2);
   std::pair<operator_container_t::iterator,operator_container_t::iterator> crange = c_operators.range(tau_low<=bll::_1, bll::_1<=tau_high);
-  int num_c_win = std::distance(crange.first,crange.second);
   std::pair<operator_container_t::iterator,operator_container_t::iterator> arange = a_operators.range(tau_low<=bll::_1, bll::_1<=tau_high);
-  int num_a_win = std::distance(arange.first,arange.second);
 
   int num_pairs = 0;
   for(operator_container_t::iterator it_c=crange.first; it_c!=crange.second; ++it_c) {
@@ -67,9 +65,7 @@ pick_up_pair(alps::random01& rng, const operator_container_t& c_operators, const
   double tau_low = std::min(t1,t2);
   double tau_high = std::max(t1,t2);
   std::pair<operator_container_t::iterator,operator_container_t::iterator> crange = c_operators.range(tau_low<=bll::_1, bll::_1<=tau_high);
-  int num_c_win = std::distance(crange.first,crange.second);
   std::pair<operator_container_t::iterator,operator_container_t::iterator> arange = a_operators.range(tau_low<=bll::_1, bll::_1<=tau_high);
-  int num_a_win = std::distance(arange.first,arange.second);
 
   typedef std::list<std::pair<it_t,it_t> > pairs_t;
   pairs_t pairs;

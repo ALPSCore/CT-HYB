@@ -30,9 +30,9 @@ public:
     num_flavors_(num_flavors),
     num_legendre_(num_legendre),
     num_matsubara_(num_matsubra),
-    legendre_trans(num_matsubara_, num_legendre_),
     beta_(beta),
     temperature_(1.0/beta),
+    legendre_trans_(num_matsubara_, num_legendre_),
     n_meas_(0),
     g_meas_(boost::extents[num_flavors][num_flavors][num_legendre])
   {
@@ -74,10 +74,10 @@ public:
           assert(it2->type()==CREATION_OP);
           const double x = 2*argument*temperature_-1.0;
           assert (-0.01<x<1.01);
-          legendre_trans.compute_legendre(x, Pl_vals);
+          legendre_trans_.compute_legendre(x, Pl_vals);
           const SCALAR coeff = -M(l,k)*bubble_sign*sign*temperature_;
           for (int il=0; il<num_legendre_; ++il) {
-            g_meas_[flavor_a][flavor_c][il] += coeff*legendre_trans.get_sqrt_2l_1()[il]*Pl_vals[il];
+            g_meas_[flavor_a][flavor_c][il] += coeff*legendre_trans_.get_sqrt_2l_1()[il]*Pl_vals[il];
           }
         }
       }
@@ -136,7 +136,7 @@ public:
 private:
   const int num_flavors_, num_legendre_, num_matsubara_;
   const double beta_, temperature_;
-  LegendreTransformer legendre_trans;
+  LegendreTransformer legendre_trans_;
   int n_meas_;
   boost::multi_array<std::complex<double>,3> g_meas_;
 };

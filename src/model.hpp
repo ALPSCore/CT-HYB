@@ -146,9 +146,18 @@ public:
     return num_sectors_;
   }
 
+  inline const matrix_t& get_rotmat_Delta() const {
+    return rotmat_Delta;
+  }
+
+  inline const hybridization_container_t& get_F() const {
+    return F;
+  }
+
   /**
    * @brief This function returns the sector that the resultant bra belongs to
    * when an annihilation/creation operator is applied to a bra in the source sector.
+   * This function is defined in model.ipp
    *
    * @param op creation/annihilation operator
    * @param flavor flavor of the creation/annihilation operator
@@ -159,6 +168,7 @@ public:
   /**
    * @brief This function returns the sector that the resultant bra belongs to
    * when an annihilation/creation operator is applied to a bra in the source sector from the right-hand side.
+   * This function is defined in model.ipp
    *
    * @param op creation/annihilation operator
    * @param flavor flavor of the creation/annihilation operator
@@ -166,17 +176,9 @@ public:
    */
   int get_dst_sector_bra(OPERATOR_TYPE op, int flavor, int src_sector) const;
 
-  inline const matrix_t& get_rotmat_Delta() const {
-    return rotmat_Delta;
-  }
-
-  inline const hybridization_container_t& get_F() const {
-    return F;
-  }
-
   /**
-   * Functions to be implemented in a derived class
-   * */
+   * The following functions to be implemented in a derived class
+   **/
   double get_reference_energy() const;
 
   int dim_sector(int sector) const;
@@ -284,15 +286,16 @@ private:
  */
 template<typename SCALAR>
 class ImpurityModelEigenBasis : public ImpurityModel<SCALAR, ImpurityModelEigenBasis<SCALAR> > {
-public:
-  typedef Braket<SCALAR,Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> > BRAKET_T;
-
 private:
   typedef ImpurityModel<SCALAR,ImpurityModelEigenBasis<SCALAR> > Base;
   typedef typename Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> dense_matrix_t;
   typedef dense_matrix_t braket_obj_t;
 
 public:
+  typedef Braket<SCALAR,Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> > BRAKET_T;
+//  using Base::get_dst_sector_ket;
+//  using Base::get_dst_sector_bra;
+
   ImpurityModelEigenBasis(const alps::params& par, bool verbose=false);
   ImpurityModelEigenBasis(const alps::params& par, const std::vector<boost::tuple<int,int,SCALAR> >& nonzero_t_vals_list,
                           const std::vector<boost::tuple<int,int,int,int,SCALAR> >& nonzero_U_vals_list, bool verbose=false);
@@ -344,5 +347,8 @@ struct model_traits<ImpurityModelEigenBasis<SCALAR> > {
   typedef Braket<SCALAR,Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> > BRAKET_T;
 };
 
-#include "./model_detail/model.ipp"
-#include "./model_detail/eigenbasis.ipp"
+typedef ImpurityModelEigenBasis<double> REAL_EIGEN_BASIS_MODEL;
+typedef ImpurityModelEigenBasis<std::complex<double> > COMPLEX_EIGEN_BASIS_MODEL;
+
+//#include "./model_detail/model.ipp"
+//#include "./model_detail/eigenbasis.ipp"

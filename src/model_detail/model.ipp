@@ -19,9 +19,9 @@ ImpurityModel<SCALAR,DERIVED>::ImpurityModel(const alps::params& par, bool verbo
    dim_(1<<flavors_),
    ntau_(static_cast<int>(par["N_TAU"])),
    Np1_(ntau_+1),
-   U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_]),
    reference_energy_(-1E+100),//this should be set in a derived class,
-   verbose_(verbose)
+   verbose_(verbose),
+   U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_])
 {
   read_U_tensor(par);
   read_hopping(par);
@@ -57,10 +57,10 @@ ImpurityModel<SCALAR,DERIVED>::ImpurityModel(const alps::params& par,
           dim_(1<<flavors_),
           ntau_(static_cast<int>(par["N_TAU"])),
           Np1_(ntau_+1),
-          U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_]),
-          nonzero_t_vals(nonzero_t_vals_list),
+          verbose_(verbose),
           nonzero_U_vals(nonzero_U_vals_list),
-          verbose_(verbose)
+          nonzero_t_vals(nonzero_t_vals_list),
+          U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_])
 {
   read_hybridization_function(par);
   read_rotation_hybridization_function(par);

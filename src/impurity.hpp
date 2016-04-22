@@ -63,7 +63,7 @@ public:
   typedef typename model_traits<IMP_MODEL>::SCALAR_T SCALAR;
   typedef alps::ResizableMatrix<SCALAR> matrix_t;
   typedef std::complex<double> COMPLEX;
-  typedef SlidingWindowManager<IMP_MODEL,operator_container_t> SW_TYPE;
+  typedef SlidingWindowManager<IMP_MODEL> SW_TYPE;
 
   static void define_parameters(parameters_type & parameters);
   void create_observables(); //build ALPS observables

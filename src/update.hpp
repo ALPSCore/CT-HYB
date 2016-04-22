@@ -291,8 +291,6 @@ det_rat_row_column_down(int position_c, int position_a, MAT & M) {
 
 template<class MAT>
 void compute_M_row_column_down(int position_c, int position_a, MAT & M) {
-
-  typedef typename MAT::type SCALAR;
   MAT M_new(M.size1()-1,M.size2()-1);
   int k_old;
   int l_old;

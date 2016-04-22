@@ -2,10 +2,10 @@
 
 template<typename SW, typename OBS>
 MeasCorrelation<SW,OBS>::MeasCorrelation(const std::vector<std::pair<OBS,OBS> >& correlators, int num_tau_points)
-  : num_tau_points_(num_tau_points),
-    num_correlators_(correlators.size()),
-    left_edge_pos_(num_tau_points/2+num_tau_points-1),
-    right_edge_pos_(num_tau_points/2)
+  : num_correlators_(correlators.size()),
+    num_tau_points_(num_tau_points),
+    right_edge_pos_(num_tau_points/2),
+    left_edge_pos_(num_tau_points/2+num_tau_points-1)
 {
   std::set<OBS> left_obs_set, right_obs_set;
   for (typename std::vector<std::pair<OBS,OBS> >::const_iterator it=correlators.begin(); it!=correlators.end(); ++it) {
@@ -25,14 +25,12 @@ MeasCorrelation<SW,OBS>::MeasCorrelation(const std::vector<std::pair<OBS,OBS> >&
 }
 
 template<typename SW, typename OBS>
-template<typename SCALAR>
 void
-MeasCorrelation<SW,OBS>::perform_meas(SW& sw, const typename SW::operators_t& operators, boost::multi_array<std::complex<double>,2>& result) const {
+MeasCorrelation<SW,OBS>::perform_meas(SW& sw, const operator_container_t& operators, boost::multi_array<std::complex<double>,2>& result) const {
   namespace bll = boost::lambda;
 
   typedef typename SW::BRAKET_TYPE BRAKET_TYPE;
-  typedef typename SW::operators_t OPERATORS_TYPE;
-  typedef typename OPERATORS_TYPE::iterator OP_IT_TYPE;
+  typedef typename operator_container_t::iterator OP_IT_TYPE;
 
   const int num_braket = sw.get_num_brakets();
 

@@ -274,6 +274,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_outer_braket(const alps::params &par
 template<typename SCALAR>
 void ImpurityModelEigenBasis<SCALAR>::check_evecs(const std::vector<dense_matrix_t> ham_sector,
                                                   const std::vector<dense_matrix_t>& evecs_sector) {
+#ifndef NDEBUG
   const int num_sectors = evecs_sector.size();
 
   for (int sector=0; sector<num_sectors; ++sector) {
@@ -282,6 +283,7 @@ void ImpurityModelEigenBasis<SCALAR>::check_evecs(const std::vector<dense_matrix
       assert(res_norm/eigenvals_sector[sector].size()<1E-8);
     }
   }
+#endif
 }
 
 template<typename SCALAR>

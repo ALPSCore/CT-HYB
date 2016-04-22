@@ -1,13 +1,15 @@
 #include "../sliding_window.hpp"
 
-template<typename MODEL, typename OPCONFIG_TYPE>
-SlidingWindowManager<MODEL,OPCONFIG_TYPE>::SlidingWindowManager(MODEL* p_model_, double beta)
-        : p_model(p_model_), num_brakets(p_model->num_brakets()), norm_cutoff(std::sqrt(std::numeric_limits<double>::min())),
-          BETA(beta) {}
+template<typename MODEL>
+SlidingWindowManager<MODEL>::SlidingWindowManager(MODEL* p_model_, double beta)
+        : p_model(p_model_),
+          BETA(beta),
+          num_brakets(p_model->num_brakets()),
+          norm_cutoff(std::sqrt(std::numeric_limits<double>::min())) {};
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL,OPCONFIG_TYPE>::init_stacks(int n_window_size, const OPCONFIG_TYPE& operators)
+SlidingWindowManager<MODEL>::init_stacks(int n_window_size, const operator_container_t& operators)
 {
     left_states.resize(num_brakets);
     right_states.resize(num_brakets);
@@ -33,8 +35,8 @@ SlidingWindowManager<MODEL,OPCONFIG_TYPE>::init_stacks(int n_window_size, const 
     sanity_check();
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
-void SlidingWindowManager<MODEL,OPCONFIG_TYPE>::set_window_size(int n_window_new, const OPCONFIG_TYPE& operators, int new_position_right_edge, int new_direction_move)
+template<typename MODEL>
+void SlidingWindowManager<MODEL>::set_window_size(int n_window_new, const operator_container_t& operators, int new_position_right_edge, int new_direction_move)
 {
     assert(n_window_new>0);
     sanity_check();
@@ -74,9 +76,9 @@ void SlidingWindowManager<MODEL,OPCONFIG_TYPE>::set_window_size(int n_window_new
     sanity_check();
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_backward_edge(const std::string& which_edge, int num_move)
+SlidingWindowManager<MODEL>::move_backward_edge(const std::string& which_edge, int num_move)
 {
     sanity_check();
     if (which_edge=="R") {
@@ -98,9 +100,9 @@ SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_backward_edge(const std::string&
 }
 
 //small-beta side
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_forward_right_edge(const OPCONFIG_TYPE& operators, int num_move)
+SlidingWindowManager<MODEL>::move_forward_right_edge(const operator_container_t& operators, int num_move)
 {
     namespace bll = boost::lambda;
     sanity_check();
@@ -111,7 +113,7 @@ SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_forward_right_edge(const OPCONFI
         assert(position_right_edge<=2*n_window-2);
         const double tau_edge_old = get_tau_edge(position_right_edge);
         const double tau_edge_new = get_tau_edge(position_right_edge+1);
-        const int new_size = depth_right_states()+1;
+        //const int new_size = depth_right_states()+1;
         std::pair<op_it_t,op_it_t> ops_range = operators.range(tau_edge_old<=bll::_1, bll::_1<tau_edge_new);
         double max_norm = -1;
         for (int i_braket = 0; i_braket < num_brakets; ++i_braket) {
@@ -133,9 +135,9 @@ SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_forward_right_edge(const OPCONFI
 
 
 //large-beta side
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_forward_left_edge(const OPCONFIG_TYPE& operators_tmp, int num_move)
+SlidingWindowManager<MODEL>::move_forward_left_edge(const operator_container_t& operators_tmp, int num_move)
 {
     namespace bll = boost::lambda;
 
@@ -150,7 +152,7 @@ SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_forward_left_edge(const OPCONFIG
         const double tau_edge_new = get_tau_edge(position_left_edge - 1);
         const std::pair<op_it_t, op_it_t> ops_range = operators_tmp.range(tau_edge_new < bll::_1,
                                                                           bll::_1 <= tau_edge_old);
-        const int num_ops = std::distance(ops_range.first, ops_range.second);
+        //const int num_ops = std::distance(ops_range.first, ops_range.second);
 
         double max_norm = -1;
         for (int i_braket = 0; i_braket < num_brakets; ++i_braket) {
@@ -171,9 +173,9 @@ SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_forward_left_edge(const OPCONFIG
     sanity_check();
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_right_edge_to(const OPCONFIG_TYPE& operators, int pos)
+SlidingWindowManager<MODEL>::move_right_edge_to(const operator_container_t& operators, int pos)
 {
     assert(pos>=0 && pos<=2*n_window);
     if (get_position_right_edge()>pos) {
@@ -183,9 +185,9 @@ SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_right_edge_to(const OPCONFIG_TYP
     }
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_left_edge_to(const OPCONFIG_TYPE& operators, int pos)
+SlidingWindowManager<MODEL>::move_left_edge_to(const operator_container_t& operators, int pos)
 {
     assert(pos>=0 && pos<=2*n_window);
     const int current_pos = get_position_left_edge();
@@ -197,9 +199,9 @@ SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_left_edge_to(const OPCONFIG_TYPE
 }
 
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 typename model_traits<MODEL>::SCALAR_T
-SlidingWindowManager<MODEL, OPCONFIG_TYPE>::compute_trace(const OPCONFIG_TYPE& operators) const {
+SlidingWindowManager<MODEL>::compute_trace(const operator_container_t& operators) const {
     namespace bll = boost::lambda;
 
     sanity_check();
@@ -239,9 +241,9 @@ SlidingWindowManager<MODEL, OPCONFIG_TYPE>::compute_trace(const OPCONFIG_TYPE& o
     return trace;
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 typename model_traits<MODEL>::SCALAR_T
-SlidingWindowManager<MODEL, OPCONFIG_TYPE>::compute_trace_braket(int braket,
+SlidingWindowManager<MODEL>::compute_trace_braket(int braket,
                                                                  std::pair<op_it_t, op_it_t> ops_range, double tau_left,
                                                                  double tau_right) const {
     BRAKET_TYPE ket = right_states[braket].back();
@@ -259,9 +261,9 @@ struct bound_greater : std::binary_function <std::pair<double,int>,std::pair<dou
   }
 };
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 std::pair<bool,typename model_traits<MODEL>::SCALAR_T>
-SlidingWindowManager<MODEL, OPCONFIG_TYPE>::lazy_eval_trace(const OPCONFIG_TYPE& operators, double trace_cutoff,
+SlidingWindowManager<MODEL >::lazy_eval_trace(const operator_container_t& operators, double trace_cutoff,
                                                             std::vector<double>& trace_bound) const {
     namespace bll = boost::lambda;
 
@@ -306,9 +308,9 @@ SlidingWindowManager<MODEL, OPCONFIG_TYPE>::lazy_eval_trace(const OPCONFIG_TYPE&
     return std::make_pair(std::abs(trace_sum)>trace_cutoff, trace_sum);
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL, OPCONFIG_TYPE>::evolve_bra(const MODEL& model, BRAKET_TYPE& bra,
+SlidingWindowManager<MODEL>::evolve_bra(const MODEL& model, BRAKET_TYPE& bra,
                                                        std::pair<op_it_t,op_it_t> ops_range, double tau_old, double tau_new) {
     if (bra.invalid()) {
         return;
@@ -343,9 +345,9 @@ SlidingWindowManager<MODEL, OPCONFIG_TYPE>::evolve_bra(const MODEL& model, BRAKE
     }
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL, OPCONFIG_TYPE>::evolve_ket(const MODEL& model, BRAKET_TYPE& ket,
+SlidingWindowManager<MODEL>::evolve_ket(const MODEL& model, BRAKET_TYPE& ket,
                                                         std::pair<op_it_t,op_it_t> ops_range, double tau_old, double tau_new) {
     if (ket.invalid()) {
         return;
@@ -378,9 +380,9 @@ SlidingWindowManager<MODEL, OPCONFIG_TYPE>::evolve_ket(const MODEL& model, BRAKE
     }
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 double
-SlidingWindowManager<MODEL, OPCONFIG_TYPE>::compute_trace_bound(const OPCONFIG_TYPE& operators,
+SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t& operators,
                                                                 std::vector<double>& bound) const {
     namespace bll = boost::lambda;
     const double tau_right = get_tau_edge(position_right_edge);
@@ -437,9 +439,9 @@ SlidingWindowManager<MODEL, OPCONFIG_TYPE>::compute_trace_bound(const OPCONFIG_T
 }
 
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_window_to_next_position(const OPCONFIG_TYPE& operators)
+SlidingWindowManager<MODEL>::move_window_to_next_position(const operator_container_t& operators)
 {
     sanity_check();
 
@@ -466,9 +468,9 @@ SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_window_to_next_position(const OP
     sanity_check();
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_window_to(const OPCONFIG_TYPE& operators, const std::string& which_direction)
+SlidingWindowManager<MODEL>::move_window_to(const operator_container_t& operators, const std::string& which_direction)
 {
     sanity_check();
     if (which_direction=="L") {
@@ -483,8 +485,8 @@ SlidingWindowManager<MODEL,OPCONFIG_TYPE>::move_window_to(const OPCONFIG_TYPE& o
     sanity_check();
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
-void SlidingWindowManager<MODEL,OPCONFIG_TYPE>::pop_back_bra(int num_pop_back) {
+template<typename MODEL>
+void SlidingWindowManager<MODEL>::pop_back_bra(int num_pop_back) {
     const int new_size = depth_left_states()-num_pop_back;
     for (int braket=0; braket<num_brakets; ++braket) {
         left_states[braket].resize(new_size);
@@ -492,8 +494,8 @@ void SlidingWindowManager<MODEL,OPCONFIG_TYPE>::pop_back_bra(int num_pop_back) {
     }
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
-void SlidingWindowManager<MODEL,OPCONFIG_TYPE>::pop_back_ket(int num_pop_back) {
+template<typename MODEL>
+void SlidingWindowManager<MODEL>::pop_back_ket(int num_pop_back) {
     const int new_size = depth_right_states()-num_pop_back;
     for (int braket=0; braket<num_brakets; ++braket) {
         right_states[braket].resize(new_size);
@@ -501,16 +503,16 @@ void SlidingWindowManager<MODEL,OPCONFIG_TYPE>::pop_back_ket(int num_pop_back) {
     }
 }
 
-template<typename MODEL, typename OPCONFIG_TYPE>
-void SlidingWindowManager<MODEL,OPCONFIG_TYPE>::restore_state(const OPCONFIG_TYPE& ops, state_t state) {
+template<typename MODEL>
+void SlidingWindowManager<MODEL>::restore_state(const operator_container_t& ops, state_t state) {
     move_left_edge_to(ops, boost::get<0>(state));
     move_right_edge_to(ops, boost::get<1>(state));
     direction_move_local_window = boost::get<2>(state);
 };
 
-template<typename MODEL, typename OPCONFIG_TYPE>
+template<typename MODEL>
 void
-SlidingWindowManager<MODEL,OPCONFIG_TYPE>::sanity_check() const {
+SlidingWindowManager<MODEL>::sanity_check() const {
 #ifndef NDEBUG
     for (int braket=0; braket<num_brakets; ++braket) {
         assert(left_states[braket].size()==depth_left_states());

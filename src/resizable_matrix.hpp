@@ -19,9 +19,9 @@ namespace alps {
     typedef Scalar type;
 
     ResizableMatrix(int size1, int size2) :
-      values_(size1, size2),
       size1_(size1),
-      size2_(size2)
+      size2_(size2),
+      values_(size1, size2)
     {
       assert(size1>=0 && size2>=0);
     }

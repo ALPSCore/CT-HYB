@@ -1,7 +1,7 @@
 #include "clustering.hpp"
 
 //Implementing a simpler version of Hoshen-Kopelman Algorithm
-Clustering::Clustering(int N) : N_(N), cluster_belonging_to_(N), cluster_alias_(N), done_labeling(false) {
+Clustering::Clustering(int N) : done_labeling(false), N_(N), cluster_belonging_to_(N), cluster_alias_(N) {
   //In the begining, each vertex forms its own cluster.
   for (int vertex=0; vertex<N_; ++vertex) {
     cluster_belonging_to_[vertex] = vertex;

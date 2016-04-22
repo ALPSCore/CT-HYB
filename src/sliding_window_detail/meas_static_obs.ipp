@@ -1,7 +1,7 @@
 #include "../sliding_window.hpp"
 
-template<typename SW>
-MeasStaticObs<SW>::MeasStaticObs(SW& sw, const typename SW::operators_t &operators)
+template<typename SW, typename OBS>
+MeasStaticObs<SW,OBS>::MeasStaticObs(SW& sw, const operator_container_t &operators)
   : num_brakets(sw.get_num_brakets()),
     state_bak(sw.get_state()),
     sw_(sw),
@@ -12,10 +12,9 @@ MeasStaticObs<SW>::MeasStaticObs(SW& sw, const typename SW::operators_t &operato
   sw.move_right_edge_to(operators, edge_pos);
 }
 
-template<typename SW>
-template<typename OBS, typename SCALAR>
+template<typename SW, typename OBS>
 void
-MeasStaticObs<SW>::perform_meas(const std::vector<OBS>& obs, std::vector<SCALAR>& result) const {
+MeasStaticObs<SW,OBS>::perform_meas(const std::vector<OBS>& obs, std::vector<SCALAR>& result) const {
   const int num_obs = obs.size();
   result.resize(num_obs);
   std::fill(result.begin(),result.end(),0.0);
@@ -31,7 +30,7 @@ MeasStaticObs<SW>::perform_meas(const std::vector<OBS>& obs, std::vector<SCALAR>
   }
 }
 
-template<typename SW>
-MeasStaticObs<SW>::~MeasStaticObs() {
+template<typename SW, typename OBS>
+MeasStaticObs<SW,OBS>::~MeasStaticObs() {
   sw_.restore_state(ops_, state_bak);
 }

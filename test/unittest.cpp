@@ -438,7 +438,6 @@ TEST(ResizableMatrix, ConservativeResize) {
 
 TEST(ResizableMatrix, DestructiveResize) {
   typedef std::complex<double> SCALAR;
-  typedef Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> eigen_matrix_t;
 
   std::vector<std::pair<int,int> > rows_cols_list;
   rows_cols_list.push_back(std::make_pair(10,100));
@@ -459,7 +458,6 @@ TEST(ResizableMatrix, DestructiveResize) {
 
 TEST(ResizableMatrix, RemoveRowCol) {
   typedef std::complex<double> SCALAR;
-  typedef Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> eigen_matrix_t;
 
   const int rows=20, cols=10;
   alps::ResizableMatrix<SCALAR> rmat(rows,cols);
@@ -490,7 +488,6 @@ TEST(ResizableMatrix, RemoveRowCol) {
 
 TEST(ResizableMatrix, SwaRowCol) {
   typedef std::complex<double> SCALAR;
-  typedef Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> eigen_matrix_t;
 
   const int rows=20, cols=20;
 
@@ -517,7 +514,6 @@ TEST(ResizableMatrix, SwaRowCol) {
 
 TEST(ResizableMatrix, Block) {
   typedef std::complex<double> SCALAR;
-  typedef Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> eigen_matrix_t;
 
   const int rows=20, cols=20;
 

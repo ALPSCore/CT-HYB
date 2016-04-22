@@ -51,8 +51,8 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     Np1(N+1),
     p_model(new IMP_MODEL(p,rank==0)),//impurity model
     comm(),
-    total_sweeps(parameters["SWEEPS"]),                           //sweeps needed for total run
     thermalization_sweeps(parameters["THERMALIZATION"]),          //sweeps needed for thermalization
+    total_sweeps(parameters["SWEEPS"]),                           //sweeps needed for total run
     N_meas(parameters["N_MEAS"]),
     N_shift(parameters["N_SHIFT"]),
     N_swap(parameters["N_SWAP"]),
@@ -63,12 +63,12 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     trace(std::numeric_limits<double>::max()),
     N_shift_flavor(FLAVORS, static_cast<int>(p["N_SHIFT"])),
     sliding_window(p_model.get(), BETA),
-    acc_rate_cutoff(static_cast<double>(p["ACCEPTANCE_RATE_CUTOFF"])),
     max_dist_optimizer(N, 0.5*BETA, 3*FLAVORS),//ins, rem, shift
     weight_vs_distance(N, 0.5*BETA),
     weight_vs_distance_shift(N, 0.5*BETA),
     max_distance_pair(BETA*0.1),
     max_distance_shift(BETA*0.1),
+    acc_rate_cutoff(static_cast<double>(p["ACCEPTANCE_RATE_CUTOFF"])),
     G_meas_new(FLAVORS*FLAVORS*(N+1)),
     g_meas_legendre(FLAVORS,p["N_LEGENDRE_MEASUREMENT"],N,BETA),
     p_meas_corr(0)
@@ -126,7 +126,6 @@ bool HybridizationSimulation<IMP_MODEL>::is_thermalized() const
 template<typename IMP_MODEL>
 double HybridizationSimulation<IMP_MODEL>::fraction_completed() const
 {
-  static clock_t start_time=clock();
   double work=(is_thermalized() ? (sweeps-thermalization_sweeps)/double(total_sweeps) : 0.);
   if (work>1.0) {
     work = 1.0;
@@ -136,7 +135,6 @@ double HybridizationSimulation<IMP_MODEL>::fraction_completed() const
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::update() {
-  const int N_order = par["N_ORDER"].template as<int>();
   const int N_update_cutoff = par["N_UPDATE_CUTOFF"].template as<int>();
   const long interval_update_cutoff = static_cast<long>(std::max(static_cast<double>(par["THERMALIZATION"].template as<long>())/N_update_cutoff, 1.0));
 
@@ -184,16 +182,16 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     for (int flavor = 0; flavor < FLAVORS; flavor++) {
       int c_flavor = (int) (random() * FLAVORS);
       int a_flavor = (int) (random() * FLAVORS);
-      boost::tuple<int, bool, double, SCALAR, bool> r = insert_remove_pair_flavor(random, c_flavor,
-                                                                                  a_flavor,
-                                                                                  det, BETA,
-                                                                                  order_creation_flavor,
-                                                                                  order_annihilation_flavor,
-                                                                                  creation_operators,
-                                                                                  annihilation_operators, M,
-                                                                                  sign, trace, operators,
-                                                                                  max_distance_pair,
-                                                                                  sliding_window, max_order);
+      insert_remove_pair_flavor(random, c_flavor,
+                                a_flavor,
+                                det, BETA,
+                                order_creation_flavor,
+                                order_annihilation_flavor,
+                                creation_operators,
+                                annihilation_operators, M,
+                                sign, trace, operators,
+                                max_distance_pair,
+                                sliding_window, max_order);
       check_consistency_operators(operators, creation_operators, annihilation_operators);
       sanity_check();
     }
@@ -300,7 +298,7 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
 
   //Measure <n>
 #ifndef NDEBUG
-  const typename SlidingWindowManager<IMP_MODEL,operator_container_t>::state_t state_bak = sliding_window.get_state();
+  const typename SlidingWindowManager<IMP_MODEL>::state_t state_bak = sliding_window.get_state();
 #endif
   measure_n();
   assert(sliding_window.get_state()==state_bak);
@@ -344,7 +342,7 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure_n() {
   assert(is_thermalized());
-  MeasStaticObs<SlidingWindowManager<IMP_MODEL,operator_container_t> > meas(sliding_window, operators);
+  MeasStaticObs<SlidingWindowManager<IMP_MODEL>,CdagC> meas(sliding_window, operators);
   std::vector<CdagC> ops(FLAVORS);
   std::vector<SCALAR> result_meas(FLAVORS);
   for (int flavor=0; flavor<FLAVORS; ++flavor) {
@@ -376,7 +374,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_two_time_correlation_functions(
   }
 
   boost::multi_array<std::complex<double>,2> result;
-  p_meas_corr->template perform_meas<SCALAR>(sliding_window, operators, result);
+  p_meas_corr->perform_meas(sliding_window, operators, result);
   //measure_simple_multiarray_observable<SCALAR,2>(measurements, "Two_time_correlation_functions", result);
   measure_simple_vector_observable<COMPLEX>(measurements, "Two_time_correlation_functions", to_std_vector(result));
 }
@@ -400,11 +398,11 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
     for (int i = 0; i < swap_vector.size(); i += 2) {
       int j1 = swap_vector[i];
       int j2 = swap_vector[i + 1];
-      bool accepted = swap_flavors(random, det, BETA, creation_operators,
-                                   annihilation_operators,
-                                   order_creation_flavor, order_annihilation_flavor,
-                                   M, sign, trace, operators, j1, j2,
-                                   sliding_window);
+      swap_flavors(random, det, BETA, creation_operators,
+                   annihilation_operators,
+                   order_creation_flavor, order_annihilation_flavor,
+                   M, sign, trace, operators, j1, j2,
+                   sliding_window);
     }
   }
 

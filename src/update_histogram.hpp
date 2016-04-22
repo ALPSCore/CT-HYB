@@ -54,7 +54,14 @@ void rebin(std::valarray<T>& org_array, double maxval, double maxval_new, int ne
 class scalar_histogram
 {
 public:
-  scalar_histogram() : num_bins_(0), max_val_(0.0), num_sample_(0), sumval(0.0,0), sumval2(0.0,0), counter(0.0,0) {};
+  scalar_histogram() :
+    num_bins_(0),
+    num_sample_(0),
+    max_val_(0.0),
+    sumval(0.0,0),
+    sumval2(0.0,0),
+    counter(0.0,0)
+  {};
   scalar_histogram(int num_bins_, double max_val) : num_bins_(num_bins_), num_sample_(0), max_val_(max_val), sumval(0.0,num_bins_), sumval2(0.0,num_bins_), counter(0.0,num_bins_){};
 
   void init(int num_bins_, double max_val) {
@@ -177,7 +184,12 @@ private:
 class scalar_histogram_flavors
 {
 public:
-  scalar_histogram_flavors(int num_bins_, double max_val, int flavors) : flavors(flavors), max_val(max_val), histograms(flavors), num_bins(num_bins_) {
+  scalar_histogram_flavors(int num_bins_, double max_val, int flavors) :
+    flavors(flavors),
+    num_bins(num_bins_),
+    max_val(max_val),
+    histograms(flavors)
+  {
     //for (auto& elem : histograms) {
     for (int ielm=0; ielm<histograms.size(); ++ielm) {
       histograms[ielm].init(num_bins_, max_val);

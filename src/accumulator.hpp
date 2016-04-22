@@ -160,7 +160,6 @@ std::vector<T> to_std_vector(const std::valarray<T>& array) {
 template<typename T, unsigned long N>
 std::vector<T> to_std_vector(const boost::multi_array<T,N>& array) {
   std::vector<T> std_vec(array.num_elements());
-  int count = 0;
   const T* it = array.origin();
   for (int count=0; count<array.num_elements(); ++count) {
     std_vec[count] = *it;
