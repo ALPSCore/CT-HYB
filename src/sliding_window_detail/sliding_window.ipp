@@ -1,4 +1,6 @@
+#ifdef I_AM_USING_IDE
 #include "../sliding_window.hpp"
+#endif
 
 template<typename MODEL>
 SlidingWindowManager<MODEL>::SlidingWindowManager(MODEL* p_model_, double beta)
@@ -36,17 +38,18 @@ SlidingWindowManager<MODEL>::init_stacks(int n_window_size, const operator_conta
 }
 
 template<typename MODEL>
-void SlidingWindowManager<MODEL>::set_window_size(int n_window_new, const operator_container_t& operators, int new_position_right_edge, int new_direction_move)
+void SlidingWindowManager<MODEL>::set_window_size(int n_window_new, const operator_container_t& operators,
+                                                  int new_position_right_edge, ITIME_AXIS_LEFT_OR_RIGHT new_direction_move)
 {
     assert(n_window_new>0);
     sanity_check();
 
     //reset
     while (depth_right_states()>1) {
-        move_backward_edge("R");
+        move_backward_edge(ITIME_RIGHT);
     }
     while (depth_left_states()>1) {
-        move_backward_edge("L");
+        move_backward_edge(ITIME_LEFT);
     }
 
     n_window = n_window_new;
@@ -65,9 +68,9 @@ void SlidingWindowManager<MODEL>::set_window_size(int n_window_new, const operat
 
         direction_move_local_window = new_direction_move;
         if (get_position_right_edge()==0) {
-            direction_move_local_window = 0;
+            direction_move_local_window = ITIME_LEFT;
         } else if (get_position_right_edge()==2*get_n_window()-2) {
-            direction_move_local_window = 1;
+            direction_move_local_window = ITIME_RIGHT;
         }
     } else {
         position_right_edge = 0;
@@ -78,16 +81,16 @@ void SlidingWindowManager<MODEL>::set_window_size(int n_window_new, const operat
 
 template<typename MODEL>
 void
-SlidingWindowManager<MODEL>::move_backward_edge(const std::string& which_edge, int num_move)
+SlidingWindowManager<MODEL>::move_backward_edge(ITIME_AXIS_LEFT_OR_RIGHT which_edge, int num_move)
 {
     sanity_check();
-    if (which_edge=="R") {
+    if (which_edge==ITIME_RIGHT) {
         if (static_cast<int>(position_right_edge)-num_move<0) {
             throw std::runtime_error("Out of range in move_backward_edge");
         }
         pop_back_ket(num_move);
         position_right_edge -= num_move;
-    } else if(which_edge=="L") {
+    } else if(which_edge==ITIME_LEFT) {
         if (position_left_edge+num_move>2*n_window) {
             throw std::runtime_error("Out of range in move_backward_edge");
         }
@@ -179,7 +182,7 @@ SlidingWindowManager<MODEL>::move_right_edge_to(const operator_container_t& oper
 {
     assert(pos>=0 && pos<=2*n_window);
     if (get_position_right_edge()>pos) {
-        move_backward_edge("R", get_position_right_edge()-pos);
+        move_backward_edge(ITIME_RIGHT, get_position_right_edge()-pos);
     } else if (get_position_right_edge()<pos) {
         move_forward_right_edge(operators, pos-get_position_right_edge());
     }
@@ -194,7 +197,7 @@ SlidingWindowManager<MODEL>::move_left_edge_to(const operator_container_t& opera
     if (current_pos>pos) {
         move_forward_left_edge(operators, current_pos-pos);
     } else if (current_pos<pos) {
-        move_backward_edge("L", pos-current_pos);
+        move_backward_edge(ITIME_LEFT, pos-current_pos);
     }
 }
 
@@ -449,19 +452,19 @@ SlidingWindowManager<MODEL>::move_window_to_next_position(const operator_contain
         return;
     }
 
-    if (direction_move_local_window == 0) {
+    if (direction_move_local_window == ITIME_LEFT) {
         if (position_left_edge == 2*n_window) {
-            direction_move_local_window = 1;
-            move_window_to(operators, "R");
+            direction_move_local_window = ITIME_RIGHT;
+            move_window_to(operators, ITIME_RIGHT);
         } else {
-            move_window_to(operators, "L");
+            move_window_to(operators, ITIME_LEFT);
         }
     } else {
         if (position_right_edge == 0) {
-            direction_move_local_window = 0;
-            move_window_to(operators, "L");
+            direction_move_local_window = ITIME_LEFT;
+            move_window_to(operators, ITIME_LEFT);
         } else {
-            move_window_to(operators, "R");
+            move_window_to(operators, ITIME_RIGHT);
         }
     }
 
@@ -470,14 +473,14 @@ SlidingWindowManager<MODEL>::move_window_to_next_position(const operator_contain
 
 template<typename MODEL>
 void
-SlidingWindowManager<MODEL>::move_window_to(const operator_container_t& operators, const std::string& which_direction)
+SlidingWindowManager<MODEL>::move_window_to(const operator_container_t& operators, ITIME_AXIS_LEFT_OR_RIGHT which_direction)
 {
     sanity_check();
-    if (which_direction=="L") {
+    if (which_direction==ITIME_LEFT) {
         move_forward_right_edge(operators);
-        move_backward_edge("L");
-    } else if (which_direction=="R") {
-        move_backward_edge("R");
+        move_backward_edge(ITIME_LEFT);
+    } else if (which_direction==ITIME_RIGHT) {
+        move_backward_edge(ITIME_RIGHT);
         move_forward_left_edge(operators);
     } else {
         throw std::runtime_error("unknown direction");

@@ -1,4 +1,6 @@
+#ifdef I_AM_USING_IDE
 #include "../sliding_window.hpp"
+#endif
 
 template<typename SW, typename OBS>
 MeasCorrelation<SW,OBS>::MeasCorrelation(const std::vector<std::pair<OBS,OBS> >& correlators, int num_tau_points)

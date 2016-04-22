@@ -1,14 +1,15 @@
 #pragma once
 
-#include <string>
-#include <utility>
-#include <set>
-
 #include <boost/tuple/tuple.hpp>
+#include <boost/multi_array.hpp>
 
-#include "util.hpp"
 #include "operator.hpp"
 #include "model.hpp"
+
+enum ITIME_AXIS_LEFT_OR_RIGHT {
+  ITIME_LEFT = 0,
+  ITIME_RIGHT = 1,
+};
 
 //Implementation of sliding window update + lazy trace evaluation
 template<typename MODEL>
@@ -19,7 +20,7 @@ public:
   typedef typename model_traits<MODEL>::SCALAR_T HAM_SCALAR_TYPE;
   typedef typename model_traits<MODEL>::BRAKET_T  BRAKET_TYPE;//class Braket is defined in model.hpp
   typedef typename operator_container_t::iterator op_it_t;
-  typedef typename boost::tuple<int,int,int> state_t;//pos of left edge, pos of right edge, direction of move
+  typedef typename boost::tuple<int,int,ITIME_AXIS_LEFT_OR_RIGHT> state_t;//pos of left edge, pos of right edge, direction of move
 
   SlidingWindowManager(MODEL* p_model, double beta);
 
@@ -27,7 +28,8 @@ public:
   void init_stacks(int n_window_size, const operator_container_t& operators);
 
   //Change window size during MC simulation
-  void set_window_size(int n_window_size, const operator_container_t& operators, int new_position_right_edge=0, int new_direction_move=0);
+  void set_window_size(int n_window_size, const operator_container_t& operators, int new_position_right_edge=0,
+                       ITIME_AXIS_LEFT_OR_RIGHT new_direction_move=ITIME_LEFT);
 
   //Get and restore the state of the window (size, position, direction of move)
   inline state_t get_state() const {return boost::make_tuple(position_left_edge,position_right_edge,direction_move_local_window);}
@@ -48,12 +50,12 @@ public:
 
   //Manipulation of window
   void move_window_to_next_position(const operator_container_t& operators);
-  void move_backward_edge(const std::string& which_edge, int num_move=1);
+  void move_backward_edge(ITIME_AXIS_LEFT_OR_RIGHT , int num_move=1);
   void move_forward_right_edge(const operator_container_t& operators, int num_move=1);
   void move_forward_left_edge(const operator_container_t& operators, int num_move=1);
   void move_right_edge_to(const operator_container_t& operators, int pos);
   void move_left_edge_to(const operator_container_t& operators, int pos);
-  void move_window_to(const operator_container_t& operators, const std::string& direction);
+  void move_window_to(const operator_container_t& operators, ITIME_AXIS_LEFT_OR_RIGHT direction);
 
   //Computing trace
   typename model_traits<MODEL>::SCALAR_T compute_trace(const operator_container_t& ops) const;
@@ -86,7 +88,7 @@ private:
 
   std::vector<std::vector<BRAKET_TYPE> > left_states, right_states;//bra and ket, respectively
   int position_left_edge, position_right_edge, n_window;
-  int direction_move_local_window; //0: left, 1: right
+  ITIME_AXIS_LEFT_OR_RIGHT direction_move_local_window; //0: left, 1: right
 
   //for lazy evalulation of trace using spectral norm
   std::vector<std::vector<double> > norm_left_states, norm_right_states;
@@ -132,7 +134,3 @@ private:
   std::vector<std::pair<int,int> > obs_pos_in_unique_set;
   std::vector<OBS> left_obs_unique_list, right_obs_unique_list;
 };
-
-//#include "./sliding_window_detail/sliding_window.ipp"
-//#include "./sliding_window_detail/meas_static_obs.ipp"
-//#include "./sliding_window_detail/meas_correlation.ipp"

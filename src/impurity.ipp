@@ -1,10 +1,6 @@
-//#include <set>
-//
-//#include <boost/tuple/tuple.hpp>
-//#include <boost/tuple/tuple_io.hpp>
-//#include <boost/timer/timer.hpp>
-//
+#ifdef I_AM_USING_IDE
 #include "impurity.hpp"
+#endif
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & parameters) {
@@ -420,9 +416,10 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
     }
   }
 
+  const ITIME_AXIS_LEFT_OR_RIGHT new_move_direction = random()<0.5 ? ITIME_LEFT : ITIME_RIGHT;
   sliding_window.set_window_size(n_sliding_window_bak, operators,
                                  static_cast<int>((2*n_sliding_window_bak-1)*random()),
-                                 static_cast<int>(2*random()));
+                                 new_move_direction);
 }
 
 template<typename IMP_MODEL>
@@ -454,9 +451,10 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   const std::size_t n_window_new = static_cast<std::size_t>(std::max(1,static_cast<int>(BETA/(2.0*max_distance))));
 
   if (n_window_new != sliding_window.get_n_window()) {
+    const ITIME_AXIS_LEFT_OR_RIGHT new_move_direction = random()<0.5 ? ITIME_LEFT : ITIME_RIGHT;
     sliding_window.set_window_size(n_window_new, operators,
                                    static_cast<int>((2*n_window_new-1)*random()),
-                                   static_cast<int>(2*random()));
+                                   new_move_direction);
   }
 }
 

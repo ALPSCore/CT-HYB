@@ -1,5 +1,6 @@
+#ifdef I_AM_USING_IDE
 #include "impurity.hpp"
-//for IDE
+#endif
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_observables() {

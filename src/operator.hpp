@@ -7,7 +7,6 @@
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
-#include <boost/range/algorithm/for_each.hpp>
 #include <boost/array.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/lambda/if.hpp>

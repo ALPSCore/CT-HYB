@@ -1,4 +1,8 @@
+#ifdef I_AM_USING_IDE
 #include "../sliding_window.hpp"
+#endif
+
+template<typename SCALAR> SCALAR mycast(std::complex<double>);
 
 template<typename SW, typename OBS>
 MeasStaticObs<SW,OBS>::MeasStaticObs(SW& sw, const operator_container_t &operators)
