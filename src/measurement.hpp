@@ -170,3 +170,39 @@ inline unsigned measure_kLkR(const operator_container_t& operators, const double
   unsigned kL = std::count_if(operators.begin(), operators.end(), is_left);
   return kL*(operators.size()-kL);
 }
+
+/**
+ * Measure acceptance rate
+ */
+class AcceptanceRateMeasurement {
+public:
+  AcceptanceRateMeasurement() :
+    num_samples_(0.0), num_accepted_(0.0) {};
+
+  void accepted() {
+    ++num_samples_;
+    ++num_accepted_;
+  }
+
+  void rejected() {
+    ++num_samples_;
+  }
+
+  bool has_samples() const {
+    return num_samples_>0.0;
+  }
+
+  void reset() {
+    num_samples_ = num_accepted_ = 0.0;
+  }
+
+  double compute_acceptance_rate() const {
+    if (num_samples_==0.0) {
+      throw std::runtime_error("Error in compute_acceptance_rate! There is no sample!");
+    }
+    return num_accepted_/num_samples_;
+  }
+
+private:
+  double num_samples_, num_accepted_;
+};

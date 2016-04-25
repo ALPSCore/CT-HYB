@@ -1,5 +1,6 @@
-//tell IDE where to find the declaration of class ImpurityModel
-//#include "../model.hpp"
+#ifdef I_AM_USING_IDE
+#include "../model.hpp"
+#endif
 
 
 template<typename T>

@@ -8,6 +8,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   create_observable<COMPLEX,SimpleRealVectorObservable>(measurements, "Greens_rotated");
   create_observable<COMPLEX,SimpleRealVectorObservable>(measurements, "Greens");
   create_observable<COMPLEX,SimpleRealVectorObservable>(measurements, "Greens_legendre");
+  create_observable<COMPLEX,SimpleRealVectorObservable>(measurements, "Greens_legendre_rotated");
   create_observable<COMPLEX,SimpleRealVectorObservable>(measurements, "Two_time_correlation_functions");
 
   measurements << alps::accumulators::LogBinningAccumulator<std::vector<double> >("n");
@@ -19,6 +20,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_attempted");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_accepted");
 
+  measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
 }
 
 template<typename IMP_MODEL>

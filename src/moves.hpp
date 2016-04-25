@@ -564,10 +564,9 @@ swap_flavors(R & rng, SCALAR & det, double BETA, operator_container_t & creation
     }
 
     operator_container_t operators_new, creation_operators_new, annihilation_operators_new;
-    const int count_c = copy_swap_flavors_ops(creation_operators, creation_operators_new, flavor1, flavor2);
-    const int count_a = copy_swap_flavors_ops(annihilation_operators, annihilation_operators_new, flavor1, flavor2);
+    copy_swap_flavors_ops(creation_operators, creation_operators_new, flavor1, flavor2);
+    copy_swap_flavors_ops(annihilation_operators, annihilation_operators_new, flavor1, flavor2);
     const int count_all = copy_swap_flavors_ops(operators, operators_new, flavor1, flavor2);
-    assert(count_c+count_a==count_all);
     assert(creation_operators_new.size()+annihilation_operators_new.size()==operators_new.size());
     if (count_all==0) {
         return false;

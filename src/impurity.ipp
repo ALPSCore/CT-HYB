@@ -67,7 +67,8 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     acc_rate_cutoff(static_cast<double>(p["ACCEPTANCE_RATE_CUTOFF"])),
     G_meas_new(FLAVORS*FLAVORS*(N+1)),
     g_meas_legendre(FLAVORS,p["N_LEGENDRE_MEASUREMENT"],N,BETA),
-    p_meas_corr(0)
+    p_meas_corr(0),
+    global_shift_acc_rate()
 {
   /////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////
@@ -292,6 +293,12 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   weight_vs_distance.reset();
   weight_vs_distance.reset();
 
+  //measure acceptance rate of global shift
+  if (global_shift_acc_rate.has_samples()) {
+    measurements["Acceptance_rate_global_shift"] << global_shift_acc_rate.compute_acceptance_rate();
+    global_shift_acc_rate.reset();
+  }
+
   //Measure <n>
 #ifndef NDEBUG
   const typename SlidingWindowManager<IMP_MODEL>::state_t state_bak = sliding_window.get_state();
@@ -306,6 +313,11 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   measure_simple_vector_observable<COMPLEX>(measurements, "Greens_legendre",
                                             to_std_vector(
                                               g_meas_legendre.get_measured_legendre_coefficients(p_model->get_rotmat_Delta())
+                                            )
+  );
+  measure_simple_vector_observable<COMPLEX>(measurements, "Greens_legendre_rotated",
+                                            to_std_vector(
+                                              g_meas_legendre.get_measured_legendre_coefficients(Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>::Identity(FLAVORS,FLAVORS))
                                             )
   );
 
@@ -404,16 +416,20 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
 
   //Shift operators to restore translational symmetry
   if (do_global_shift) {
-    //std::cout << "global shift " << sweeps << std::endl;
     const bool accepted = global_shift(random, det, BETA, creation_operators,
                                        annihilation_operators,
                                        order_creation_flavor, order_annihilation_flavor,
                                        M, sign, trace, operators, sliding_window);
-    sanity_check();
-    if (!accepted && p_model->translationally_invariant()) {
-      std::cerr << "A global shift is rejected!" << std::endl;
-      exit(-1);
+    if (accepted) {
+      global_shift_acc_rate.accepted();
+    } else {
+      global_shift_acc_rate.rejected();
+      if (p_model->translationally_invariant()) {
+        std::cerr << "A global shift is rejected!" << std::endl;
+        exit(-1);
+      }
     }
+    sanity_check();
   }
 
   const ITIME_AXIS_LEFT_OR_RIGHT new_move_direction = random()<0.5 ? ITIME_LEFT : ITIME_RIGHT;
