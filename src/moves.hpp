@@ -87,20 +87,6 @@ inline void operators_insert_nocopy(operator_container_t &operators, double t_in
 
     safe_insert(operators,op_ins);
     safe_insert(operators,op_rem);
-
-/*
-    std::pair<operator_container_t::iterator, bool> ins_1=safe_insert(operators,op_ins); //insert first time
-    if(!ins_1.second) { //time is already in the set
-        safe_erase(operators,op_ins);
-        return false;
-    }
-    std::pair<operator_container_t::iterator, bool> ins_2=safe_insert(operators,op_rem);
-    if(!ins_2.second) { //time 2 is already in the set
-        safe_erase(operators,op_ins);
-        safe_erase(operators,op_rem);
-        return false;
-    }
-*/
 }
 
 inline std::pair<psi, psi> operators_remove_nocopy(operator_container_t &operators, double t_ins, double t_rem, int flavor_ins, int flavor_rem)
@@ -128,6 +114,7 @@ inline std::pair<psi, psi> operators_remove_nocopy(operator_container_t &operato
 
 
 // update_type, accepted, distance, acceptance probability, valid_move_generated
+// Note: this function is too long. Better to split into several functions.
 template<typename SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
 boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int creation_flavor, int annihilation_flavor, SCALAR & det, double BETA,
         std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor, operator_container_t& creation_operators,
@@ -164,31 +151,10 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
         const psi op_ins(t_ins, CREATION_OP, flavor_ins);
         const psi op_rem(t_rem, ANNIHILATION_OP, flavor_rem);
 
-        //if (global_mpi_rank==89) {
-          //std::cout << "debug0 " << op_ins.time() << " " << op_rem.time() << std::endl;
-          //print_list(operators);
-        //}
         //check_consistency_operators(operators, creation_operators, annihilation_operators);
         if (operators.find(op_ins)!=operators.end() || operators.find(op_rem)!=operators.end() || t_ins==t_rem) {
            return boost::make_tuple(0,false,0.0,0.0,false);
         }
-
-        /*
-        if (operators.find(op_ins)!=operators.end()) {
-           std::cout << "CRREATION ALREADY EXIST at " << t_ins << " " << t_rem_max << " " << t_rem_min << std::endl;
-           print_list(operators);
-           print_list(creation_operators);
-           print_list(annihilation_operators);
-           return boost::make_tuple(0,false,0.0,0.0,false);
-        }
-        if (operators.find(op_rem)!=operators.end()) {
-           std::cout << "ANNIHILATION ALREADY EXIST at " << t_rem << " " << t_rem_max << " " << t_rem_min << std::endl;
-           print_list(operators);
-           print_list(creation_operators);
-           print_list(annihilation_operators);
-           return boost::make_tuple(0,false,0.0,0.0,false);
-        }
-        */
 
         assert(std::abs(t_ins-t_rem)<=cutoff);
 
@@ -202,11 +168,6 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
             return boost::make_tuple(0,false,0.0,0.0,false);
         }
 
-        //operators_insert_nocopy(operators, t_ins, t_rem, flavor_ins, flavor_rem);
-        //if (global_mpi_rank==89) {
-          //std::cout << "debug1 " << op_ins.time() << " " << op_rem.time() << " " << op_ins.time()-op_rem.time() << " : " << t_rem_max << " " << t_rem_min << std::endl;
-          //print_list(operators);
-        //}
         safe_insert(operators,op_ins);
         safe_insert(operators,op_rem);
 
@@ -236,7 +197,6 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
 
         double flavor_sign=((row+column)%2==0 ? 1 : -1);
 
-        //times pair_insert(t_ins, t_rem);
         Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>
           sign_Fs(creation_operators.size(),1), Fe_M(1,annihilation_operators.size());
         SCALAR det_rat = det_rat_row_column_up(flavor_ins, flavor_rem, t_ins, t_rem,
@@ -282,7 +242,7 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
         boost::tuple<int,operator_container_t::iterator,operator_container_t::iterator> r =
             pick_up_pair(rng, creation_operators, annihilation_operators, flavor_ins, flavor_rem, tau_high, tau_low, cutoff, BETA);
         const int num_pairs_old = r.get<0>();
-        if (num_pairs_old == 0) {
+        if (num_pairs_old==0) {
             return boost::make_tuple(1,false,0.0,0.0,valid_move_generated);
         }
         const operator_container_t::iterator it_c = r.get<1>();
@@ -449,18 +409,6 @@ shift_lazy(R & rng, SCALAR & det, double BETA, operator_container_t & creation_o
 
     const double permutation_change = (op_number % 2 == 1 ? -1. : 1.);
 
-    /*
-    psi removed_op;
-    if (it_op != operators.end() && it_op->time() == time_max) {
-        removed_op = *it_op;
-        safe_erase(operators,it_op);
-        safe_insert(operators,new_operator);
-    } else {
-        removed_op = *it_op_min;
-        safe_insert(operators,new_operator);
-        safe_erase(operators,it_op_min);
-    }
-    */
     safe_erase(operators,removed_op);
     safe_insert(operators,new_operator);
     assert(removed_op.flavor()==flavor);
@@ -659,7 +607,6 @@ global_shift(R & rng, SCALAR & det, double BETA,  operator_container_t & creatio
 #ifndef NDEBUG
         std::cerr << "global_shift: prob= " << std::abs(prob) << std::endl;
 #endif
-        //throw std::runtime_error("global_shift is rejected.");
     	return false;
     }
 }
