@@ -4,6 +4,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Sparse>
+#include <Eigen/Eigenvalues>
 
 #include <iostream>
 #include <math.h>
