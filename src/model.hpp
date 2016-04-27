@@ -68,7 +68,7 @@ public:
   }
 
   inline double compute_spectral_norm() const {
-    return invalid() ? 0.0 : spectral_norm<Scalar>(obj_);
+    return invalid() ? 0.0 : spectral_norm_diag<Scalar>(obj_);
   }
 
 private:

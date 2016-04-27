@@ -540,3 +540,20 @@ TEST(ResizableMatrix, Block) {
     ASSERT_TRUE(rmat(j+rows/2,j+rows/2)==1.0);
   }
 }
+
+TEST(SpectralNorm, SVDvsDiagonalization) {
+  typedef std::complex<double> Scalar;
+  Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic> mat(2,6);
+  mat.fill(0.0);
+  mat(0,0)=std::complex<double>(-1,-3.41908e-05);
+  mat(0,1)=std::complex<double>(5.90659e-05,6.05984e-06);
+  mat(0,2)=std::complex<double>(0.00992848,-6.10314e-05);
+  mat(0,3)=std::complex<double>(0.00305649,0.000657586);
+  mat(0,4)=std::complex<double>(0.000676405,-5.48592e-06);
+  mat(0,5)=std::complex<double>(-0.00231812,2.09944e-05);
+  mat(1,5)=std::complex<double>(-1.00231812,2.09944e-05);
+
+  //std::cout << spectral_norm_SVD<Scalar>(mat) << std::endl;
+  //std::cout << spectral_norm_diag<Scalar>(mat) << std::endl;
+  ASSERT_TRUE(std::abs(spectral_norm_SVD<Scalar>(mat)-spectral_norm_diag<Scalar>(mat))<1E-8);
+}
