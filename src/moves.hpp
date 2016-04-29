@@ -17,37 +17,14 @@ bool equal_det(SCALAR det1, SCALAR det2) {
     return (std::abs((det2-det1)/det1)<eps);
 }
 
-inline int compute_permutation_change_flavors(const operator_container_t & operators_new, double t_ins, double t_rem, int flavor)
+/**
+ * Compute sign of the permutation which time-orders \psidag_a1(\tau_1)\psi_a1(\tau'_1)...\psidag_ak(\tau_nk)\psi_ak(\tau'_nk)
+ * This is done by counting the number of operators that are in (t_ins, t_rem)
+ */
+inline int compute_permutation_change(const operator_container_t& operators, double t_ins, double t_rem)
 {
-
-    // sign of the permutation which time-orders \psidag_a1(\tau_1)\psi_a1(\tau'_1)...\psidag_ak(\tau_nk)\psi_ak(\tau'_nk)
-
-    int perm_number = (t_ins < t_rem ? 1 : 0);
-
-    for (operator_container_t::const_iterator it = operators_new.begin(); it != operators_new.end(); it++) {
-        if (it->time() < t_ins) {
-            if (it->flavor() != flavor || it->type() != 0) {
-                perm_number++;
-            }
-        }
-        if (it->time() < t_rem) {
-            if (it->flavor() != flavor || it->type() != 1) {
-                perm_number++;
-            }
-        }
-        if (it->time() > t_ins && it->time() > t_rem) {
-            break;
-        }
-    }
-
-    return (perm_number % 2 == 0 ? 1 : -1);
-}
-
-
-template <class O> int compute_permutation_change(const O& operators, double t_ins, double t_rem)
-{
-
-    // sign of the permutation which time-orders \psidag_a1(\tau_1)\psi_a1(\tau'_1)...\psidag_ak(\tau_nk)\psi_ak(\tau'_nk)
+    namespace bll = boost::lambda;
+    typedef operator_container_t::iterator it_t;
 
     int perm_number = 0;
 
@@ -60,30 +37,16 @@ template <class O> int compute_permutation_change(const O& operators, double t_i
         max = t_rem;
         min = t_ins;
     }
-    for (typename O::const_iterator it=operators.begin(); it!=operators.end(); it++) {
-        if (it->time() >= max) {
-            break;
-        }
-        if (it->time() > min) {
-            perm_number += 1;
-        }
-    }
+    std::pair<it_t,it_t> p = operators.range(min<bll::_1, bll::_1<max);
+    perm_number += std::distance(p.first, p.second);
 
     return (perm_number%2==0 ? 1 : -1);
 }
 
 inline void operators_insert_nocopy(operator_container_t &operators, double t_ins, double t_rem, int flavor_ins, int flavor_rem)
 {
-
     const psi op_ins(t_ins, CREATION_OP, flavor_ins);
     const psi op_rem(t_rem, ANNIHILATION_OP, flavor_rem);
-
-    if (operators.find(op_ins)!=operators.end()) {
-      throw std::runtime_error("op_ins already exists");
-    }
-    if (operators.find(op_rem)!=operators.end()) {
-      throw std::runtime_error("op_rem already exists");
-    }
 
     safe_insert(operators,op_ins);
     safe_insert(operators,op_rem);
@@ -92,22 +55,11 @@ inline void operators_insert_nocopy(operator_container_t &operators, double t_in
 inline std::pair<psi, psi> operators_remove_nocopy(operator_container_t &operators, double t_ins, double t_rem, int flavor_ins, int flavor_rem)
 {
 
-    // t_end (type): 0 (insert up (0))
-    // t_end (type): 1 (remove up (0))
-    // t_end (type): 2 (insert down (1))
-    // t_end (type): 3 (remove down (1))
-    psi op_ins;
-    psi op_rem;
+    const psi op_ins = psi(t_ins,CREATION_OP,flavor_ins);
+    const psi op_rem = psi(t_rem,ANNIHILATION_OP,flavor_rem);
 
-    operator_container_t::iterator it= operators.find(psi(t_ins,CREATION_OP,flavor_ins)); //find first operator
-    assert(it!=operators.end());
-    op_ins = *it;
-    safe_erase(operators,op_ins); //erase it
-
-    it= operators.find(psi(t_rem,ANNIHILATION_OP,flavor_rem)); //find second operator
-    assert(it!=operators.end());
-    op_rem=*it;
-    safe_erase(operators,op_rem);
+    safe_erase(operators, op_ins);
+    safe_erase(operators, op_rem);
 
     return std::make_pair(op_ins, op_rem); //return both operators
 }
