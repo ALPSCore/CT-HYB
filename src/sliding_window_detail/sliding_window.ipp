@@ -1,7 +1,3 @@
-#ifdef I_AM_USING_IDE
-#include "../sliding_window.hpp"
-#endif
-
 template<typename MODEL>
 SlidingWindowManager<MODEL>::SlidingWindowManager(MODEL* p_model_, double beta)
         : p_model(p_model_),

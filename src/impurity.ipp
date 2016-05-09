@@ -1,7 +1,3 @@
-#ifdef I_AM_USING_IDE
-#include "impurity.hpp"
-#endif
-
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & parameters) {
   Base::define_parameters(parameters);

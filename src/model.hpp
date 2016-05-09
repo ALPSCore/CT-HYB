@@ -15,8 +15,6 @@
 #include <boost/lambda/lambda.hpp>
 
 #include <Eigen/Dense>
-#include <Eigen/LU>
-#include <Eigen/Eigenvalues>
 
 #include "./model_detail/hybfermion.hpp"
 #include "./model_detail/clustering.hpp"
