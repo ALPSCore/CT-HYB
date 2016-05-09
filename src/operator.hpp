@@ -1,8 +1,7 @@
 #pragma once
 
-//#include <alps/mc/random01.hpp>
-
 #include <iostream>
+#include <cassert>
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
