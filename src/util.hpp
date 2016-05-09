@@ -110,7 +110,7 @@ double spectral_norm_SVD(const M& mat) {
             }
         }
     }
-    const double tmp = mat_tmp.squaredNorm();
+    //const double tmp = mat_tmp.squaredNorm();
     Eigen::JacobiSVD<matrix_t> svd(mat_tmp);
 #ifndef NDEBUG
     const int size_SVD = svd.singularValues().size();

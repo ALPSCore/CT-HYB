@@ -7,6 +7,7 @@
 #include <boost/assert.hpp>
 
 #include "update.hpp"
+#include "operator_util.hpp"
 
 template<class SCALAR>
 bool equal_det(SCALAR det1, SCALAR det2) {
