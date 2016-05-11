@@ -320,6 +320,7 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
                                               g_meas_legendre.get_measured_legendre_coefficients(Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>::Identity(FLAVORS,FLAVORS))
                                             )
   );
+  g_meas_legendre.reset();
 
   //Measure single-particle Green's function
   for (std::vector<COMPLEX>::iterator it=G_meas_new.begin(); it!=G_meas_new.end(); ++it) {
