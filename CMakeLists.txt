@@ -17,7 +17,7 @@ set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH}) #re
 include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
 #source files
-set(LIB_FILES ./src/sliding_window.cpp ./src/legendre.cpp ./src/model.cpp ./src/model_detail/clustering.cpp ./src/operator.cpp ./src/util.cpp)
+set(LIB_FILES ./src/sliding_window.cpp ./src/legendre.cpp ./src/model.cpp ./src/model_detail/clustering.cpp src/operator_util.cpp ./src/util.cpp)
 
 ADD_LIBRARY(hyb ${LIB_FILES})
 target_link_libraries(hyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES})

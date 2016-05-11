@@ -1,7 +1,3 @@
-#ifdef I_AM_USING_IDE
-#include "../model.hpp"
-#endif
-
 template<typename SCALAR>
 ImpurityModelEigenBasis<SCALAR>::ImpurityModelEigenBasis(const alps::params& par, bool verbose)
   : ImpurityModel<SCALAR, ImpurityModelEigenBasis<SCALAR> >(par, verbose) {

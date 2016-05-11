@@ -12,17 +12,23 @@
 #include <boost/format.hpp>
 #include <boost/scoped_ptr.hpp>
 
-#include <Eigen/Dense>
-#include <Eigen/LU>
-#include <Eigen/Eigenvalues>
+#include <boost/lambda/lambda.hpp>
 
-#include <alps/params.hpp>
+#include <Eigen/Dense>
 
 #include "./model_detail/hybfermion.hpp"
 #include "./model_detail/clustering.hpp"
 #include "util.hpp"
 #include "operator.hpp"
-#include "resizable_matrix.hpp"
+
+//forward declaration for alps::params
+namespace alps {
+  namespace params_ns {
+    class params;
+  };
+  using params_ns::params;
+}
+
 
 const int nirvana=-1;
 
@@ -349,6 +355,3 @@ struct model_traits<ImpurityModelEigenBasis<SCALAR> > {
 
 typedef ImpurityModelEigenBasis<double> REAL_EIGEN_BASIS_MODEL;
 typedef ImpurityModelEigenBasis<std::complex<double> > COMPLEX_EIGEN_BASIS_MODEL;
-
-//#include "./model_detail/model.ipp"
-//#include "./model_detail/eigenbasis.ipp"

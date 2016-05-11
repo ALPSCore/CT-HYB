@@ -7,6 +7,7 @@
 #include <boost/assert.hpp>
 
 #include "update.hpp"
+#include "operator_util.hpp"
 
 template<class SCALAR>
 bool equal_det(SCALAR det1, SCALAR det2) {
@@ -17,37 +18,14 @@ bool equal_det(SCALAR det1, SCALAR det2) {
     return (std::abs((det2-det1)/det1)<eps);
 }
 
-inline int compute_permutation_change_flavors(const operator_container_t & operators_new, double t_ins, double t_rem, int flavor)
+/**
+ * Compute sign of the permutation which time-orders \psidag_a1(\tau_1)\psi_a1(\tau'_1)...\psidag_ak(\tau_nk)\psi_ak(\tau'_nk)
+ * This is done by counting the number of operators that are in (t_ins, t_rem)
+ */
+inline int compute_permutation_change(const operator_container_t& operators, double t_ins, double t_rem)
 {
-
-    // sign of the permutation which time-orders \psidag_a1(\tau_1)\psi_a1(\tau'_1)...\psidag_ak(\tau_nk)\psi_ak(\tau'_nk)
-
-    int perm_number = (t_ins < t_rem ? 1 : 0);
-
-    for (operator_container_t::const_iterator it = operators_new.begin(); it != operators_new.end(); it++) {
-        if (it->time() < t_ins) {
-            if (it->flavor() != flavor || it->type() != 0) {
-                perm_number++;
-            }
-        }
-        if (it->time() < t_rem) {
-            if (it->flavor() != flavor || it->type() != 1) {
-                perm_number++;
-            }
-        }
-        if (it->time() > t_ins && it->time() > t_rem) {
-            break;
-        }
-    }
-
-    return (perm_number % 2 == 0 ? 1 : -1);
-}
-
-
-template <class O> int compute_permutation_change(const O& operators, double t_ins, double t_rem)
-{
-
-    // sign of the permutation which time-orders \psidag_a1(\tau_1)\psi_a1(\tau'_1)...\psidag_ak(\tau_nk)\psi_ak(\tau'_nk)
+    namespace bll = boost::lambda;
+    typedef operator_container_t::iterator it_t;
 
     int perm_number = 0;
 
@@ -60,74 +38,36 @@ template <class O> int compute_permutation_change(const O& operators, double t_i
         max = t_rem;
         min = t_ins;
     }
-    for (typename O::const_iterator it=operators.begin(); it!=operators.end(); it++) {
-        if (it->time() >= max) {
-            break;
-        }
-        if (it->time() > min) {
-            perm_number += 1;
-        }
-    }
+    std::pair<it_t,it_t> p = operators.range(min<bll::_1, bll::_1<max);
+    perm_number += std::distance(p.first, p.second);
 
     return (perm_number%2==0 ? 1 : -1);
 }
 
 inline void operators_insert_nocopy(operator_container_t &operators, double t_ins, double t_rem, int flavor_ins, int flavor_rem)
 {
-
     const psi op_ins(t_ins, CREATION_OP, flavor_ins);
     const psi op_rem(t_rem, ANNIHILATION_OP, flavor_rem);
 
-    if (operators.find(op_ins)!=operators.end()) {
-      throw std::runtime_error("op_ins already exists");
-    }
-    if (operators.find(op_rem)!=operators.end()) {
-      throw std::runtime_error("op_rem already exists");
-    }
-
     safe_insert(operators,op_ins);
     safe_insert(operators,op_rem);
-
-/*
-    std::pair<operator_container_t::iterator, bool> ins_1=safe_insert(operators,op_ins); //insert first time
-    if(!ins_1.second) { //time is already in the set
-        safe_erase(operators,op_ins);
-        return false;
-    }
-    std::pair<operator_container_t::iterator, bool> ins_2=safe_insert(operators,op_rem);
-    if(!ins_2.second) { //time 2 is already in the set
-        safe_erase(operators,op_ins);
-        safe_erase(operators,op_rem);
-        return false;
-    }
-*/
 }
 
 inline std::pair<psi, psi> operators_remove_nocopy(operator_container_t &operators, double t_ins, double t_rem, int flavor_ins, int flavor_rem)
 {
 
-    // t_end (type): 0 (insert up (0))
-    // t_end (type): 1 (remove up (0))
-    // t_end (type): 2 (insert down (1))
-    // t_end (type): 3 (remove down (1))
-    psi op_ins;
-    psi op_rem;
+    const psi op_ins = psi(t_ins,CREATION_OP,flavor_ins);
+    const psi op_rem = psi(t_rem,ANNIHILATION_OP,flavor_rem);
 
-    operator_container_t::iterator it= operators.find(psi(t_ins,CREATION_OP,flavor_ins)); //find first operator
-    assert(it!=operators.end());
-    op_ins = *it;
-    safe_erase(operators,op_ins); //erase it
-
-    it= operators.find(psi(t_rem,ANNIHILATION_OP,flavor_rem)); //find second operator
-    assert(it!=operators.end());
-    op_rem=*it;
-    safe_erase(operators,op_rem);
+    safe_erase(operators, op_ins);
+    safe_erase(operators, op_rem);
 
     return std::make_pair(op_ins, op_rem); //return both operators
 }
 
 
 // update_type, accepted, distance, acceptance probability, valid_move_generated
+// Note: this function is too long. Better to split into several functions.
 template<typename SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
 boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int creation_flavor, int annihilation_flavor, SCALAR & det, double BETA,
         std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor, operator_container_t& creation_operators,
@@ -164,31 +104,10 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
         const psi op_ins(t_ins, CREATION_OP, flavor_ins);
         const psi op_rem(t_rem, ANNIHILATION_OP, flavor_rem);
 
-        //if (global_mpi_rank==89) {
-          //std::cout << "debug0 " << op_ins.time() << " " << op_rem.time() << std::endl;
-          //print_list(operators);
-        //}
         //check_consistency_operators(operators, creation_operators, annihilation_operators);
         if (operators.find(op_ins)!=operators.end() || operators.find(op_rem)!=operators.end() || t_ins==t_rem) {
            return boost::make_tuple(0,false,0.0,0.0,false);
         }
-
-        /*
-        if (operators.find(op_ins)!=operators.end()) {
-           std::cout << "CRREATION ALREADY EXIST at " << t_ins << " " << t_rem_max << " " << t_rem_min << std::endl;
-           print_list(operators);
-           print_list(creation_operators);
-           print_list(annihilation_operators);
-           return boost::make_tuple(0,false,0.0,0.0,false);
-        }
-        if (operators.find(op_rem)!=operators.end()) {
-           std::cout << "ANNIHILATION ALREADY EXIST at " << t_rem << " " << t_rem_max << " " << t_rem_min << std::endl;
-           print_list(operators);
-           print_list(creation_operators);
-           print_list(annihilation_operators);
-           return boost::make_tuple(0,false,0.0,0.0,false);
-        }
-        */
 
         assert(std::abs(t_ins-t_rem)<=cutoff);
 
@@ -202,11 +121,6 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
             return boost::make_tuple(0,false,0.0,0.0,false);
         }
 
-        //operators_insert_nocopy(operators, t_ins, t_rem, flavor_ins, flavor_rem);
-        //if (global_mpi_rank==89) {
-          //std::cout << "debug1 " << op_ins.time() << " " << op_rem.time() << " " << op_ins.time()-op_rem.time() << " : " << t_rem_max << " " << t_rem_min << std::endl;
-          //print_list(operators);
-        //}
         safe_insert(operators,op_ins);
         safe_insert(operators,op_rem);
 
@@ -236,7 +150,6 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
 
         double flavor_sign=((row+column)%2==0 ? 1 : -1);
 
-        //times pair_insert(t_ins, t_rem);
         Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>
           sign_Fs(creation_operators.size(),1), Fe_M(1,annihilation_operators.size());
         SCALAR det_rat = det_rat_row_column_up(flavor_ins, flavor_rem, t_ins, t_rem,
@@ -282,7 +195,7 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
         boost::tuple<int,operator_container_t::iterator,operator_container_t::iterator> r =
             pick_up_pair(rng, creation_operators, annihilation_operators, flavor_ins, flavor_rem, tau_high, tau_low, cutoff, BETA);
         const int num_pairs_old = r.get<0>();
-        if (num_pairs_old == 0) {
+        if (num_pairs_old==0) {
             return boost::make_tuple(1,false,0.0,0.0,valid_move_generated);
         }
         const operator_container_t::iterator it_c = r.get<1>();
@@ -449,18 +362,6 @@ shift_lazy(R & rng, SCALAR & det, double BETA, operator_container_t & creation_o
 
     const double permutation_change = (op_number % 2 == 1 ? -1. : 1.);
 
-    /*
-    psi removed_op;
-    if (it_op != operators.end() && it_op->time() == time_max) {
-        removed_op = *it_op;
-        safe_erase(operators,it_op);
-        safe_insert(operators,new_operator);
-    } else {
-        removed_op = *it_op_min;
-        safe_insert(operators,new_operator);
-        safe_erase(operators,it_op_min);
-    }
-    */
     safe_erase(operators,removed_op);
     safe_insert(operators,new_operator);
     assert(removed_op.flavor()==flavor);
@@ -659,7 +560,6 @@ global_shift(R & rng, SCALAR & det, double BETA,  operator_container_t & creatio
 #ifndef NDEBUG
         std::cerr << "global_shift: prob= " << std::abs(prob) << std::endl;
 #endif
-        //throw std::runtime_error("global_shift is rejected.");
     	return false;
     }
 }

@@ -1,8 +1,3 @@
-#ifdef I_AM_USING_IDE
-#include "../model.hpp"
-#endif
-
-
 template<typename T>
 struct PruneHelper {
   PruneHelper(double eps) : eps_(eps) {};
