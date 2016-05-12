@@ -72,7 +72,7 @@ interpolate_F(double t, double BETA, const HYB& F) {
 }
 
 //rebuild matrix from scratch
-template<class MAT, class HYB> 
+template<class MAT, class HYB>
 void construct_blas_matrix(MAT & M, const operator_container_t &creation_operators,
   const operator_container_t &annihilation_operators, double BETA, const HYB & F)
 {
@@ -98,6 +98,54 @@ void construct_blas_matrix(MAT & M, const operator_container_t &creation_operato
   }
 }
 
+inline
+double make_set_impl(const operator_container_t &annihilation_operators, double BETA, double dtau, std::set<boost::tuple<double,int,double> >& annset) {
+  int row = -1;
+  annset.clear();
+  int num_op_shifted = 0;
+  for (operator_container_t::iterator ita = annihilation_operators.begin(); ita != annihilation_operators.end(); ita++) {
+    row++;
+    double p = 1.0;
+    double t = ita->time() + dtau;
+    if (t > BETA) {
+      t -= BETA;
+      p = -1.0;
+      ++num_op_shifted;
+    }
+    annset.insert(boost::make_tuple(t,row,p));
+  }
+  return ((annihilation_operators.size()-num_op_shifted)*num_op_shifted)%2==0 ? 1 : -1;
+}
+
+//shift all operaters in imaginary time
+template<class MAT>
+double update_inverse_matrix_global_shift(const MAT & M, MAT & M_new, const operator_container_t &creation_operators,
+                           const operator_container_t &annihilation_operators, double BETA, double dtau)
+{
+  typedef boost::tuple<double,int,double> key_t;
+  typedef std::set<key_t> map_t;
+
+  map_t annset, crset;
+  double det_rat = 1.0;
+  det_rat *= make_set_impl(annihilation_operators, BETA, dtau, annset);
+  det_rat *= make_set_impl(creation_operators, BETA, dtau, crset);
+
+  M_new.destructive_resize(M.size1(), M.size2());
+  int row = -1;
+  int column = -1;
+  for (map_t::iterator ita = annset.begin(); ita != annset.end(); ita++) {
+    row++;
+    for (map_t::iterator itc = crset.begin(); itc != crset.end(); itc++) {
+      column++;
+
+      M_new(row, column) = M(boost::get<1>(*ita), boost::get<1>(*itc))*
+        boost::get<2>(*ita)*boost::get<2>(*itc);
+    }
+    column = -1;
+  }
+
+  return det_rat;
+}
 
 
 

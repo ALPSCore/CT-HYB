@@ -526,6 +526,7 @@ global_shift(R & rng, SCALAR & det, double BETA,  operator_container_t & creatio
 
     const double shift = rng()*BETA;
 
+    //shift operators actually
     operator_container_t operators_new, creation_operators_new, annihilation_operators_new;
     global_shift_ops(creation_operators, creation_operators_new, BETA, shift);
     global_shift_ops(annihilation_operators, annihilation_operators_new, BETA, shift);
@@ -535,23 +536,21 @@ global_shift(R & rng, SCALAR & det, double BETA,  operator_container_t & creatio
 
     //compute new trace
     SCALAR trace_new = sliding_window.compute_trace(operators_new);
-    //assert(trace_new != 0.0);
     if (trace_new == 0.0) {
-        //std::cerr << "global_shift: trace_new==0" << std::endl;
         return false;
     }
 
-    //compute determinant ratio
+    //update inverse matrix and compute determinant ratio
     M_TYPE M_new;
-    const SCALAR det_new = cal_det(creation_operators_new, annihilation_operators_new, M_new, BETA, sliding_window.get_p_model()->get_F());
+    const SCALAR det_rat = update_inverse_matrix_global_shift(M, M_new, creation_operators, annihilation_operators, BETA, shift);
 
-    const double perm_change =  ( (creation_operators.size()*num_ops_crossed)%2==0 ? 1 : -1);
-    const SCALAR prob = (det_new/det)*(trace_new/trace)*perm_change;
+    const double perm_trace_change =  ( (creation_operators.size()*num_ops_crossed)%2==0 ? 1 : -1);
+    const SCALAR prob = (det_rat)*(trace_new/trace)*perm_trace_change;
 
     if (rng() < std::abs(prob)) {
         sign *= prob/std::abs(prob);
         trace = trace_new;
-        det = det_new;
+        det *= det_rat;
         std::swap(operators, operators_new);
         std::swap(creation_operators, creation_operators_new);
         std::swap(annihilation_operators, annihilation_operators_new);
