@@ -29,6 +29,7 @@
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
 #include <boost/array.hpp>
+#include <boost/timer/timer.hpp>
 
 //Eigen3
 #include<Eigen/Dense>
@@ -145,7 +146,6 @@ private:
   double acc_rate_cutoff;
 
   //for measuring Green's function
-  std::vector<COMPLEX> G_meas_new;
   GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
 
   //For measuring equal-time two-particle Green's function
@@ -156,6 +156,14 @@ private:
 
   //Acceptance rate of global shift
   AcceptanceRateMeasurement global_shift_acc_rate;
+
+  //timings (msec/N_MEAS steps)
+  //0 : local update
+  //1 : global update
+  //2 : move of sliding window
+  //3 : measuring single-particle green's function
+  //4 : rest of measurement
+  std::vector<double> timings;
 
   void sanity_check() const;
 };
