@@ -114,6 +114,7 @@ private:
 
   //Simulation parameters that may be modified after/during thermalization
   int N_meas;
+  int N_meas_g;
   const int N_shift;
   int N_swap;
 
