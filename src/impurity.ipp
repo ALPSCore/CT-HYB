@@ -13,6 +13,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & par
     .define<long>("SWEEPS", "number of sweeps for total run")
     .define<long>("THERMALIZATION", 500, "number of sweeps for thermalization")
     .define<int>("N_MEAS", 50, "Measurement is performed every N_MEAS updates.")
+    .define<int>("N_MEAS_GREENS_FUNCTION", 10, "Measurement of Green's function is performed every N_MEAS_GREENS_FUNCTION updates.")
     .define<int>("N_SHIFT", 1, "how may shift moves attempted at each Monte Carlo step (N_SHIFT>0)")
     .define<int>("N_SWAP", 0, "Flavor-swap moves attempted every N_SWAP Monte Carlo steps.")
     .define<double>("ACCEPTANCE_RATE_CUTOFF", 0.1, "cutoff for acceptance rate in sliding window update")
@@ -47,6 +48,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     thermalization_sweeps(parameters["THERMALIZATION"]),          //sweeps needed for thermalization
     total_sweeps(parameters["SWEEPS"]),                           //sweeps needed for total run
     N_meas(parameters["N_MEAS"]),
+    N_meas_g(parameters["N_MEAS_GREENS_FUNCTION"]),
     N_shift(parameters["N_SHIFT"]),
     N_swap(parameters["N_SWAP"]),
     sweeps(0),                                                                 //sweeps done up to now
@@ -174,8 +176,6 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       }
     }
 
-    //std::cout << "sweeps " << sweeps << " checkpoint A rank " << comm.rank() << std::endl;
-
     /**** insert or remove a pair with random flavors ****/
     for (int flavor = 0; flavor < FLAVORS; flavor++) {
       int c_flavor = (int) (random() * FLAVORS);
@@ -224,11 +224,8 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     sanity_check();
 
     //update parameters for MC moves and window size
-    //std::cout << "Checking if update_MC_parameters rank is called " << comm.rank() << " sweeps " << sweeps << " " << !is_thermalized() << " " << static_cast<int>(sweeps%interval_update_cutoff==interval_update_cutoff-1) << std::endl;
     if (N_update_cutoff>0 && !is_thermalized() && sweeps%interval_update_cutoff==interval_update_cutoff-1) {
-      //std::cout << "Calling update_MC_parameters rank " << comm.rank() << " sweeps " << sweeps << std::endl;
       update_MC_parameters();
-      //std::cout << "Exiting update_MC_parameters rank " << comm.rank() << " sweeps " << sweeps << std::endl;
     }
 
     const double time3 = timer.elapsed().wall*1E-9;
@@ -241,17 +238,15 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     timings[2] += time4 - time3;
 
     // measure single-particle Green's function
-    if (is_thermalized()) {
+    if (is_thermalized() && sweeps%N_meas_g == 0) {
       g_meas_legendre.measure(M, operators, creation_operators, annihilation_operators, sign);
     }
 
     const double time5 = timer.elapsed().wall*1E-9;
     timings[3] += time5 - time4;
 
-    //std::cout << "sweeps " << sweeps << " checkpoint C rank " << comm.rank() << " N_meas " << N_meas << "N_win " << sliding_window.get_state() << std::endl;
     sanity_check();
   }//loop up to N_meas
-  //std::cout << "Exiting update() " << sweeps << " rank " << comm.rank() << std::endl;
 }
 
 //////////////////////////////////
@@ -475,6 +470,15 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
     N_meas = N_meas_min;
     if (comm.rank()==0) {
       std::cout << "Warning N_MEAS is too small: using N_MEAS = "  << N_meas << " instead." << std::endl;
+    }
+  }
+
+  //N_meas_g
+  const int N_meas_g_min = std::max(10, sliding_window.get_n_window());//a sweep of the window takes 4*get_n_window()
+  if (N_meas_g<N_meas_g_min) {
+    N_meas_g = N_meas_g_min;
+    if (comm.rank()==0) {
+      std::cout << "Warning N_MEAS_GREENS_FUNCTION is too small: using N_MEAS_GREENS_FUNCTION = "  << N_meas_g << " instead." << std::endl;
     }
   }
 
