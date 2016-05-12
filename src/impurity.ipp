@@ -25,6 +25,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & par
     .define<int>("MAX_ORDER", 10000, "Sum of expansion orders of all flavors cannot go beyond this value")
     .define<int>("N_TAU_TWO_TIME_CORRELATION_FUNCTIONS", 0, "Number of tau points for which two-time correlation functions are measured (tau=0, ...., beta/2)")
     .define<std::string>("TWO_TIME_CORRELATION_FUNCTIONS", "", "Input file for definition of two-time correlation functions to be measured")
+    .define<int>("VERBOSE", 0, "If VERBOSE is not zero, more messages will be outputed.")
     ;
 
   IMP_MODEL::define_parameters(parameters);
@@ -61,10 +62,10 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     max_distance_pair(BETA*0.1),
     max_distance_shift(BETA*0.1),
     acc_rate_cutoff(static_cast<double>(p["ACCEPTANCE_RATE_CUTOFF"])),
-    G_meas_new(FLAVORS*FLAVORS*(N+1)),
     g_meas_legendre(FLAVORS,p["N_LEGENDRE_MEASUREMENT"],N,BETA),
     p_meas_corr(0),
-    global_shift_acc_rate()
+    global_shift_acc_rate(),
+    timings(5, 0.0)
 {
   /////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////
@@ -100,6 +101,9 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   /////////////////////////////////////////////////////////////////////
   if (p["N_SHIFT"].template as<int>()==0) {
     throw std::runtime_error("N_shift=0 is a very bad idea!");
+  }
+  if (N_meas < 10 || N_meas%10 != 0) {
+    throw std::runtime_error("N_MEAS must be larger than 10 and can be divided by 10!");
   }
 
   //Equal-time two-particle Green's function
@@ -137,14 +141,15 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     throw std::runtime_error("N_UPDATE_CUTOFF must be smaller than THERMALIZATION_SWEEPS.");
   }
 
-  std::fill(G_meas_new.begin(),G_meas_new.end(),0.0);
+  boost::timer::cpu_timer timer;
 
   //////////////////////////////////
   // Monte Carlo updates
   //////////////////////////////////
   for (int imeas = 0; imeas < N_meas; imeas++) {    // accumulate measurements from N_meas updates before storing
     sweeps++;
-    //std::cout << "sweeps " << sweeps << " operator.size = " << operators.size() << " window size " << sliding_window.get_n_window() << " rank " << comm.rank() << std::endl;
+
+    const double time1 = timer.elapsed().wall*1E-9;
 
     /**** try to insert or remove a pair of operators with the same flavor ****/
     for (int flavor = 0; flavor < FLAVORS; flavor++) {
@@ -209,7 +214,8 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       }
     }
 
-    //std::cout << "sweeps " << sweeps << " checkpoint B rank " << comm.rank() << std::endl;
+    const double time2 = timer.elapsed().wall*1E-9;
+    timings[0] += time2 - time1;
 
     //Perform global updates which might cost O(beta)
     expensive_updates();
@@ -225,37 +231,22 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       //std::cout << "Exiting update_MC_parameters rank " << comm.rank() << " sweeps " << sweeps << std::endl;
     }
 
+    const double time3 = timer.elapsed().wall*1E-9;
+    timings[1] += time3 - time2;
+
     // move the window to the next position
     sliding_window.move_window_to_next_position(operators);
+
+    const double time4 = timer.elapsed().wall*1E-9;
+    timings[2] += time4 - time3;
 
     // measure single-particle Green's function
     if (is_thermalized()) {
       g_meas_legendre.measure(M, operators, creation_operators, annihilation_operators, sign);
-      {
-        operator_container_t::iterator it1, it2;
-        for (int k=0; k<M.size1(); k++) {
-          (k==0 ? it1 = annihilation_operators.begin() : it1++);
-          for (int l=0; l<M.size1(); l++) {
-            (l==0 ? it2 = creation_operators.begin() : it2++);
-            if (M(l,k)!=0.0) {
-              double argument = it1->time()-it2->time();
-              double bubble_sign=1;
-              if (argument > 0) {
-                bubble_sign = 1;
-              } else {
-                bubble_sign = -1;
-                argument += BETA;
-              }
-
-              int flavor_a=it1->flavor();
-              int flavor_c=it2->flavor();
-              int index = (int)(argument/BETA*N+0.5);
-              G_meas_new[(flavor_a*FLAVORS+flavor_c)*(N+1)+index] += M(l,k)*bubble_sign*sign;
-            }
-          }
-        }
-      }
     }
+
+    const double time5 = timer.elapsed().wall*1E-9;
+    timings[3] += time5 - time4;
 
     //std::cout << "sweeps " << sweeps << " checkpoint C rank " << comm.rank() << " N_meas " << N_meas << "N_win " << sliding_window.get_state() << std::endl;
     sanity_check();
@@ -270,6 +261,7 @@ template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure() {
   assert(is_thermalized());
   //std::cout << "Call measurement rank " << comm.rank() << std::endl;
+  boost::timer::cpu_timer timer;
 
   // measure the perturbation order
   const int N_order = par["N_ORDER"].template as<int>();
@@ -295,6 +287,7 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
     global_shift_acc_rate.reset();
   }
 
+
   //Measure <n>
 #ifndef NDEBUG
   const typename SlidingWindowManager<IMP_MODEL>::state_t state_bak = sliding_window.get_state();
@@ -318,17 +311,6 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   );
   g_meas_legendre.reset();
 
-  //Measure single-particle Green's function
-  for (std::vector<COMPLEX>::iterator it=G_meas_new.begin(); it!=G_meas_new.end(); ++it) {
-    *it *= (1.*N)/(BETA*BETA*N_meas);
-  }
-  measure_simple_vector_observable<COMPLEX>(measurements, "Greens_rotated", G_meas_new);
-  const typename IMP_MODEL::matrix_t& rotmat_Delta = p_model->get_rotmat_Delta();
-  const typename IMP_MODEL::matrix_t inv_rotmat_Delta = rotmat_Delta.adjoint();
-  transform_G_back_to_original_basis<typename IMP_MODEL::matrix_t, typename IMP_MODEL::complex_matrix_t, std::complex<double> >
-    (FLAVORS, SITES, SPINS, Np1, rotmat_Delta, inv_rotmat_Delta, G_meas_new);
-  measure_simple_vector_observable<COMPLEX>(measurements, "Greens", G_meas_new);
-
   measurements["Sign"] << mycast<double>(sign);
 
   //fidelity susceptibility
@@ -341,6 +323,10 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
       measure_scalar_observable<SCALAR>(measurements, "k", static_cast<double>(operators.size()) * sign);
   }
   */
+
+  timings[4] = timer.elapsed().wall*1E-9;
+  measurements["Timings"] << timings;
+  std::fill(timings.begin(), timings.end(), 0.0);
 }
 
 //Measure the expectation values of density operators

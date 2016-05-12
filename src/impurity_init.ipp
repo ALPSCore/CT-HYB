@@ -17,6 +17,8 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_accepted");
 
   measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
+
+  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Timings");
 }
 
 template<typename IMP_MODEL>
