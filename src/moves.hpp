@@ -545,7 +545,7 @@ global_shift(R & rng, SCALAR & det, double BETA,  operator_container_t & creatio
     const SCALAR det_rat = update_inverse_matrix_global_shift(M, M_new, creation_operators, annihilation_operators, BETA, shift);
 
     const double perm_trace_change =  ( (creation_operators.size()*num_ops_crossed)%2==0 ? 1 : -1);
-    const SCALAR prob = (det_rat)*(trace_new/trace)*perm_trace_change;
+    const SCALAR prob = det_rat*(trace_new/trace)*perm_trace_change;
 
     if (rng() < std::abs(prob)) {
         sign *= prob/std::abs(prob);

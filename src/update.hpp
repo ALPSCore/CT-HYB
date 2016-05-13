@@ -103,6 +103,7 @@ double make_set_impl(const operator_container_t &annihilation_operators, double 
   int row = -1;
   annset.clear();
   int num_op_shifted = 0;
+  double perm = 1.0;
   for (operator_container_t::iterator ita = annihilation_operators.begin(); ita != annihilation_operators.end(); ita++) {
     row++;
     double p = 1.0;
@@ -110,11 +111,14 @@ double make_set_impl(const operator_container_t &annihilation_operators, double 
     if (t > BETA) {
       t -= BETA;
       p = -1.0;
+      perm *= -1;
       ++num_op_shifted;
     }
     annset.insert(boost::make_tuple(t,row,p));
   }
-  return ((annihilation_operators.size()-num_op_shifted)*num_op_shifted)%2==0 ? 1 : -1;
+  return perm * (
+                 ((annihilation_operators.size()-num_op_shifted)*num_op_shifted)%2==0 ? 1 : -1
+  );
 }
 
 //shift all operaters in imaginary time
@@ -134,14 +138,14 @@ double update_inverse_matrix_global_shift(const MAT & M, MAT & M_new, const oper
   int row = -1;
   int column = -1;
   for (map_t::iterator ita = annset.begin(); ita != annset.end(); ita++) {
-    row++;
+    column++;
     for (map_t::iterator itc = crset.begin(); itc != crset.end(); itc++) {
-      column++;
+      row++;
 
-      M_new(row, column) = M(boost::get<1>(*ita), boost::get<1>(*itc))*
-        boost::get<2>(*ita)*boost::get<2>(*itc);
+      M_new(row, column) = M(boost::get<1>(*itc), boost::get<1>(*ita))*
+        boost::get<2>(*itc)*boost::get<2>(*ita);
     }
-    column = -1;
+    row = -1;
   }
 
   return det_rat;
@@ -374,29 +378,6 @@ cal_det(const O& creation_operators, const O& annihilation_operators, MAT& M, do
       M.invert();
     }
     return det;
-
-    /*
-     * SCALAR dummy;
-    dense_matrix_t M_dense(size1,size1);
-    for (int i = 0; i < size1; i++) {
-        for (int j = 0; j < size1; j++) {
-            M_dense(i, j) = matrix(i, j);
-        }
-    }
-    try {
-      invert(M_dense, dummy);
-    } catch (std::exception& exc) {
-      return 0.0;
-    }
-    */
-    /*
-    Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> M_dens = ;
-    for (int i = 0; i < size1; i++) {
-        for (int j = 0; j < size1; j++) {
-            M(i, j) = M_dense(i, j);
-        }
-    }
-    */
 }
 
 template<class O>
