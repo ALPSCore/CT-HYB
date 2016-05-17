@@ -75,7 +75,7 @@ inline void print_list(const operator_container_t &operators)
 {
   std::cout<<"list: "<<std::endl;
   for(operator_container_t::const_iterator it=operators.begin(); it!=operators.end(); ++it) {
-    std::cout<<it->time()<<" ";
+    std::cout<<it->time()<<"["<<it->flavor()<<"]"<<" ";
   }
   std::cout<<std::endl;
 }

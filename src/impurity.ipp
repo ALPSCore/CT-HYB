@@ -15,7 +15,9 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & par
     .define<int>("N_MEAS", 50, "Measurement is performed every N_MEAS updates.")
     .define<int>("N_MEAS_GREENS_FUNCTION", 10, "Measurement of Green's function is performed every N_MEAS_GREENS_FUNCTION updates.")
     .define<int>("N_SHIFT", 1, "how may shift moves attempted at each Monte Carlo step (N_SHIFT>0)")
+    .define<std::string>("N_SHIFT_FLAVOR", "number of shifts per flavor")
     .define<int>("N_SWAP", 0, "Flavor-swap moves attempted every N_SWAP Monte Carlo steps.")
+    .define<std::string>("SWAP_VECTOR", "contains the flavors f1 f2 f3 f4 ... which will be swapped as f1<->f2, f3<->f4, ...")
     .define<double>("ACCEPTANCE_RATE_CUTOFF", 0.1, "cutoff for acceptance rate in sliding window update")
     .define<int>("USE_SLIDING_WINDOW", 1, "Switch for sliding window update")
     .define<int>("N_SLIDING_WINDOW", 5, "Number of segments for sliding window update")
@@ -67,6 +69,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     g_meas_legendre(FLAVORS,p["N_LEGENDRE_MEASUREMENT"],N,BETA),
     p_meas_corr(0),
     global_shift_acc_rate(),
+    swap_acc_rate(),
     timings(5, 0.0)
 {
   /////////////////////////////////////////////////////////////////////
@@ -274,7 +277,7 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   measurements["Insertion_accepted"] << to_std_vector(weight_vs_distance.get_sumval());
   measurements["Shift_accepted"] << to_std_vector(weight_vs_distance_shift.get_sumval());
   weight_vs_distance.reset();
-  weight_vs_distance.reset();
+  weight_vs_distance_shift.reset();
 
   //measure acceptance rate of global shift
   if (global_shift_acc_rate.has_samples()) {
@@ -282,6 +285,11 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
     global_shift_acc_rate.reset();
   }
 
+  //measure acceptance rate of swap update
+  if (swap_acc_rate.has_samples()) {
+    measurements["Acceptance_rate_swap"] << swap_acc_rate.compute_acceptance_rate();
+    swap_acc_rate.reset();
+  }
 
   //Measure <n>
 #ifndef NDEBUG
@@ -384,11 +392,17 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
     for (int i = 0; i < swap_vector.size(); i += 2) {
       int j1 = swap_vector[i];
       int j2 = swap_vector[i + 1];
-      swap_flavors(random, det, BETA, creation_operators,
+      const bool accepted = swap_flavors(random, det, BETA, creation_operators,
                    annihilation_operators,
                    order_creation_flavor, order_annihilation_flavor,
                    M, sign, trace, operators, j1, j2,
                    sliding_window);
+      
+      if (accepted) {
+        swap_acc_rate.accepted();
+      } else {
+        swap_acc_rate.rejected();
+      }
     }
   }
 
