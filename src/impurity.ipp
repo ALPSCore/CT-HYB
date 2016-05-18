@@ -381,6 +381,18 @@ void HybridizationSimulation<IMP_MODEL>::measure_two_time_correlation_functions(
   measure_simple_vector_observable<COMPLEX>(measurements, "Two_time_correlation_functions", to_std_vector(result));
 }
 
+//for std::random_shuffle
+class MyRandomNumberGenerator : public std::unary_function<unsigned int, unsigned int> {
+public:
+  MyRandomNumberGenerator(alps::random01 &random) : random_(random) {};
+  unsigned int operator()(unsigned int N) {
+    return static_cast<unsigned int>(N*random_());
+  }
+
+private:
+  alps::random01& random_;
+};
+
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
   const int N_swap = par["N_SWAP"].template as<int>();
@@ -396,23 +408,30 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
 
   //Swap flavors
   if (do_swap) {
-    std::vector<int>::iterator it = swap_vector.begin();
-    for (int iupdate = 0; iupdate < swap_vector.size()/FLAVORS; ++iupdate) {
+    //do updates randomly
+    std::vector<int> execute_ordering;
+    for (int i=0; i<swap_vector.size(); ++i) {
+      execute_ordering.push_back(i);
+    }
+    MyRandomNumberGenerator rnd(random);
+    std::random_shuffle(execute_ordering.begin(), execute_ordering.end(), rnd);
+
+    for (int itry = 0; itry < swap_vector.size(); ++itry) {
+      const int iupdate = execute_ordering[itry];
       const bool accepted = exchange_flavors(random, det, BETA, creation_operators,
                    annihilation_operators,
                    order_creation_flavor, order_annihilation_flavor,
                    M, sign, trace, operators,
                    sliding_window,
-                   FLAVORS, it, it+FLAVORS
+                   FLAVORS, swap_vector[iupdate].first.begin()
       );
 
+      const int source_template = swap_vector[iupdate].second;
       if (accepted) {
-        swap_acc_rate[iupdate].accepted();
+        swap_acc_rate[source_template].accepted();
       } else {
-        swap_acc_rate[iupdate].rejected();
+        swap_acc_rate[source_template].rejected();
       }
-
-      it += FLAVORS;
     }
   }
 

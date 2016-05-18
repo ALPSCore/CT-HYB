@@ -32,8 +32,9 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
 
   M.clear();
 
-  swap_vector.clear();
+  swap_vector.resize(0);
   if (par.exists("SWAP_VECTOR")) {
+    std::vector<int> flavors_vector;
     std::stringstream swapstream(par["SWAP_VECTOR"].template as<std::string>());
     int f;
     while (swapstream >> f) {
@@ -41,25 +42,51 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
         std::cerr << "Out of range in SWAP_VECTOR:  << " << f << std::endl;
         abort();
       }
-      swap_vector.push_back(f);
+      flavors_vector.push_back(f);
     }
 
-    if (swap_vector.size() % FLAVORS != 0) {
+    if (flavors_vector.size() % FLAVORS != 0) {
       std::cerr << "The number of elements in SWAP_VECTOR is wrong! " << std::endl;
       exit(1);
     }
 
-    const int num_updates = swap_vector.size()/FLAVORS;
-    std::vector<int>::iterator it = swap_vector.begin();
-    for (int iupdate=0; iupdate<num_updates; ++iupdate) {
+    const int num_templates = flavors_vector.size()/FLAVORS;
+    std::vector<int>::iterator it = flavors_vector.begin();
+    std::set<std::vector<int> > updates_set;//no duplication
+    std::map<std::vector<int>, int> source_templates;
+    for (int itemplate = 0; itemplate < num_templates; ++itemplate) {
       if (std::set<int>(it, it+FLAVORS).size()<FLAVORS) {
-        std::cerr << "Duplicate elements in the definition of the " << iupdate+1 << "-th update in SWAP_VECTOR! " << std::endl;
+        std::cerr << "Duplicate elements in the definition of the " << itemplate+1 << "-th update in SWAP_VECTOR! " << std::endl;
         exit(1);
       }
+
+      std::vector<int> tmp_vec(it, it+FLAVORS);
+      std::vector<int> tmp_vec_rev(FLAVORS);
+      for (int flavor=0; flavor<FLAVORS; ++flavor) {
+        tmp_vec_rev[tmp_vec[flavor]] = flavor;
+      }
+      updates_set.insert(tmp_vec);
+      updates_set.insert(tmp_vec_rev);//reverse process
+      source_templates[tmp_vec] = itemplate;
+      source_templates[tmp_vec_rev] = itemplate;
+
       it += FLAVORS;
     }
 
-    swap_acc_rate.resize(num_updates);
+    for (std::set<std::vector<int> >::iterator it = updates_set.begin(); it != updates_set.end(); ++it) {
+      swap_vector.push_back(std::make_pair(*it, source_templates[*it]));
+    }
+    swap_acc_rate.resize(num_templates);
+
+    if (comm.rank() == 0) {
+      std::cout << "The following swap updates will be performed." << std::endl;
+      for (int i=0; i<swap_vector.size(); ++i) {
+        std::cout << "Update #" << i << " generated from template #" << swap_vector[i].second << std::endl;
+        for (int j=0; j<swap_vector[i].first.size(); ++j) {
+          std::cout << "flavor " << j << " to flavor " << swap_vector[i].first[j] << std::endl;
+        }
+      }
+    }
   }
 
   //////////////////INITIALIZE SHIFT PROB FOR FLAVORS//////////////////

@@ -516,11 +516,10 @@ exchange_flavors(R & rng, SCALAR & det, double BETA, operator_container_t & crea
                  M_TYPE & M, SCALAR &sign, SCALAR &trace,
                  operator_container_t & operators,
                  const SLIDING_WINDOW& sliding_window,
-                 int num_flavors, Iterator new_flavors_first, Iterator new_flavors_last
+                 int num_flavors, Iterator new_flavors_first
 ) {
     assert(sliding_window.get_tau_low() == 0);
     assert(sliding_window.get_tau_high() == BETA);
-    assert(std::distance(new_flavors_first, new_flavors_last) == num_flavors);
     if (creation_operators.size() == 0) {
         return false;
     }

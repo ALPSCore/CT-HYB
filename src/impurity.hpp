@@ -134,7 +134,8 @@ private:
   std::vector<int> N_shift_flavor;
 
   //swap-flavor update
-  std::vector<int> swap_vector;		// contains the flavors f1 f2 f3 f4 ...   Flavors 1 ... N will be relabeled as f1 f2 ... fN.
+  std::vector<std::pair<std::vector<int>, int> > swap_vector;		// contains the flavors f1 f2 f3 f4 ...   Flavors 1 ... N will be relabeled as f1 f2 ... fN.
+  //the second elements of std::pair denote from which entries in input acual updates are generated.
 
   //sliding window
   SW_TYPE sliding_window;
