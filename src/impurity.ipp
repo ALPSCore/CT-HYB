@@ -499,7 +499,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
 
   //N_swap
   const int N_swap_min =std::max(10, 4*sliding_window.get_n_window());//a sweep of the window takes 4*get_n_window()
-  if (N_swap<N_swap_min && N_swap>0) {
+  if (N_swap<N_swap_min && swap_vector.size()>0) {
     N_swap = N_swap_min;
     if (comm.rank()==0) {
       std::cout << "Warning N_SWAP is too small: using N_SWAP = "  << N_swap << " instead." << std::endl;
