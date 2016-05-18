@@ -1,3 +1,5 @@
+#include "impurity.hpp"
+
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & parameters) {
   Base::define_parameters(parameters);
@@ -16,8 +18,9 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & par
     .define<int>("N_MEAS_GREENS_FUNCTION", 10, "Measurement of Green's function is performed every N_MEAS_GREENS_FUNCTION updates.")
     .define<int>("N_SHIFT", 1, "how may shift moves attempted at each Monte Carlo step (N_SHIFT>0)")
     .define<std::string>("N_SHIFT_FLAVOR", "number of shifts per flavor")
-    .define<int>("N_SWAP", 0, "Flavor-swap moves attempted every N_SWAP Monte Carlo steps.")
-    .define<std::string>("SWAP_VECTOR", "contains the flavors f1 f2 f3 f4 ... which will be swapped as f1<->f2, f3<->f4, ...")
+    .define<int>("N_SWAP", 0, "We attempt to swap flavors every N_SWAP Monte Carlo steps.")
+    .define<std::string>("SWAP_VECTOR",
+                         "contains the flavors f1 f2 ... fN. Relabel flavor 1 2 ... N with the flavor f1 f2 ... fN. The number of elements must be divided by the number of flavors.")
     .define<double>("ACCEPTANCE_RATE_CUTOFF", 0.1, "cutoff for acceptance rate in sliding window update")
     .define<int>("USE_SLIDING_WINDOW", 1, "Switch for sliding window update")
     .define<int>("N_SLIDING_WINDOW", 5, "Number of segments for sliding window update")
@@ -69,7 +72,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     g_meas_legendre(FLAVORS,p["N_LEGENDRE_MEASUREMENT"],N,BETA),
     p_meas_corr(0),
     global_shift_acc_rate(),
-    swap_acc_rate(),
+    swap_acc_rate(0),
     timings(5, 0.0)
 {
   /////////////////////////////////////////////////////////////////////
@@ -286,9 +289,14 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   }
 
   //measure acceptance rate of swap update
-  if (swap_acc_rate.has_samples()) {
-    measurements["Acceptance_rate_swap"] << swap_acc_rate.compute_acceptance_rate();
-    swap_acc_rate.reset();
+  if (swap_acc_rate.size()>0 && swap_acc_rate[0].has_samples()) {
+    std::vector<double> acc_swap(swap_acc_rate.size());
+    for (int iupdate=0; iupdate<swap_acc_rate.size(); ++iupdate) {
+      assert(swap_acc_rate[iupdate].has_samples());
+      acc_swap[iupdate] = swap_acc_rate[iupdate].compute_acceptance_rate();
+      swap_acc_rate[iupdate].reset();
+    }
+    measurements["Acceptance_rate_swap"] << acc_swap;
   }
 
   //Measure <n>
@@ -388,21 +396,23 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
 
   //Swap flavors
   if (do_swap) {
-    //std::cout << "doing swap update " << std::endl;
-    for (int i = 0; i < swap_vector.size(); i += 2) {
-      int j1 = swap_vector[i];
-      int j2 = swap_vector[i + 1];
-      const bool accepted = swap_flavors(random, det, BETA, creation_operators,
+    std::vector<int>::iterator it = swap_vector.begin();
+    for (int iupdate = 0; iupdate < swap_vector.size()/FLAVORS; ++iupdate) {
+      const bool accepted = exchange_flavors(random, det, BETA, creation_operators,
                    annihilation_operators,
                    order_creation_flavor, order_annihilation_flavor,
-                   M, sign, trace, operators, j1, j2,
-                   sliding_window);
-      
+                   M, sign, trace, operators,
+                   sliding_window,
+                   FLAVORS, it, it+FLAVORS
+      );
+
       if (accepted) {
-        swap_acc_rate.accepted();
+        swap_acc_rate[iupdate].accepted();
       } else {
-        swap_acc_rate.rejected();
+        swap_acc_rate[iupdate].rejected();
       }
+
+      it += FLAVORS;
     }
   }
 
@@ -541,17 +551,22 @@ void HybridizationSimulation<IMP_MODEL>::sanity_check() const {
 
   // test consistency of operators
   {
+    std::vector<int> order_creation_flavor_new(FLAVORS, 0), order_annihilation_flavor_new(FLAVORS, 0);
     operator_container_t c_ops_new, a_ops_new;
     int itmp = 0;
     for (operator_container_t::iterator it = operators.begin(); it!=operators.end(); ++it) {
       if (it->type()==0) {
         c_ops_new.insert(*it);
+        ++order_creation_flavor_new[it->flavor()];
       } else {
         a_ops_new.insert(*it);
+        ++order_annihilation_flavor_new[it->flavor()];
       }
     }
     assert(c_ops_new==creation_operators);
     assert(a_ops_new==annihilation_operators);
+    assert(order_annihilation_flavor==order_annihilation_flavor_new);
+    assert(order_creation_flavor==order_creation_flavor_new);
     if (c_ops_new!=creation_operators)
       throw std::logic_error("creation_operators is not consistent with operators.");
     if (a_ops_new!=annihilation_operators)

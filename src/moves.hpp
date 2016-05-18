@@ -447,61 +447,6 @@ shift_lazy(R & rng, SCALAR & det, double BETA, operator_container_t & creation_o
     return boost::make_tuple(accepted,op_distance,true,flavor);
 }
 
-template<typename SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
-bool
-swap_flavors(R & rng, SCALAR & det, double BETA, operator_container_t & creation_operators, operator_container_t & annihilation_operators,
-           std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor,
-           M_TYPE & M, SCALAR &sign, SCALAR &trace,
-           operator_container_t & operators, int flavor1, int flavor2,
-           SLIDING_WINDOW& sliding_window
-          )
-{
-    assert(sliding_window.get_tau_low()==0);
-    assert(sliding_window.get_tau_high()==BETA);
-    assert(flavor1 != flavor2);
-    if (creation_operators.size() == 0) {
-        return false;
-    }
-
-    operator_container_t operators_new, creation_operators_new, annihilation_operators_new;
-    copy_swap_flavors_ops(creation_operators, creation_operators_new, flavor1, flavor2);
-    copy_swap_flavors_ops(annihilation_operators, annihilation_operators_new, flavor1, flavor2);
-    const int count_all = copy_swap_flavors_ops(operators, operators_new, flavor1, flavor2);
-    assert(creation_operators_new.size()+annihilation_operators_new.size()==operators_new.size());
-    if (count_all==0) {
-        return false;
-    }
-
-    //compute new trace
-    const SCALAR trace_new = sliding_window.compute_trace(operators_new);
-    if (trace_new == 0.0) {
-        return false;
-    }
-
-    //compute determinant ratio
-    M_TYPE M_new;
-    const SCALAR det_new = cal_det(creation_operators_new, annihilation_operators_new, M_new, BETA, sliding_window.get_p_model()->get_F());
-
-    const SCALAR prob = (det_new/det)*(trace_new/trace);//Note: no permutation sign change
-    //std::cout << prob << std::endl;
-    //std::cout << "det_rel:" << det_new/det << std::endl;
-    //std::cout << "trace_rel:" << trace_new/trace << std::endl;
-    if (rng() < std::abs(prob)) {
-        sign *= prob/std::abs(prob);
-        trace = trace_new;
-        det = det_new;
-        std::swap(operators, operators_new);
-        std::swap(creation_operators, creation_operators_new);
-        std::swap(annihilation_operators, annihilation_operators_new);
-        std::swap(M,M_new);
-        std::swap(order_creation_flavor[flavor1], order_creation_flavor[flavor2]);
-        std::swap(order_annihilation_flavor[flavor1], order_annihilation_flavor[flavor2]);
-        return true;
-    } else {
-    	return false;
-    }
-}
-
 /**
  * @brief Try to shift the positions of all operators (in imaginary time) by random step size.
  *
@@ -561,5 +506,61 @@ global_shift(R & rng, SCALAR & det, double BETA,  operator_container_t & creatio
         std::cerr << "global_shift: prob= " << std::abs(prob) << std::endl;
 #endif
     	return false;
+    }
+}
+
+template<typename SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW, typename Iterator>
+bool
+exchange_flavors(R & rng, SCALAR & det, double BETA, operator_container_t & creation_operators, operator_container_t & annihilation_operators,
+                 std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor,
+                 M_TYPE & M, SCALAR &sign, SCALAR &trace,
+                 operator_container_t & operators,
+                 const SLIDING_WINDOW& sliding_window,
+                 int num_flavors, Iterator new_flavors_first, Iterator new_flavors_last
+) {
+    assert(sliding_window.get_tau_low() == 0);
+    assert(sliding_window.get_tau_high() == BETA);
+    assert(std::distance(new_flavors_first, new_flavors_last) == num_flavors);
+    if (creation_operators.size() == 0) {
+        return false;
+    }
+
+    //compute new trace
+    operator_container_t operators_new;
+    copy_exchange_flavors_ops(operators, operators_new, new_flavors_first);
+    const SCALAR trace_new = sliding_window.compute_trace(operators_new);
+    if (trace_new == 0.0) {
+        return false;
+    }
+
+    //compute determinant ratio
+    operator_container_t creation_operators_new, annihilation_operators_new;
+    copy_exchange_flavors_ops(creation_operators, creation_operators_new, new_flavors_first);
+    copy_exchange_flavors_ops(annihilation_operators, annihilation_operators_new, new_flavors_first);
+    M_TYPE M_new;
+    const SCALAR det_new = cal_det(creation_operators_new, annihilation_operators_new, M_new, BETA,
+                                   sliding_window.get_p_model()->get_F());
+
+    const SCALAR prob = (det_new / det) * (trace_new / trace);//Note: no permutation sign change
+    if (rng() < std::abs(prob)) {
+        sign *= prob / std::abs(prob);
+        trace = trace_new;
+        det = det_new;
+        std::swap(operators, operators_new);
+        std::swap(creation_operators, creation_operators_new);
+        std::swap(annihilation_operators, annihilation_operators_new);
+        std::swap(M, M_new);
+
+        std::vector<int> order_creation_flavor_new(num_flavors), order_annihilation_flavor_new(num_flavors);
+        for (int flavor=0; flavor<num_flavors; ++flavor) {
+            const int new_flavor = *(new_flavors_first+flavor);
+            order_creation_flavor_new[new_flavor] = order_creation_flavor[flavor];
+            order_annihilation_flavor_new[new_flavor] = order_annihilation_flavor[flavor];
+        }
+        std::swap(order_creation_flavor, order_creation_flavor_new);
+        std::swap(order_annihilation_flavor, order_annihilation_flavor_new);
+        return true;
+    } else {
+        return false;
     }
 }

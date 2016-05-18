@@ -1,3 +1,5 @@
+#include "impurity.hpp"
+
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_observables() {
   // create measurement objects
@@ -17,7 +19,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_accepted");
 
   measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
-  measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_swap");
+  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Acceptance_rate_swap");
 
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Timings");
 }
@@ -35,17 +37,29 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
     std::stringstream swapstream(par["SWAP_VECTOR"].template as<std::string>());
     int f;
     while (swapstream >> f) {
+      if (f >= FLAVORS || f < 0) {
+        std::cerr << "Out of range in SWAP_VECTOR:  << " << f << std::endl;
+        abort();
+      }
       swap_vector.push_back(f);
     }
-    if (f >= FLAVORS) {
-      std::cerr << "Swap vector: trying to swap orbital with orbital " << f << "which is > FLAVOR " << FLAVORS <<
-      " exiting." << std::endl;
-      abort();
+
+    if (swap_vector.size() % FLAVORS != 0) {
+      std::cerr << "The number of elements in SWAP_VECTOR is wrong! " << std::endl;
+      exit(1);
     }
-  }
-  if (swap_vector.size() % 2 != 0) {
-    std::cerr << "illegal SWAP_VECTOR! " << std::endl;
-    exit(1);
+
+    const int num_updates = swap_vector.size()/FLAVORS;
+    std::vector<int>::iterator it = swap_vector.begin();
+    for (int iupdate=0; iupdate<num_updates; ++iupdate) {
+      if (std::set<int>(it, it+FLAVORS).size()<FLAVORS) {
+        std::cerr << "Duplicate elements in the definition of the " << iupdate+1 << "-th update in SWAP_VECTOR! " << std::endl;
+        exit(1);
+      }
+      it += FLAVORS;
+    }
+
+    swap_acc_rate.resize(num_updates);
   }
 
   //////////////////INITIALIZE SHIFT PROB FOR FLAVORS//////////////////

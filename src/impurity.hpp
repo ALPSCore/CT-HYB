@@ -134,7 +134,7 @@ private:
   std::vector<int> N_shift_flavor;
 
   //swap-flavor update
-  std::vector<int> swap_vector;		// contains the flavors f1 f2 f3 f4 ... which will be swapped as f1<->f2, f3<->f4, ...
+  std::vector<int> swap_vector;		// contains the flavors f1 f2 f3 f4 ...   Flavors 1 ... N will be relabeled as f1 f2 ... fN.
 
   //sliding window
   SW_TYPE sliding_window;
@@ -157,7 +157,7 @@ private:
 
   //Acceptance rate of global shift and swap updates
   AcceptanceRateMeasurement global_shift_acc_rate;
-  AcceptanceRateMeasurement swap_acc_rate;
+  std::vector<AcceptanceRateMeasurement> swap_acc_rate;
 
   //timings (msec/N_MEAS steps)
   //0 : local update

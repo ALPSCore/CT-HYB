@@ -380,24 +380,21 @@ cal_det(const O& creation_operators, const O& annihilation_operators, MAT& M, do
     return det;
 }
 
-template<class O>
-int copy_swap_flavors_ops(const O& operators, O& operators_new, int flavor1, int flavor2) {
-    assert(flavor1!=flavor2);
-    int count = 0;
-    operators_new.clear();
-    for (typename O::const_iterator it = operators.begin(); it != operators.end(); ++it) {
-        typename O::value_type op = *it;//copy
-       	if (op.flavor() == flavor1) {
-           	op.set_flavor(flavor2);
-           	++count;
-       	} else if (op.flavor() == flavor2) {
-           	op.set_flavor(flavor1);
-           	++count;
-       	}
-       	operators_new.insert(op);
+template<class O, typename Iterator>
+int copy_exchange_flavors_ops(const O& operators, O& operators_new, Iterator new_flavors_begin) {
+  int count = 0;
+  operators_new.clear();
+  for (typename O::const_iterator it = operators.begin(); it != operators.end(); ++it) {
+    typename O::value_type op = *it;//copy
+
+    const int new_flavor = *(new_flavors_begin + op.flavor());
+    if (new_flavor != op.flavor()) {
+      op.set_flavor(new_flavor);
+      ++count;
     }
-    assert(operators.size()==operators_new.size());
-    return count;
+    operators_new.insert(op);
+  }
+  return count;
 }
 
 template<class O>

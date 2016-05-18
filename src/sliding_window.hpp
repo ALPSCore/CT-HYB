@@ -44,7 +44,7 @@ public:
   inline int get_position_right_edge() const {return position_right_edge;}
   inline int get_position_left_edge() const {return position_left_edge;}
   inline int get_direction_move_local_window() const {return direction_move_local_window;}
-  inline const MODEL* get_p_model() {return p_model;}
+  inline const MODEL* get_p_model() const {return p_model;}
   inline const BRAKET_TYPE& get_bra(int bra) const {return left_states[bra].back();}
   inline const BRAKET_TYPE& get_ket(int ket) const {return right_states[ket].back();}
 
