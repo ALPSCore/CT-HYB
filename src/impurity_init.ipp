@@ -17,6 +17,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_accepted");
 
   measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
+  measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_swap");
 
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Timings");
 }
@@ -30,7 +31,7 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
   M.clear();
 
   swap_vector.clear();
-  if (par.defined("SWAP_VECTOR")) {
+  if (par.exists("SWAP_VECTOR")) {
     std::stringstream swapstream(par["SWAP_VECTOR"].template as<std::string>());
     int f;
     while (swapstream >> f) {
@@ -48,7 +49,7 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
   }
 
   //////////////////INITIALIZE SHIFT PROB FOR FLAVORS//////////////////
-  if (par.defined("N_SHIFT_FLAVOR")) {
+  if (par.exists("N_SHIFT_FLAVOR")) {
     std::string nsf(par["N_SHIFT_FLAVOR"].template as<std::string>());
     std::stringstream nsf_strstream(nsf);
     for (int i = 0; i < FLAVORS; ++i) {
@@ -63,7 +64,7 @@ template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::read_eq_time_two_particle_greens_meas() {
   const int GF_RANK=2;
 
-  const std::string fname_key = "EQUAL_TIME_TWO_PARTICLE_GREEENS_FUNCTION";
+  const std::string fname_key = "EQUAL_TIME_TWO_PARTICLE_GREENS_FUNCTION";
   const bool verbose = (comm.rank()==0);
 
   if (!par.defined(fname_key)) {

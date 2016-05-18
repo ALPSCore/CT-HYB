@@ -459,7 +459,6 @@ swap_flavors(R & rng, SCALAR & det, double BETA, operator_container_t & creation
     assert(sliding_window.get_tau_low()==0);
     assert(sliding_window.get_tau_high()==BETA);
     assert(flavor1 != flavor2);
-
     if (creation_operators.size() == 0) {
         return false;
     }
@@ -484,7 +483,9 @@ swap_flavors(R & rng, SCALAR & det, double BETA, operator_container_t & creation
     const SCALAR det_new = cal_det(creation_operators_new, annihilation_operators_new, M_new, BETA, sliding_window.get_p_model()->get_F());
 
     const SCALAR prob = (det_new/det)*(trace_new/trace);//Note: no permutation sign change
-
+    //std::cout << prob << std::endl;
+    //std::cout << "det_rel:" << det_new/det << std::endl;
+    //std::cout << "trace_rel:" << trace_new/trace << std::endl;
     if (rng() < std::abs(prob)) {
         sign *= prob/std::abs(prob);
         trace = trace_new;

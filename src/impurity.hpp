@@ -155,8 +155,9 @@ private:
   //For measuring two-time correlation functions <c^dagger(tau) c(tau) c^dagger(0) c(0)>
   boost::scoped_ptr<MeasCorrelation<SW_TYPE, EqualTimeOperator<1> > > p_meas_corr;
 
-  //Acceptance rate of global shift
+  //Acceptance rate of global shift and swap updates
   AcceptanceRateMeasurement global_shift_acc_rate;
+  AcceptanceRateMeasurement swap_acc_rate;
 
   //timings (msec/N_MEAS steps)
   //0 : local update
