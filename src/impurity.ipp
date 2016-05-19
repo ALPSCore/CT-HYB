@@ -19,7 +19,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & par
     .define<int>("N_SHIFT", 1, "how may shift moves attempted at each Monte Carlo step (N_SHIFT>0)")
     .define<std::string>("N_SHIFT_FLAVOR", "number of shifts per flavor")
     .define<int>("N_SWAP", 0, "We attempt to swap flavors every N_SWAP Monte Carlo steps.")
-    .define<std::string>("SWAP_VECTOR",
+    .define<std::string>("SWAP_VECTOR", "",
                          "contains the flavors f1 f2 ... fN. Relabel flavor 1 2 ... N with the flavor f1 f2 ... fN. The number of elements must be divided by the number of flavors.")
     .define<double>("ACCEPTANCE_RATE_CUTOFF", 0.1, "cutoff for acceptance rate in sliding window update")
     .define<int>("USE_SLIDING_WINDOW", 1, "Switch for sliding window update")
