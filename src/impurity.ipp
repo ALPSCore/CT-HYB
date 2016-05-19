@@ -395,7 +395,6 @@ private:
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
-  const int N_swap = par["N_SWAP"].template as<int>();
   const bool do_swap = (N_swap != 0 && sweeps%N_swap == 0 && swap_vector.size() > 0);
   const bool do_global_shift = (sliding_window.get_position_right_edge()==0);
 
