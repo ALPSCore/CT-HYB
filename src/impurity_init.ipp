@@ -81,6 +81,15 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
       it += FLAVORS;
     }
 
+    //remove the update which does nothing
+    {
+      std::vector<int> identity;
+      for (int flavor=0; flavor<FLAVORS; ++flavor) {
+        identity.push_back(flavor);
+      }
+      updates_set.erase(identity);
+    }
+
     for (std::set<std::vector<int> >::iterator it = updates_set.begin(); it != updates_set.end(); ++it) {
       swap_vector.push_back(std::make_pair(*it, source_templates[*it]));
     }
