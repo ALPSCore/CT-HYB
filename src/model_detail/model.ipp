@@ -76,8 +76,10 @@ int ImpurityModel<SCALAR,DERIVED>::get_dst_sector_ket(OPERATOR_TYPE op, int flav
 
 template<typename SCALAR,typename DERIVED>
 int ImpurityModel<SCALAR,DERIVED>::get_dst_sector_bra(OPERATOR_TYPE op, int flavor, int src_sector) const {
-  assert(flavor>=0 && flavor<num_flavors());
-  assert(src_sector>=0 && src_sector<num_sectors());
+  assert(flavor>=0);
+  assert(flavor<num_flavors());
+  assert(src_sector>=0);
+  assert(src_sector<num_sectors());
   return sector_connection_reverse[static_cast<int>(op)][flavor][src_sector];
 }
 

@@ -93,7 +93,7 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
     for (std::set<std::vector<int> >::iterator it = updates_set.begin(); it != updates_set.end(); ++it) {
       swap_vector.push_back(std::make_pair(*it, source_templates[*it]));
     }
-    swap_acc_rate.resize(num_templates);
+    swap_acc_rate.resize(swap_vector.size());
 
     if (comm.rank() == 0) {
       std::cout << "The following swap updates will be performed." << std::endl;
@@ -175,6 +175,10 @@ void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
   }
   const int num_tau_points = par["N_TAU_TWO_TIME_CORRELATION_FUNCTIONS"];
   if (num_tau_points<2 || !par.defined(fname_key)) {
+    return;
+  }
+
+  if (par[fname_key].template as<std::string>()=="") {
     return;
   }
 

@@ -377,7 +377,10 @@ void HybridizationSimulation<IMP_MODEL>::measure_two_time_correlation_functions(
 
   boost::multi_array<std::complex<double>,2> result;
   p_meas_corr->perform_meas(sliding_window, operators, result);
-  //measure_simple_multiarray_observable<SCALAR,2>(measurements, "Two_time_correlation_functions", result);
+  //std::cout << "debug " << result[0][0] << " " << trace << std::endl;
+  std::transform(result.origin(), result.origin()+result.num_elements(), result.origin(),
+                 std::bind1st(std::multiplies<std::complex<double> >(),sign/trace));
+
   measure_simple_vector_observable<COMPLEX>(measurements, "Two_time_correlation_functions", to_std_vector(result));
 }
 
@@ -427,9 +430,9 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
 
       const int source_template = swap_vector[iupdate].second;
       if (accepted) {
-        swap_acc_rate[source_template].accepted();
+        swap_acc_rate[iupdate].accepted();
       } else {
-        swap_acc_rate[source_template].rejected();
+        swap_acc_rate[iupdate].rejected();
       }
     }
   }

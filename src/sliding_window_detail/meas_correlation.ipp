@@ -2,8 +2,9 @@ template<typename SW, typename OBS>
 MeasCorrelation<SW,OBS>::MeasCorrelation(const std::vector<std::pair<OBS,OBS> >& correlators, int num_tau_points)
   : num_correlators_(correlators.size()),
     num_tau_points_(num_tau_points),
-    right_edge_pos_(num_tau_points/2),
-    left_edge_pos_(num_tau_points/2+num_tau_points-1)
+    num_win_(2*(num_tau_points_-1)),
+    right_edge_pos_(num_win_/2),
+    left_edge_pos_(num_win_/2+2*(num_tau_points-1))
 {
   std::set<OBS> left_obs_set, right_obs_set;
   for (typename std::vector<std::pair<OBS,OBS> >::const_iterator it=correlators.begin(); it!=correlators.end(); ++it) {
@@ -33,15 +34,15 @@ MeasCorrelation<SW,OBS>::perform_meas(SW& sw, const operator_container_t& operat
   const int num_braket = sw.get_num_brakets();
 
   //place the window somewhere in the middle of [0,beta]
-  const int num_win_new = num_tau_points_-1;
   typename SW::state_t state_bak = sw.get_state();
-  sw.set_window_size(num_win_new, operators, num_tau_points_/2);
+  sw.set_window_size(num_win_, operators, num_win_/2);
+  sw.move_left_edge_to(operators, left_edge_pos_);
   assert(left_edge_pos_-right_edge_pos_==num_tau_points_-1);
 
   //make a list of tau points
   std::vector<double> tau_points(num_tau_points_);
   for (int itau=0; itau<num_tau_points_; ++itau) {
-    tau_points[itau] = sw.get_tau_edge(right_edge_pos_+itau);
+    tau_points[itau] = sw.get_tau_edge(right_edge_pos_+2*itau);
   }
 
   //Find out operators in imaginary time segments

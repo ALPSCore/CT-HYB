@@ -20,7 +20,7 @@ public:
   typedef typename model_traits<MODEL>::SCALAR_T HAM_SCALAR_TYPE;
   typedef typename model_traits<MODEL>::BRAKET_T  BRAKET_TYPE;//class Braket is defined in model.hpp
   typedef typename operator_container_t::iterator op_it_t;
-  typedef typename boost::tuple<int,int,ITIME_AXIS_LEFT_OR_RIGHT> state_t;//pos of left edge, pos of right edge, direction of move
+  typedef typename boost::tuple<int,int,ITIME_AXIS_LEFT_OR_RIGHT,int> state_t;//pos of left edge, pos of right edge, direction of move, num of windows
 
   SlidingWindowManager(MODEL* p_model, double beta);
 
@@ -32,7 +32,7 @@ public:
                        ITIME_AXIS_LEFT_OR_RIGHT new_direction_move=ITIME_LEFT);
 
   //Get and restore the state of the window (size, position, direction of move)
-  inline state_t get_state() const {return boost::make_tuple(position_left_edge,position_right_edge,direction_move_local_window);}
+  inline state_t get_state() const {return boost::make_tuple(position_left_edge,position_right_edge,direction_move_local_window,n_window);}
   void restore_state(const operator_container_t& ops, state_t state);
 
   //Getter
@@ -130,7 +130,7 @@ public:
 
 private:
   const int num_correlators_;
-  const int num_tau_points_, right_edge_pos_, left_edge_pos_;
+  const int num_tau_points_, num_win_, right_edge_pos_, left_edge_pos_;
   std::vector<std::pair<int,int> > obs_pos_in_unique_set;
   std::vector<OBS> left_obs_unique_list, right_obs_unique_list;
 };

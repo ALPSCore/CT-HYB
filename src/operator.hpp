@@ -109,7 +109,7 @@ public:
   EqualTimeOperator(const boost::array<int,2*N>& flavors, double time=-1.0) : flavors_(flavors), time_(time) {};
 
   EqualTimeOperator(const int* flavors, double time=-1.0) : time_(time) {
-    for (int i=0; i<N; ++i) {
+    for (int i=0; i<2*N; ++i) {
       flavors_[i] = flavors[i];
     }
   };

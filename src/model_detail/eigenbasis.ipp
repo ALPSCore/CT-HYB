@@ -312,6 +312,7 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_ket(
 template<typename SCALAR>
 void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_bra(const OPERATOR_TYPE& op_type, int flavor, BRAKET_T& bra) const {
   using std::swap;
+  assert(flavor<Base::num_flavors());
 
   if (bra.invalid()) {
     return;
@@ -337,11 +338,8 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_bra(const OPERATOR_TYPE& op_t
 
 template<typename SCALAR>
 SCALAR ImpurityModelEigenBasis<SCALAR>::product(const BRAKET_T& bra, const BRAKET_T& ket) const {
-  if (bra.invalid() || ket.invalid()) {
+  if (bra.invalid() || ket.invalid() || bra.sector()!=ket.sector()) {
     return 0.0;
-  }
-  if (bra.sector()!=ket.sector()) {
-    throw std::runtime_error("Error in ImpurityModelEigenBasis<SCALAR>::product. Something went wrong about sector.");
   }
   assert(size2(bra.obj())==size1(ket.obj()));
   assert(size1(bra.obj())==size2(ket.obj()));

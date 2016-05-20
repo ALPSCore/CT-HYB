@@ -305,7 +305,6 @@ public:
   ImpurityModelEigenBasis(const alps::params& par, bool verbose=false);
   ImpurityModelEigenBasis(const alps::params& par, const std::vector<boost::tuple<int,int,SCALAR> >& nonzero_t_vals_list,
                           const std::vector<boost::tuple<int,int,int,int,SCALAR> >& nonzero_U_vals_list, bool verbose=false);
-
   static void define_parameters(alps::params & parameters);
 
   void apply_op_hyb_bra(const OPERATOR_TYPE& op_type, int flavor, BRAKET_T& bra) const;

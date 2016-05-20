@@ -504,9 +504,12 @@ void SlidingWindowManager<MODEL>::pop_back_ket(int num_pop_back) {
 
 template<typename MODEL>
 void SlidingWindowManager<MODEL>::restore_state(const operator_container_t& ops, state_t state) {
+    set_window_size(boost::get<3>(state), ops, boost::get<1>(state), boost::get<2>(state));
     move_left_edge_to(ops, boost::get<0>(state));
-    move_right_edge_to(ops, boost::get<1>(state));
-    direction_move_local_window = boost::get<2>(state);
+    assert(get_position_right_edge()==boost::get<1>(state));
+    assert(get_position_left_edge()==boost::get<0>(state));
+    //move_right_edge_to(ops, boost::get<1>(state));
+    //direction_move_local_window = boost::get<2>(state);
 };
 
 template<typename MODEL>
