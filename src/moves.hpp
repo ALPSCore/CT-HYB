@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <limits.h>
+#include <math.h>
 
 #include <boost/tuple/tuple.hpp>
 #include <boost/assert.hpp>
@@ -540,8 +541,13 @@ exchange_flavors(R & rng, SCALAR & det, double BETA, operator_container_t & crea
     const SCALAR det_new = cal_det(creation_operators_new, annihilation_operators_new, M_new, BETA,
                                    sliding_window.get_p_model()->get_F());
 
+    const bool isnan_tmp = std::isnan(get_real(det_new)) && std::isnan(get_imag(det_new));
+    if (isnan_tmp) {
+        std::cerr << "Warning: determinant of a new configuration is NaN. This may be because BETA is too large (overflow in computing determinant).";
+    }
+
     const SCALAR prob = (det_new / det) * (trace_new / trace);//Note: no permutation sign change
-    if (rng() < std::abs(prob)) {
+    if (!isnan_tmp && rng() < std::abs(prob)) {
         sign *= prob / std::abs(prob);
         trace = trace_new;
         det = det_new;
