@@ -15,6 +15,9 @@ template<typename T> T mycast(std::complex<double> val);
 template<typename T> T myconj(T val);
 template<typename T> T mysign(T x);
 
+template<typename T>
+bool my_isnan(T x);
+
 inline double get_real(std::complex<double> x) {
     return x.real();
 }

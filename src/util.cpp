@@ -22,6 +22,16 @@ std::complex<double> myconj(std::complex<double> val) {
     return std::conj(val);
 }
 
+template<>
+bool my_isnan(double x) {
+    return std::isnan(x);
+}
+
+template<>
+bool my_isnan(std::complex<double> x) {
+    return std::isnan(get_real(x)) || std::isnan(get_imag(x));
+}
+
 double permutation(size_t N, size_t k) {
     assert(k>0);
     double r=1.0;

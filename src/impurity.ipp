@@ -219,11 +219,26 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       }
     }
 
+    if (my_isnan(det)) {
+      throw std::runtime_error("det is NaN after insertion/removal/shift update");
+    }
+    if (my_isnan(trace)) {
+      throw std::runtime_error("trace is NaN after insertion/removal/shift update");
+    }
+
+
     const double time2 = timer.elapsed().wall*1E-9;
     timings[0] += time2 - time1;
 
     //Perform global updates which might cost O(beta)
     expensive_updates();
+
+    if (my_isnan(det)) {
+      throw std::runtime_error("det is NaN after global update");
+    }
+    if (my_isnan(trace)) {
+      throw std::runtime_error("trace is NaN after global update");
+    }
 
     check_consistency_operators(operators, creation_operators, annihilation_operators);
     sanity_check();
