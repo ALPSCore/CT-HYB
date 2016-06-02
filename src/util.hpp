@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/multi_array.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 
 #include <Eigen/Core>
 #include <Eigen/Sparse>
@@ -18,6 +19,12 @@ template<typename T> T mysign(T x);
 template<typename T>
 bool my_isnan(T x);
 
+//namespace std {
+  //bool isnan(boost::multiprecision::cpp_dec_float_50 x) {
+      //return boost::math::isnan(x);
+  //}
+//}
+
 inline double get_real(std::complex<double> x) {
     return x.real();
 }
@@ -32,6 +39,22 @@ inline double get_real(double x) {
 
 inline double get_imag(double x) {
     return 0.0;
+}
+
+inline boost::multiprecision::cpp_dec_float_50  get_real(boost::multiprecision::cpp_dec_float_50 x) {
+    return x;
+}
+
+inline boost::multiprecision::cpp_dec_float_50  get_imag(boost::multiprecision::cpp_dec_float_50 x) {
+    return 0.0;
+}
+
+inline boost::multiprecision::cpp_dec_float_50 get_real(std::complex<boost::multiprecision::cpp_dec_float_50> x) {
+    return x.real();
+}
+
+inline boost::multiprecision::cpp_dec_float_50 get_imag(std::complex<boost::multiprecision::cpp_dec_float_50> x) {
+    return x.real();
 }
 
 template<typename T>
@@ -194,3 +217,70 @@ get_imag_parts(const boost::multi_array<SCALAR,DIMENSION>& data) {
 }
 
 template <class RNG> double open_random(RNG& rng, double t1, double t2, double eps=1e-10) {return (t1-t2)*((1-eps)*rng()+eps/2)+t2;}
+
+
+template<typename T1, typename T2>
+T1 mypow(T1 x, T2 N) {
+    return std::pow(x,N);
+}
+
+template<typename T2>
+boost::multiprecision::cpp_dec_float_50 mypow(boost::multiprecision::cpp_dec_float_50 x, T2 N) {
+    return boost::multiprecision::pow(x,N);
+}
+
+template<typename T2>
+std::complex<boost::multiprecision::cpp_dec_float_50> mypow(std::complex<boost::multiprecision::cpp_dec_float_50> x, T2 N) {
+    return boost::multiprecision::pow(x,N);
+}
+
+inline double myabs(double x) {
+    return std::abs(x);
+}
+
+inline double myabs(std::complex<double> x) {
+    return std::abs(x);
+}
+
+inline boost::multiprecision::cpp_dec_float_50 myabs(boost::multiprecision::cpp_dec_float_50 x) {
+    return boost::multiprecision::abs(x);
+}
+
+inline boost::multiprecision::cpp_dec_float_50 myabs(std::complex<boost::multiprecision::cpp_dec_float_50> x) {
+    return boost::multiprecision::sqrt(x.real()*x.real()+x.imag()*x.imag());
+}
+
+//Compute the determinant of a matrix avoiding underflow and overflow
+//Note: This make a copy of the matrix.
+template<typename ReturnType, typename Derived>
+ReturnType
+safe_determinant(const Eigen::MatrixBase<Derived>& mat) {
+    typedef typename Derived::RealScalar RealScalar;
+    assert(mat.rows()==mat.cols());
+    const int N = mat.rows();
+    if (N==0) {
+        return ReturnType(1.0);
+    }
+    Eigen::Matrix<typename Derived::Scalar,Eigen::Dynamic,Eigen::Dynamic> mat_copy(mat);
+    const RealScalar max_coeff = mat_copy.cwiseAbs().maxCoeff();
+    if (max_coeff==0.0) {
+        return ReturnType(0.0);
+    }
+    mat_copy /= max_coeff;
+    return ReturnType(mat_copy.determinant())*mypow(ReturnType(max_coeff), 1.*N);
+}
+
+//Compute the inverse of a matrix avoiding underflow and overflow
+//Note: This make a copy of the matrix.
+template<typename Derived>
+inline
+void
+safe_invert_in_place(Eigen::MatrixBase<Derived>& mat) {
+    typedef typename Derived::RealScalar RealScalar;
+
+    const int N = mat.rows();
+    const RealScalar max_coeff = mat.cwiseAbs().maxCoeff();
+
+    Eigen::Matrix<typename Derived::Scalar,Eigen::Dynamic,Eigen::Dynamic> mat_copy = mat/max_coeff;
+    mat = mat_copy.inverse()/max_coeff;
+}

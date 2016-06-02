@@ -1,9 +1,11 @@
 #ifndef ___UPDATE___
 #define ___UPDATE___
 
+#include "util.hpp"
+
 template<class SCALAR>
 inline SCALAR dsign(SCALAR s) {
-    double abs_s = std::abs(s);
+    SCALAR abs_s = myabs(s);
     if (abs_s==0.0) {
         throw std::runtime_error("dsign: s must not be zero");
     } else {
@@ -357,25 +359,25 @@ void compute_M_row_column_down(int position_c, int position_a, MAT & M) {
   M_new.swap(M);
 }
 
-template <class O, class G, class MAT> 
-typename MAT::type
+template <class RET, class O, class G, class MAT>
+RET
 cal_det(const O& creation_operators, const O& annihilation_operators, MAT& M, double BETA, const G& F) {
     typedef typename MAT::type SCALAR;
 
     const int size1 = creation_operators.size();
 
-    if (size1==0) return 1.0;
+    if (size1==0) return RET(1.0);
 
     assert(creation_operators.size()==annihilation_operators.size());
 
     Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> matrix(size1,size1);
     construct_blas_matrix(matrix, creation_operators, annihilation_operators, BETA, F);
-    SCALAR det = matrix.determinant();
+    RET det = safe_determinant<RET>(matrix);
 
     M.destructive_resize(size1,size1);
     if (size1>0) {
       M.block() = matrix;
-      M.invert();
+      M.safe_invert();
     }
     return det;
 }

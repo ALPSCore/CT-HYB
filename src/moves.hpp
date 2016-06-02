@@ -13,10 +13,10 @@
 template<class SCALAR>
 bool equal_det(SCALAR det1, SCALAR det2) {
     const double eps = 1E-8;
-    if (std::abs(det1)<eps && std::abs(det2)<eps) {
+    if (myabs(det1)<eps && myabs(det2)<eps) {
         return true;
     }
-    return (std::abs((det2-det1)/det1)<eps);
+    return (myabs((det2-det1)/det1)<eps);
 }
 
 /**
@@ -69,8 +69,8 @@ inline std::pair<psi, psi> operators_remove_nocopy(operator_container_t &operato
 
 // update_type, accepted, distance, acceptance probability, valid_move_generated
 // Note: this function is too long. Better to split into several functions.
-template<typename SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
-boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int creation_flavor, int annihilation_flavor, SCALAR & det, double BETA,
+template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
+boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int creation_flavor, int annihilation_flavor, EXTENDED_SCALAR & det, double BETA,
         std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor, operator_container_t& creation_operators,
         operator_container_t& annihilation_operators, M_TYPE& M, SCALAR & sign, SCALAR & trace, operator_container_t& operators,
         double cutoff,
@@ -181,6 +181,7 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
             order_annihilation_flavor[flavor_rem] += 1;
             compute_M_row_column_up(row, column, M, sign_Fs, Fe_M, det_rat);
 
+            assert(!my_isnan(det_rat));
             det *= det_rat;
             sign *= prob/std::abs(prob);
             trace=trace_new;
@@ -275,9 +276,9 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
     }
 }
 
-template<typename SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
+template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
 boost::tuple<bool,double,bool,int>
-shift_lazy(R & rng, SCALAR & det, double BETA, operator_container_t & creation_operators,
+shift_lazy(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & creation_operators,
       operator_container_t & annihilation_operators, M_TYPE & M, SCALAR &sign, SCALAR &trace,
       operator_container_t & operators, double distance,
       SLIDING_WINDOW& sliding_window)
@@ -433,7 +434,7 @@ shift_lazy(R & rng, SCALAR & det, double BETA, operator_container_t & creation_o
             det *= det_rat;
         }
 #ifndef NDEBUG
-        if (!equal_det(det, 1.0/M.determinant())) {
+        if (!equal_det(det, static_cast<EXTENDED_SCALAR>(1.0/M.template safe_determinant<EXTENDED_SCALAR>())) ) {
             std::cout << "ERROR IN SHIFT UPDATE "
             << "det (fast update) = " << det
             << "det (M^-1) = " << 1./M.determinant()
@@ -455,9 +456,9 @@ shift_lazy(R & rng, SCALAR & det, double BETA, operator_container_t & creation_o
  * If you introduce a cutoff in outer states of the trace, it may not be always the case.
  * This update will prevent Monte Carlo dynamics from getting stuck in a local minimum in such cases.
  */
-template<typename SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
+template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
 bool
-global_shift(R & rng, SCALAR & det, double BETA,  operator_container_t & creation_operators, operator_container_t & annihilation_operators,
+global_shift(R & rng, EXTENDED_SCALAR & det, double BETA,  operator_container_t & creation_operators, operator_container_t & annihilation_operators,
            std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor,
            M_TYPE & M, SCALAR &sign, SCALAR &trace,
            operator_container_t & operators, SLIDING_WINDOW& sliding_window
@@ -510,9 +511,9 @@ global_shift(R & rng, SCALAR & det, double BETA,  operator_container_t & creatio
     }
 }
 
-template<typename SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW, typename Iterator>
+template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW, typename Iterator>
 bool
-exchange_flavors(R & rng, SCALAR & det, double BETA, operator_container_t & creation_operators, operator_container_t & annihilation_operators,
+exchange_flavors(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & creation_operators, operator_container_t & annihilation_operators,
                  std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor,
                  M_TYPE & M, SCALAR &sign, SCALAR &trace,
                  operator_container_t & operators,
@@ -538,15 +539,15 @@ exchange_flavors(R & rng, SCALAR & det, double BETA, operator_container_t & crea
     copy_exchange_flavors_ops(creation_operators, creation_operators_new, new_flavors_first);
     copy_exchange_flavors_ops(annihilation_operators, annihilation_operators_new, new_flavors_first);
     M_TYPE M_new;
-    const SCALAR det_new = cal_det(creation_operators_new, annihilation_operators_new, M_new, BETA,
+    const EXTENDED_SCALAR det_new = cal_det<EXTENDED_SCALAR>(creation_operators_new, annihilation_operators_new, M_new, BETA,
                                    sliding_window.get_p_model()->get_F());
 
-    const bool isnan_tmp = std::isnan(get_real(det_new)) && std::isnan(get_imag(det_new));
+    const bool isnan_tmp = my_isnan(det_new);
     if (isnan_tmp) {
         std::cerr << "Warning: determinant of a new configuration is NaN. This may be because BETA is too large (overflow in computing determinant).";
     }
 
-    const SCALAR prob = (det_new / det) * (trace_new / trace);//Note: no permutation sign change
+    const SCALAR prob = static_cast<SCALAR>((det_new / det) * (trace_new / trace));//Note: no permutation sign change
     if (!isnan_tmp && rng() < std::abs(prob)) {
         sign *= prob / std::abs(prob);
         trace = trace_new;

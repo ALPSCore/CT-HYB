@@ -12,6 +12,80 @@
 #include<Eigen/LU>
 
 namespace alps {
+  template<typename T1, typename T2>
+  T1 mypow(T1 x, T2 N) {
+    return std::pow(x,N);
+  }
+
+  template<typename T2>
+  boost::multiprecision::cpp_dec_float_50 mypow(boost::multiprecision::cpp_dec_float_50 x, T2 N) {
+    return boost::multiprecision::pow(x,N);
+  }
+
+  template<typename T2>
+  std::complex<boost::multiprecision::cpp_dec_float_50> mypow(std::complex<boost::multiprecision::cpp_dec_float_50> x, T2 N) {
+    return boost::multiprecision::pow(x,N);
+  }
+
+  //Compute the determinant of a matrix avoiding underflow and overflow
+  //Note: This make a copy of the matrix.
+  template<typename ReturnType, typename Derived>
+  ReturnType
+  safe_determinant(const Eigen::MatrixBase<Derived> &mat) {
+    typedef typename Derived::RealScalar RealScalar;
+    assert(mat.rows() == mat.cols());
+    const int N = mat.rows();
+    if (N == 0) {
+      return ReturnType(1.0);
+    }
+    Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, Eigen::Dynamic> mat_copy(mat);
+    const RealScalar max_coeff = mat_copy.cwiseAbs().maxCoeff();
+    if (max_coeff == 0.0) {
+      return ReturnType(0.0);
+    }
+    mat_copy /= max_coeff;
+    return ReturnType(mat_copy.determinant()) * mypow(ReturnType(max_coeff), 1. * N);
+  }
+
+  //Compute the determinant of a matrix avoiding underflow and overflow
+  //Note: This make a copy of the matrix.
+  template<typename ReturnType, typename Derived>
+  ReturnType
+  safe_determinant_eigen_block(const Eigen::Block<const Derived>& mat) {
+    typedef typename Derived::Scalar Scalar;
+    typedef typename Derived::RealScalar RealScalar;
+
+    assert(mat.rows()==mat.cols());
+    const int N = mat.rows();
+    if (N==0) {
+      return 1.0;
+    }
+    Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic> mat_copy(mat);
+    const RealScalar max_coeff = mat_copy.cwiseAbs().maxCoeff();
+    if (max_coeff==0.0) {
+      return 0.0;
+    }
+    mat_copy /= max_coeff;
+    return ReturnType(mat_copy.determinant())*mypow(ReturnType(max_coeff), 1.*N);
+  }
+
+//Compute the inverse of a matrix avoiding underflow and overflow
+//Note: This make a copy of the matrix.
+  template<typename Derived>
+  inline
+  void
+  safe_invert_in_place(Eigen::MatrixBase<Derived> &mat) {
+    typedef typename Derived::RealScalar RealScalar;
+
+    const int N = mat.rows();
+    const RealScalar max_coeff = mat.cwiseAbs().maxCoeff();
+
+    Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, Eigen::Dynamic> mat_copy = mat / max_coeff;
+    mat = mat_copy.inverse() / max_coeff;
+  }
+}
+
+namespace alps {
 
   template<typename Scalar>
   class ResizableMatrix {
@@ -189,6 +263,22 @@ namespace alps {
       return block().determinant();
     }
 
+    //This is well-defined for a square matrix
+    template<typename ExtendedScalar>
+    ExtendedScalar safe_determinant() const {
+      assert(is_allocated());
+      assert(size1_==size2_);
+
+      const int size = size1_;
+
+      //the simple ones...
+      if(size==0) return 1;
+      if(size==1) return operator()(0,0);
+      if(size==2) return operator()(0,0)*operator()(1,1)-operator()(0,1)*operator()(1,0);
+
+      return safe_determinant_eigen_block<ExtendedScalar>(block());
+    }
+
     inline void clear() {
       if (is_allocated()) {
         block().setZero();
@@ -228,6 +318,14 @@ namespace alps {
       assert(is_allocated());
       assert(size1_==size2_);
       eigen_matrix_t inv = block().inverse();
+      values_ = inv;//Should we use std::swap(*values_,inv)?
+    }
+
+    inline void safe_invert() {
+      assert(is_allocated());
+      assert(size1_==size2_);
+      eigen_matrix_t inv = block();
+      safe_invert_in_place(inv);
       values_ = inv;//Should we use std::swap(*values_,inv)?
     }
 

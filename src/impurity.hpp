@@ -30,6 +30,9 @@
 #include <boost/tuple/tuple_comparison.hpp>
 #include <boost/array.hpp>
 #include <boost/timer/timer.hpp>
+//#include <boost/type_traits/is_arithmetic.hpp>
+//#include <boost/utility/enable_if.hpp>
+//#include <boost/multiprecision/cpp_dec_float.hpp>
 
 //Eigen3
 #include<Eigen/Dense>
@@ -53,6 +56,33 @@
 #include "measurement.hpp"
 
 
+//Type for determinant
+//template<typename T, typename Enable = void>
+template<typename T>
+struct ExtendedScalar {
+  //typedef boost::multiprecision::cpp_dec_float_50 value_type;
+  typedef T value_type;
+};
+
+template<typename T>
+struct ExtendedScalar<std::complex<T> > {
+  //typedef std::complex<boost::multiprecision::cpp_dec_float_50> value_type;
+  typedef std::complex<T> value_type;
+};
+
+/*
+template<typename T>
+struct ExtendedScalar<T, typename boost::enable_if<typename boost::is_floating_point<T>::value>::type> {
+  typedef boost::multiprecision::cpp_dec_float_50 value_type;
+};
+
+template<typename T>
+struct ExtendedScalar<T, typename boost::disable_if<typename boost::is_floating_point<T>::value>::type> {
+  typedef std::complex<boost::multiprecision::cpp_dec_float_50> value_type;
+};
+ */
+
+
 template<typename IMP_MODEL>
 class HybridizationSimulation : public alps::mcbase
 {
@@ -65,6 +95,7 @@ public:
   typedef alps::ResizableMatrix<SCALAR> matrix_t;
   typedef std::complex<double> COMPLEX;
   typedef SlidingWindowManager<IMP_MODEL> SW_TYPE;
+  typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
 
   static void define_parameters(parameters_type & parameters);
   void create_observables(); //build ALPS observables
@@ -122,8 +153,10 @@ private:
   long sweeps;                          // sweeps done
   alps::ResizableMatrix<SCALAR> M;
   SCALAR sign;							// the sign of w=Z_k_up*Z_k'_down*trace
-  SCALAR det;
+  EXTENDED_SCALAR det;
   SCALAR trace;							// matrix trace
+
+  typedef typename std::iterator_traits<std::vector<int>::iterator>::value_type mytpe;
 
   operator_container_t operators;	// contains times and types (site, flavor) of the operators
   operator_container_t creation_operators;

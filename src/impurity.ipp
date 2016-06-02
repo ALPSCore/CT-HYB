@@ -118,6 +118,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
 
   //Two-time correlation functions
   read_two_time_correlation_functions();
+
 }
 
 
@@ -162,7 +163,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     for (int flavor = 0; flavor < FLAVORS; flavor++) {
       const int flavor_target = (int) (random() * FLAVORS);
       boost::tuple<int, bool, double, SCALAR, bool> r =
-        insert_remove_pair_flavor(random, flavor_target,flavor_target,det, BETA,
+        insert_remove_pair_flavor<SCALAR,EXTENDED_SCALAR>(random, flavor_target,flavor_target,det, BETA,
                                   order_creation_flavor,order_annihilation_flavor, creation_operators, annihilation_operators,
                                   M, sign, trace, operators, max_distance_pair, sliding_window, max_order);
 
@@ -434,7 +435,7 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
 
     for (int itry = 0; itry < swap_vector.size(); ++itry) {
       const int iupdate = execute_ordering[itry];
-      const bool accepted = exchange_flavors(random, det, BETA, creation_operators,
+      const bool accepted = exchange_flavors<SCALAR,EXTENDED_SCALAR>(random, det, BETA, creation_operators,
                    annihilation_operators,
                    order_creation_flavor, order_annihilation_flavor,
                    M, sign, trace, operators,
@@ -609,7 +610,7 @@ void HybridizationSimulation<IMP_MODEL>::sanity_check() const {
   }
 
   // compute determinants
-  SCALAR det_new = cal_det(creation_operators, annihilation_operators, M_new, BETA, p_model->get_F());
+  EXTENDED_SCALAR det_new = cal_det<EXTENDED_SCALAR>(creation_operators, annihilation_operators, M_new, BETA, p_model->get_F());
 
   // compute permuation sign
   SCALAR sign_new = 1.0;
@@ -641,11 +642,11 @@ void HybridizationSimulation<IMP_MODEL>::sanity_check() const {
     throw std::runtime_error("trace != trace_new");
   }
 
-  if (std::abs(det/det_new-1.0)>1E-5) {
+  if (std::abs((static_cast<SCALAR>(det/det_new)-1.0))>1E-5) {
     throw std::runtime_error("det_new != det");
   }
 
-  SCALAR sign_overall_new = dsign(sign_new)*dsign(trace)*dsign(det_new);
+  SCALAR sign_overall_new = dsign(sign_new)*dsign(trace)*static_cast<SCALAR>(dsign(det_new));
   //std::cout << "debug sign "<< sign_overall_new << " " << sign << std::endl;
   if (std::abs(sign_overall_new/sign-1.0)>1E-5) {
     throw std::runtime_error("sign_overall_new != sign");
