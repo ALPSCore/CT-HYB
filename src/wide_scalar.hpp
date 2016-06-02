@@ -182,7 +182,8 @@ std::ostream& operator<<(std::ostream& os, const alps::cthyb::wcomplex<T>& val) 
   return os;
 }
 
-typedef boost::multiprecision::cpp_dec_float_50 EXTENDED_REAL;
+typedef boost::multiprecision::number<boost::multiprecision::cpp_dec_float<15> > cpp_dec_float_15;
+typedef cpp_dec_float_15 EXTENDED_REAL;
 typedef alps::cthyb::wcomplex<EXTENDED_REAL> EXTENDED_COMPLEX;
 
 //Type traits
@@ -201,47 +202,47 @@ struct ExtendedScalar<std::complex<T> > {
  */
 //template <unsigned Digits10, class ExponentType2_t, class Allocator = void>
 //class cpp_dec_float
-inline boost::multiprecision::cpp_dec_float_50 get_real(const boost::multiprecision::cpp_dec_float_50& x) {
+inline cpp_dec_float_15 get_real(const cpp_dec_float_15& x) {
   return x;
 }
 
-inline boost::multiprecision::cpp_dec_float_50 get_imag(const boost::multiprecision::cpp_dec_float_50& x) {
+inline cpp_dec_float_15 get_imag(const cpp_dec_float_15& x) {
   return 0.0;
 }
 
-inline boost::multiprecision::cpp_dec_float_50 get_real(const std::complex<boost::multiprecision::cpp_dec_float_50>& x) {
+inline cpp_dec_float_15 get_real(const std::complex<cpp_dec_float_15>& x) {
   return x.real();
 }
 
-inline boost::multiprecision::cpp_dec_float_50 get_imag(const std::complex<boost::multiprecision::cpp_dec_float_50>& x) {
+inline cpp_dec_float_15 get_imag(const std::complex<cpp_dec_float_15>& x) {
   return x.real();
 }
 
-inline boost::multiprecision::cpp_dec_float_50 myabs(boost::multiprecision::cpp_dec_float_50 x) {
+inline cpp_dec_float_15 myabs(cpp_dec_float_15 x) {
   return boost::multiprecision::abs(x);
 }
 
-inline boost::multiprecision::cpp_dec_float_50
-myabs(const alps::cthyb::wcomplex<boost::multiprecision::cpp_dec_float_50>& x) {
+inline cpp_dec_float_15
+myabs(const alps::cthyb::wcomplex<cpp_dec_float_15>& x) {
   return boost::multiprecision::sqrt(x.real()*x.real() + x.imag()*x.imag());
 }
 
 inline
-bool my_isnan(boost::multiprecision::cpp_dec_float_50 x) {
+bool my_isnan(cpp_dec_float_15 x) {
   return boost::math::isnan(x);
 }
 
 inline
-bool my_isnan(alps::cthyb::wcomplex<boost::multiprecision::cpp_dec_float_50> x) {
+bool my_isnan(alps::cthyb::wcomplex<cpp_dec_float_15> x) {
   return my_isnan(x.real()) || my_isnan(x.imag());
 }
 
 template<typename T2>
-boost::multiprecision::cpp_dec_float_50 mypow(boost::multiprecision::cpp_dec_float_50 x, T2 N) {
+cpp_dec_float_15 mypow(cpp_dec_float_15 x, T2 N) {
   return boost::multiprecision::pow(x,N);
 }
 
-template<typename T2>
-std::complex<boost::multiprecision::cpp_dec_float_50> mypow(std::complex<boost::multiprecision::cpp_dec_float_50> x, T2 N) {
-  return boost::multiprecision::pow(x,N);
-}
+//template<typename T2>
+//std::complex<cpp_dec_float_15> mypow(std::complex<cpp_dec_float_15> x, T2 N) {
+  //return boost::multiprecision::pow(x,N);
+//}

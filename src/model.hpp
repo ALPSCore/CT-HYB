@@ -90,6 +90,9 @@ public:
     if (maxval == 0.0) {
       set_invalid();
       return;
+    } else if (std::abs(maxval)<1E+50 && std::abs(maxval)>1E-50) {
+      //no need for normalization
+      return;
     }
     coeff_ *= maxval;
     double rtmp = 1/maxval;
