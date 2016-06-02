@@ -10,6 +10,7 @@
 
 #include<Eigen/Dense>
 #include<Eigen/LU>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace alps {
   template<typename T1, typename T2>
