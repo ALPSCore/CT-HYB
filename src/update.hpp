@@ -6,7 +6,7 @@
 template<class SCALAR>
 inline SCALAR dsign(SCALAR s) {
     SCALAR abs_s = myabs(s);
-    if (abs_s==0.0) {
+    if (abs_s==SCALAR(0.0)) {
         throw std::runtime_error("dsign: s must not be zero");
     } else {
         return s/abs_s;

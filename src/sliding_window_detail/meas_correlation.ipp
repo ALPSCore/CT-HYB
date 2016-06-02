@@ -1,3 +1,5 @@
+#include "../sliding_window.hpp"
+
 template<typename SW, typename OBS>
 MeasCorrelation<SW,OBS>::MeasCorrelation(const std::vector<std::pair<OBS,OBS> >& correlators, int num_tau_points)
   : num_correlators_(correlators.size()),
@@ -25,7 +27,7 @@ MeasCorrelation<SW,OBS>::MeasCorrelation(const std::vector<std::pair<OBS,OBS> >&
 
 template<typename SW, typename OBS>
 void
-MeasCorrelation<SW,OBS>::perform_meas(SW& sw, const operator_container_t& operators, boost::multi_array<std::complex<double>,2>& result) const {
+MeasCorrelation<SW,OBS>::perform_meas(SW& sw, const operator_container_t& operators, boost::multi_array<EXTENDED_COMPLEX,2>& result) const {
   namespace bll = boost::lambda;
 
   typedef typename SW::BRAKET_TYPE BRAKET_TYPE;

@@ -30,9 +30,6 @@
 #include <boost/tuple/tuple_comparison.hpp>
 #include <boost/array.hpp>
 #include <boost/timer/timer.hpp>
-//#include <boost/type_traits/is_arithmetic.hpp>
-//#include <boost/utility/enable_if.hpp>
-//#include <boost/multiprecision/cpp_dec_float.hpp>
 
 //Eigen3
 #include<Eigen/Dense>
@@ -46,6 +43,7 @@
 #include <alps/mc/stop_callback.hpp>
 #include <alps/params/convenience_params.hpp>
 
+#include "wide_scalar.hpp"
 #include "operator.hpp"
 #include "model.hpp"
 #include "moves.hpp"
@@ -54,33 +52,6 @@
 #include "accumulator.hpp"
 #include "resizable_matrix.hpp"
 #include "measurement.hpp"
-
-
-//Type for determinant
-//template<typename T, typename Enable = void>
-template<typename T>
-struct ExtendedScalar {
-  //typedef boost::multiprecision::cpp_dec_float_50 value_type;
-  typedef T value_type;
-};
-
-template<typename T>
-struct ExtendedScalar<std::complex<T> > {
-  //typedef std::complex<boost::multiprecision::cpp_dec_float_50> value_type;
-  typedef std::complex<T> value_type;
-};
-
-/*
-template<typename T>
-struct ExtendedScalar<T, typename boost::enable_if<typename boost::is_floating_point<T>::value>::type> {
-  typedef boost::multiprecision::cpp_dec_float_50 value_type;
-};
-
-template<typename T>
-struct ExtendedScalar<T, typename boost::disable_if<typename boost::is_floating_point<T>::value>::type> {
-  typedef std::complex<boost::multiprecision::cpp_dec_float_50> value_type;
-};
- */
 
 
 template<typename IMP_MODEL>
@@ -154,7 +125,7 @@ private:
   alps::ResizableMatrix<SCALAR> M;
   SCALAR sign;							// the sign of w=Z_k_up*Z_k'_down*trace
   EXTENDED_SCALAR det;
-  SCALAR trace;							// matrix trace
+  EXTENDED_SCALAR trace;							// matrix trace
 
   typedef typename std::iterator_traits<std::vector<int>::iterator>::value_type mytpe;
 

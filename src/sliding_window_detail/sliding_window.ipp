@@ -1,3 +1,5 @@
+#include "../sliding_window.hpp"
+
 template<typename MODEL>
 SlidingWindowManager<MODEL>::SlidingWindowManager(MODEL* p_model_, double beta)
         : p_model(p_model_),
@@ -114,12 +116,14 @@ SlidingWindowManager<MODEL>::move_forward_right_edge(const operator_container_t&
         const double tau_edge_new = get_tau_edge(position_right_edge+1);
         //const int new_size = depth_right_states()+1;
         std::pair<op_it_t,op_it_t> ops_range = operators.range(tau_edge_old<=bll::_1, bll::_1<tau_edge_new);
-        double max_norm = -1;
+        EXTENDED_REAL max_norm = -1;
         for (int i_braket = 0; i_braket < num_brakets; ++i_braket) {
             right_states[i_braket].push_back(right_states[i_braket].back());
             evolve_ket(*p_model, right_states[i_braket].back(), ops_range, tau_edge_old, tau_edge_new);
             norm_right_states[i_braket].push_back(right_states[i_braket].back().compute_spectral_norm());
-            max_norm = std::max(max_norm, norm_right_states[i_braket].back());
+            if (max_norm < norm_right_states[i_braket].back()) {
+                max_norm = norm_right_states[i_braket].back();
+            }
         }
         for (int i_braket = 0; i_braket < num_brakets; ++i_braket) {
             if (norm_right_states[i_braket].back()<max_norm*1E-100) {
@@ -153,12 +157,14 @@ SlidingWindowManager<MODEL>::move_forward_left_edge(const operator_container_t& 
                                                                           bll::_1 <= tau_edge_old);
         //const int num_ops = std::distance(ops_range.first, ops_range.second);
 
-        double max_norm = -1;
+        EXTENDED_REAL max_norm = -1;
         for (int i_braket = 0; i_braket < num_brakets; ++i_braket) {
             left_states[i_braket].push_back(left_states[i_braket].back());
             evolve_bra(*p_model, left_states[i_braket].back(), ops_range, tau_edge_old, tau_edge_new);
             norm_left_states[i_braket].push_back(left_states[i_braket].back().compute_spectral_norm());
-            max_norm = std::max(max_norm, norm_left_states[i_braket].back());
+            if (max_norm < norm_left_states[i_braket].back()) {
+                max_norm = norm_left_states[i_braket].back();
+            }
         }
         for (int i_braket = 0; i_braket < num_brakets; ++i_braket) {
             if (norm_left_states[i_braket].back()<max_norm*1E-100) {
@@ -199,13 +205,13 @@ SlidingWindowManager<MODEL>::move_left_edge_to(const operator_container_t& opera
 
 
 template<typename MODEL>
-typename model_traits<MODEL>::SCALAR_T
+typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type
 SlidingWindowManager<MODEL>::compute_trace(const operator_container_t& operators) const {
     namespace bll = boost::lambda;
 
     sanity_check();
 
-    HAM_SCALAR_TYPE trace = 0.0;
+    EXTENDED_SCALAR trace = 0.0;
 
     const double tau_right = get_tau_edge(position_right_edge);
     const double tau_left = get_tau_edge(position_left_edge);
@@ -219,9 +225,10 @@ SlidingWindowManager<MODEL>::compute_trace(const operator_container_t& operators
 
         evolve_ket(*p_model, ket, ops_range, tau_right, tau_left);
         if (left_states[i_braket].back().sector()==ket.sector()) {
-            const HAM_SCALAR_TYPE trace_braket = p_model->product(left_states[i_braket].back(), ket);
+            const EXTENDED_SCALAR trace_braket = p_model->product(left_states[i_braket].back(), ket);
+            /*
 #ifndef NDEBUG
-            const double trace_bound = std::min(left_states[i_braket].back().min_dim(), ket.min_dim())
+            const typename BRAKET_TYPE::EXTENDED_REAL trace_bound = std::min(left_states[i_braket].back().min_dim(), ket.min_dim())
                *left_states[i_braket].back().compute_spectral_norm()
                *ket.compute_spectral_norm();
             if (!(trace_bound>=0)) {
@@ -234,6 +241,7 @@ SlidingWindowManager<MODEL>::compute_trace(const operator_container_t& operators
             const double eps = std::max(1E-8*std::max(std::abs(trace_braket),trace_bound),1E-8);
             assert(std::abs(trace_braket)<=trace_bound+eps);
 #endif
+             */
             trace += trace_braket;
         }
     }
@@ -241,7 +249,7 @@ SlidingWindowManager<MODEL>::compute_trace(const operator_container_t& operators
 }
 
 template<typename MODEL>
-typename model_traits<MODEL>::SCALAR_T
+typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type
 SlidingWindowManager<MODEL>::compute_trace_braket(int braket,
                                                                  std::pair<op_it_t, op_it_t> ops_range, double tau_left,
                                                                  double tau_right) const {
@@ -254,16 +262,17 @@ SlidingWindowManager<MODEL>::compute_trace_braket(int braket,
     }
 }
 
-struct bound_greater : std::binary_function <std::pair<double,int>,std::pair<double,int>,bool> {
-  bool operator() (const std::pair<double,int>& x, const std::pair<double,int>& y) const {
+template<typename T>
+struct bound_greater : std::binary_function <std::pair<T,int>,std::pair<T,int>,bool> {
+  bool operator() (const std::pair<T,int>& x, const std::pair<T,int>& y) const {
       return x.first>y.first;
   }
 };
 
 template<typename MODEL>
-std::pair<bool,typename model_traits<MODEL>::SCALAR_T>
-SlidingWindowManager<MODEL >::lazy_eval_trace(const operator_container_t& operators, double trace_cutoff,
-                                                            std::vector<double>& trace_bound) const {
+std::pair<bool, typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type>
+SlidingWindowManager<MODEL >::lazy_eval_trace(const operator_container_t& operators, EXTENDED_REAL trace_cutoff,
+                                                            std::vector<EXTENDED_REAL>& trace_bound) const {
     namespace bll = boost::lambda;
 
     sanity_check();
@@ -272,39 +281,39 @@ SlidingWindowManager<MODEL >::lazy_eval_trace(const operator_container_t& operat
     const double tau_left = get_tau_edge(position_left_edge);
     std::pair<op_it_t,op_it_t> ops_range = operators.range(tau_right<=bll::_1, bll::_1<=tau_left);
 
-    double trace_bound_current = std::accumulate(trace_bound.begin(), trace_bound.end(), 0.0);
+    EXTENDED_REAL trace_bound_current = std::accumulate(trace_bound.begin(), trace_bound.end(), EXTENDED_REAL(0.0) );
     assert(trace_bound_current>0.0);
 
     //sort trace bounds in decreasing order
-    std::vector<std::pair<double,int> > indices(num_brakets);
+    std::vector<std::pair<EXTENDED_REAL, int> > indices(num_brakets);
     for (int braket=0; braket<num_brakets; ++braket){
         indices[braket] = std::make_pair(trace_bound[braket],braket);
     }
-    std::sort(indices.begin(),indices.end(),bound_greater());
+    std::sort(indices.begin(),indices.end(),bound_greater<EXTENDED_REAL>());
 #ifndef NDEBUG
     for (int idx=0; idx<num_brakets-1; ++idx){
         assert(indices[idx].first>=indices[idx].first);
     }
 #endif
 
-    HAM_SCALAR_TYPE trace_sum = 0.0;
+    EXTENDED_SCALAR trace_sum = 0.0;
     for (int idx=0; idx<num_brakets; ++idx) {
         int braket = indices[idx].second;
-        if (trace_bound[braket]<1E-15*std::abs(trace_sum)) {
+        if (trace_bound[braket]<1E-15*myabs(trace_sum)) {
             break;
         }
 
-        const HAM_SCALAR_TYPE trace_braket = compute_trace_braket(braket, ops_range, tau_left, tau_right);
+        const EXTENDED_SCALAR trace_braket = compute_trace_braket(braket, ops_range, tau_left, tau_right);
 
-        assert(std::abs(trace_braket)<=trace_bound[braket]*1.01);
+        assert(myabs(trace_braket)<=trace_bound[braket]*1.01);
         trace_sum += trace_braket;
-        trace_bound[braket] = std::abs(trace_braket);
-        trace_bound_current = std::accumulate(trace_bound.begin(), trace_bound.end(), 0.0);
+        trace_bound[braket] = myabs(trace_braket);
+        trace_bound_current = std::accumulate(trace_bound.begin(), trace_bound.end(), EXTENDED_REAL(0.0) );
         if (trace_bound_current<trace_cutoff) {
             return std::make_pair(false,0.0);
         }
     }
-    return std::make_pair(std::abs(trace_sum)>trace_cutoff, trace_sum);
+    return std::make_pair(myabs(trace_sum)>trace_cutoff, trace_sum);
 }
 
 template<typename MODEL>
@@ -380,9 +389,9 @@ SlidingWindowManager<MODEL>::evolve_ket(const MODEL& model, BRAKET_TYPE& ket,
 }
 
 template<typename MODEL>
-double
+EXTENDED_REAL
 SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t& operators,
-                                                                std::vector<double>& bound) const {
+                                                                std::vector<EXTENDED_REAL>& bound) const {
     namespace bll = boost::lambda;
     const double tau_right = get_tau_edge(position_right_edge);
     const double tau_left = get_tau_edge(position_left_edge);
@@ -391,7 +400,7 @@ SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t& ope
     assert(tau_left>=tau_right);
     assert(bound.size()>=get_num_brakets());
     std::fill(bound.begin(), bound.end(), 0.0);
-    double trace_bound_sum = 0.0;
+    EXTENDED_REAL trace_bound_sum = 0.0;
     for (int braket = 0; braket<num_brakets; ++braket) {
         if (is_braket_invalid(braket)) {
             continue;
@@ -399,7 +408,7 @@ SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t& ope
 
         int min_dim = right_states[braket].back().min_dim();
         int sector_ket = right_states[braket].back().sector();
-        double norm_prod = 1.0;
+        EXTENDED_REAL norm_prod = 1.0;
 
         const int num_ops = std::distance(ops_range.first,ops_range.second);
         if (num_ops > 0) {

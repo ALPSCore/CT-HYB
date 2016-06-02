@@ -1,3 +1,5 @@
+#include "../sliding_window.hpp"
+
 template<typename SCALAR> SCALAR mycast(std::complex<double>);
 
 template<typename SW, typename OBS>
@@ -14,7 +16,7 @@ MeasStaticObs<SW,OBS>::MeasStaticObs(SW& sw, const operator_container_t &operato
 
 template<typename SW, typename OBS>
 void
-MeasStaticObs<SW,OBS>::perform_meas(const std::vector<OBS>& obs, std::vector<SCALAR>& result) const {
+MeasStaticObs<SW,OBS>::perform_meas(const std::vector<OBS>& obs, std::vector<EXTENDED_COMPLEX>& result) const {
   const int num_obs = obs.size();
   result.resize(num_obs);
   std::fill(result.begin(),result.end(),0.0);
@@ -25,7 +27,7 @@ MeasStaticObs<SW,OBS>::perform_meas(const std::vector<OBS>& obs, std::vector<SCA
     for (int i_obs=0; i_obs<num_obs; ++i_obs) {
       typename SW::BRAKET_TYPE ket(sw_.get_ket(braket));
       sw_.get_p_model()->apply_op_ket(obs[i_obs], ket);
-      result[i_obs] += mycast<SCALAR>(sw_.get_p_model()->product(sw_.get_bra(braket), ket));
+      result[i_obs] += static_cast<EXTENDED_COMPLEX>(sw_.get_p_model()->product(sw_.get_bra(braket), ket));
     }
   }
 }

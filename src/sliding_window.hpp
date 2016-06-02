@@ -2,7 +2,9 @@
 
 #include <boost/tuple/tuple.hpp>
 #include <boost/multi_array.hpp>
+#include <boost/static_assert.hpp>
 
+#include "wide_scalar.hpp"
 #include "operator.hpp"
 #include "model.hpp"
 
@@ -19,8 +21,10 @@ public:
   typedef MODEL IMPURITY_MODEL;
   typedef typename model_traits<MODEL>::SCALAR_T HAM_SCALAR_TYPE;
   typedef typename model_traits<MODEL>::BRAKET_T  BRAKET_TYPE;//class Braket is defined in model.hpp
+  typedef typename ExtendedScalar<HAM_SCALAR_TYPE>::value_type EXTENDED_SCALAR;
   typedef typename operator_container_t::iterator op_it_t;
   typedef typename boost::tuple<int,int,ITIME_AXIS_LEFT_OR_RIGHT,int> state_t;//pos of left edge, pos of right edge, direction of move, num of windows
+  BOOST_STATIC_ASSERT(boost::is_same<typename BRAKET_TYPE::norm_type, EXTENDED_REAL>::value);
 
   SlidingWindowManager(MODEL* p_model, double beta);
 
@@ -58,10 +62,11 @@ public:
   void move_window_to(const operator_container_t& operators, ITIME_AXIS_LEFT_OR_RIGHT direction);
 
   //Computing trace
-  typename model_traits<MODEL>::SCALAR_T compute_trace(const operator_container_t& ops) const;
-  std::pair<bool,typename model_traits<MODEL>::SCALAR_T> lazy_eval_trace(const operator_container_t& ops, double trace_cutoff,
-                                                                         std::vector<double>& bound) const;
-  double compute_trace_bound(const operator_container_t& ops, std::vector<double>& bound) const;
+  typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type compute_trace(const operator_container_t& ops) const;
+  std::pair<bool,
+    typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type>
+    lazy_eval_trace(const operator_container_t& ops, EXTENDED_REAL trace_cutoff, std::vector<EXTENDED_REAL>& bound) const;
+  EXTENDED_REAL compute_trace_bound(const operator_container_t& ops, std::vector<EXTENDED_REAL>& bound) const;
 
   //static function for imaginary-time evolution of a bra or a ket
   static void evolve_bra(const MODEL& model, BRAKET_TYPE& bra, std::pair<op_it_t,op_it_t> ops_range, double tau_old, double tau_new);
@@ -83,15 +88,15 @@ private:
   inline bool is_braket_invalid(int braket) const {
       return right_states[braket].back().invalid() || left_states[braket].back().invalid();
   }
-  inline typename model_traits<MODEL>::SCALAR_T compute_trace_braket(int braket,
-                                                                     std::pair<op_it_t,op_it_t> ops_range, double tau_left, double tau_right) const;
+  inline typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type
+  compute_trace_braket(int braket, std::pair<op_it_t,op_it_t> ops_range, double tau_left, double tau_right) const;
 
   std::vector<std::vector<BRAKET_TYPE> > left_states, right_states;//bra and ket, respectively
   int position_left_edge, position_right_edge, n_window;
   ITIME_AXIS_LEFT_OR_RIGHT direction_move_local_window; //0: left, 1: right
 
   //for lazy evalulation of trace using spectral norm
-  std::vector<std::vector<double> > norm_left_states, norm_right_states;
+  std::vector<std::vector<EXTENDED_REAL> > norm_left_states, norm_right_states;
 
   inline void sanity_check() const;
 };
@@ -105,7 +110,7 @@ private:
 
 public:
   MeasStaticObs(SW& sw, const operator_container_t& operators); //move the both edges to the same imaginary time in the middle
-  void perform_meas(const std::vector<OBS>& obs, std::vector<SCALAR>& result) const;
+  void perform_meas(const std::vector<OBS>& obs, std::vector<EXTENDED_COMPLEX>& result) const;
   ~MeasStaticObs(); //restore the sliding window
 
 private:
@@ -124,7 +129,7 @@ private:
 
 public:
   MeasCorrelation(const std::vector<std::pair<OBS,OBS> >& correlators, int num_tau_points); //move the both edges to the same imaginary time in the middle
-  void perform_meas(SW& sw, const operator_container_t &operators, boost::multi_array<std::complex<double>,2>& result) const;
+  void perform_meas(SW& sw, const operator_container_t &operators, boost::multi_array<EXTENDED_COMPLEX,2>& result) const;
 
   ~MeasCorrelation(); //restore the sliding window
 

@@ -12,18 +12,14 @@
 #include <vector>
 #include <complex>
 
+#include "wide_scalar.hpp"
+
 template<typename T> T mycast(std::complex<double> val);
 template<typename T> T myconj(T val);
 template<typename T> T mysign(T x);
 
 template<typename T>
 bool my_isnan(T x);
-
-//namespace std {
-  //bool isnan(boost::multiprecision::cpp_dec_float_50 x) {
-      //return boost::math::isnan(x);
-  //}
-//}
 
 inline double get_real(std::complex<double> x) {
     return x.real();
@@ -39,22 +35,6 @@ inline double get_real(double x) {
 
 inline double get_imag(double x) {
     return 0.0;
-}
-
-inline boost::multiprecision::cpp_dec_float_50  get_real(boost::multiprecision::cpp_dec_float_50 x) {
-    return x;
-}
-
-inline boost::multiprecision::cpp_dec_float_50  get_imag(boost::multiprecision::cpp_dec_float_50 x) {
-    return 0.0;
-}
-
-inline boost::multiprecision::cpp_dec_float_50 get_real(std::complex<boost::multiprecision::cpp_dec_float_50> x) {
-    return x.real();
-}
-
-inline boost::multiprecision::cpp_dec_float_50 get_imag(std::complex<boost::multiprecision::cpp_dec_float_50> x) {
-    return x.real();
 }
 
 template<typename T>
@@ -174,28 +154,33 @@ double spectral_norm_diag(const M& mat) {
             max_abs = std::max(max_abs,std::abs(mat_tmp(i,j)));
         }
     }
-    if (max_abs==0.0) {
+    if (std::abs(max_abs) < 1E-300) {
         return 0.0;
-    }
-    const double coeff = 1.0/max_abs;
-    for (int j=0; j<cols; ++j) {
-        for (int i=0; i<rows; ++i) {
-            mat_tmp(i,j) *= coeff;
-            if (std::abs(mat_tmp(i,j))<cutoff)  {
-                mat_tmp(i,j) = 0.0;
+    } else {
+        const double coeff = 1.0/max_abs;
+        for (int j=0; j<cols; ++j) {
+            for (int i=0; i<rows; ++i) {
+                mat_tmp(i,j) *= coeff;
+                if (std::abs(mat_tmp(i,j))<cutoff)  {
+                    mat_tmp(i,j) = 0.0;
+                }
             }
         }
+        if (mat_tmp.rows()>mat_tmp.cols()) {
+            mat_tmp = mat_tmp.adjoint()*mat_tmp;
+        } else {
+            mat_tmp = mat_tmp*mat_tmp.adjoint();
+        }
+        Eigen::SelfAdjointEigenSolver<matrix_t> esolv(mat_tmp,false);
+        //Eigen::Matrix<double,Eigen::Dynamic,1> abs_evals = esolv.eigenvalues().cwiseAbs();
+        const double norm = std::sqrt(esolv.eigenvalues().cwiseAbs().maxCoeff())/coeff;
+        if (isnan(norm)) {
+            std::cout << "debug " << max_abs << std::endl;
+            std::cout << mat_tmp;
+        }
+        assert(!isnan(norm));
+        return norm;
     }
-    if (mat_tmp.rows()>mat_tmp.cols()) {
-      mat_tmp = mat_tmp.adjoint()*mat_tmp;
-    } else {
-      mat_tmp = mat_tmp*mat_tmp.adjoint();
-    }
-    Eigen::SelfAdjointEigenSolver<matrix_t> esolv(mat_tmp,false);
-    //Eigen::Matrix<double,Eigen::Dynamic,1> abs_evals = esolv.eigenvalues().cwiseAbs();
-    const double norm = std::sqrt(esolv.eigenvalues().cwiseAbs().maxCoeff())/coeff;
-    assert(!isnan(norm));
-    return norm;
 }
 
 //Extract real parts of boost::muliti_array
@@ -224,15 +209,6 @@ T1 mypow(T1 x, T2 N) {
     return std::pow(x,N);
 }
 
-template<typename T2>
-boost::multiprecision::cpp_dec_float_50 mypow(boost::multiprecision::cpp_dec_float_50 x, T2 N) {
-    return boost::multiprecision::pow(x,N);
-}
-
-template<typename T2>
-std::complex<boost::multiprecision::cpp_dec_float_50> mypow(std::complex<boost::multiprecision::cpp_dec_float_50> x, T2 N) {
-    return boost::multiprecision::pow(x,N);
-}
 
 inline double myabs(double x) {
     return std::abs(x);
@@ -242,13 +218,6 @@ inline double myabs(std::complex<double> x) {
     return std::abs(x);
 }
 
-inline boost::multiprecision::cpp_dec_float_50 myabs(boost::multiprecision::cpp_dec_float_50 x) {
-    return boost::multiprecision::abs(x);
-}
-
-inline boost::multiprecision::cpp_dec_float_50 myabs(std::complex<boost::multiprecision::cpp_dec_float_50> x) {
-    return boost::multiprecision::sqrt(x.real()*x.real()+x.imag()*x.imag());
-}
 
 //Compute the determinant of a matrix avoiding underflow and overflow
 //Note: This make a copy of the matrix.
@@ -267,7 +236,7 @@ safe_determinant(const Eigen::MatrixBase<Derived>& mat) {
         return ReturnType(0.0);
     }
     mat_copy /= max_coeff;
-    return ReturnType(mat_copy.determinant())*mypow(ReturnType(max_coeff), 1.*N);
+    return ReturnType(mat_copy.determinant())*mypow(max_coeff, 1.*N);
 }
 
 //Compute the inverse of a matrix avoiding underflow and overflow

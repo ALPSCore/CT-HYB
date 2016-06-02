@@ -167,3 +167,27 @@ std::vector<T> to_std_vector(const boost::multi_array<T,N>& array) {
   }
   return std_vec;
 }
+
+//multiprecision version
+template<typename T, unsigned long N>
+std::vector<double> to_double_std_vector(const boost::multi_array<T,N>& array) {
+  std::vector<double> std_vec(array.num_elements());
+  const T* it = array.origin();
+  for (int count=0; count<array.num_elements(); ++count) {
+    std_vec[count] = it->template convert_to<double>();
+    ++it;
+  }
+  return std_vec;
+}
+
+//multiprecision version
+template<typename T, unsigned long N>
+std::vector<std::complex<double> > to_complex_double_std_vector(const boost::multi_array<T,N>& array) {
+  std::vector<std::complex<double> > std_vec(array.num_elements());
+  const T* it = array.origin();
+  for (int count=0; count<array.num_elements(); ++count) {
+    std_vec[count] = it->template convert_to<std::complex<double> >();
+    ++it;
+  }
+  return std_vec;
+}

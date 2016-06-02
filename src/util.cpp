@@ -28,14 +28,10 @@ bool my_isnan(double x) {
 }
 
 template<>
-bool my_isnan(boost::multiprecision::cpp_dec_float_50 x) {
-    return boost::math::isnan(x);
-}
-
-template<>
 bool my_isnan(std::complex<double> x) {
     return my_isnan(get_real(x)) || my_isnan(get_imag(x));
 }
+
 
 double permutation(size_t N, size_t k) {
     assert(k>0);

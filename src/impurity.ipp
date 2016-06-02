@@ -226,6 +226,9 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     if (my_isnan(trace)) {
       throw std::runtime_error("trace is NaN after insertion/removal/shift update");
     }
+    if (my_isnan(sign)) {
+      throw std::runtime_error("sign is NaN after insertion/removal/shift update");
+    }
 
 
     const double time2 = timer.elapsed().wall*1E-9;
@@ -239,6 +242,9 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     }
     if (my_isnan(trace)) {
       throw std::runtime_error("trace is NaN after global update");
+    }
+    if (my_isnan(sign)) {
+      throw std::runtime_error("sign is NaN after global update");
     }
 
     check_consistency_operators(operators, creation_operators, annihilation_operators);
@@ -357,7 +363,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_n() {
   assert(is_thermalized());
   MeasStaticObs<SlidingWindowManager<IMP_MODEL>,CdagC> meas(sliding_window, operators);
   std::vector<CdagC> ops(FLAVORS);
-  std::vector<SCALAR> result_meas(FLAVORS);
+  std::vector<EXTENDED_COMPLEX> result_meas(FLAVORS);
   for (int flavor=0; flavor<FLAVORS; ++flavor) {
     boost::array<int,2> flavors_tmp;
     flavors_tmp[0] = flavor;
@@ -372,8 +378,9 @@ void HybridizationSimulation<IMP_MODEL>::measure_n() {
   // <n> = <n>_MC/<sign>_MC: <sign>_MC=real, <n>_MC=real, <n>=real
   //Note: we must take the real part of the quantity after it's multiplied by "sign/trace".
   std::vector<double> result_meas_Re(FLAVORS);
+  EXTENDED_COMPLEX inv_trace = static_cast<EXTENDED_SCALAR>(EXTENDED_SCALAR(1.0)/trace);
   for (int flavor=0; flavor<FLAVORS; ++flavor) {
-    result_meas_Re[flavor] = get_real(result_meas[flavor]*sign/trace);
+    result_meas_Re[flavor] = static_cast<EXTENDED_REAL>(get_real(result_meas[flavor]*sign*inv_trace)).template convert_to<double>();
   }
   measurements["n"] << result_meas_Re;
 }
@@ -386,13 +393,13 @@ void HybridizationSimulation<IMP_MODEL>::measure_two_time_correlation_functions(
     return;
   }
 
-  boost::multi_array<std::complex<double>,2> result;
+  boost::multi_array<EXTENDED_COMPLEX,2> result;
   p_meas_corr->perform_meas(sliding_window, operators, result);
-  //std::cout << "debug " << result[0][0] << " " << trace << std::endl;
+  const EXTENDED_COMPLEX coeff = EXTENDED_COMPLEX(sign)/EXTENDED_COMPLEX(trace);
   std::transform(result.origin(), result.origin()+result.num_elements(), result.origin(),
-                 std::bind1st(std::multiplies<std::complex<double> >(),sign/trace));
+                 std::bind1st(std::multiplies<EXTENDED_COMPLEX>(), coeff));
 
-  measure_simple_vector_observable<COMPLEX>(measurements, "Two_time_correlation_functions", to_std_vector(result));
+  measure_simple_vector_observable<COMPLEX>(measurements, "Two_time_correlation_functions", to_complex_double_std_vector(result));
 }
 
 //for std::random_shuffle
@@ -442,6 +449,15 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
       const int source_template = swap_vector[iupdate].second;
       if (accepted) {
         swap_acc_rate[iupdate].accepted();
+        if (my_isnan(det)) {
+          throw std::runtime_error("det is NaN after swap update"+boost::lexical_cast<std::string>(itry));
+        }
+        if (my_isnan(trace)) {
+          throw std::runtime_error("trace is NaN after swap update"+boost::lexical_cast<std::string>(itry));
+        }
+        if (my_isnan(sign)) {
+          throw std::runtime_error("sign is NaN after swap update"+boost::lexical_cast<std::string>(itry));
+        }
       } else {
         swap_acc_rate[iupdate].rejected();
       }
@@ -456,6 +472,15 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
                                        M, sign, trace, operators, sliding_window);
     if (accepted) {
       global_shift_acc_rate.accepted();
+      if (my_isnan(det)) {
+        throw std::runtime_error("det is NaN after global shift");
+      }
+      if (my_isnan(trace)) {
+        throw std::runtime_error("trace is NaN after global shift");
+      }
+      if (my_isnan(sign)) {
+        throw std::runtime_error("sign is NaN after global shift");
+      }
     } else {
       global_shift_acc_rate.rejected();
       if (p_model->translationally_invariant()) {
@@ -632,17 +657,19 @@ void HybridizationSimulation<IMP_MODEL>::sanity_check() const {
   }
 
   // compute trace
-  SCALAR trace_sw = sliding_window.compute_trace(operators_new);
+  EXTENDED_SCALAR trace_sw = sliding_window.compute_trace(operators_new);
 
-  if (std::abs(trace_sw/trace-1.0)>1E-5) {
+  if (myabs(static_cast<EXTENDED_SCALAR>(trace_sw/trace).template convert_to<SCALAR>()-1.0)>1E-5) {
     throw std::runtime_error("trace != trace_new");
   }
 
-  if (std::abs((static_cast<SCALAR>(det/det_new)-1.0))>1E-5) {
+  if (std::abs((EXTENDED_SCALAR(det/det_new).template convert_to<SCALAR>()-1.0))>1E-5) {
     throw std::runtime_error("det_new != det");
   }
 
-  SCALAR sign_overall_new = dsign(sign_new)*dsign(trace)*static_cast<SCALAR>(dsign(det_new));
+  SCALAR sign_overall_new = dsign(sign_new)
+                            *dsign(trace).template convert_to<SCALAR>()
+                            *dsign(det_new).template convert_to<SCALAR>();
   //std::cout << "debug sign "<< sign_overall_new << " " << sign << std::endl;
   if (std::abs(sign_overall_new/sign-1.0)>1E-5) {
     throw std::runtime_error("sign_overall_new != sign");

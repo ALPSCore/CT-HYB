@@ -11,6 +11,7 @@
 #include <boost/multi_array.hpp>
 #include <boost/format.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 
 #include <boost/lambda/lambda.hpp>
 
@@ -39,17 +40,21 @@ const int nirvana=-1;
 template<typename Scalar, typename OBJ>
 class Braket {
 public:
-  Braket() : sector_(nirvana), obj_(0,0) {}
+  typedef EXTENDED_REAL norm_type;
+
+  Braket() : sector_(nirvana), obj_(0,0), coeff_(1.0) {}
 
   Braket(int sector, const OBJ& obj) {
     sector_ = sector;
     obj_ = obj;
+    coeff_ = 1.0;
   }
 
   //Accessors
   inline int sector() const {return sector_;};
   inline const OBJ& obj() const {return obj_;};
   inline OBJ& obj() {return obj_;};
+  inline EXTENDED_REAL coeff() const {return coeff_;};
 
   inline bool invalid() const {
     return (sector_==nirvana || size1(obj_)==0 || size2(obj_)==0);
@@ -67,19 +72,42 @@ public:
   inline void swap_obj(OBJ& obj) {
     using std::swap;
     swap(obj_, obj);
+    normalize();
   }
 
   inline int min_dim() const {
     return std::min(size1(obj_), size2(obj_));
   }
 
-  inline double compute_spectral_norm() const {
-    return invalid() ? 0.0 : spectral_norm_diag<Scalar>(obj_);
+  inline norm_type compute_spectral_norm() const {
+    return invalid() ? norm_type(0.0) : coeff_*spectral_norm_diag<Scalar>(obj_);
+  }
+
+  void normalize() {
+    if (invalid()) return;
+
+    double maxval = obj_.cwiseAbs().maxCoeff();
+    if (maxval == 0.0) {
+      set_invalid();
+      return;
+    }
+    coeff_ *= maxval;
+    double rtmp = 1/maxval;
+    for (int j=0; j<obj_.cols(); ++j) {
+      for (int i=0; i<obj_.rows(); ++i) {
+        if (std::abs(obj_(i,j))<maxval*1E-30) {
+          obj_(i,j) = 0.0;
+        } else {
+          obj_(i,j) *= rtmp;
+        }
+      }
+    }
   }
 
 private:
   int sector_;
   OBJ obj_;
+  norm_type coeff_;
 };
 
 template<class T>
@@ -117,6 +145,8 @@ struct model_traits {};
 template<typename SCALAR, typename DERIVED>
 class ImpurityModel {
 public:
+  typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
+
   //! Type of a bra and a ket for imaginary time evolution. This may be a matrix type, vector type, etc.
   typedef typename model_traits<DERIVED>::BRAKET_T BRAKET_T;
 
@@ -194,7 +224,8 @@ public:
 
   void apply_op_hyb_ket(const OPERATOR_TYPE& op_type, int flavor, BRAKET_T& ket) const;
 
-  SCALAR product(const BRAKET_T& bra, const BRAKET_T& ket) const;
+  typename ExtendedScalar<SCALAR>::value_type
+    product(const BRAKET_T& bra, const BRAKET_T& ket) const;
 
   //Apply exp(-t H0) on a bra or a ket
   void sector_propagate_bra(BRAKET_T& bra, double t) const;
@@ -299,8 +330,7 @@ private:
 
 public:
   typedef Braket<SCALAR,Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> > BRAKET_T;
-//  using Base::get_dst_sector_ket;
-//  using Base::get_dst_sector_bra;
+  using typename Base::EXTENDED_SCALAR;
 
   ImpurityModelEigenBasis(const alps::params& par, bool verbose=false);
   ImpurityModelEigenBasis(const alps::params& par, const std::vector<boost::tuple<int,int,SCALAR> >& nonzero_t_vals_list,
@@ -309,7 +339,7 @@ public:
 
   void apply_op_hyb_bra(const OPERATOR_TYPE& op_type, int flavor, BRAKET_T& bra) const;
   void apply_op_hyb_ket(const OPERATOR_TYPE& op_type, int flavor, BRAKET_T& ket) const;
-  SCALAR product(const BRAKET_T& bra, const BRAKET_T& ket) const;
+  typename ExtendedScalar<SCALAR>::value_type product(const BRAKET_T& bra, const BRAKET_T& ket) const;
 
   inline int dim_sector(int sector) const {
     assert(sector>=0 && sector<eigenvals_sector.size());
