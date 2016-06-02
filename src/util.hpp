@@ -1,7 +1,6 @@
 #pragma once
 
 #include <boost/multi_array.hpp>
-#include <boost/multiprecision/cpp_dec_float.hpp>
 
 #include <Eigen/Core>
 #include <Eigen/Sparse>
@@ -204,10 +203,10 @@ get_imag_parts(const boost::multi_array<SCALAR,DIMENSION>& data) {
 template <class RNG> double open_random(RNG& rng, double t1, double t2, double eps=1e-10) {return (t1-t2)*((1-eps)*rng()+eps/2)+t2;}
 
 
-template<typename T1, typename T2>
-T1 mypow(T1 x, T2 N) {
-    return std::pow(x,N);
-}
+//template<typename T1, typename T2>
+//T1 mypow(T1 x, T2 N) {
+    //return std::pow(x,N);
+//}
 
 
 inline double myabs(double x) {
@@ -236,7 +235,7 @@ safe_determinant(const Eigen::MatrixBase<Derived>& mat) {
         return ReturnType(0.0);
     }
     mat_copy /= max_coeff;
-    return ReturnType(mat_copy.determinant())*mypow(max_coeff, 1.*N);
+    return ReturnType(mat_copy.determinant())*mypow(EXTENDED_REAL(max_coeff), N);
 }
 
 //Compute the inverse of a matrix avoiding underflow and overflow
