@@ -17,6 +17,7 @@ namespace alps {
     return std::pow(x,N);
   }
 
+  /*
   template<typename T2>
   boost::multiprecision::cpp_dec_float_50 mypow(boost::multiprecision::cpp_dec_float_50 x, T2 N) {
     return boost::multiprecision::pow(x,N);
@@ -26,6 +27,7 @@ namespace alps {
   std::complex<boost::multiprecision::cpp_dec_float_50> mypow(std::complex<boost::multiprecision::cpp_dec_float_50> x, T2 N) {
     return boost::multiprecision::pow(x,N);
   }
+  */
 
   //Compute the determinant of a matrix avoiding underflow and overflow
   //Note: This make a copy of the matrix.
