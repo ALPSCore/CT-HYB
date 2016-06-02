@@ -315,11 +315,7 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   }
 
   //Measure <n>
-#ifndef NDEBUG
-  const typename SlidingWindowManager<IMP_MODEL>::state_t state_bak = sliding_window.get_state();
-#endif
   measure_n();
-  assert(sliding_window.get_state()==state_bak);
 
   //Measure <n>
   measure_two_time_correlation_functions();
