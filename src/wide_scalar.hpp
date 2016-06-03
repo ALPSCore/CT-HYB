@@ -1,15 +1,49 @@
 //
-// Simple complex class for boost::multiprecision
-// H. Shinaoka
+// Define USE_QUAD_FLAOT to activate the support of quad floats
+//  Some of operations will be performed using quad floats.
 //
 
 #pragma once
 
 #include <complex>
 
-#include <boost/multiprecision/cpp_dec_float.hpp>
-#include <boost/multiprecision/cpp_bin_float.hpp>
+#ifndef USE_QUAD_FLOAT
 
+typedef double EXTENDED_REAL;
+typedef std::complex<double> EXTENDED_COMPLEX;
+
+template<typename T>
+double mypow(double x, T N) {
+  return std::pow(x, N);
+}
+
+inline double convert_to_scalar(const EXTENDED_REAL& x) {
+  return x;
+}
+
+inline std::complex<double> convert_to_scalar(const EXTENDED_COMPLEX& x) {
+  return x;
+}
+
+inline double convert_to_double(const double& x) {
+  return x;
+}
+
+inline double convert_to_double(const std::complex<double>& x) {
+  return x.real();
+}
+
+inline std::complex<double> convert_to_complex(const double& x) {
+  return std::complex<double>(x, 0.0);
+}
+
+inline std::complex<double> convert_to_complex(const std::complex<double>& x) {
+  return x;
+}
+
+#else
+
+#include <boost/multiprecision/cpp_bin_float.hpp>
 
 template<typename T> class wcomplex;
 
@@ -211,17 +245,6 @@ std::ostream& operator<<(std::ostream& os, const wcomplex<T>& val) {
 }
 
 
-//Type traits
-template<typename T>
-struct ExtendedScalar {
-  typedef EXTENDED_REAL value_type;
-};
-
-template<typename T>
-struct ExtendedScalar<std::complex<T> > {
-  typedef EXTENDED_COMPLEX value_type;
-};
-
 /**
  * Some auxially functions
  */
@@ -266,3 +289,42 @@ template<typename T>
 EXTENDED_REAL mypow(EXTENDED_REAL x, T N) {
   return boost::multiprecision::pow(x,N);
 }
+
+/*
+ * Cast operator
+ */
+inline double convert_to_scalar(const EXTENDED_REAL& x) {
+  return x.convert_to<double>();
+}
+
+inline std::complex<double> convert_to_scalar(const EXTENDED_COMPLEX& x) {
+  return x.convert_to<std::complex<double> >();
+}
+
+inline double convert_to_double(const EXTENDED_REAL& x) {
+  return x.convert_to<double>();
+}
+
+inline std::complex<double> convert_to_complex(const EXTENDED_REAL& x) {
+  return std::complex<double>(x.convert_to<double>(), 0.0);
+}
+
+inline std::complex<double> convert_to_complex(const EXTENDED_COMPLEX& x) {
+  return std::complex<double>(
+    x.real().convert_to<double>(),
+    x.imag().convert_to<double>()
+  );
+}
+
+#endif
+
+//Type traits
+template<typename T>
+struct ExtendedScalar {
+  typedef EXTENDED_REAL value_type;
+};
+
+template<typename T>
+struct ExtendedScalar<std::complex<T> > {
+  typedef EXTENDED_COMPLEX value_type;
+};

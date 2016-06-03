@@ -380,7 +380,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_n() {
   std::vector<double> result_meas_Re(FLAVORS);
   EXTENDED_COMPLEX inv_trace = static_cast<EXTENDED_SCALAR>(EXTENDED_SCALAR(1.0)/trace);
   for (int flavor=0; flavor<FLAVORS; ++flavor) {
-    result_meas_Re[flavor] = static_cast<EXTENDED_REAL>(get_real(result_meas[flavor]*sign*inv_trace)).template convert_to<double>();
+    result_meas_Re[flavor] = convert_to_scalar(static_cast<EXTENDED_REAL>(get_real(result_meas[flavor]*sign*inv_trace)));
   }
   measurements["n"] << result_meas_Re;
 }

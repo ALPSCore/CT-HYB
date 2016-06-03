@@ -167,7 +167,7 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
             const SCALAR rest = (((tau_high-tau_low)*(t_rem_max-t_rem_min))/num_pairs_after_insertion)*det_rat*(1.*perm_change)*(1.*flavor_sign);
             const EXTENDED_REAL trace_cutoff = myabs(r_th*trace/rest);
             boost::tie(accepted,trace_new) = sliding_window.lazy_eval_trace(operators, trace_cutoff, trace_bound);
-            prob = rest*static_cast<EXTENDED_SCALAR>(trace_new/trace).template convert_to<SCALAR>();
+            prob = rest*convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new/trace));
             assert(accepted==std::abs(prob)>r_th);
         } else {
             accepted = false;
@@ -247,7 +247,7 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
                                 det_rat*(1.*perm_change)*(1.*flavor_sign);
             const EXTENDED_REAL trace_cutoff = myabs(static_cast<EXTENDED_SCALAR>(r_th*trace/rest));
             boost::tie(accepted,trace_new) = sliding_window.lazy_eval_trace(operators, trace_cutoff, trace_bound);
-            prob = rest*static_cast<EXTENDED_SCALAR>(trace_new/trace).template convert_to<SCALAR>();
+            prob = rest*convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new/trace));
             assert(accepted==std::abs(prob)>r_th);
         } else {
             accepted = false;
@@ -395,7 +395,7 @@ shift_lazy(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & c
         const SCALAR rest = det_rat * permutation_change;
         const EXTENDED_REAL trace_cutoff = myabs(r_th*trace/rest);
         boost::tie(accepted,trace_new) = sliding_window.lazy_eval_trace(operators, trace_cutoff, trace_bound);
-        prob = rest*static_cast<EXTENDED_SCALAR>(trace_new/trace).template convert_to<SCALAR>();
+        prob = rest*convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new/trace));
         assert(accepted==std::abs(prob)>r_th);
     } else {
         accepted = false;
@@ -497,7 +497,7 @@ global_shift(R & rng, EXTENDED_SCALAR & det, double BETA,  operator_container_t 
     const SCALAR det_rat = update_inverse_matrix_global_shift(M, M_new, creation_operators, annihilation_operators, BETA, shift);
 
     const double perm_trace_change =  ( (creation_operators.size()*num_ops_crossed)%2==0 ? 1 : -1);
-    const SCALAR prob = det_rat*static_cast<EXTENDED_SCALAR>(trace_new/trace).template convert_to<SCALAR>()*perm_trace_change;
+    const SCALAR prob = det_rat*convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new/trace))*perm_trace_change;
 
     if (rng() < std::abs(prob)) {
         sign *= prob/std::abs(prob);
@@ -553,10 +553,13 @@ exchange_flavors(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container
     }
 
     const SCALAR prob =
-      EXTENDED_SCALAR(
-        EXTENDED_SCALAR(det_new/det)*
-        EXTENDED_SCALAR(trace_new/trace)
-      ).template convert_to<SCALAR>();//Note: no permutation sign change
+      convert_to_scalar(
+        EXTENDED_SCALAR(
+          EXTENDED_SCALAR(det_new/det)*
+          EXTENDED_SCALAR(trace_new/trace)
+        )
+      );
+    //Note: no permutation sign change
     if (!isnan_tmp && rng() < std::abs(prob)) {
         if (my_isnan(sign*(prob / std::abs(prob)))) {
             std::cout << "debug " << det_new << std::endl;

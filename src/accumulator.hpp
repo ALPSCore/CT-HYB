@@ -186,7 +186,7 @@ std::vector<std::complex<double> > to_complex_double_std_vector(const boost::mul
   std::vector<std::complex<double> > std_vec(array.num_elements());
   const T* it = array.origin();
   for (int count=0; count<array.num_elements(); ++count) {
-    std_vec[count] = it->template convert_to<std::complex<double> >();
+    std_vec[count] = convert_to_complex(*it);//->template convert_to<std::complex<double> >();
     ++it;
   }
   return std_vec;
