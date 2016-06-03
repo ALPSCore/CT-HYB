@@ -8,12 +8,14 @@
 #include <complex>
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
+#include <boost/multiprecision/cpp_bin_float.hpp>
 
 
 template<typename T> class wcomplex;
 
-typedef boost::multiprecision::number<boost::multiprecision::cpp_dec_float<15> > cpp_dec_float_15;
-typedef cpp_dec_float_15 EXTENDED_REAL;
+//typedef boost::multiprecision::number<boost::multiprecision::cpp_dec_float<15> > cpp_dec_float_15;
+//typedef cpp_dec_float_15 EXTENDED_REAL;
+typedef boost::multiprecision::cpp_bin_float_quad EXTENDED_REAL;
 typedef wcomplex<EXTENDED_REAL> EXTENDED_COMPLEX;
 
 template<typename T>
@@ -225,61 +227,42 @@ struct ExtendedScalar<std::complex<T> > {
  */
 //template <unsigned Digits10, class ExponentType2_t, class Allocator = void>
 //class cpp_dec_float
-inline cpp_dec_float_15 get_real(const cpp_dec_float_15& x) {
+inline EXTENDED_REAL get_real(const EXTENDED_REAL& x) {
   return x;
 }
 
-inline cpp_dec_float_15 get_imag(const cpp_dec_float_15& x) {
+inline EXTENDED_REAL get_imag(const EXTENDED_REAL& x) {
   return 0.0;
 }
 
-inline cpp_dec_float_15 get_real(const std::complex<cpp_dec_float_15>& x) {
-  return x.real();
-}
+//inline EXTENDED_REAL get_real(const std::complex<EXTENDED_REAL>& x) {
+  //return x.real();
+//}
 
-inline cpp_dec_float_15 get_imag(const std::complex<cpp_dec_float_15>& x) {
-  return x.real();
-}
+//inline EXTENDED_REAL get_imag(const std::complex<EXTENDED_REAL>& x) {
+  //return x.real();
+//}
 
-inline cpp_dec_float_15 myabs(cpp_dec_float_15 x) {
+inline EXTENDED_REAL myabs(EXTENDED_REAL x) {
   return boost::multiprecision::abs(x);
 }
 
-inline cpp_dec_float_15
-myabs(const wcomplex<cpp_dec_float_15>& x) {
+inline EXTENDED_REAL
+myabs(const wcomplex<EXTENDED_REAL>& x) {
   return boost::multiprecision::sqrt(x.real()*x.real() + x.imag()*x.imag());
 }
 
 inline
-bool my_isnan(cpp_dec_float_15 x) {
+bool my_isnan(EXTENDED_REAL x) {
   return boost::math::isnan(x);
 }
 
 inline
-bool my_isnan(wcomplex<cpp_dec_float_15> x) {
+bool my_isnan(wcomplex<EXTENDED_REAL> x) {
   return my_isnan(x.real()) || my_isnan(x.imag());
 }
 
 template<typename T>
-cpp_dec_float_15 mypow(cpp_dec_float_15 x, T N) {
+EXTENDED_REAL mypow(EXTENDED_REAL x, T N) {
   return boost::multiprecision::pow(x,N);
 }
-
-//silly implementation takes O(N)
-//EXTENDED_COMPLEX mypow(EXTENDED_COMPLEX x, int N) {
-//EXTENDED_COMPLEX r(1.0, 0.0);
-//for (int i=0; i<N; ++i) {
-//r *= x;
-//}
-//return r;
-//}
-
-//template<typename T>
-//cpp_dec_float_15
-//mypow(cpp_dec_float_15 x, T N) {
-//return boost::multiprecision::pow(x,N);
-//}
-//template<typename T2>
-//std::complex<cpp_dec_float_15> mypow(std::complex<cpp_dec_float_15> x, T2 N) {
-//return boost::multiprecision::pow(x,N);
-//}
