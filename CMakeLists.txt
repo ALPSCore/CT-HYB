@@ -11,6 +11,8 @@ find_package(Boost 1.55.0 REQUIRED timer)
 find_package(MPI REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+#ALPSCore disable debug for gf library
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 
 #include directories
 set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH}) #rest taken care of by libraries dependencies 
