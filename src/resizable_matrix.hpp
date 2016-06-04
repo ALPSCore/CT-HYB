@@ -69,7 +69,7 @@ namespace alps {
       return 0.0;
     }
     mat_copy /= max_coeff;
-    return ReturnType(mat_copy.determinant())*mypow(ReturnType(max_coeff), 1.*N);
+    return ReturnType(mat_copy.determinant())*mypow(max_coeff, 1.*N);
   }
 
 //Compute the inverse of a matrix avoiding underflow and overflow

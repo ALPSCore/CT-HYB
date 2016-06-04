@@ -306,7 +306,6 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_ket(
     ket.swap_obj(work_mat);
   }
   ket.set_sector(sector_new);
-  assert(dim_sector(ket.sector())==size1(ket.obj()));
 }
 
 template<typename SCALAR>
@@ -332,18 +331,18 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_bra(const OPERATOR_TYPE& op_t
     bra.swap_obj(work_mat);
   }
   bra.set_sector(sector_new);
-  assert(dim_sector(bra.sector())==size2(bra.obj()));
 }
 
 
 template<typename SCALAR>
-SCALAR ImpurityModelEigenBasis<SCALAR>::product(const BRAKET_T& bra, const BRAKET_T& ket) const {
+typename ExtendedScalar<SCALAR>::value_type
+ImpurityModelEigenBasis<SCALAR>::product(const BRAKET_T& bra, const BRAKET_T& ket) const {
   if (bra.invalid() || ket.invalid() || bra.sector()!=ket.sector()) {
     return 0.0;
   }
   assert(size2(bra.obj())==size1(ket.obj()));
   assert(size1(bra.obj())==size2(ket.obj()));
-  return (bra.obj()*ket.obj()).trace();
+  return static_cast<EXTENDED_SCALAR>(bra.coeff()*ket.coeff())*(bra.obj()*ket.obj()).trace();
 }
 
 template<typename SCALAR>

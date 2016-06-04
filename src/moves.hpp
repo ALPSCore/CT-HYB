@@ -6,9 +6,11 @@
 
 #include <boost/tuple/tuple.hpp>
 #include <boost/assert.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 
 #include "update.hpp"
 #include "operator_util.hpp"
+#include "wide_scalar.hpp"
 
 template<class SCALAR>
 bool equal_det(SCALAR det1, SCALAR det2) {
@@ -72,7 +74,7 @@ inline std::pair<psi, psi> operators_remove_nocopy(operator_container_t &operato
 template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
 boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int creation_flavor, int annihilation_flavor, EXTENDED_SCALAR & det, double BETA,
         std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor, operator_container_t& creation_operators,
-        operator_container_t& annihilation_operators, M_TYPE& M, SCALAR & sign, SCALAR & trace, operator_container_t& operators,
+        operator_container_t& annihilation_operators, M_TYPE& M, SCALAR & sign, EXTENDED_SCALAR & trace, operator_container_t& operators,
         double cutoff,
         SLIDING_WINDOW& sliding_window,
         unsigned int max_order=UINT_MAX
@@ -81,7 +83,7 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
     namespace bll = boost::lambda;
 
     // insert and remove random pair (times and flavors)
-    static std::vector<double> trace_bound(sliding_window.get_num_brakets());
+    static std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
     bool valid_move_generated = false;
 
     int flavor_ins = creation_flavor;
@@ -125,7 +127,7 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
         safe_insert(operators,op_ins);
         safe_insert(operators,op_rem);
 
-        const double trace_bound_sum = sliding_window.compute_trace_bound(operators, trace_bound);
+        const EXTENDED_REAL trace_bound_sum = sliding_window.compute_trace_bound(operators, trace_bound);
         if (trace_bound_sum==0.0) {
             safe_erase(operators,op_ins);
             safe_erase(operators,op_rem);
@@ -159,12 +161,13 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
         const int perm_change = compute_permutation_change(operators, t_ins, t_rem);
 
         bool accepted;
-        SCALAR trace_new, prob;
+        EXTENDED_SCALAR trace_new;
+        SCALAR prob;
         if (det_rat!=0.0) {
             const SCALAR rest = (((tau_high-tau_low)*(t_rem_max-t_rem_min))/num_pairs_after_insertion)*det_rat*(1.*perm_change)*(1.*flavor_sign);
-            const double trace_cutoff = std::abs(r_th*trace/rest);
+            const EXTENDED_REAL trace_cutoff = myabs(r_th*trace/rest);
             boost::tie(accepted,trace_new) = sliding_window.lazy_eval_trace(operators, trace_cutoff, trace_bound);
-            prob = rest*(trace_new/trace);
+            prob = rest*convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new/trace));
             assert(accepted==std::abs(prob)>r_th);
         } else {
             accepted = false;
@@ -221,7 +224,7 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
         // Caution have to compute perm_change after removing operators
         int perm_change=compute_permutation_change(operators, c_time, a_time);
 
-        const double trace_bound_sum = sliding_window.compute_trace_bound(operators, trace_bound);
+        const EXTENDED_REAL trace_bound_sum = sliding_window.compute_trace_bound(operators, trace_bound);
         if (trace_bound_sum==0.0) {
             safe_insert(operators,removed_ops.second); //remove annihilator
             safe_insert(operators,removed_ops.first); //remove creator
@@ -237,13 +240,14 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
         const double t_rem_range_in_reverse_process = std::min(c_time+cutoff,tau_high)-std::max(c_time-cutoff,tau_low);
 
         bool accepted;
-        SCALAR trace_new, prob;
+        EXTENDED_SCALAR trace_new;
+        SCALAR prob;
         if (det_rat!=0.0) {
             const SCALAR rest = ((1.*num_pairs_old)/(t_ins_range_in_reverse_process*t_rem_range_in_reverse_process))*
                                 det_rat*(1.*perm_change)*(1.*flavor_sign);
-            const double trace_cutoff = std::abs(r_th*trace/rest);
+            const EXTENDED_REAL trace_cutoff = myabs(static_cast<EXTENDED_SCALAR>(r_th*trace/rest));
             boost::tie(accepted,trace_new) = sliding_window.lazy_eval_trace(operators, trace_cutoff, trace_bound);
-            prob = rest*(trace_new/trace);
+            prob = rest*convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new/trace));
             assert(accepted==std::abs(prob)>r_th);
         } else {
             accepted = false;
@@ -279,14 +283,14 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
 boost::tuple<bool,double,bool,int>
 shift_lazy(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & creation_operators,
-      operator_container_t & annihilation_operators, M_TYPE & M, SCALAR &sign, SCALAR &trace,
+      operator_container_t & annihilation_operators, M_TYPE & M, SCALAR &sign, EXTENDED_SCALAR &trace,
       operator_container_t & operators, double distance,
       SLIDING_WINDOW& sliding_window)
 {
     namespace bll = boost::lambda;
     typedef operator_container_t::iterator it_t;
 
-    std::vector<double> trace_bound(sliding_window.get_num_brakets());
+    std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
 
     assert(distance<=BETA);
     bool accepted = false;
@@ -370,7 +374,7 @@ shift_lazy(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & c
     assert(removed_op.type()==type);
     assert(removed_op.time()==old_t);
 
-    const double trace_bound_sum = sliding_window.compute_trace_bound(operators, trace_bound);
+    const EXTENDED_REAL trace_bound_sum = sliding_window.compute_trace_bound(operators, trace_bound);
     if (trace_bound_sum==0.0) {
         safe_erase(operators,new_operator);
         safe_insert(operators,removed_op);
@@ -384,13 +388,14 @@ shift_lazy(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & c
                         (new_t, position, flavor, M, creation_operators, sliding_window.get_p_model()->get_F(), BETA)
     );
 
-    SCALAR trace_new, prob;
+    EXTENDED_SCALAR trace_new;
+    SCALAR prob;
     const double r_th = rng();
     if (det_rat!=0.0) {
         const SCALAR rest = det_rat * permutation_change;
-        const double trace_cutoff = std::abs(r_th*trace/rest);
+        const EXTENDED_REAL trace_cutoff = myabs(r_th*trace/rest);
         boost::tie(accepted,trace_new) = sliding_window.lazy_eval_trace(operators, trace_cutoff, trace_bound);
-        prob = rest*(trace_new/trace);
+        prob = rest*convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new/trace));
         assert(accepted==std::abs(prob)>r_th);
     } else {
         accepted = false;
@@ -434,7 +439,7 @@ shift_lazy(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & c
             det *= det_rat;
         }
 #ifndef NDEBUG
-        if (!equal_det(det, static_cast<EXTENDED_SCALAR>(1.0/M.template safe_determinant<EXTENDED_SCALAR>())) ) {
+        if (!equal_det(EXTENDED_SCALAR(det), static_cast<EXTENDED_SCALAR>(EXTENDED_SCALAR(1.0)/M.template safe_determinant<EXTENDED_SCALAR>())) ) {
             std::cout << "ERROR IN SHIFT UPDATE "
             << "det (fast update) = " << det
             << "det (M^-1) = " << 1./M.determinant()
@@ -460,7 +465,7 @@ template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE,
 bool
 global_shift(R & rng, EXTENDED_SCALAR & det, double BETA,  operator_container_t & creation_operators, operator_container_t & annihilation_operators,
            std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor,
-           M_TYPE & M, SCALAR &sign, SCALAR &trace,
+           M_TYPE & M, SCALAR &sign, EXTENDED_SCALAR &trace,
            operator_container_t & operators, SLIDING_WINDOW& sliding_window
           )
 {
@@ -482,8 +487,8 @@ global_shift(R & rng, EXTENDED_SCALAR & det, double BETA,  operator_container_t 
     assert(creation_operators_new.size()+annihilation_operators_new.size()==operators_new.size());
 
     //compute new trace
-    SCALAR trace_new = sliding_window.compute_trace(operators_new);
-    if (trace_new == 0.0) {
+    EXTENDED_SCALAR trace_new = sliding_window.compute_trace(operators_new);
+    if (trace_new == EXTENDED_SCALAR(0.0) ) {
         return false;
     }
 
@@ -492,7 +497,7 @@ global_shift(R & rng, EXTENDED_SCALAR & det, double BETA,  operator_container_t 
     const SCALAR det_rat = update_inverse_matrix_global_shift(M, M_new, creation_operators, annihilation_operators, BETA, shift);
 
     const double perm_trace_change =  ( (creation_operators.size()*num_ops_crossed)%2==0 ? 1 : -1);
-    const SCALAR prob = det_rat*(trace_new/trace)*perm_trace_change;
+    const SCALAR prob = det_rat*convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new/trace))*perm_trace_change;
 
     if (rng() < std::abs(prob)) {
         sign *= prob/std::abs(prob);
@@ -515,7 +520,7 @@ template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE,
 bool
 exchange_flavors(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & creation_operators, operator_container_t & annihilation_operators,
                  std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor,
-                 M_TYPE & M, SCALAR &sign, SCALAR &trace,
+                 M_TYPE & M, SCALAR &sign, EXTENDED_SCALAR &trace,
                  operator_container_t & operators,
                  const SLIDING_WINDOW& sliding_window,
                  int num_flavors, Iterator new_flavors_first
@@ -529,8 +534,8 @@ exchange_flavors(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container
     //compute new trace
     operator_container_t operators_new;
     copy_exchange_flavors_ops(operators, operators_new, new_flavors_first);
-    const SCALAR trace_new = sliding_window.compute_trace(operators_new);
-    if (trace_new == 0.0) {
+    const EXTENDED_SCALAR trace_new = sliding_window.compute_trace(operators_new);
+    if (trace_new == EXTENDED_SCALAR(0.0) ) {
         return false;
     }
 
@@ -547,8 +552,24 @@ exchange_flavors(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container
         std::cerr << "Warning: determinant of a new configuration is NaN. This may be because BETA is too large (overflow in computing determinant).";
     }
 
-    const SCALAR prob = static_cast<SCALAR>((det_new / det) * (trace_new / trace));//Note: no permutation sign change
+    const SCALAR prob =
+      convert_to_scalar(
+        EXTENDED_SCALAR(
+          EXTENDED_SCALAR(det_new/det)*
+          EXTENDED_SCALAR(trace_new/trace)
+        )
+      );
+    //Note: no permutation sign change
     if (!isnan_tmp && rng() < std::abs(prob)) {
+        if (my_isnan(sign*(prob / std::abs(prob)))) {
+            std::cout << "debug " << det_new << std::endl;
+            std::cout << "debug " << det << std::endl;
+            std::cout << "debug " << trace_new << std::endl;
+            std::cout << "debug " << trace << std::endl;
+            std::cout << "debug " << prob << std::endl;
+            std::cout << "debug " << std::abs(prob) << std::endl;
+            std::cout << "debug " << prob/std::abs(prob) << std::endl;
+        }
         sign *= prob / std::abs(prob);
         trace = trace_new;
         det = det_new;
