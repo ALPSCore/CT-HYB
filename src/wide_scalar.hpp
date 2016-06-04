@@ -7,7 +7,7 @@
 
 #include <complex>
 
-#ifndef USE_QUAD_FLOAT
+#ifndef USE_QUAD_PRECISION
 
 typedef double EXTENDED_REAL;
 typedef std::complex<double> EXTENDED_COMPLEX;

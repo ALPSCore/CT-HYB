@@ -11,6 +11,12 @@ find_package(Boost 1.55.0 REQUIRED timer)
 find_package(MPI REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+# Option (use quad precision for part of calculations)
+option(USE_QUAD_PRECISION "Use quad precision for part of calculations" OFF)
+if(USE_QUAD_PRECISION)
+    add_definitions(-DUSE_QUAD_PRECISION)
+endif()
+
 #ALPSCore disable debug for gf library
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 
