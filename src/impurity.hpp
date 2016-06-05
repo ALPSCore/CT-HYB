@@ -124,7 +124,7 @@ private:
   long sweeps;                          // sweeps done
   alps::ResizableMatrix<SCALAR> M;
   SCALAR sign;							// the sign of w=Z_k_up*Z_k'_down*trace
-  EXTENDED_SCALAR det;
+  //EXTENDED_SCALAR det;
   EXTENDED_SCALAR trace;							// matrix trace
 
   typedef typename std::iterator_traits<std::vector<int>::iterator>::value_type mytpe;

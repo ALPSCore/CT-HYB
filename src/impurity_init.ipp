@@ -11,6 +11,8 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
   measurements << alps::accumulators::LogBinningAccumulator<std::vector<double> >("n");
   measurements << alps::accumulators::LogBinningAccumulator<double>("Sign");
+  //measurements << alps::accumulators::NoBinningAccumulator<double>("AbsDeterminant");
+  measurements << alps::accumulators::NoBinningAccumulator<double>("AbsTrace");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("order");
 
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_attempted");

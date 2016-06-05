@@ -382,6 +382,38 @@ cal_det(const O& creation_operators, const O& annihilation_operators, MAT& M, do
     return det;
 }
 
+template <class O, class G, class MAT>
+std::vector<typename MAT::type>
+cal_det_as_vector(const O& creation_operators, const O& annihilation_operators, MAT& M, double BETA, const G& F) {
+  typedef typename MAT::type SCALAR;
+
+  const int size1 = creation_operators.size();
+
+  if (size1 == 0) {
+    throw std::runtime_error("size is zero in cal_det_as_vector");
+  }
+
+  assert(creation_operators.size() == annihilation_operators.size());
+
+  Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix(size1, size1);
+  construct_blas_matrix(matrix, creation_operators, annihilation_operators, BETA, F);
+
+  Eigen::FullPivLU<Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> > lu(matrix);
+  std::vector<SCALAR> results(size1);
+  for (int i = 0; i < size1; ++i) {
+    results[i] = lu.matrixLU()(i,i);
+  }
+  results[0] *= lu.permutationP().determinant()*lu.permutationQ().determinant();
+
+  M.destructive_resize(size1, size1);
+  if (size1 > 0) {
+    M.block() = matrix;
+    M.safe_invert();
+  }
+
+  return results;
+}
+
 template<class O, typename Iterator>
 int copy_exchange_flavors_ops(const O& operators, O& operators_new, Iterator new_flavors_begin) {
   int count = 0;

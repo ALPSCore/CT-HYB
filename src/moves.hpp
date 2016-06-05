@@ -72,7 +72,7 @@ inline std::pair<psi, psi> operators_remove_nocopy(operator_container_t &operato
 // update_type, accepted, distance, acceptance probability, valid_move_generated
 // Note: this function is too long. Better to split into several functions.
 template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
-boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int creation_flavor, int annihilation_flavor, EXTENDED_SCALAR & det, double BETA,
+boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int creation_flavor, int annihilation_flavor, double BETA,
         std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor, operator_container_t& creation_operators,
         operator_container_t& annihilation_operators, M_TYPE& M, SCALAR & sign, EXTENDED_SCALAR & trace, operator_container_t& operators,
         double cutoff,
@@ -185,7 +185,6 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
             compute_M_row_column_up(row, column, M, sign_Fs, Fe_M, det_rat);
 
             assert(!my_isnan(det_rat));
-            det *= det_rat;
             sign *= prob/std::abs(prob);
             trace=trace_new;
             return boost::make_tuple(0,true,std::abs(t_ins-t_rem),prob,valid_move_generated);
@@ -256,7 +255,6 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
         }
 
         if (r_th < std::abs(prob)) { // move accepted
-            det *= det_rat;
 
             sign *= prob/std::abs(prob);
 
@@ -282,7 +280,7 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
 boost::tuple<bool,double,bool,int>
-shift_lazy(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & creation_operators,
+shift_lazy(R & rng, double BETA, operator_container_t & creation_operators,
       operator_container_t & annihilation_operators, M_TYPE & M, SCALAR &sign, EXTENDED_SCALAR &trace,
       operator_container_t & operators, double distance,
       SLIDING_WINDOW& sliding_window)
@@ -433,20 +431,11 @@ shift_lazy(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & c
         sign *= prob/std::abs(prob);
         trace = trace_new;
         //Note that det_rat is computed without taking into account exchanges of rows and columns in the matrix. This yields a sign flip.
-        if (num_row_or_column_swaps % 2 == 1) {
-            det *= -det_rat;
-        } else {
-            det *= det_rat;
-        }
-#ifndef NDEBUG
-        if (!equal_det(EXTENDED_SCALAR(det), static_cast<EXTENDED_SCALAR>(EXTENDED_SCALAR(1.0)/M.template safe_determinant<EXTENDED_SCALAR>())) ) {
-            std::cout << "ERROR IN SHIFT UPDATE "
-            << "det (fast update) = " << det
-            << "det (M^-1) = " << 1./M.determinant()
-            << std::endl;
-            exit(1);
-        }
-#endif
+        //if (num_row_or_column_swaps % 2 == 1) {
+            //det *= -det_rat;
+        //} else {
+            //det *= det_rat;
+        //}
     } else {
         safe_erase(operators,new_operator);
         safe_insert(operators,removed_op);
@@ -463,7 +452,7 @@ shift_lazy(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & c
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW>
 bool
-global_shift(R & rng, EXTENDED_SCALAR & det, double BETA,  operator_container_t & creation_operators, operator_container_t & annihilation_operators,
+global_shift(R & rng, double BETA,  operator_container_t & creation_operators, operator_container_t & annihilation_operators,
            std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor,
            M_TYPE & M, SCALAR &sign, EXTENDED_SCALAR &trace,
            operator_container_t & operators, SLIDING_WINDOW& sliding_window
@@ -502,7 +491,6 @@ global_shift(R & rng, EXTENDED_SCALAR & det, double BETA,  operator_container_t 
     if (rng() < std::abs(prob)) {
         sign *= prob/std::abs(prob);
         trace = trace_new;
-        det *= det_rat;
         std::swap(operators, operators_new);
         std::swap(creation_operators, creation_operators_new);
         std::swap(annihilation_operators, annihilation_operators_new);
@@ -518,7 +506,7 @@ global_shift(R & rng, EXTENDED_SCALAR & det, double BETA,  operator_container_t 
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE, typename SLIDING_WINDOW, typename Iterator>
 bool
-exchange_flavors(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container_t & creation_operators, operator_container_t & annihilation_operators,
+exchange_flavors(R & rng, double BETA, operator_container_t & creation_operators, operator_container_t & annihilation_operators,
                  std::vector<int> & order_creation_flavor, std::vector<int> & order_annihilation_flavor,
                  M_TYPE & M, SCALAR &sign, EXTENDED_SCALAR &trace,
                  operator_container_t & operators,
@@ -530,6 +518,10 @@ exchange_flavors(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container
     if (creation_operators.size() == 0) {
         return false;
     }
+    const int pert_order = creation_operators.size();
+
+    const std::vector<SCALAR>& det_vec = cal_det_as_vector(creation_operators, annihilation_operators, M, BETA,
+                                                             sliding_window.get_p_model()->get_F());
 
     //compute new trace
     operator_container_t operators_new;
@@ -544,26 +536,28 @@ exchange_flavors(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container
     copy_exchange_flavors_ops(creation_operators, creation_operators_new, new_flavors_first);
     copy_exchange_flavors_ops(annihilation_operators, annihilation_operators_new, new_flavors_first);
     M_TYPE M_new;
-    const EXTENDED_SCALAR det_new = cal_det<EXTENDED_SCALAR>(creation_operators_new, annihilation_operators_new, M_new, BETA,
-                                   sliding_window.get_p_model()->get_F());
-
-    const bool isnan_tmp = my_isnan(det_new);
-    if (isnan_tmp) {
-        std::cerr << "Warning: determinant of a new configuration is NaN. This may be because BETA is too large (overflow in computing determinant).";
+    //const EXTENDED_SCALAR det_new = cal_det<EXTENDED_SCALAR>(creation_operators_new, annihilation_operators_new, M_new, BETA,
+                                   //sliding_window.get_p_model()->get_F());
+    const std::vector<SCALAR>& det_vec_new = cal_det_as_vector(creation_operators_new, annihilation_operators_new, M_new, BETA,
+                                                           sliding_window.get_p_model()->get_F());
+    SCALAR det_rat = 1.0;
+    for (int i=0; i<pert_order; ++i) {
+        det_rat *= det_vec_new[i]/det_vec[i];
     }
+
 
     const SCALAR prob =
       convert_to_scalar(
         EXTENDED_SCALAR(
-          EXTENDED_SCALAR(det_new/det)*
+          EXTENDED_SCALAR(det_rat)*
           EXTENDED_SCALAR(trace_new/trace)
         )
       );
+
+
     //Note: no permutation sign change
-    if (!isnan_tmp && rng() < std::abs(prob)) {
+    if (rng() < std::abs(prob)) {
         if (my_isnan(sign*(prob / std::abs(prob)))) {
-            std::cout << "debug " << det_new << std::endl;
-            std::cout << "debug " << det << std::endl;
             std::cout << "debug " << trace_new << std::endl;
             std::cout << "debug " << trace << std::endl;
             std::cout << "debug " << prob << std::endl;
@@ -572,7 +566,6 @@ exchange_flavors(R & rng, EXTENDED_SCALAR & det, double BETA, operator_container
         }
         sign *= prob / std::abs(prob);
         trace = trace_new;
-        det = det_new;
         std::swap(operators, operators_new);
         std::swap(creation_operators, creation_operators_new);
         std::swap(annihilation_operators, annihilation_operators_new);

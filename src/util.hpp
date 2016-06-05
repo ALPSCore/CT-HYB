@@ -173,11 +173,11 @@ double spectral_norm_diag(const M& mat) {
         Eigen::SelfAdjointEigenSolver<matrix_t> esolv(mat_tmp,false);
         //Eigen::Matrix<double,Eigen::Dynamic,1> abs_evals = esolv.eigenvalues().cwiseAbs();
         const double norm = std::sqrt(esolv.eigenvalues().cwiseAbs().maxCoeff())/coeff;
-        if (isnan(norm)) {
-            std::cout << "debug " << max_abs << std::endl;
-            std::cout << mat_tmp;
-        }
-        assert(!isnan(norm));
+        //if (isnan(norm)) {
+            //std::cout << "debug " << max_abs << std::endl;
+            //std::cout << mat_tmp;
+        //}
+        //assert(!isnan(norm));
         return norm;
     }
 }

@@ -58,7 +58,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     sweeps(0),                                                                 //sweeps done up to now
     M(0,0),
     sign(1),
-    det(1),
+    //det(1),
     trace(std::numeric_limits<double>::max()),
     N_shift_flavor(FLAVORS, static_cast<int>(p["N_SHIFT"])),
     sliding_window(p_model.get(), BETA),
@@ -163,7 +163,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     for (int flavor = 0; flavor < FLAVORS; flavor++) {
       const int flavor_target = (int) (random() * FLAVORS);
       boost::tuple<int, bool, double, SCALAR, bool> r =
-        insert_remove_pair_flavor<SCALAR,EXTENDED_SCALAR>(random, flavor_target,flavor_target,det, BETA,
+        insert_remove_pair_flavor<SCALAR,EXTENDED_SCALAR>(random, flavor_target,flavor_target, BETA,
                                   order_creation_flavor,order_annihilation_flavor, creation_operators, annihilation_operators,
                                   M, sign, trace, operators, max_distance_pair, sliding_window, max_order);
 
@@ -188,7 +188,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       int a_flavor = (int) (random() * FLAVORS);
       insert_remove_pair_flavor(random, c_flavor,
                                 a_flavor,
-                                det, BETA,
+                                BETA,
                                 order_creation_flavor,
                                 order_annihilation_flavor,
                                 creation_operators,
@@ -203,7 +203,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     /**** shift an operator ****/
     for (int ns = 0; ns < N_shift*FLAVORS; ns++) {
       sanity_check();
-      boost::tuple<bool, double, bool, int> r = shift_lazy(random, det, BETA,
+      boost::tuple<bool, double, bool, int> r = shift_lazy(random, BETA,
                                                       creation_operators, annihilation_operators, M, sign,
                                                       trace,
                                                       operators, max_distance_shift,
@@ -220,9 +220,9 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       }
     }
 
-    if (my_isnan(det)) {
-      throw std::runtime_error("det is NaN after insertion/removal/shift update");
-    }
+    //if (my_isnan(det)) {
+      //throw std::runtime_error("det is NaN after insertion/removal/shift update");
+    //}
     if (my_isnan(trace)) {
       throw std::runtime_error("trace is NaN after insertion/removal/shift update");
     }
@@ -237,9 +237,9 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     //Perform global updates which might cost O(beta)
     expensive_updates();
 
-    if (my_isnan(det)) {
-      throw std::runtime_error("det is NaN after global update");
-    }
+    //if (my_isnan(det)) {
+      //throw std::runtime_error("det is NaN after global update");
+    //}
     if (my_isnan(trace)) {
       throw std::runtime_error("trace is NaN after global update");
     }
@@ -294,6 +294,9 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
     }
     measurements["order"] << order_creation_meas;
   }
+
+  //measurements["AbsDeterminant"] << convert_to_double(myabs(det));
+  measurements["AbsTrace"] << convert_to_double(myabs(trace));
 
   // measure acceptance rate
   measurements["Insertion_attempted"] << to_std_vector(weight_vs_distance.get_counter());
@@ -438,7 +441,7 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
 
     for (int itry = 0; itry < swap_vector.size(); ++itry) {
       const int iupdate = execute_ordering[itry];
-      const bool accepted = exchange_flavors<SCALAR,EXTENDED_SCALAR>(random, det, BETA, creation_operators,
+      const bool accepted = exchange_flavors<SCALAR,EXTENDED_SCALAR>(random, BETA, creation_operators,
                    annihilation_operators,
                    order_creation_flavor, order_annihilation_flavor,
                    M, sign, trace, operators,
@@ -449,9 +452,9 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
       const int source_template = swap_vector[iupdate].second;
       if (accepted) {
         swap_acc_rate[iupdate].accepted();
-        if (my_isnan(det)) {
-          throw std::runtime_error("det is NaN after swap update"+boost::lexical_cast<std::string>(itry));
-        }
+        //if (my_isnan(det)) {
+          //throw std::runtime_error("det is NaN after swap update"+boost::lexical_cast<std::string>(itry));
+        //}
         if (my_isnan(trace)) {
           throw std::runtime_error("trace is NaN after swap update"+boost::lexical_cast<std::string>(itry));
         }
@@ -466,15 +469,15 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
 
   //Shift operators to restore translational symmetry
   if (do_global_shift) {
-    const bool accepted = global_shift(random, det, BETA, creation_operators,
+    const bool accepted = global_shift(random, BETA, creation_operators,
                                        annihilation_operators,
                                        order_creation_flavor, order_annihilation_flavor,
                                        M, sign, trace, operators, sliding_window);
     if (accepted) {
       global_shift_acc_rate.accepted();
-      if (my_isnan(det)) {
-        throw std::runtime_error("det is NaN after global shift");
-      }
+      //if (my_isnan(det)) {
+        //throw std::runtime_error("det is NaN after global shift");
+      //}
       if (my_isnan(trace)) {
         throw std::runtime_error("trace is NaN after global shift");
       }
@@ -631,7 +634,13 @@ void HybridizationSimulation<IMP_MODEL>::sanity_check() const {
   }
 
   // compute determinants
-  EXTENDED_SCALAR det_new = cal_det<EXTENDED_SCALAR>(creation_operators, annihilation_operators, M_new, BETA, p_model->get_F());
+  SCALAR sign_det = 1.0;
+  if (creation_operators.size() > 0) {
+    const std::vector<SCALAR>& det_vec = cal_det_as_vector(creation_operators, annihilation_operators, M_new, BETA, p_model->get_F());
+    for (int i=0; i<creation_operators.size(); ++i) {
+      sign_det *= mysign(det_vec[i]);
+    }
+  }
 
   // compute permuation sign
   SCALAR sign_new = 1.0;
@@ -663,13 +672,14 @@ void HybridizationSimulation<IMP_MODEL>::sanity_check() const {
     throw std::runtime_error("trace != trace_new");
   }
 
-  if (std::abs((EXTENDED_SCALAR(det/det_new).template convert_to<SCALAR>()-1.0))>1E-5) {
-    throw std::runtime_error("det_new != det");
-  }
+  //if (std::abs((EXTENDED_SCALAR(det/det_new).template convert_to<SCALAR>()-1.0))>1E-5) {
+    //throw std::runtime_error("det_new != det");
+  //}
 
   SCALAR sign_overall_new = dsign(sign_new)
                             *dsign(trace).template convert_to<SCALAR>()
-                            *dsign(det_new).template convert_to<SCALAR>();
+                            *sign_det;
+  //std::cout << "debug det "<< det << " " << det_new << std::endl;
   //std::cout << "debug sign "<< sign_overall_new << " " << sign << std::endl;
   if (std::abs(sign_overall_new/sign-1.0)>1E-5) {
     throw std::runtime_error("sign_overall_new != sign");

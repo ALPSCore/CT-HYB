@@ -18,7 +18,8 @@ if(USE_QUAD_PRECISION)
 endif()
 
 #ALPSCore disable debug for gf library
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
+#(please do not set NDEBUG for DEBUG build. That would would disable runtime checks in the solver)
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 
 #include directories
 set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH}) #rest taken care of by libraries dependencies 
@@ -26,9 +27,21 @@ include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
 #source files
 set(LIB_FILES ./src/sliding_window.cpp ./src/legendre.cpp ./src/model.cpp ./src/model_detail/clustering.cpp src/operator_util.cpp ./src/util.cpp)
-
 ADD_LIBRARY(hyb ${LIB_FILES})
-target_link_libraries(hyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES})
+
+#Compiler dependent libraries
+set(EXTRA_LIBS "")
+if (USE_QUAD_PRECISION)
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        list(APPEND EXTRA_LIBS "quadmath")
+    endif()
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+        set(CMAKE_CXX_FLAGS " -Qoption,cpp,--extended_float_type ${CMAKE_CXX_FLAGS}")
+    endif()
+endif()
+
+#Set link libraries
+target_link_libraries(hyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 #executable
 ADD_EXECUTABLE(hybmat ./src/main.cpp)

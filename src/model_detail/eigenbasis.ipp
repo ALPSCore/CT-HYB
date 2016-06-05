@@ -187,7 +187,8 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params& par) {
   } else {
     overflow_prevention = 0;
   }
-  Base::reference_energy_ = (0.5*(eigenvalue_max+eigenvalue_min)-overflow_prevention);
+  //Base::reference_energy_ = (0.5*(eigenvalue_max+eigenvalue_min)-overflow_prevention);
+  Base::reference_energy_ = eigenvalue_min;
   if (Base::verbose_) {
     std::cout << "Reference energy " << Base::reference_energy_ << std::endl;
   }
