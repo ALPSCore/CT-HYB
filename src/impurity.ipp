@@ -668,7 +668,7 @@ void HybridizationSimulation<IMP_MODEL>::sanity_check() const {
   // compute trace
   EXTENDED_SCALAR trace_sw = sliding_window.compute_trace(operators_new);
 
-  if (myabs(static_cast<EXTENDED_SCALAR>(trace_sw/trace).template convert_to<SCALAR>()-1.0)>1E-5) {
+  if (myabs(convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_sw/trace))-1.0)>1E-5) {
     throw std::runtime_error("trace != trace_new");
   }
 
@@ -677,7 +677,7 @@ void HybridizationSimulation<IMP_MODEL>::sanity_check() const {
   //}
 
   SCALAR sign_overall_new = dsign(sign_new)
-                            *dsign(trace).template convert_to<SCALAR>()
+                            *convert_to_scalar(dsign(trace))
                             *sign_det;
   //std::cout << "debug det "<< det << " " << det_new << std::endl;
   //std::cout << "debug sign "<< sign_overall_new << " " << sign << std::endl;
