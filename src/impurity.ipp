@@ -151,7 +151,9 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     throw std::runtime_error("N_UPDATE_CUTOFF must be smaller than THERMALIZATION_SWEEPS.");
   }
 
+#ifdef MEASURE_TIMING
   boost::timer::cpu_timer timer;
+#endif
 
   //////////////////////////////////
   // Monte Carlo updates
@@ -159,7 +161,9 @@ void HybridizationSimulation<IMP_MODEL>::update() {
   for (int imeas = 0; imeas < N_meas; imeas++) {    // accumulate measurements from N_meas updates before storing
     sweeps++;
 
+#ifdef MEASURE_TIMING
     const double time1 = timer.elapsed().wall*1E-9;
+#endif
 
     /**** try to insert or remove a pair of operators with the same flavor ****/
     for (int flavor = 0; flavor < FLAVORS; flavor++) {
@@ -232,9 +236,10 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       throw std::runtime_error("sign is NaN after insertion/removal/shift update");
     }
 
-
+#ifdef MEASURE_TIMING
     const double time2 = timer.elapsed().wall*1E-9;
     timings[0] += time2 - time1;
+#endif
 
     //Perform global updates which might cost O(beta)
     expensive_updates();
@@ -257,22 +262,28 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       update_MC_parameters();
     }
 
+#ifdef MEASURE_TIMING
     const double time3 = timer.elapsed().wall*1E-9;
     timings[1] += time3 - time2;
+#endif
 
     // move the window to the next position
     sliding_window.move_window_to_next_position(operators);
 
+#ifdef MEASURE_TIMING
     const double time4 = timer.elapsed().wall*1E-9;
     timings[2] += time4 - time3;
+#endif
 
     // measure single-particle Green's function
     if (is_thermalized() && sweeps%N_meas_g == 0) {
       g_meas_legendre.measure(M, operators, creation_operators, annihilation_operators, sign);
     }
 
+#ifdef MEASURE_TIMING
     const double time5 = timer.elapsed().wall*1E-9;
     timings[3] += time5 - time4;
+#endif
 
     sanity_check();
   }//loop up to N_meas
@@ -285,7 +296,9 @@ template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure() {
   assert(is_thermalized());
   //std::cout << "Call measurement rank " << comm.rank() << std::endl;
+#ifdef MEASURE_TIMING
   boost::timer::cpu_timer timer;
+#endif
 
   // measure the perturbation order
   const int N_order = par["N_ORDER"].template as<int>();
@@ -357,9 +370,11 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   }
   */
 
+#ifdef MEASURE_TIMING
   timings[4] = timer.elapsed().wall*1E-9;
   measurements["Timings"] << timings;
   std::fill(timings.begin(), timings.end(), 0.0);
+#endif
 }
 
 //Measure the expectation values of density operators

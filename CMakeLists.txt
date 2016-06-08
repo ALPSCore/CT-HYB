@@ -7,7 +7,12 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_SOURCE_DIR})
 # automatically, specify its location using:
 # export ALPSCore_DIR=/location/to/ALPSCORE/
 find_package(ALPSCore REQUIRED)
-find_package(Boost 1.55.0 REQUIRED timer)
+if(MEASURE_TIMING)
+    add_definitions(-DMEASURE_TIMING)
+    find_package(Boost 1.54.0 REQUIRED timer)
+else()
+    find_package(Boost 1.54.0)
+endif()
 if (ALPS_ENABLE_MPI)
     find_package(MPI REQUIRED)
 endif()

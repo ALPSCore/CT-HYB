@@ -29,7 +29,9 @@
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
 #include <boost/array.hpp>
-#include <boost/timer/timer.hpp>
+#ifdef MEASURE_TIMING
+  #include <boost/timer/timer.hpp>
+#endif
 
 //Eigen3
 #include<Eigen/Dense>
