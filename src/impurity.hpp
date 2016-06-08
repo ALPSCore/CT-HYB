@@ -39,7 +39,9 @@
 #include <alps/accumulators.hpp>
 #include <alps/mc/api.hpp>
 #include <alps/mc/mcbase.hpp>
-#include <alps/mc/mpiadapter.hpp>
+#ifdef ALPS_HAVE_MPI
+  #include <alps/mc/mpiadapter.hpp>
+#endif
 #include <alps/mc/stop_callback.hpp>
 #include <alps/params/convenience_params.hpp>
 
@@ -108,7 +110,9 @@ private:
   boost::scoped_ptr<IMP_MODEL> p_model;
 
   //ALPS MPI communicator
+#ifdef ALPS_HAVE_MPI
   alps::mpi::communicator comm;
+#endif
 
   //Constant simulation parameters
   const long thermalization_sweeps;           // sweeps to be done for equilibration

@@ -8,7 +8,9 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_SOURCE_DIR})
 # export ALPSCore_DIR=/location/to/ALPSCORE/
 find_package(ALPSCore REQUIRED)
 find_package(Boost 1.55.0 REQUIRED timer)
-find_package(MPI REQUIRED)
+if (ALPS_ENABLE_MPI)
+    find_package(MPI REQUIRED)
+endif()
 find_package(Eigen3 REQUIRED)
 
 # Option (use quad precision for part of calculations)

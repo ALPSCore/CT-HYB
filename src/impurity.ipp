@@ -48,7 +48,9 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     N(static_cast<int>(parameters["N_TAU"])),                  //time slices
     Np1(N+1),
     p_model(new IMP_MODEL(p,rank==0)),//impurity model
+#ifdef ALPS_HAVE_MPI
     comm(),
+#endif
     thermalization_sweeps(parameters["THERMALIZATION"]),          //sweeps needed for thermalization
     total_sweeps(parameters["SWEEPS"]),                           //sweeps needed for total run
     N_meas(parameters["N_MEAS"]),
@@ -513,17 +515,23 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
     1.0/std::max(static_cast<double>(sweeps)/static_cast<double>(interval_update_cutoff),1.0)
   );
 
+#ifdef ALPS_HAVE_MPI
   boost::tuple<bool,double> r_pair = weight_vs_distance.update_cutoff(acc_rate_cutoff, max_distance_pair, mag, comm);
+#else
+  boost::tuple<bool,double> r_pair = weight_vs_distance.update_cutoff(acc_rate_cutoff, max_distance_pair, mag);
+#endif
   max_distance_pair = boost::get<1>(r_pair);
   max_distance_pair = std::min(0.5*BETA, max_distance_pair);
 
   //std::cout << "Done max_distance_pair rank " << comm.rank() << " sweeps " << sweeps << std::endl;
 
+#ifdef ALPS_HAVE_MPI
   boost::tuple<bool,double> r_shift = weight_vs_distance_shift.update_cutoff(acc_rate_cutoff, max_distance_shift, mag, comm);
+#else
+  boost::tuple<bool,double> r_shift = weight_vs_distance_shift.update_cutoff(acc_rate_cutoff, max_distance_shift, mag);
+#endif
   max_distance_shift = boost::get<1>(r_shift);
   max_distance_shift = std::min(0.5*BETA, max_distance_shift);
-
-  //std::cout << "Done max_distance_shift rank " << comm.rank() << " sweeps " << sweeps << std::endl;
 
   const double max_distance = std::max(max_distance_pair,max_distance_shift);
   const std::size_t n_window_new = static_cast<std::size_t>(std::max(1,static_cast<int>(BETA/(2.0*max_distance))));
@@ -544,8 +552,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   max_dist_optimizer.reset();
   weight_vs_distance.reset();
   weight_vs_distance_shift.reset();
-  //std::cout << "Call prepare_for_measurement rank " << comm.rank() << std::endl;
-  if (comm.rank()==0) {
+  if (global_mpi_rank==0) {
     std::cout << "We're done with thermalization." << std::endl << "The number of segments for sliding window update is " << sliding_window.get_n_window() << "." << std::endl << std::endl;
   }
 
@@ -553,7 +560,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   const int N_meas_min = std::max(10, 4*sliding_window.get_n_window());//a sweep of the window takes 4*get_n_window()
   if (N_meas<N_meas_min) {
     N_meas = N_meas_min;
-    if (comm.rank()==0) {
+    if (global_mpi_rank==0) {
       std::cout << "Warning N_MEAS is too small: using N_MEAS = "  << N_meas << " instead." << std::endl;
     }
   }
@@ -562,7 +569,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   const int N_meas_g_min = std::max(10, sliding_window.get_n_window());//a sweep of the window takes 4*get_n_window()
   if (N_meas_g<N_meas_g_min) {
     N_meas_g = N_meas_g_min;
-    if (comm.rank()==0) {
+    if (global_mpi_rank==0) {
       std::cout << "Warning N_MEAS_GREENS_FUNCTION is too small: using N_MEAS_GREENS_FUNCTION = "  << N_meas_g << " instead." << std::endl;
     }
   }
@@ -571,7 +578,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   const int N_swap_min =std::max(10, 4*sliding_window.get_n_window());//a sweep of the window takes 4*get_n_window()
   if (N_swap<N_swap_min && swap_vector.size()>0) {
     N_swap = N_swap_min;
-    if (comm.rank()==0) {
+    if (global_mpi_rank==0) {
       std::cout << "Warning N_SWAP is too small: using N_SWAP = "  << N_swap << " instead." << std::endl;
     }
   }

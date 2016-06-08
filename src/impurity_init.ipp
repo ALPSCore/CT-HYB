@@ -97,7 +97,7 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
     }
     swap_acc_rate.resize(swap_vector.size());
 
-    if (comm.rank() == 0) {
+    if (global_mpi_rank == 0) {
       std::cout << "The following swap updates will be performed." << std::endl;
       for (int i=0; i<swap_vector.size(); ++i) {
         std::cout << "Update #" << i << " generated from template #" << swap_vector[i].second << std::endl;
@@ -125,7 +125,7 @@ void HybridizationSimulation<IMP_MODEL>::read_eq_time_two_particle_greens_meas()
   const int GF_RANK=2;
 
   const std::string fname_key = "EQUAL_TIME_TWO_PARTICLE_GREENS_FUNCTION";
-  const bool verbose = (comm.rank()==0);
+  const bool verbose = (global_mpi_rank==0);
 
   if (!par.defined(fname_key)) {
     return;
@@ -170,7 +170,7 @@ void HybridizationSimulation<IMP_MODEL>::read_eq_time_two_particle_greens_meas()
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
   const std::string fname_key = "TWO_TIME_CORRELATION_FUNCTIONS";
-  const bool verbose = (comm.rank()==0);
+  const bool verbose = (global_mpi_rank==0);
 
   if (!par.defined("N_TAU_TWO_TIME_CORRELATION_FUNCTIONS")) {
     return;

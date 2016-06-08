@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#ifdef ALPS_HAVE_MPI
 #include <alps/utilities/mpi.hpp>
 
 /// performs mpi_allreduce() for a valarray of type T.
@@ -12,6 +13,7 @@ void all_reduce(const alps::mpi::communicator& comm, const std::valarray<T>& in_
   out_vals.resize(in_vals.size());
   MPI_Allreduce((void*)&in_vals[0], (void*)&out_vals[0], in_vals.size(), alps::mpi::detail::mpi_type<T>(), alps::mpi::is_mpi_op<Op,T>::op(), comm);
 }
+#endif
 
 template<class T>
 void rebin(std::valarray<T>& org_array, int nrebin) {
@@ -106,7 +108,11 @@ public:
   }
 
   //maxdist is not updated if we do not have enough data.
+#ifdef ALPS_HAVE_MPI
   boost::tuple<bool,double> update_cutoff(double cutoff_ratio, double maxdist, double mag, const alps::mpi::communicator& alps_comm) const {
+#else
+  boost::tuple<bool,double> update_cutoff(double cutoff_ratio, double maxdist, double mag) const {
+#endif
     assert(cutoff_ratio>=0.0 && cutoff_ratio<=1.0);
     assert(mag>=1.0);
     const int min_count = 10;//for stabilization
@@ -116,6 +122,7 @@ public:
     std::valarray<double> counter_gathered(0.0, num_data);
     std::valarray<double> sumval_gathered(0.0, num_data);
 
+#ifdef ALPS_HAVE_MPI
     alps_comm.barrier();
     assert(sumval.size()==num_data);
     assert(counter_gathered.size()==num_data);
@@ -123,6 +130,10 @@ public:
     all_reduce(alps_comm, counter, counter_gathered, std::plus<double>());
     all_reduce(alps_comm, sumval, sumval_gathered, std::plus<double>());
     alps_comm.barrier();
+#else
+    counter_gathered = counter;
+    sumval_gathered = sumval;
+#endif
 
     double maxdist_new = maxdist;
 
@@ -240,11 +251,19 @@ public:
     return sumval_flavors;
   }
 
+#ifdef ALPS_HAVE_MPI
   double update_cutoff(double cutoff_ratio, double maxdist, double mag, const alps::mpi::communicator& alps_comm) const {
+#else
+  double update_cutoff(double cutoff_ratio, double maxdist, double mag) const {
+#endif
     double maxdist_new = -1.0;
     //for (auto& elem : histograms) {
     for (int ielm=0; ielm<histograms.size(); ++ielm) {
+#ifdef ALPS_HAVE_MPI
       boost::tuple<bool,double> r = histograms[ielm].update_cutoff(cutoff_ratio, maxdist, mag, alps_comm);
+#else
+      boost::tuple<bool,double> r = histograms[ielm].update_cutoff(cutoff_ratio, maxdist, mag);
+#endif
       maxdist_new = std::max(maxdist_new, boost::get<1>(r));
     }
     assert(maxdist_new>0);
