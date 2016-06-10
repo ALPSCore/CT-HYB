@@ -7,8 +7,8 @@
 
 /// performs mpi_allreduce() for a valarray of type T.
 /** @NOTE Vector `out_vals` is resized */
-template<typename T, typename Op>
-void all_reduce(const alps::mpi::communicator& comm, const std::valarray<T>& in_vals, std::valarray<T>&out_vals, Op op) {
+template<typename T, typename V, typename Op>
+void my_all_reduce(const alps::mpi::communicator& comm, const V& in_vals, V&out_vals, Op op) {
   assert(in_vals.size()>0);
   out_vals.resize(in_vals.size());
   MPI_Allreduce((void*)&in_vals[0], (void*)&out_vals[0], in_vals.size(), alps::mpi::detail::mpi_type<T>(), alps::mpi::is_mpi_op<Op,T>::op(), comm);
@@ -127,8 +127,8 @@ public:
     assert(sumval.size()==num_data);
     assert(counter_gathered.size()==num_data);
     assert(sumval_gathered.size()==num_data);
-    all_reduce(alps_comm, counter, counter_gathered, std::plus<double>());
-    all_reduce(alps_comm, sumval, sumval_gathered, std::plus<double>());
+    my_all_reduce<double>(alps_comm, counter, counter_gathered, std::plus<double>());
+    my_all_reduce<double>(alps_comm, sumval, sumval_gathered, std::plus<double>());
     alps_comm.barrier();
 #else
     counter_gathered = counter;

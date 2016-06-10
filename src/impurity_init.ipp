@@ -14,6 +14,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   //measurements << alps::accumulators::NoBinningAccumulator<double>("AbsDeterminant");
   measurements << alps::accumulators::NoBinningAccumulator<double>("AbsTrace");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("order");
+  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("PerturbationOrderFlavors");
 
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_attempted");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_accepted");
@@ -24,7 +25,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Acceptance_rate_swap");
 
 #ifdef MEASURE_TIMING
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Timings");
+  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("TimingsSecPerNMEAS");
 #endif
 }
 

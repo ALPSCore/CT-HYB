@@ -13,7 +13,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & par
     .define<int>("N_TAU", "number of points (minus 1) for G(tau), number of Matsubara frequencies for G(i omega_n)")
     .define<int>("N_LEGENDRE_MEASUREMENT", 100, "number of legendre coefficients for measuring G(tau)")
     .define<long>("SWEEPS", 1E+9, "number of sweeps for total run")
-    .define<long>("THERMALIZATION", 10000, "number of sweeps for thermalization")
+    .define<long>("THERMALIZATION", 500, "number of sweeps for thermalization")
     .define<int>("N_MEAS", 50, "Measurement is performed every N_MEAS updates.")
     .define<int>("N_MEAS_GREENS_FUNCTION", 10, "Measurement of Green's function is performed every N_MEAS_GREENS_FUNCTION updates.")
     .define<int>("N_SHIFT", 1, "how may shift moves attempted at each Monte Carlo step (N_SHIFT>0)")
@@ -295,7 +295,6 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure() {
   assert(is_thermalized());
-  //std::cout << "Call measurement rank " << comm.rank() << std::endl;
 #ifdef MEASURE_TIMING
   boost::timer::cpu_timer timer;
 #endif
@@ -308,6 +307,11 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
       order_creation_meas[flavor*N_order+order_creation_flavor[flavor]] = 1.0;
     }
     measurements["order"] << order_creation_meas;
+  }
+  {
+    std::vector<double> tmp;
+    std::copy(order_creation_flavor.begin(), order_creation_flavor.end(), std::back_inserter(tmp));
+    measurements["PerturbationOrderFlavors"] << tmp;
   }
 
   //measurements["AbsDeterminant"] << convert_to_double(myabs(det));
@@ -372,7 +376,7 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
 
 #ifdef MEASURE_TIMING
   timings[4] = timer.elapsed().wall*1E-9;
-  measurements["Timings"] << timings;
+  measurements["TimingsSecPerNMEAS"] << timings;
   std::fill(timings.begin(), timings.end(), 0.0);
 #endif
 }
@@ -568,8 +572,25 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   weight_vs_distance.reset();
   weight_vs_distance_shift.reset();
   if (global_mpi_rank==0) {
-    std::cout << "We're done with thermalization." << std::endl << "The number of segments for sliding window update is " << sliding_window.get_n_window() << "." << std::endl << std::endl;
+    std::cout << "We're done with thermalization." << std::endl <<
+    "The number of segments for sliding window update is " << sliding_window.get_n_window() << "." << std::endl <<
+    std::endl;
+    std::cout << "Perturbation orders (averaged over processes) are the following:" << std::endl;
   }
+#ifdef ALPS_HAVE_MPI
+  std::vector<int> tmp(FLAVORS, 0);
+  my_all_reduce<int>(comm, order_creation_flavor, tmp, std::plus<int>());
+  if (global_mpi_rank==0) {
+    for (int flavor=0; flavor<FLAVORS; ++flavor) {
+      std::cout << " flavor " << flavor << " " << tmp[flavor]/(1.*comm.size()) << std::endl;
+    }
+  }
+#else
+  for (int flavor=0; flavor<FLAVORS; ++flavor) {
+    std::cout << " flavor " << flavor << " " << order_creation_flavor[flavor] << std::endl;
+  }
+  std::cout << std::endl;
+#endif
 
   //N_meas
   const int N_meas_min = std::max(10, 4*sliding_window.get_n_window());//a sweep of the window takes 4*get_n_window()
@@ -694,15 +715,9 @@ void HybridizationSimulation<IMP_MODEL>::sanity_check() const {
     throw std::runtime_error("trace != trace_new");
   }
 
-  //if (std::abs((EXTENDED_SCALAR(det/det_new).template convert_to<SCALAR>()-1.0))>1E-5) {
-    //throw std::runtime_error("det_new != det");
-  //}
-
   SCALAR sign_overall_new = dsign(sign_new)
                             *convert_to_scalar(dsign(trace))
                             *sign_det;
-  //std::cout << "debug det "<< det << " " << det_new << std::endl;
-  //std::cout << "debug sign "<< sign_overall_new << " " << sign << std::endl;
   if (std::abs(sign_overall_new/sign-1.0)>1E-5) {
     throw std::runtime_error("sign_overall_new != sign");
   }
