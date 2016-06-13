@@ -21,8 +21,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & par
     .define<std::string>("SWAP_VECTOR", "",
                          "Definition of global updates in which the flavors of creation and annihilation operators are exchanged. Refer to manual for details.")
     .define<double>("ACCEPTANCE_RATE_CUTOFF", 0.1, "cutoff for acceptance rate in sliding window update")
-    .define<int>("USE_SLIDING_WINDOW", 1, "Switch for sliding window update")
-    .define<int>("N_SLIDING_WINDOW", 5, "Number of segments for sliding window update")
+    .define<int>("N_SLIDING_WINDOW", 5, "Initial number of segments for sliding window update")
+    .define<int>("MAX_N_SLIDING_WINDOW", 1000, "Maximum number of segments for sliding window update")
     .define<int>("N_UPDATE_CUTOFF", 50, "How many times the value of N_SLIDING_WINDOW is updated during thermalization.")
     .define<int>("Tmin", 1, "The scheduler checks longer than every Tmin seconds if the simulation is finished.")
     .define<int>("Tmax", 60, "The scheduler checks shorter than every Tmax seconds if the simulation is finished.")
@@ -98,6 +98,12 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   operators.clear();
   creation_operators.clear();
   annihilation_operators.clear();
+  if (p["N_SLIDING_WINDOW"].template as<int>() > p["MAX_N_SLIDING_WINDOW"].template as<int>()) {
+    throw std::runtime_error("N_SLIDING_WINDOW cannot be larger than MAX_N_SLIDING_WINDOW.");
+  }
+  if (p["MAX_N_SLIDING_WINDOW"].template as<int>() < 1) {
+    throw std::runtime_error("MAX_N_SLIDING_WINDOW cannot be smaller than 1.");
+  }
   sliding_window.init_stacks(p["N_SLIDING_WINDOW"], operators);
   trace = sliding_window.compute_trace(operators);
   if (rank==0) {
@@ -553,7 +559,14 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   max_distance_shift = std::min(0.5*BETA, max_distance_shift);
 
   const double max_distance = std::max(max_distance_pair,max_distance_shift);
-  const std::size_t n_window_new = static_cast<std::size_t>(std::max(1,static_cast<int>(BETA/(2.0*max_distance))));
+  const std::size_t n_window_new = static_cast<std::size_t>(
+          std::min(
+              par["MAX_N_SLIDING_WINDOW"].template as<int>(),
+              std::max(
+                  1, static_cast<int>(BETA/(2.0*max_distance))
+              )
+          )
+  );
 
   if (n_window_new != sliding_window.get_n_window()) {
     const ITIME_AXIS_LEFT_OR_RIGHT new_move_direction = random()<0.5 ? ITIME_LEFT : ITIME_RIGHT;
