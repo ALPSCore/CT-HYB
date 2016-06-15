@@ -1,2 +1,4 @@
 # CT-HYB
-hybridization expansion quantum Monte Carlo code based on the ALPS project
+Hybridization expansion quantum Monte Carlo code based on the ALPS project
+For documents and tutorials, go to the [GitHub wiki](
+https://github.com/ALPSCore/CT-HYB/wiki)!
