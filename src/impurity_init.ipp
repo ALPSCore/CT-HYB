@@ -18,11 +18,19 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_attempted");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_accepted");
+  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Removal_attempted");
+  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Removal_accepted");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_attempted");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_accepted");
 
+  //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_attempted_flavors");
+  //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_accepted_flavors");
+  //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Removal_attempted_flavors");
+  //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Removal_accepted_flavors");
+
   measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Acceptance_rate_swap");
+  measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move");
 
 #ifdef MEASURE_TIMING
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("TimingsSecPerNMEAS");

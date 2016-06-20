@@ -13,16 +13,17 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type & par
     .define<int>("N_TAU", "number of points (minus 1) for G(tau), number of Matsubara frequencies for G(i omega_n)")
     .define<int>("N_LEGENDRE_MEASUREMENT", 100, "number of legendre coefficients for measuring G(tau)")
     .define<long>("SWEEPS", 1E+9, "number of sweeps for total run")
-    .define<long>("THERMALIZATION", 500, "number of sweeps for thermalization")
+    .define<long>("THERMALIZATION", 500, "Minimum number of sweeps for thermalization")
     .define<int>("N_MEAS", 50, "Measurement is performed every N_MEAS updates.")
     .define<int>("N_MEAS_GREENS_FUNCTION", 10, "Measurement of Green's function is performed every N_MEAS_GREENS_FUNCTION updates.")
     .define<int>("N_SHIFT", 1, "how may shift moves attempted at each Monte Carlo step (N_SHIFT>0)")
-    .define<int>("N_SWAP", 0, "We attempt to swap flavors every N_SWAP Monte Carlo steps.")
+    .define<int>("N_SWAP", 100, "We attempt to swap flavors every N_SWAP Monte Carlo steps.")
     .define<std::string>("SWAP_VECTOR", "",
                          "Definition of global updates in which the flavors of creation and annihilation operators are exchanged. Refer to manual for details.")
-    .define<double>("ACCEPTANCE_RATE_CUTOFF", 0.1, "cutoff for acceptance rate in sliding window update")
-    .define<int>("USE_SLIDING_WINDOW", 1, "Switch for sliding window update")
-    .define<int>("N_SLIDING_WINDOW", 5, "Number of segments for sliding window update")
+    .define<double>("ACCEPTANCE_RATE_CUTOFF", 0.01, "cutoff for acceptance rate in sliding window update")
+    .define<double>("MIN_PAIR_DISTANCE", 0.0, "min of t_max for sliding window update")
+    .define<int>("N_SLIDING_WINDOW", 1, "Number of segments for sliding window update")
+    .define<int>("MAX_N_SLIDING_WINDOW", 1, "Maximum number of segments for sliding window update")
     .define<int>("N_UPDATE_CUTOFF", 50, "How many times the value of N_SLIDING_WINDOW is updated during thermalization.")
     .define<int>("Tmin", 1, "The scheduler checks longer than every Tmin seconds if the simulation is finished.")
     .define<int>("Tmax", 60, "The scheduler checks shorter than every Tmax seconds if the simulation is finished.")
@@ -51,7 +52,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
 #ifdef ALPS_HAVE_MPI
     comm(),
 #endif
-    thermalization_sweeps(parameters["THERMALIZATION"]),          //sweeps needed for thermalization
+    thermalization_checker(parameters["THERMALIZATION"].template as<long>()),          //minimum sweeps needed for thermalization
     total_sweeps(parameters["SWEEPS"]),                           //sweeps needed for total run
     N_meas(parameters["N_MEAS"]),
     N_meas_g(parameters["N_MEAS_GREENS_FUNCTION"]),
@@ -60,21 +61,21 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     sweeps(0),                                                                 //sweeps done up to now
     M(0,0),
     sign(1),
-    //det(1),
     trace(std::numeric_limits<double>::max()),
     N_shift_flavor(FLAVORS, static_cast<int>(p["N_SHIFT"])),
     sliding_window(p_model.get(), BETA),
-    max_dist_optimizer(N, 0.5*BETA, 3*FLAVORS),//ins, rem, shift
-    weight_vs_distance(N, 0.5*BETA),
-    weight_vs_distance_shift(N, 0.5*BETA),
-    max_distance_pair(BETA*0.1),
-    max_distance_shift(BETA*0.1),
     acc_rate_cutoff(static_cast<double>(p["ACCEPTANCE_RATE_CUTOFF"])),
+    max_distance_pair(BETA*std::max(0.1, p["MIN_PAIR_DISTANCE"].template as<double>())),
+    weight_ins(  N/2, 0.5*BETA, 1,        max_distance_pair),
+    weight_rem(  N/2, 0.5*BETA, 1,        max_distance_pair),
+    weight_shift(N/2, 0.5*BETA, FLAVORS,  max_distance_pair),
     g_meas_legendre(FLAVORS,p["N_LEGENDRE_MEASUREMENT"],N,BETA),
     p_meas_corr(0),
     global_shift_acc_rate(),
     swap_acc_rate(0),
-    timings(5, 0.0)
+    prob_valid_rem_move(),
+    timings(5, 0.0),
+    verbose(p["VERBOSE"].template as<int>()!=0)
 {
   /////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////
@@ -98,10 +99,16 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   operators.clear();
   creation_operators.clear();
   annihilation_operators.clear();
+  if (p["N_SLIDING_WINDOW"].template as<int>() > p["MAX_N_SLIDING_WINDOW"].template as<int>()) {
+    throw std::runtime_error("N_SLIDING_WINDOW cannot be larger than MAX_N_SLIDING_WINDOW.");
+  }
+  if (p["MAX_N_SLIDING_WINDOW"].template as<int>() < 1) {
+    throw std::runtime_error("MAX_N_SLIDING_WINDOW cannot be smaller than 1.");
+  }
   sliding_window.init_stacks(p["N_SLIDING_WINDOW"], operators);
   trace = sliding_window.compute_trace(operators);
   if (rank==0) {
-    std::cout << "initial trace (sliding window) " << trace << " number of operators: "<<operators.size()<<"\n";
+    std::cout << "initial trace " << trace << " number of operators: "<<operators.size()<<"\n";
   }
 
   /////////////////////////////////////////////////////////////////////
@@ -127,13 +134,17 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
 template<typename IMP_MODEL>
 bool HybridizationSimulation<IMP_MODEL>::is_thermalized() const
 {
-  return (sweeps >= thermalization_sweeps);
+#ifdef ALPS_HAVE_MPI
+  return thermalization_checker.is_thermalized(sweeps, comm);
+#else
+  return thermalization_checker.is_thermalized(sweeps);
+#endif
 }
 
 template<typename IMP_MODEL>
 double HybridizationSimulation<IMP_MODEL>::fraction_completed() const
 {
-  double work=(is_thermalized() ? (sweeps-thermalization_sweeps)/double(total_sweeps) : 0.);
+  double work=(is_thermalized() ? (sweeps-thermalization_checker.get_actual_thermalization_steps())/double(total_sweeps) : 0.);
   if (work>1.0) {
     work = 1.0;
   }
@@ -147,7 +158,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 
   const unsigned int max_order = par["MAX_ORDER"].template as<unsigned int>();
 
-  if (N_update_cutoff > thermalization_sweeps) {
+  if (N_update_cutoff > par["THERMALIZATION"].template as<long>()) {
     throw std::runtime_error("N_UPDATE_CUTOFF must be smaller than THERMALIZATION_SWEEPS.");
   }
 
@@ -161,38 +172,59 @@ void HybridizationSimulation<IMP_MODEL>::update() {
   for (int imeas = 0; imeas < N_meas; imeas++) {    // accumulate measurements from N_meas updates before storing
     sweeps++;
 
+    //std::cout << "sweeps " << sweeps << std::endl;
+    thermalization_checker.add_sample(operators.size()/2);
+
 #ifdef MEASURE_TIMING
     const double time1 = timer.elapsed().wall*1E-9;
 #endif
 
     /**** try to insert or remove a pair of operators with the same flavor ****/
-    for (int flavor = 0; flavor < FLAVORS; flavor++) {
+    for (int update = 0; update < FLAVORS; update++) {
       const int flavor_target = (int) (random() * FLAVORS);
       boost::tuple<int, bool, double, SCALAR, bool> r =
         insert_remove_pair_flavor<SCALAR,EXTENDED_SCALAR>(random, flavor_target,flavor_target, BETA,
                                   order_creation_flavor,order_annihilation_flavor, creation_operators, annihilation_operators,
                                   M, sign, trace, operators, max_distance_pair, sliding_window, max_order);
 
-      
       check_consistency_operators(operators, creation_operators, annihilation_operators);
       sanity_check();
 
       //measure the distance dependence of weight for insertion
-      if (boost::get<0>(r) == 0 && boost::get<4>(r)) {//only for insertion
+      if (boost::get<4>(r)) {//only if a valid move was generated
         const double op_distance = std::min(BETA - boost::get<2>(r), boost::get<2>(r));
-        if (boost::get<1>(r)) {
-          weight_vs_distance.add_sample(op_distance, 1.0);
+        if (boost::get<0>(r) == 0) {
+          //in case of insertion
+          if (boost::get<1>(r)) {
+            weight_ins.add_sample(op_distance, 1.0, 0);
+          } else {
+            weight_ins.add_sample(op_distance, 0.0, 0);
+          }
         } else {
-          weight_vs_distance.add_sample(op_distance, 0.0);
+          prob_valid_rem_move.accepted();
+          //in case of removal
+          if (boost::get<1>(r)) {
+            weight_rem.add_sample(op_distance, 1.0, 0);
+          } else {
+            weight_rem.add_sample(op_distance, 0.0, 0);
+          }
+        }
+      } else {
+        if (boost::get<0>(r) == 1) {
+          //in case of removal
+          prob_valid_rem_move.rejected();
         }
       }
     }
 
     /**** insert or remove a pair with random flavors ****/
-    for (int flavor = 0; flavor < FLAVORS; flavor++) {
+    for (int update = 0; update < FLAVORS; update++) {
       int c_flavor = (int) (random() * FLAVORS);
       int a_flavor = (int) (random() * FLAVORS);
-      insert_remove_pair_flavor(random, c_flavor,
+      if (c_flavor==a_flavor) {
+        continue;
+      }
+      boost::tuple<int, bool, double, SCALAR, bool> r = insert_remove_pair_flavor(random, c_flavor,
                                 a_flavor,
                                 BETA,
                                 order_creation_flavor,
@@ -204,6 +236,17 @@ void HybridizationSimulation<IMP_MODEL>::update() {
                                 sliding_window, max_order);
       check_consistency_operators(operators, creation_operators, annihilation_operators);
       sanity_check();
+      if (boost::get<4>(r)) {//only if a valid move was generated
+        const double op_distance = std::min(BETA - boost::get<2>(r), boost::get<2>(r));
+        const double acc = boost::get<1>(r) ? 1.0 : 0.0;
+        if (boost::get<0>(r) == 0) {
+          //insertion
+          weight_ins.add_sample(op_distance, acc, 0);
+        } else {
+          //removal
+          weight_rem.add_sample(op_distance, acc, 0);
+        }
+      }
     }
 
     /**** shift an operator ****/
@@ -212,23 +255,21 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       boost::tuple<bool, double, bool, int> r = shift_lazy(random, BETA,
                                                       creation_operators, annihilation_operators, M, sign,
                                                       trace,
-                                                      operators, max_distance_shift,
+                                                      operators,
+                                                      weight_shift.get_cutoff(),
                                                       sliding_window);
       check_consistency_operators(operators, creation_operators, annihilation_operators);
       sanity_check();
       if (boost::get<2>(r)) {
         const double op_distance = std::min(BETA - boost::get<1>(r), boost::get<1>(r));
         if (boost::get<0>(r)) {
-          weight_vs_distance_shift.add_sample(op_distance, 1.0);
+          weight_shift.add_sample(op_distance, 1.0, boost::get<3>(r));
         } else {
-          weight_vs_distance_shift.add_sample(op_distance, 0.0);
+          weight_shift.add_sample(op_distance, 0.0, boost::get<3>(r));
         }
       }
     }
 
-    //if (my_isnan(det)) {
-      //throw std::runtime_error("det is NaN after insertion/removal/shift update");
-    //}
     if (my_isnan(trace)) {
       throw std::runtime_error("trace is NaN after insertion/removal/shift update");
     }
@@ -244,9 +285,6 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     //Perform global updates which might cost O(beta)
     expensive_updates();
 
-    //if (my_isnan(det)) {
-      //throw std::runtime_error("det is NaN after global update");
-    //}
     if (my_isnan(trace)) {
       throw std::runtime_error("trace is NaN after global update");
     }
@@ -314,21 +352,30 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
     measurements["PerturbationOrderFlavors"] << tmp;
   }
 
-  //measurements["AbsDeterminant"] << convert_to_double(myabs(det));
   measurements["AbsTrace"] << convert_to_double(myabs(trace));
 
   // measure acceptance rate
-  measurements["Insertion_attempted"] << to_std_vector(weight_vs_distance.get_counter());
-  measurements["Shift_attempted"] << to_std_vector(weight_vs_distance_shift.get_counter());
-  measurements["Insertion_accepted"] << to_std_vector(weight_vs_distance.get_sumval());
-  measurements["Shift_accepted"] << to_std_vector(weight_vs_distance_shift.get_sumval());
-  weight_vs_distance.reset();
-  weight_vs_distance_shift.reset();
+  measurements["Insertion_attempted"] << to_std_vector(weight_ins.get_counter());
+  measurements["Insertion_accepted"] << to_std_vector(weight_ins.get_sumval());
+  weight_ins.reset();
+
+  measurements["Removal_attempted"] << to_std_vector(weight_rem.get_counter());
+  measurements["Removal_accepted"] << to_std_vector(weight_rem.get_sumval());
+  weight_rem.reset();
+
+  measurements["Shift_attempted"] << to_std_vector(weight_shift.get_counter());
+  measurements["Shift_accepted"] << to_std_vector(weight_shift.get_sumval());
+  weight_shift.reset();
 
   //measure acceptance rate of global shift
   if (global_shift_acc_rate.has_samples()) {
     measurements["Acceptance_rate_global_shift"] << global_shift_acc_rate.compute_acceptance_rate();
     global_shift_acc_rate.reset();
+  }
+
+  if (prob_valid_rem_move.has_samples()) {
+    measurements["Probability_valid_removal_move"] << prob_valid_rem_move.compute_acceptance_rate();
+    prob_valid_rem_move.reset();
   }
 
   //measure acceptance rate of swap update
@@ -349,17 +396,19 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   measure_two_time_correlation_functions();
 
   //Measure Legendre coefficients of single-particle Green's function
-  measure_simple_vector_observable<COMPLEX>(measurements, "Greens_legendre",
+  if (g_meas_legendre.has_samples()) {
+    measure_simple_vector_observable<COMPLEX>(measurements, "Greens_legendre",
                                             to_std_vector(
                                               g_meas_legendre.get_measured_legendre_coefficients(p_model->get_rotmat_Delta())
                                             )
-  );
-  measure_simple_vector_observable<COMPLEX>(measurements, "Greens_legendre_rotated",
+    );
+    measure_simple_vector_observable<COMPLEX>(measurements, "Greens_legendre_rotated",
                                             to_std_vector(
                                               g_meas_legendre.get_measured_legendre_coefficients(Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>::Identity(FLAVORS,FLAVORS))
                                             )
-  );
-  g_meas_legendre.reset();
+    );
+    g_meas_legendre.reset();
+  }
 
   measurements["Sign"] << mycast<double>(sign);
 
@@ -441,9 +490,14 @@ private:
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
   const bool do_swap = (N_swap != 0 && sweeps%N_swap == 0 && swap_vector.size() > 0);
+  //const bool do_global_shift = (N_swap != 0 && sweeps%N_swap == 0 && swap_vector.size() > 0);
   const bool do_global_shift = (sliding_window.get_position_right_edge()==0);
 
   if (!do_swap && !do_global_shift) {
+    return;
+  }
+  if (random() < 0.1) {
+    //avoid doing updates in a periodic way.
     return;
   }
 
@@ -470,12 +524,8 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
                    FLAVORS, swap_vector[iupdate].first.begin()
       );
 
-      const int source_template = swap_vector[iupdate].second;
       if (accepted) {
         swap_acc_rate[iupdate].accepted();
-        //if (my_isnan(det)) {
-          //throw std::runtime_error("det is NaN after swap update"+boost::lexical_cast<std::string>(itry));
-        //}
         if (my_isnan(trace)) {
           throw std::runtime_error("trace is NaN after swap update"+boost::lexical_cast<std::string>(itry));
         }
@@ -496,9 +546,6 @@ void HybridizationSimulation<IMP_MODEL>::expensive_updates() {
                                        M, sign, trace, operators, sliding_window);
     if (accepted) {
       global_shift_acc_rate.accepted();
-      //if (my_isnan(det)) {
-        //throw std::runtime_error("det is NaN after global shift");
-      //}
       if (my_isnan(trace)) {
         throw std::runtime_error("trace is NaN after global shift");
       }
@@ -525,7 +572,6 @@ template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   assert(!is_thermalized());
 
-  //const long interval = std::max(par["THERMALIZATION"]/par["N_UPDATE_CUTOFF"],1);
   const int N_update_cutoff = par["N_UPDATE_CUTOFF"].template as<int>();
   const long interval_update_cutoff = static_cast<long>(std::max(static_cast<double>(par["THERMALIZATION"].template as<long>())/N_update_cutoff, 1.0));
 
@@ -534,26 +580,47 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
     1.0/std::max(static_cast<double>(sweeps)/static_cast<double>(interval_update_cutoff),1.0)
   );
 
+  std::vector<double> ratmp;
 #ifdef ALPS_HAVE_MPI
-  boost::tuple<bool,double> r_pair = weight_vs_distance.update_cutoff(acc_rate_cutoff, max_distance_pair, mag, comm);
+  ratmp.push_back(weight_ins.update_cutoff(acc_rate_cutoff, mag, comm));
+  ratmp.push_back(weight_rem.update_cutoff(acc_rate_cutoff, mag, comm));
 #else
-  boost::tuple<bool,double> r_pair = weight_vs_distance.update_cutoff(acc_rate_cutoff, max_distance_pair, mag);
+  ratmp.push_back(weight_ins.update_cutoff(acc_rate_cutoff, mag));
+  ratmp.push_back(weight_rem.update_cutoff(acc_rate_cutoff, mag));
 #endif
-  max_distance_pair = boost::get<1>(r_pair);
-  max_distance_pair = std::min(0.5*BETA, max_distance_pair);
-
-  //std::cout << "Done max_distance_pair rank " << comm.rank() << " sweeps " << sweeps << std::endl;
+  max_distance_pair = *std::max_element(ratmp.begin(), ratmp.end());
 
 #ifdef ALPS_HAVE_MPI
-  boost::tuple<bool,double> r_shift = weight_vs_distance_shift.update_cutoff(acc_rate_cutoff, max_distance_shift, mag, comm);
+  ratmp.push_back(weight_shift.update_cutoff(acc_rate_cutoff, mag, comm));
 #else
-  boost::tuple<bool,double> r_shift = weight_vs_distance_shift.update_cutoff(acc_rate_cutoff, max_distance_shift, mag);
+  ratmp.push_back(weight_shift.update_cutoff(acc_rate_cutoff, mag));
 #endif
-  max_distance_shift = boost::get<1>(r_shift);
-  max_distance_shift = std::min(0.5*BETA, max_distance_shift);
+  //max_distance_shift = ratmp.back();
+  const double max_distance = *std::max_element(ratmp.begin(), ratmp.end());
 
-  const double max_distance = std::max(max_distance_pair,max_distance_shift);
-  const std::size_t n_window_new = static_cast<std::size_t>(std::max(1,static_cast<int>(BETA/(2.0*max_distance))));
+  //care about expansion order
+  std::vector<double> expansion_order(1);
+  std::vector<double> expansion_order_local;
+  expansion_order_local.push_back(1.0*operators.size()/2);
+#ifdef ALPS_HAVE_MPI
+  my_all_reduce<double>(comm, expansion_order_local, expansion_order, std::plus<double>());
+  expansion_order[0] /= comm.size();
+#else
+  expansion_order[0] = expansion_order_local[0];
+#endif
+
+  const std::size_t n_window_new = static_cast<std::size_t>(
+    std::min(
+      std::min(
+        static_cast<int>(std::ceil(expansion_order[0]/FLAVORS)),
+        std::max(
+          1, static_cast<int>(BETA/(2.0*max_distance))
+        )
+      ),
+      par["MAX_N_SLIDING_WINDOW"].template as<int>()
+    )
+  );
+  //max_distance_pair = BETA/(2*n_window_new);
 
   if (n_window_new != sliding_window.get_n_window()) {
     const ITIME_AXIS_LEFT_OR_RIGHT new_move_direction = random()<0.5 ? ITIME_LEFT : ITIME_RIGHT;
@@ -568,9 +635,11 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
 /////////////////////////////////////////////////
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
-  max_dist_optimizer.reset();
-  weight_vs_distance.reset();
-  weight_vs_distance_shift.reset();
+  g_meas_legendre.reset();
+  weight_ins.reset();
+  weight_rem.reset();
+  weight_shift.reset();
+  prob_valid_rem_move.reset();
   if (global_mpi_rank==0) {
     std::cout << "We're done with thermalization." << std::endl <<
     "The number of segments for sliding window update is " << sliding_window.get_n_window() << "." << std::endl <<
@@ -591,6 +660,16 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   }
   std::cout << std::endl;
 #endif
+
+  if (verbose && global_mpi_rank==0) {
+    std::cout << "t_max for insertion/removal updates " << std::max(weight_ins.get_cutoff(0),weight_rem.get_cutoff(0)) << std::endl;
+    std::cout << "t_max for shift update" << std::endl;
+    for (int flavor = 0; flavor < FLAVORS; ++flavor) {
+      std::cout << " flavor = " << flavor << " , t_max = "
+      << weight_shift.get_cutoff(flavor)<<" "
+      << std::endl;
+    }
+  }
 
   //N_meas
   const int N_meas_min = std::max(10, 4*sliding_window.get_n_window());//a sweep of the window takes 4*get_n_window()

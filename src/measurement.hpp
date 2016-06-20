@@ -133,6 +133,8 @@ public:
    */
   inline int get_num_legendre() const {return num_legendre_;}
 
+  inline bool has_samples() const {return n_meas_>0;}
+
 private:
   const int num_flavors_, num_legendre_, num_matsubara_;
   const double beta_, temperature_;
