@@ -15,10 +15,10 @@ void my_all_reduce(const alps::mpi::communicator& comm, const V& in_vals, V&out_
 }
 #endif
 
-template<class T>
-void rebin(std::valarray<T>& org_array, int nrebin) {
+template<class T, class V>
+void rebin(V& org_array, int nrebin) {
   const int new_len = org_array.size()/nrebin;
-  std::valarray<T> new_array(new_len);
+  V new_array(new_len);
   int count=0;
   for (int i=0; i<new_len; ++i) {
     T sum = 0;
@@ -109,9 +109,9 @@ public:
 
   //maxdist is not updated if we do not have enough data.
 #ifdef ALPS_HAVE_MPI
-  boost::tuple<bool,double> update_cutoff(double cutoff_ratio, double maxdist, double mag, const alps::mpi::communicator& alps_comm) const {
+  boost::tuple<bool,double> update_cutoff(double cutoff_ratio, double maxdist, double mag, const alps::mpi::communicator& alps_comm, bool verbose=false) const {
 #else
-  boost::tuple<bool,double> update_cutoff(double cutoff_ratio, double maxdist, double mag) const {
+  boost::tuple<bool,double> update_cutoff(double cutoff_ratio, double maxdist, double mag, bool verbose=false) const {
 #endif
     assert(cutoff_ratio>=0.0 && cutoff_ratio<=1.0);
     assert(mag>=1.0);
@@ -158,12 +158,11 @@ public:
       }
 
       double ratio = (sumval_tmp[ndiv-1]/counter_tmp[ndiv-1])/maxval;
-      if (ratio > cutoff_ratio) {
-        maxdist_new *= mag;
-      } else if (ratio < cutoff_ratio) {
+      if (ratio < cutoff_ratio) {
         maxdist_new /= mag;
+      } else if (ratio > cutoff_ratio) {
+        maxdist_new *= mag;
       }
-      //maxdist_new = std::min(maxdist_new,maxdist);
     }//int update=0
     return boost::make_tuple(true,maxdist_new);
   }
@@ -195,94 +194,176 @@ private:
 class scalar_histogram_flavors
 {
 public:
-  scalar_histogram_flavors(int num_bins_, double max_val, int flavors) :
-    flavors(flavors),
-    num_bins(num_bins_),
-    max_val(max_val),
-    histograms(flavors)
+  scalar_histogram_flavors(int num_bins, double max_val, int flavors, double initial_cutoff) :
+    flavors_(flavors),
+    num_bins_(num_bins),
+    max_val_(max_val),
+    histograms_(flavors),
+    cutoff_(flavors, initial_cutoff)
   {
-    //for (auto& elem : histograms) {
-    for (int ielm=0; ielm<histograms.size(); ++ielm) {
-      histograms[ielm].init(num_bins_, max_val);
+    for (int ielm=0; ielm<histograms_.size(); ++ielm) {
+      histograms_[ielm].init(num_bins_, max_val_);
     }
   };
 
   bool add_sample(double distance, double value, int flavor) {
-    assert(flavor>=0 && flavor<flavors);
-    return histograms[flavor].add_sample(distance, value);
+    assert(flavor>=0 && flavor<flavors_);
+    return histograms_[flavor].add_sample(distance, value);
   }
 
   std::valarray<double> get_mean() const {
-    std::valarray<double> mean_flavors(num_bins*flavors), mean(num_bins);
+    std::valarray<double> mean_flavors(num_bins_*flavors_), mean(num_bins_);
 
-    for (int iflavor=0; iflavor<flavors; ++iflavor) {
-      mean = histograms[iflavor].get_mean();
-      for (int ibin=0; ibin<num_bins; ++ibin) {
-        assert(ibin+iflavor*num_bins<mean_flavors.size());
-        mean_flavors[ibin+iflavor*num_bins] = mean[ibin];
+    for (int iflavor=0; iflavor<flavors_; ++iflavor) {
+      mean = histograms_[iflavor].get_mean();
+      for (int ibin=0; ibin<num_bins_; ++ibin) {
+        assert(ibin+iflavor*num_bins_<mean_flavors.size());
+        mean_flavors[ibin+iflavor*num_bins_] = mean[ibin];
       }
     }
     return mean_flavors;
   }
 
   std::valarray<double> get_counter() const {
-    std::valarray<double> counter_flavors(num_bins*flavors);
+    std::valarray<double> counter_flavors(num_bins_*flavors_);
 
-    for (int iflavor=0; iflavor<flavors; ++iflavor) {
-      const std::valarray<double>& counter = histograms[iflavor].get_counter();
-      for (int ibin=0; ibin<num_bins; ++ibin) {
-        assert(ibin+iflavor*num_bins<counter_flavors.size());
-        counter_flavors[ibin+iflavor*num_bins] = counter[ibin];
+    for (int iflavor=0; iflavor<flavors_; ++iflavor) {
+      const std::valarray<double>& counter = histograms_[iflavor].get_counter();
+      for (int ibin=0; ibin<num_bins_; ++ibin) {
+        assert(ibin+iflavor*num_bins_<counter_flavors.size());
+        counter_flavors[ibin+iflavor*num_bins_] = counter[ibin];
       }
     }
     return counter_flavors;
   }
 
   std::valarray<double> get_sumval() const {
-    std::valarray<double> sumval_flavors(num_bins*flavors);
+    std::valarray<double> sumval_flavors(num_bins_*flavors_);
 
-    for (int iflavor=0; iflavor<flavors; ++iflavor) {
-      const std::valarray<double>& sumval = histograms[iflavor].get_sumval();
-      for (int ibin=0; ibin<num_bins; ++ibin) {
-        assert(ibin+iflavor*num_bins<sumval_flavors.size());
-        sumval_flavors[ibin+iflavor*num_bins] = sumval[ibin];
+    for (int iflavor=0; iflavor<flavors_; ++iflavor) {
+      const std::valarray<double>& sumval = histograms_[iflavor].get_sumval();
+      for (int ibin=0; ibin<num_bins_; ++ibin) {
+        assert(ibin+iflavor*num_bins_<sumval_flavors.size());
+        sumval_flavors[ibin+iflavor*num_bins_] = sumval[ibin];
       }
     }
     return sumval_flavors;
   }
 
 #ifdef ALPS_HAVE_MPI
-  double update_cutoff(double cutoff_ratio, double maxdist, double mag, const alps::mpi::communicator& alps_comm) const {
+  double update_cutoff(double cutoff_ratio, double mag, const alps::mpi::communicator& alps_comm) {
 #else
-  double update_cutoff(double cutoff_ratio, double maxdist, double mag) const {
+  double update_cutoff(double cutoff_ratio, double mag) {
 #endif
-    double maxdist_new = -1.0;
-    //for (auto& elem : histograms) {
-    for (int ielm=0; ielm<histograms.size(); ++ielm) {
+
+    for (int ielm=0; ielm<histograms_.size(); ++ielm) {
 #ifdef ALPS_HAVE_MPI
-      boost::tuple<bool,double> r = histograms[ielm].update_cutoff(cutoff_ratio, maxdist, mag, alps_comm);
+      boost::tuple<bool,double> r = histograms_[ielm].update_cutoff(cutoff_ratio, cutoff_[ielm], mag, alps_comm);
 #else
-      boost::tuple<bool,double> r = histograms[ielm].update_cutoff(cutoff_ratio, maxdist, mag);
+      boost::tuple<bool,double> r = histograms_[ielm].update_cutoff(cutoff_ratio, cutoff_[ielm], mag);
 #endif
-      maxdist_new = std::max(maxdist_new, boost::get<1>(r));
+      cutoff_[ielm] = boost::get<1>(r);
     }
-    assert(maxdist_new>0);
-    return std::max(std::min(max_val, maxdist_new), max_val/num_bins);
+    const double maxdist_new = *std::max_element(cutoff_.begin(), cutoff_.end());
+    return std::max(maxdist_new, max_val_/num_bins_);
+  }
+
+  double get_cutoff(int flavor) const {
+    return cutoff_[flavor];
+  }
+
+  const std::vector<double>& get_cutoff() const {
+    return cutoff_;
   }
 
   void reset() {
-    //for (auto& elem : histograms) {
-    for (int ielm=0; ielm<histograms.size(); ++ielm) {
-      histograms[ielm].reset();
+    for (int ielm=0; ielm<histograms_.size(); ++ielm) {
+      histograms_[ielm].reset();
     }
   }
 
   int get_num_bins() const {
-    return num_bins;
+    return num_bins_;
   }
 
 private:
-  const int flavors, num_bins;
-  const double max_val;
-  std::vector<scalar_histogram> histograms;
+  const int flavors_, num_bins_;
+  const double max_val_;
+  std::vector<scalar_histogram> histograms_;
+  std::vector<double> cutoff_;
 };
+
+class ThermalizationChecker {
+public:
+  ThermalizationChecker(long num_thermalization_steps) :
+    num_thermalization_steps_(num_thermalization_steps),
+    thermalized_(false),
+    time_series_(0),
+    actual_thermalization_steps_(-1000000000)
+  {
+  }
+
+  void add_sample(int current_expansion_order) {
+    if (thermalized_) {
+      return;
+    }
+    time_series_.push_back(1.*current_expansion_order);
+  }
+
+  long get_actual_thermalization_steps() const {
+    if (!thermalized_) {
+      throw std::runtime_error("Error in get_actual_thermalization_steps!");
+    }
+    return actual_thermalization_steps_;
+  }
+
+#ifdef ALPS_HAVE_MPI
+  bool is_thermalized(long steps, const alps::mpi::communicator& alps_comm) const {
+#else
+  bool is_thermalized(long steps) const {
+#endif
+    if (thermalized_) {
+      return true;
+    }
+    if (steps < num_thermalization_steps_) {
+      return false;
+    }
+
+    if (actual_thermalization_steps_ > 0) {
+      if (steps < actual_thermalization_steps_) {
+        return false;
+      }
+      thermalized_ = true;
+      return true;
+    }
+
+#ifdef ALPS_HAVE_MPI
+    std::vector<double> tmp(time_series_.size(), 0.0);
+    my_all_reduce<double>(alps_comm, time_series_, tmp, std::plus<double>());
+    time_series_ = tmp;
+#endif
+    if (time_series_.size() < 3*100) {
+      return false;
+    }
+    const int bin_size = static_cast<int>(time_series_.size()/3);
+
+    std::vector<double> rebinned(time_series_);
+    rebin<double>(rebinned, bin_size);
+    const int num_bins = rebinned.size();
+    if (
+      rebinned[num_bins/2] > 0.95*rebinned[num_bins-1] &&
+      rebinned[num_bins/2] < 1.05*rebinned[num_bins-1]
+      ) {
+      actual_thermalization_steps_ = 5*steps;
+      //std::cout << "actual steps " << actual_thermalization_steps_ << std::endl;
+    }
+    return false;
+  }
+
+private:
+  long num_thermalization_steps_;
+  mutable bool thermalized_;
+  mutable std::vector<double> time_series_;
+  mutable long actual_thermalization_steps_;
+};
+

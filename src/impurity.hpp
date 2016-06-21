@@ -83,11 +83,9 @@ public:
   void resize_vectors(); //early initialization stuff
 
   bool is_thermalized() const;
-  //double work_done() const;
-  static void print_copyright(std::ostream & os) {os << "\n\n\tMatrix code based on the hybridization expansion method of PRB 74, 155107 (2006)\n"
-													<< "\tCopyright (C) 2006-2008		Emanuel Gull	<gullc@phys.ethz.ch>\n"
-													<< "					Philipp Werner	<werner@phys.columbia.edu>\n\n"
-													<< "\tThis program may only be used with explicit permission by the authors.\n\n\n";}
+  static void print_copyright(std::ostream & os) {
+                         os << "Matrix code based on the hybridization expansion method of PRB 74, 155107 (2006)" << std::endl
+													<< "This program is licensed under GPLv2.";}
 
 private:
   //for set up
@@ -99,7 +97,7 @@ private:
   void measure_n();
   void measure_two_time_correlation_functions();
 
-  //Definitin of system constant during simulation
+  //Definition of system constant during simulation
   const parameters_type par;
   const double BETA;
   const int SITES;
@@ -117,7 +115,7 @@ private:
 #endif
 
   //Constant simulation parameters
-  const long thermalization_sweeps;           // sweeps to be done for equilibration
+  ThermalizationChecker thermalization_checker;
   const long total_sweeps;                    // sweeps to be done after equilibration
 
   //Simulation parameters that may be modified after/during thermalization
@@ -130,7 +128,6 @@ private:
   long sweeps;                          // sweeps done
   alps::ResizableMatrix<SCALAR> M;
   SCALAR sign;							// the sign of w=Z_k_up*Z_k'_down*trace
-  //EXTENDED_SCALAR det;
   EXTENDED_SCALAR trace;							// matrix trace
 
   typedef typename std::iterator_traits<std::vector<int>::iterator>::value_type mytpe;
@@ -150,12 +147,11 @@ private:
   //sliding window
   SW_TYPE sliding_window;
 
-  scalar_histogram_flavors max_dist_optimizer;
-  scalar_histogram weight_vs_distance;
-  scalar_histogram weight_vs_distance_shift;
-  double max_distance_pair; //cutoff for insert/removal of pair
-  double max_distance_shift; //cutoff for shift
-  double acc_rate_cutoff;
+  double                    max_distance_pair; //cutoff for insert/removal of pair
+  double                    acc_rate_cutoff;
+  scalar_histogram_flavors  weight_ins;
+  scalar_histogram_flavors  weight_rem;
+  scalar_histogram_flavors  weight_shift;
 
   //for measuring Green's function
   GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
@@ -170,6 +166,8 @@ private:
   AcceptanceRateMeasurement global_shift_acc_rate;
   std::vector<AcceptanceRateMeasurement> swap_acc_rate;
 
+  AcceptanceRateMeasurement prob_valid_rem_move;
+
   //timings (msec/N_MEAS steps)
   //0 : local update
   //1 : global update
@@ -177,6 +175,8 @@ private:
   //3 : measuring single-particle green's function
   //4 : rest of measurement
   std::vector<double> timings;
+
+  bool verbose;
 
   void sanity_check() const;
 };

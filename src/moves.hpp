@@ -199,6 +199,7 @@ boost::tuple<int,bool,double,SCALAR,bool> insert_remove_pair_flavor(R& rng, int 
         boost::tuple<int,operator_container_t::iterator,operator_container_t::iterator> r =
             pick_up_pair(rng, creation_operators, annihilation_operators, flavor_ins, flavor_rem, tau_high, tau_low, cutoff, BETA);
         const int num_pairs_old = r.get<0>();
+        //std::cout << "debug " << num_pairs_old << " " << creation_flavor << " " << annihilation_flavor << " " << tau_high << " " << tau_low << std::endl;
         if (num_pairs_old==0) {
             return boost::make_tuple(1,false,0.0,0.0,valid_move_generated);
         }
@@ -282,7 +283,7 @@ template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename M_TYPE,
 boost::tuple<bool,double,bool,int>
 shift_lazy(R & rng, double BETA, operator_container_t & creation_operators,
       operator_container_t & annihilation_operators, M_TYPE & M, SCALAR &sign, EXTENDED_SCALAR &trace,
-      operator_container_t & operators, double distance,
+      operator_container_t & operators, const std::vector<double>& distance,
       SLIDING_WINDOW& sliding_window)
 {
     namespace bll = boost::lambda;
@@ -290,7 +291,6 @@ shift_lazy(R & rng, double BETA, operator_container_t & creation_operators,
 
     std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
 
-    assert(distance<=BETA);
     bool accepted = false;
 
     if (creation_operators.size() == 0) {
@@ -327,7 +327,7 @@ shift_lazy(R & rng, double BETA, operator_container_t & creation_operators,
 
     const int flavor = it->flavor();
     const double old_t = it->time();
-    const double new_t = old_t + 2*(rng()-0.5) * distance;
+    const double new_t = old_t + 2*(rng()-0.5) * distance[flavor];
     const double op_distance = std::abs(old_t-new_t);
     const psi removed_op(*it);
     const psi new_operator(new_t, type, flavor);

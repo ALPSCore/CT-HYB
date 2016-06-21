@@ -398,12 +398,12 @@ cal_det_as_vector(const O& creation_operators, const O& annihilation_operators, 
   Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix(size1, size1);
   construct_blas_matrix(matrix, creation_operators, annihilation_operators, BETA, F);
 
-  Eigen::FullPivLU<Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> > lu(matrix);
+  Eigen::PartialPivLU<Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> > lu(matrix);
   std::vector<SCALAR> results(size1);
   for (int i = 0; i < size1; ++i) {
     results[i] = lu.matrixLU()(i,i);
   }
-  results[0] *= lu.permutationP().determinant()*lu.permutationQ().determinant();
+  results[0] *= lu.permutationP().determinant();
 
   M.destructive_resize(size1, size1);
   if (size1 > 0) {

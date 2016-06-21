@@ -46,9 +46,9 @@ inline std::complex<double> convert_to_complex(const std::complex<double>& x) {
 #if (!defined(__clang__) && __GNUG__>0)
   #include <boost/multiprecision/float128.hpp>
   typedef boost::multiprecision::float128 EXTENDED_REAL;
-#elif (__INTEL_COMPILER>0)
-  #include <boost/multiprecision/float128.hpp>
-  typedef boost::multiprecision::float128 EXTENDED_REAL;
+//#elif (__INTEL_COMPILER>0)
+  //#include <boost/multiprecision/float128.hpp>
+  //typedef boost::multiprecision::float128 EXTENDED_REAL;
 #else
   #include <boost/multiprecision/cpp_bin_float.hpp>
   typedef boost::multiprecision::cpp_bin_float_quad EXTENDED_REAL;

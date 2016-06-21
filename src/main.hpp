@@ -23,10 +23,8 @@
   #include <alps/utilities/mpi.hpp>
   #include "mc/mympiadapter.hpp"
 #endif
-  #include "mc/mymcadapter.hpp"
+#include "mc/mymcadapter.hpp"
 #include "postprocess.hpp"
-
-#undef BUILD_PYTHON_MODULE
 
 int global_mpi_rank;
 
