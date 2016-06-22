@@ -166,7 +166,7 @@ private:
   AcceptanceRateMeasurement global_shift_acc_rate;
   std::vector<AcceptanceRateMeasurement> swap_acc_rate;
 
-  AcceptanceRateMeasurement prob_valid_rem_move;
+  AcceptanceRateMeasurement prob_valid_rem_move, prob_valid_rem_move_offdiag;
 
   //timings (msec/N_MEAS steps)
   //0 : local update

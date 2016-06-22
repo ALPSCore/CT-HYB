@@ -31,6 +31,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Acceptance_rate_swap");
   measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move");
+  measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move_offdiagonal");
 
 #ifdef MEASURE_TIMING
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("TimingsSecPerNMEAS");

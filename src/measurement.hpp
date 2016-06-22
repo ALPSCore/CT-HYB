@@ -135,6 +135,8 @@ public:
 
   inline bool has_samples() const {return n_meas_>0;}
 
+  inline int num_samples() const {return n_meas_;}
+
 private:
   const int num_flavors_, num_legendre_, num_matsubara_;
   const double beta_, temperature_;

@@ -226,22 +226,7 @@ SlidingWindowManager<MODEL>::compute_trace(const operator_container_t& operators
         evolve_ket(*p_model, ket, ops_range, tau_right, tau_left);
         if (left_states[i_braket].back().sector()==ket.sector()) {
             const EXTENDED_SCALAR trace_braket = p_model->product(left_states[i_braket].back(), ket);
-            /*
-#ifndef NDEBUG
-            const typename BRAKET_TYPE::EXTENDED_REAL trace_bound = std::min(left_states[i_braket].back().min_dim(), ket.min_dim())
-               *left_states[i_braket].back().compute_spectral_norm()
-               *ket.compute_spectral_norm();
-            if (!(trace_bound>=0)) {
-               std::cout << "trace_bound " << trace_bound << std::endl;
-               std::cout << "min_dim " << std::min(left_states[i_braket].back().min_dim(), ket.min_dim()) << std::endl;
-               std::cout << "left_norm " << left_states[i_braket].back().compute_spectral_norm() << std::endl;
-               std::cout << "right_norm " << ket.compute_spectral_norm() << std::endl;
-            }
-            assert(trace_bound>=0);
-            const double eps = std::max(1E-8*std::max(std::abs(trace_braket),trace_bound),1E-8);
-            assert(std::abs(trace_braket)<=trace_bound+eps);
-#endif
-             */
+            assert(!my_isnan(trace_braket));
             trace += trace_braket;
         }
     }
@@ -338,18 +323,22 @@ SlidingWindowManager<MODEL>::evolve_bra(const MODEL& model, BRAKET_TYPE& bra,
         model.sector_propagate_bra(bra, tau_old-it->time());
         for (int i = 0; i < num_ops; i++) {
             model.apply_op_hyb_bra(it->type(), it->flavor(), bra);
+            bra.normalize();
 
             if (it == ops_range.first) {//no more operators left
                 model.sector_propagate_bra(bra, it->time()-tau_new);
+                bra.normalize();
             } else {
                 //there is still some operator left
                 model.sector_propagate_bra(bra, it->time()-it_down->time());
+                bra.normalize();
             }
             --it;
             --it_down;
         }
     } else {
         model.sector_propagate_bra(bra, tau_old-tau_new);
+        bra.normalize();
     }
 }
 
@@ -372,19 +361,24 @@ SlidingWindowManager<MODEL>::evolve_ket(const MODEL& model, BRAKET_TYPE& ket,
 
         BRAKET_TYPE tmp;
         model.sector_propagate_ket(ket, it->time()-tau_old);
+        ket.normalize();
         for (int i = 0; i < num_ops; i++) {
             model.apply_op_hyb_ket(it->type(), it->flavor(), ket);
+            ket.normalize();
 
             if (it_up != ops_range.second) {
                 model.sector_propagate_ket(ket, it_up->time()-it->time());
+                ket.normalize();
             } else {
                 model.sector_propagate_ket(ket, tau_new-it->time());
+                ket.normalize();
             }
             it++;
             it_up++;
         }
     } else {
         model.sector_propagate_ket(ket, tau_new-tau_old);
+        ket.normalize();
     }
 }
 

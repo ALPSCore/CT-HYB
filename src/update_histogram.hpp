@@ -318,9 +318,9 @@ public:
   }
 
 #ifdef ALPS_HAVE_MPI
-  bool is_thermalized(long steps, const alps::mpi::communicator& alps_comm) const {
+  bool is_thermalized(long steps, const alps::mpi::communicator& alps_comm, bool verbose=false) const {
 #else
-  bool is_thermalized(long steps) const {
+  bool is_thermalized(long steps, bool verbose=false) const {
 #endif
     if (thermalized_) {
       return true;
@@ -355,7 +355,9 @@ public:
       rebinned[num_bins/2] < 1.05*rebinned[num_bins-1]
       ) {
       actual_thermalization_steps_ = 5*steps;
-      //std::cout << "actual steps " << actual_thermalization_steps_ << std::endl;
+      if (verbose) {
+        std::cout << "Actual number of thermalization steps is set to " << actual_thermalization_steps_ << "." << std::endl;
+      }
     }
     return false;
   }

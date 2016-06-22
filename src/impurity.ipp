@@ -74,6 +74,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     global_shift_acc_rate(),
     swap_acc_rate(0),
     prob_valid_rem_move(),
+    prob_valid_rem_move_offdiag(),
     timings(5, 0.0),
     verbose(p["VERBOSE"].template as<int>()!=0)
 {
@@ -135,9 +136,9 @@ template<typename IMP_MODEL>
 bool HybridizationSimulation<IMP_MODEL>::is_thermalized() const
 {
 #ifdef ALPS_HAVE_MPI
-  return thermalization_checker.is_thermalized(sweeps, comm);
+  return thermalization_checker.is_thermalized(sweeps, comm, (global_mpi_rank==0 && verbose));
 #else
-  return thermalization_checker.is_thermalized(sweeps);
+  return thermalization_checker.is_thermalized(sweeps, (global_mpi_rank==0 && verbose));
 #endif
 }
 
@@ -245,6 +246,11 @@ void HybridizationSimulation<IMP_MODEL>::update() {
         } else {
           //removal
           weight_rem.add_sample(op_distance, acc, 0);
+          prob_valid_rem_move_offdiag.accepted();
+        }
+      } else {
+        if (boost::get<0>(r) == 1) {
+          prob_valid_rem_move_offdiag.rejected();
         }
       }
     }
@@ -376,6 +382,11 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   if (prob_valid_rem_move.has_samples()) {
     measurements["Probability_valid_removal_move"] << prob_valid_rem_move.compute_acceptance_rate();
     prob_valid_rem_move.reset();
+  }
+
+  if (prob_valid_rem_move_offdiag.has_samples()) {
+    measurements["Probability_valid_removal_move_offdiagonal"] << prob_valid_rem_move_offdiag.compute_acceptance_rate();
+    prob_valid_rem_move_offdiag.reset();
   }
 
   //measure acceptance rate of swap update
@@ -595,7 +606,6 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
 #else
   ratmp.push_back(weight_shift.update_cutoff(acc_rate_cutoff, mag));
 #endif
-  //max_distance_shift = ratmp.back();
   const double max_distance = *std::max_element(ratmp.begin(), ratmp.end());
 
   //care about expansion order
@@ -641,9 +651,8 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   weight_shift.reset();
   prob_valid_rem_move.reset();
   if (global_mpi_rank==0) {
-    std::cout << "We're done with thermalization." << std::endl <<
-    "The number of segments for sliding window update is " << sliding_window.get_n_window() << "." << std::endl <<
-    std::endl;
+    std::cout << "Thermalization process done after " << sweeps << " steps." << std::endl;
+    std::cout << "The number of segments for sliding window update is " << sliding_window.get_n_window() << "." << std::endl;
     std::cout << "Perturbation orders (averaged over processes) are the following:" << std::endl;
   }
 #ifdef ALPS_HAVE_MPI
@@ -662,7 +671,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
 #endif
 
   if (verbose && global_mpi_rank==0) {
-    std::cout << "t_max for insertion/removal updates " << std::max(weight_ins.get_cutoff(0),weight_rem.get_cutoff(0)) << std::endl;
+    std::cout << "t_max for insertion/removal updates " << max_distance_pair << std::endl;
     std::cout << "t_max for shift update" << std::endl;
     for (int flavor = 0; flavor < FLAVORS; ++flavor) {
       std::cout << " flavor = " << flavor << " , t_max = "

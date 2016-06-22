@@ -498,7 +498,9 @@ global_shift(R & rng, double BETA,  operator_container_t & creation_operators, o
         return true;
     } else {
 #ifndef NDEBUG
-        std::cerr << "global_shift: prob= " << std::abs(prob) << std::endl;
+        std::cerr << "global_shift: prob= "      << std::abs(prob) << std::endl;
+        std::cerr << "global_shift: trace_new= " << trace_new << std::endl;
+        std::cerr << "global_shift: det_rat= " << det_rat << std::endl;
 #endif
     	return false;
     }
