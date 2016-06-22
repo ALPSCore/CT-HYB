@@ -1,24 +1,23 @@
 template<typename T>
 struct PruneHelper {
-  PruneHelper(double eps) : eps_(eps) {};
-  bool operator() (const int& row, const int& col, const T& value) const {
-    return (std::abs(value)>eps_);
+  PruneHelper(double eps) : eps_(eps) { };
+  bool operator()(const int &row, const int &col, const T &value) const {
+    return (std::abs(value) > eps_);
   }
   const double eps_;
 };
 
-template<typename SCALAR,typename DERIVED>
-ImpurityModel<SCALAR,DERIVED>::ImpurityModel(const alps::params& par, bool verbose)
- : sites_(par["SITES"]),
-   spins_(par["SPINS"]),
-   flavors_(sites_*spins_),
-   dim_(1<<flavors_),
-   ntau_(static_cast<int>(par["N_TAU"])),
-   Np1_(ntau_+1),
-   reference_energy_(-1E+100),//this should be set in a derived class,
-   verbose_(verbose),
-   U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_])
-{
+template<typename SCALAR, typename DERIVED>
+ImpurityModel<SCALAR, DERIVED>::ImpurityModel(const alps::params &par, bool verbose)
+    : sites_(par["SITES"]),
+      spins_(par["SPINS"]),
+      flavors_(sites_ * spins_),
+      dim_(1 << flavors_),
+      ntau_(static_cast<int>(par["N_TAU"])),
+      Np1_(ntau_ + 1),
+      reference_energy_(-1E+100),//this should be set in a derived class,
+      verbose_(verbose),
+      U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_]) {
   read_U_tensor(par);
   read_hopping(par);
   read_hybridization_function(par);
@@ -26,78 +25,82 @@ ImpurityModel<SCALAR,DERIVED>::ImpurityModel(const alps::params& par, bool verbo
   hilbert_space_partioning(par);
 }
 
-template<typename SCALAR,typename DERIVED>
-void ImpurityModel<SCALAR,DERIVED>::define_parameters(alps::params & parameters) {
+template<typename SCALAR, typename DERIVED>
+void ImpurityModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters) {
   parameters
-          .define<std::string>("U_TENSOR_INPUT_FILE", "Input file containing nonzero elements of U tensor")
-          .define<std::string>("HOPPING_MATRIX_INPUT_FILE", "Input file for hopping matrix")
-          .define<std::string>("F_INPUT_FILE", "", "Input file for F(tau)")
-          .define<std::string>("BASIS_INPUT_FILE", "", "Input file for single-particle basis for expansion")
-          .define<double>("CUTOFF_ENERGY_INNER", 0.1*std::numeric_limits<double>::max(),
-                          "Cutoff energy for inner states for computing trace (measured from the lowest eigenvalue)")
-          .define<double>("CUTOFF_ENERGY_OUTER", 0.1*std::numeric_limits<double>::max(),
-                          "Cutoff energy for outer states for computing trace (measured from the lowest eigenvalue)")
-          .define<double>("CUTOFF_HAM", 1E-12,
-                          "Cutoff for entries in the local Hamiltonian matrix");
+      .define<std::string>("U_TENSOR_INPUT_FILE", "Input file containing nonzero elements of U tensor")
+      .define<std::string>("HOPPING_MATRIX_INPUT_FILE", "Input file for hopping matrix")
+      .define<std::string>("F_INPUT_FILE", "", "Input file for F(tau)")
+      .define<std::string>("BASIS_INPUT_FILE", "", "Input file for single-particle basis for expansion")
+      .define<double>("CUTOFF_ENERGY_INNER", 0.1 * std::numeric_limits<double>::max(),
+                      "Cutoff energy for inner states for computing trace (measured from the lowest eigenvalue)")
+      .define<double>("CUTOFF_ENERGY_OUTER", 0.1 * std::numeric_limits<double>::max(),
+                      "Cutoff energy for outer states for computing trace (measured from the lowest eigenvalue)")
+      .define<double>("CUTOFF_HAM", 1E-12,
+                      "Cutoff for entries in the local Hamiltonian matrix");
 }
 
 
 //mainly for unitest
-template<typename SCALAR,typename DERIVED>
-ImpurityModel<SCALAR,DERIVED>::ImpurityModel(const alps::params& par,
-                                const std::vector<boost::tuple<int,int,SCALAR> >& nonzero_t_vals_list,
-                                const std::vector<boost::tuple<int,int,int,int,SCALAR> >& nonzero_U_vals_list, bool verbose)
-        : sites_(par["SITES"]),
-          spins_(par["SPINS"]),
-          flavors_(sites_*spins_),
-          dim_(1<<flavors_),
-          ntau_(static_cast<int>(par["N_TAU"])),
-          Np1_(ntau_+1),
-          verbose_(verbose),
-          nonzero_U_vals(nonzero_U_vals_list),
-          nonzero_t_vals(nonzero_t_vals_list),
-          U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_])
-{
+template<typename SCALAR, typename DERIVED>
+ImpurityModel<SCALAR, DERIVED>::ImpurityModel(const alps::params &par,
+                                              const std::vector<boost::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
+                                              const std::vector<boost::tuple<int,
+                                                                             int,
+                                                                             int,
+                                                                             int,
+                                                                             SCALAR> > &nonzero_U_vals_list,
+                                              bool verbose)
+    : sites_(par["SITES"]),
+      spins_(par["SPINS"]),
+      flavors_(sites_ * spins_),
+      dim_(1 << flavors_),
+      ntau_(static_cast<int>(par["N_TAU"])),
+      Np1_(ntau_ + 1),
+      verbose_(verbose),
+      nonzero_U_vals(nonzero_U_vals_list),
+      nonzero_t_vals(nonzero_t_vals_list),
+      U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_]) {
   read_hybridization_function(par);
   read_rotation_hybridization_function(par);
   hilbert_space_partioning(par);
 }
 
 
-template<typename SCALAR,typename DERIVED>
-ImpurityModel<SCALAR,DERIVED>::~ImpurityModel() {}
+template<typename SCALAR, typename DERIVED>
+ImpurityModel<SCALAR, DERIVED>::~ImpurityModel() { }
 
-template<typename SCALAR,typename DERIVED>
-int ImpurityModel<SCALAR,DERIVED>::get_dst_sector_ket(OPERATOR_TYPE op, int flavor, int src_sector) const {
-  assert(flavor>=0 && flavor<num_flavors());
-  assert(src_sector>=0 && src_sector<num_sectors());
+template<typename SCALAR, typename DERIVED>
+int ImpurityModel<SCALAR, DERIVED>::get_dst_sector_ket(OPERATOR_TYPE op, int flavor, int src_sector) const {
+  assert(flavor >= 0 && flavor < num_flavors());
+  assert(src_sector >= 0 && src_sector < num_sectors());
   return sector_connection[static_cast<int>(op)][flavor][src_sector];
 }
 
-template<typename SCALAR,typename DERIVED>
-int ImpurityModel<SCALAR,DERIVED>::get_dst_sector_bra(OPERATOR_TYPE op, int flavor, int src_sector) const {
-  assert(flavor>=0);
-  assert(flavor<num_flavors());
-  assert(src_sector>=0);
-  assert(src_sector<num_sectors());
+template<typename SCALAR, typename DERIVED>
+int ImpurityModel<SCALAR, DERIVED>::get_dst_sector_bra(OPERATOR_TYPE op, int flavor, int src_sector) const {
+  assert(flavor >= 0);
+  assert(flavor < num_flavors());
+  assert(src_sector >= 0);
+  assert(src_sector < num_sectors());
   return sector_connection_reverse[static_cast<int>(op)][flavor][src_sector];
 }
 
-template<typename SCALAR,typename DERIVED>
-void ImpurityModel<SCALAR,DERIVED>::read_U_tensor(const alps::params& par) {
+template<typename SCALAR, typename DERIVED>
+void ImpurityModel<SCALAR, DERIVED>::read_U_tensor(const alps::params &par) {
   if (par.defined("U_TENSOR_INPUT_FILE")) {
     std::ifstream infile_f(boost::lexical_cast<std::string>(par["U_TENSOR_INPUT_FILE"]).c_str());
-    if(!infile_f.is_open()) {
-      std::cerr<<"We cannot open "<<par["U_TENSOR_INPUT_FILE"]<<"!"<<std::endl;
+    if (!infile_f.is_open()) {
+      std::cerr << "We cannot open " << par["U_TENSOR_INPUT_FILE"] << "!" << std::endl;
       exit(1);
     }
     if (verbose_) {
-      std::cout<<"Reading "<<par["U_TENSOR_INPUT_FILE"]<<"..."<<std::endl;
+      std::cout << "Reading " << par["U_TENSOR_INPUT_FILE"] << "..." << std::endl;
     }
 
     int num_elem;
     infile_f >> num_elem;
-    if (num_elem<0) {
+    if (num_elem < 0) {
       std::runtime_error("The number of elements in U_TENSOR_INPUT_FILE cannot be negative!");
     }
     if (verbose_) {
@@ -105,72 +108,72 @@ void ImpurityModel<SCALAR,DERIVED>::read_U_tensor(const alps::params& par) {
     }
 
     nonzero_U_vals.reserve(num_elem);
-    for (int i_elem=0; i_elem<num_elem; ++i_elem) {
+    for (int i_elem = 0; i_elem < num_elem; ++i_elem) {
       double re, im;
       int line, f0, f1, f2, f3;
       infile_f >> line >> f0 >> f1 >> f2 >> f3 >> re >> im;
-      if (line!=i_elem) {
-        throw std::runtime_error(boost::str(boost::format("First column of line %1% is incorrect.")%i_elem));
+      if (line != i_elem) {
+        throw std::runtime_error(boost::str(boost::format("First column of line %1% is incorrect.") % i_elem));
       }
-      if (f0<0 || f0>=flavors_) {
-        throw std::runtime_error(boost::str(boost::format("Second column of line %1% is incorrect.")%i_elem));
+      if (f0 < 0 || f0 >= flavors_) {
+        throw std::runtime_error(boost::str(boost::format("Second column of line %1% is incorrect.") % i_elem));
       }
-      if (f1<0 || f1>=flavors_) {
-        throw std::runtime_error(boost::str(boost::format("Third column of line %1% is incorrect.")%i_elem));
+      if (f1 < 0 || f1 >= flavors_) {
+        throw std::runtime_error(boost::str(boost::format("Third column of line %1% is incorrect.") % i_elem));
       }
-      if (f2<0 || f2>=flavors_) {
-        throw std::runtime_error(boost::str(boost::format("Fourth column of line %1% is incorrect.")%i_elem));
+      if (f2 < 0 || f2 >= flavors_) {
+        throw std::runtime_error(boost::str(boost::format("Fourth column of line %1% is incorrect.") % i_elem));
       }
-      if (f3<0 || f3>=flavors_) {
-        throw std::runtime_error(boost::str(boost::format("Fifth column of line %1% is incorrect.")%i_elem));
+      if (f3 < 0 || f3 >= flavors_) {
+        throw std::runtime_error(boost::str(boost::format("Fifth column of line %1% is incorrect.") % i_elem));
       }
       const SCALAR uval = mycast<SCALAR>(std::complex<double>(re, im));
-      nonzero_U_vals.push_back(boost::make_tuple(f0,f1,f2,f3,uval));
+      nonzero_U_vals.push_back(boost::make_tuple(f0, f1, f2, f3, uval));
     }
 
     infile_f.close();
-  } else if(par.defined("ONSITE_U")) {
-    if (spins_==2) {
+  } else if (par.defined("ONSITE_U")) {
+    if (spins_ == 2) {
       const double uval = par["ONSITE_U"];
-      for (int site=0; site<sites_; ++site) {
-        nonzero_U_vals.push_back(boost::make_tuple(2*site,2*site+1,2*site+1,2*site,uval));
+      for (int site = 0; site < sites_; ++site) {
+        nonzero_U_vals.push_back(boost::make_tuple(2 * site, 2 * site + 1, 2 * site + 1, 2 * site, uval));
       }
     }
   }
 }
 
-template<typename SCALAR,typename DERIVED>
-void ImpurityModel<SCALAR,DERIVED>::read_hopping(const alps::params& par) {
+template<typename SCALAR, typename DERIVED>
+void ImpurityModel<SCALAR, DERIVED>::read_hopping(const alps::params &par) {
   if (par.defined("HOPPING_MATRIX_INPUT_FILE")) {
     std::ifstream infile_f(boost::lexical_cast<std::string>(par["HOPPING_MATRIX_INPUT_FILE"]).c_str());
-    if(!infile_f.is_open()) {
-      std::cerr<<"We cannot open "<<par["HOPPING_MATRIX_INPUT_FILE"]<<"!"<<std::endl;
+    if (!infile_f.is_open()) {
+      std::cerr << "We cannot open " << par["HOPPING_MATRIX_INPUT_FILE"] << "!" << std::endl;
       exit(1);
     }
 
     //int num_elem;
     //infile_f >> num_elem;
     //if (num_elem<0) {
-      //std::runtime_error("The number of elements in HOPPING_MATRIX_INPUT_FILE cannot be negative!");
+    //std::runtime_error("The number of elements in HOPPING_MATRIX_INPUT_FILE cannot be negative!");
     //}
 
     nonzero_t_vals.resize(0);
     //for (int i_elem=0; i_elem<num_elem; ++i_elem) {
     int line = 0;
-    for (int f0=0; f0<flavors_; ++f0) {
-      for (int f1=0; f1<flavors_; ++f1) {
+    for (int f0 = 0; f0 < flavors_; ++f0) {
+      for (int f1 = 0; f1 < flavors_; ++f1) {
         double re, im;
         int f0_in, f1_in;
         infile_f >> f0_in >> f1_in >> re >> im;
         if (f0 != f0_in) {
-          throw std::runtime_error(boost::str(boost::format("First column of line %1% is incorrect.")%line));
+          throw std::runtime_error(boost::str(boost::format("First column of line %1% is incorrect.") % line));
         }
         if (f1 != f1_in) {
-          throw std::runtime_error(boost::str(boost::format("Second column of line %1% is incorrect.")%line));
+          throw std::runtime_error(boost::str(boost::format("Second column of line %1% is incorrect.") % line));
         }
         const SCALAR hopping = mycast<SCALAR>(std::complex<double>(re, im));
-        if (std::abs(hopping)!=0.0) {
-          nonzero_t_vals.push_back(boost::make_tuple(f0,f1,hopping));
+        if (std::abs(hopping) != 0.0) {
+          nonzero_t_vals.push_back(boost::make_tuple(f0, f1, hopping));
         }
         ++line;
       }
@@ -180,12 +183,12 @@ void ImpurityModel<SCALAR,DERIVED>::read_hopping(const alps::params& par) {
 }
 
 
-template<typename SCALAR,typename DERIVED>
-void ImpurityModel<SCALAR,DERIVED>::read_hybridization_function(const alps::params& par) {
+template<typename SCALAR, typename DERIVED>
+void ImpurityModel<SCALAR, DERIVED>::read_hybridization_function(const alps::params &par) {
   F.resize(boost::extents[flavors_][flavors_][Np1_]);
 
-  if(!par.defined("F_INPUT_FILE") || par["F_INPUT_FILE"].template as<std::string>()=="") {
-    std::fill(F.origin(),F.origin()+F.num_elements(),0.0);
+  if (!par.defined("F_INPUT_FILE") || par["F_INPUT_FILE"].template as<std::string>() == "") {
+    std::fill(F.origin(), F.origin() + F.num_elements(), 0.0);
     for (int i = 0; i < flavors_; i++) {
       for (int time = 0; time < Np1_; time++) {
         const double rtmp = time / static_cast<double>(ntau_);
@@ -209,21 +212,21 @@ void ImpurityModel<SCALAR,DERIVED>::read_hybridization_function(const alps::para
           infile_f >> dummy_it >> dummy_i >> dummy_j >> real >> imag;
           if (dummy_it != time) {
             throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["F_INPUT_FILE"]) +
-                                     " is wrong. The value at the first colum should be " +
-                                     boost::lexical_cast<std::string>(time) + "Error at line " +
-                                     boost::lexical_cast<std::string>(time + 1) + ".");
+                " is wrong. The value at the first colum should be " +
+                boost::lexical_cast<std::string>(time) + "Error at line " +
+                boost::lexical_cast<std::string>(time + 1) + ".");
           }
           if (dummy_i != i) {
             throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["F_INPUT_FILE"]) +
-                                     " is wrong. The value at the second colum should be " +
-                                     boost::lexical_cast<std::string>(i) + "Error at line " +
-                                     boost::lexical_cast<std::string>(time + 1) + ".");
+                " is wrong. The value at the second colum should be " +
+                boost::lexical_cast<std::string>(i) + "Error at line " +
+                boost::lexical_cast<std::string>(time + 1) + ".");
           }
           if (dummy_j != j) {
             throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["F_INPUT_FILE"]) +
-                                     " is wrong. The value at the third colum should be " +
-                                     boost::lexical_cast<std::string>(j) + "Error at line " +
-                                     boost::lexical_cast<std::string>(time + 1) + ".");
+                " is wrong. The value at the third colum should be " +
+                boost::lexical_cast<std::string>(j) + "Error at line " +
+                boost::lexical_cast<std::string>(time + 1) + ".");
           }
           F[i][j][time] = mycast<SCALAR>(std::complex<double>(real, imag));
         }
@@ -232,14 +235,13 @@ void ImpurityModel<SCALAR,DERIVED>::read_hybridization_function(const alps::para
   }
 }
 
-template<typename SCALAR,typename DERIVED>
-void ImpurityModel<SCALAR,DERIVED>::read_rotation_hybridization_function(const alps::params& par)
-{
-  rotmat_F.resize(flavors_,flavors_);
-  inv_rotmat_F.resize(flavors_,flavors_);
-  rotmat_Delta.resize(flavors_,flavors_);
-  inv_rotmat_Delta.resize(flavors_,flavors_);
-  if(!par.defined("BASIS_INPUT_FILE") || par["BASIS_INPUT_FILE"]==std::string("")) {
+template<typename SCALAR, typename DERIVED>
+void ImpurityModel<SCALAR, DERIVED>::read_rotation_hybridization_function(const alps::params &par) {
+  rotmat_F.resize(flavors_, flavors_);
+  inv_rotmat_F.resize(flavors_, flavors_);
+  rotmat_Delta.resize(flavors_, flavors_);
+  inv_rotmat_Delta.resize(flavors_, flavors_);
+  if (!par.defined("BASIS_INPUT_FILE") || par["BASIS_INPUT_FILE"] == std::string("")) {
     rotmat_F.setIdentity();
     inv_rotmat_F.setIdentity();
     rotmat_Delta.setIdentity();
@@ -249,65 +251,65 @@ void ImpurityModel<SCALAR,DERIVED>::read_rotation_hybridization_function(const a
       std::cout << "Opening " << par["BASIS_INPUT_FILE"].template as<std::string>() << "..." << std::endl;
     }
     std::ifstream infile_f(par["BASIS_INPUT_FILE"].template as<std::string>().c_str());
-    if(!infile_f.is_open()) {
-      std::cerr<<"in file for BASIS_INPUT_FILE not open! "<<std::endl;
+    if (!infile_f.is_open()) {
+      std::cerr << "in file for BASIS_INPUT_FILE not open! " << std::endl;
       exit(1);
     }
 
 #ifndef NDEBUG
     std::cout << "Reading " << boost::lexical_cast<std::string>(par["BASIS_INPUT_FILE"]) << "..." << std::endl;
 #endif
-    for (int i=0; i<flavors_; ++i) {
-      for (int j=0; j<flavors_; j++) {
+    for (int i = 0; i < flavors_; ++i) {
+      for (int j = 0; j < flavors_; j++) {
         int i_dummy, j_dummy;
         double real, imag;
-        infile_f >> i_dummy >> j_dummy  >> real >> imag;
+        infile_f >> i_dummy >> j_dummy >> real >> imag;
         if (i_dummy != i || j_dummy != j) {
           throw std::runtime_error("Wrong format: BASIS_INPUT_FILE");
         }
-        rotmat_F(i,j) = mycast<SCALAR>(std::complex<double>(real,-imag));
+        rotmat_F(i, j) = mycast<SCALAR>(std::complex<double>(real, -imag));
         //Caution: the minus in the imaginary part
         //This is because the input is a rotation matrix for Delta(tau) not F(tau).
       }
     }
 #ifndef NDEBUG
     std::cout << "Rotation matrix (read)" << std::endl;
-    for (int i=0; i<flavors_; ++i) {
-      for (int j=0; j<flavors_; ++j) {
-        std::cout << i << " " << j << " " << rotmat_F(i,j) << std::endl;
+    for (int i = 0; i < flavors_; ++i) {
+      for (int j = 0; j < flavors_; ++j) {
+        std::cout << i << " " << j << " " << rotmat_F(i, j) << std::endl;
       }
     }
 #endif
 
     //normalization
-    for (int j=0; j<flavors_; ++j) {
+    for (int j = 0; j < flavors_; ++j) {
       double rtmp = 0.0;
-      for (int i=0; i<flavors_; ++i) {
-        rtmp += std::abs(rotmat_F(i,j))*std::abs(rotmat_F(i,j));
+      for (int i = 0; i < flavors_; ++i) {
+        rtmp += std::abs(rotmat_F(i, j)) * std::abs(rotmat_F(i, j));
       }
-      rtmp = 1.0/std::sqrt(rtmp);
-      for (int i=0; i<flavors_; ++i) {
-        rotmat_F(i,j) *= rtmp;
+      rtmp = 1.0 / std::sqrt(rtmp);
+      for (int i = 0; i < flavors_; ++i) {
+        rotmat_F(i, j) *= rtmp;
       }
     }
 
 #ifndef NDEBUG
     std::cout << "Rotation matrix (normalized)" << std::endl;
-    for (int i=0; i<flavors_; ++i) {
-      for (int j=0; j<flavors_; ++j) {
-        std::cout << i << " " << j << " " << rotmat_F(i,j) << std::endl;
+    for (int i = 0; i < flavors_; ++i) {
+      for (int j = 0; j < flavors_; ++j) {
+        std::cout << i << " " << j << " " << rotmat_F(i, j) << std::endl;
       }
     }
 #endif
 
     //check if the matrix is unitary.
-    for (int i=0; i<flavors_; ++i) {
-      for (int j=0; j<i; ++j) {
+    for (int i = 0; i < flavors_; ++i) {
+      for (int j = 0; j < i; ++j) {
         SCALAR rtmp = 0.0;
-        for (int k=0; k<flavors_; ++k) {
-          rtmp += myconj(rotmat_F(k,i))*rotmat_F(k,j);
+        for (int k = 0; k < flavors_; ++k) {
+          rtmp += myconj(rotmat_F(k, i)) * rotmat_F(k, j);
         }
-        if (std::abs(rtmp)>1e-8) {
+        if (std::abs(rtmp) > 1e-8) {
           std::cerr << "Orthogonality error in columns " << i << " " << j << std::endl;
           exit(1);
         }
@@ -323,17 +325,17 @@ void ImpurityModel<SCALAR,DERIVED>::read_rotation_hybridization_function(const a
 
 #ifndef NDEBUG
     {
-      matrix_t should_be_identity = inv_rotmat_F*rotmat_F;
+      matrix_t should_be_identity = inv_rotmat_F * rotmat_F;
       bool OK = true;
       const double eps = 1e-8;
-      for (int i=0; i<flavors_; ++i) {
-        for (int j=0; j<flavors_; ++j) {
-          if (i==j) {
-            if (std::abs(should_be_identity(i,j)-1.0)>eps) {
+      for (int i = 0; i < flavors_; ++i) {
+        for (int j = 0; j < flavors_; ++j) {
+          if (i == j) {
+            if (std::abs(should_be_identity(i, j) - 1.0) > eps) {
               OK = false;
             }
           } else {
-            if (std::abs(should_be_identity(i,j))>eps) {
+            if (std::abs(should_be_identity(i, j)) > eps) {
               OK = false;
             }
           }
@@ -343,20 +345,20 @@ void ImpurityModel<SCALAR,DERIVED>::read_rotation_hybridization_function(const a
     }
 #endif
 
-    matrix_t mattmp(flavors_,flavors_), mattmp2(flavors_,flavors_);
-    for (int time=0; time<Np1_; ++time) {
-      for (int iflavor=0; iflavor<flavors_; ++iflavor) {
-        for (int jflavor=0; jflavor<flavors_; ++jflavor) {
-          mattmp(iflavor,jflavor) = F[iflavor][jflavor][time];
+    matrix_t mattmp(flavors_, flavors_), mattmp2(flavors_, flavors_);
+    for (int time = 0; time < Np1_; ++time) {
+      for (int iflavor = 0; iflavor < flavors_; ++iflavor) {
+        for (int jflavor = 0; jflavor < flavors_; ++jflavor) {
+          mattmp(iflavor, jflavor) = F[iflavor][jflavor][time];
         }
       }
       //mattmp.matrix_right_multiply(rotmat_F, mattmp2);
       //inv_rotmat_F.matrix_right_multiply(mattmp2, mattmp);
-      mattmp2 = mattmp*rotmat_F;
-      mattmp = inv_rotmat_F*mattmp2;
-      for (int iflavor=0; iflavor<flavors_; ++iflavor) {
-        for (int jflavor=0; jflavor<flavors_; ++jflavor) {
-          F[iflavor][jflavor][time] = mattmp(iflavor,jflavor);
+      mattmp2 = mattmp * rotmat_F;
+      mattmp = inv_rotmat_F * mattmp2;
+      for (int iflavor = 0; iflavor < flavors_; ++iflavor) {
+        for (int jflavor = 0; jflavor < flavors_; ++jflavor) {
+          F[iflavor][jflavor][time] = mattmp(iflavor, jflavor);
         }
       }
     }
@@ -364,26 +366,26 @@ void ImpurityModel<SCALAR,DERIVED>::read_rotation_hybridization_function(const a
 }
 
 template<typename M, typename M2, typename P>
-void merge_according_to_c_or_cdag(const M& mat, M2& block_mat, const P& p, P& p2) {
+void merge_according_to_c_or_cdag(const M &mat, M2 &block_mat, const P &p, P &p2) {
   std::vector<int> rows;
 
   const int n_c = p.get_num_clusters();
   block_mat.resize(n_c, n_c);
   block_mat.setZero();
 
-  const std::vector<int>& c_labels = p.get_cluster_labels();
+  const std::vector<int> &c_labels = p.get_cluster_labels();
 
-  for (int k=0; k<mat.outerSize(); ++k) {
+  for (int k = 0; k < mat.outerSize(); ++k) {
     for (typename M::InnerIterator it(mat, k); it; ++it) {
       block_mat(c_labels[it.row()], c_labels[it.col()]) += 1.0;
     }
   }
 
   //search along each row
-  for (int i=0; i<n_c; ++i) {
+  for (int i = 0; i < n_c; ++i) {
     rows.resize(0);
-    for (int j=0; j<n_c; ++j) {
-      if (block_mat(i,j)!=0.0) {
+    for (int j = 0; j < n_c; ++j) {
+      if (block_mat(i, j) != 0.0) {
         rows.push_back(j);
       }
     }
@@ -396,55 +398,55 @@ void merge_according_to_c_or_cdag(const M& mat, M2& block_mat, const P& p, P& p2
 template<typename T, typename IT>
 void
 split_op_into_sectors(int num_sectors,
-                      const typename Eigen::SparseMatrix<T>& op,
-                      const std::vector<int>& dim_sectors,
-                      const std::vector<int>& index_of_state_in_sector,
-                      const std::vector<int>& sector_of_state,
+                      const typename Eigen::SparseMatrix<T> &op,
+                      const std::vector<int> &dim_sectors,
+                      const std::vector<int> &index_of_state_in_sector,
+                      const std::vector<int> &sector_of_state,
                       IT p_dst_sectors,
-                      std::vector<Eigen::SparseMatrix<T> >& op_sectors,
-                      bool assume_diagonal_block_matrix=false
+                      std::vector<Eigen::SparseMatrix<T> > &op_sectors,
+                      bool assume_diagonal_block_matrix = false
 
 ) {
   typedef Eigen::SparseMatrix<T> sparse_matrix_t;
   typedef Eigen::Triplet<T> Tr;
   std::vector<std::vector<Tr> > triplets(num_sectors);
 
-  std::fill(p_dst_sectors, p_dst_sectors+num_sectors, -1);
+  std::fill(p_dst_sectors, p_dst_sectors + num_sectors, -1);
   op_sectors.resize(num_sectors);
 
-  for (int k=0; k<op.outerSize(); ++k) {
+  for (int k = 0; k < op.outerSize(); ++k) {
     for (typename sparse_matrix_t::InnerIterator it(op, k); it; ++it) {
       const int src_sector = sector_of_state[it.col()];
-      *(p_dst_sectors+src_sector) = sector_of_state[it.row()];
+      *(p_dst_sectors + src_sector) = sector_of_state[it.row()];
       const int row_in_sector = index_of_state_in_sector[it.row()];
       const int col_in_sector = index_of_state_in_sector[it.col()];
-      triplets[src_sector].push_back(Tr(row_in_sector,col_in_sector,it.value()));
+      triplets[src_sector].push_back(Tr(row_in_sector, col_in_sector, it.value()));
     }
   }
   if (assume_diagonal_block_matrix) {
-    for (int src_sector=0; src_sector<num_sectors; ++src_sector) {
-      *(p_dst_sectors+src_sector) = src_sector;
+    for (int src_sector = 0; src_sector < num_sectors; ++src_sector) {
+      *(p_dst_sectors + src_sector) = src_sector;
     }
   }
-  for (int src_sector=0; src_sector<num_sectors; ++src_sector) {
-    if (*(p_dst_sectors+src_sector)<0) {
+  for (int src_sector = 0; src_sector < num_sectors; ++src_sector) {
+    if (*(p_dst_sectors + src_sector) < 0) {
       continue;
     }
-    op_sectors[src_sector].resize(dim_sectors[*(p_dst_sectors+src_sector)], dim_sectors[src_sector]);
+    op_sectors[src_sector].resize(dim_sectors[*(p_dst_sectors + src_sector)], dim_sectors[src_sector]);
     op_sectors[src_sector].setFromTriplets(triplets[src_sector].begin(), triplets[src_sector].end());
   }
 }
 
-template<typename SCALAR,typename DERIVED>
-void ImpurityModel<SCALAR,DERIVED>::hilbert_space_partioning(const alps::params &par) {
+template<typename SCALAR, typename DERIVED>
+void ImpurityModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params &par) {
   const double eps_numerics = 1E-12;
   const double eps = par["CUTOFF_HAM"];
 
   //Compute U tensor in the rotated basis
   //very naive implementation. One might vectorize the code and use the cache...
   matrix_t rotmat_Delta_trans = rotmat_Delta.transpose();
-  std::fill(U_tensor_rot.origin(), U_tensor_rot.origin()+U_tensor_rot.num_elements(), 0.0);
-  for (int elem=0; elem<nonzero_U_vals.size(); ++elem) {
+  std::fill(U_tensor_rot.origin(), U_tensor_rot.origin() + U_tensor_rot.num_elements(), 0.0);
+  for (int elem = 0; elem < nonzero_U_vals.size(); ++elem) {
     const int a = boost::get<0>(nonzero_U_vals[elem]);
     const int b = boost::get<1>(nonzero_U_vals[elem]);
     const int ap = boost::get<2>(nonzero_U_vals[elem]);
@@ -456,10 +458,10 @@ void ImpurityModel<SCALAR,DERIVED>::hilbert_space_partioning(const alps::params 
         for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
           for (int flavor3 = 0; flavor3 < flavors_; ++flavor3) {
             U_tensor_rot[flavor0][flavor1][flavor2][flavor3] +=
-                    uval*myconj(rotmat_Delta_trans(flavor0,a))*
-                         myconj(rotmat_Delta_trans(flavor1,b))*
-                         rotmat_Delta_trans(flavor2,ap)*
-                         rotmat_Delta_trans(flavor3,bp);
+                uval * myconj(rotmat_Delta_trans(flavor0, a)) *
+                    myconj(rotmat_Delta_trans(flavor1, b)) *
+                    rotmat_Delta_trans(flavor2, ap) *
+                    rotmat_Delta_trans(flavor3, bp);
           }
         }
       }
@@ -467,51 +469,51 @@ void ImpurityModel<SCALAR,DERIVED>::hilbert_space_partioning(const alps::params 
   }
 
   //Compute hopping matrix in the rotated basis
-  matrix_t hopping_org_basis(flavors_,flavors_);
+  matrix_t hopping_org_basis(flavors_, flavors_);
   hopping_org_basis.setZero();
-  for (int elem=0; elem<nonzero_t_vals.size(); ++elem) {
+  for (int elem = 0; elem < nonzero_t_vals.size(); ++elem) {
     const int i = boost::get<0>(nonzero_t_vals[elem]);
     const int j = boost::get<1>(nonzero_t_vals[elem]);
     const SCALAR hopping = boost::get<2>(nonzero_t_vals[elem]);
-    hopping_org_basis(i,j) = hopping;
+    hopping_org_basis(i, j) = hopping;
   }
-  for (int flavor=0; flavor<flavors_; ++flavor) {
-    for (int flavor2=0; flavor2<flavors_; ++flavor2) {
-      if (hopping_org_basis(flavor,flavor2)!=myconj<SCALAR>(hopping_org_basis(flavor2,flavor))) {
+  for (int flavor = 0; flavor < flavors_; ++flavor) {
+    for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
+      if (hopping_org_basis(flavor, flavor2) != myconj<SCALAR>(hopping_org_basis(flavor2, flavor))) {
         throw std::runtime_error("Error: Hopping matrix is not hermite!");
       }
     }
   }
-  matrix_t hopping_rot = rotmat_Delta.adjoint()*hopping_org_basis*rotmat_Delta;
+  matrix_t hopping_rot = rotmat_Delta.adjoint() * hopping_org_basis * rotmat_Delta;
 
   //Build sparse matrix representation of fermionic operators
   std::vector<sparse_matrix_t> d_ops, ddag_ops;
   {
     FermionOperator<SCALAR> fermion_op(flavors_);
-    for (int flavor1=0; flavor1<flavors_; ++flavor1) {
+    for (int flavor1 = 0; flavor1 < flavors_; ++flavor1) {
       d_ops.push_back(fermion_op.get_c(flavor1));
       ddag_ops.push_back(fermion_op.get_cdag(flavor1));
     }
   }
 
   //Build sparse matrix representation of Hamiltonian
-  sparse_matrix_t ham(dim_,dim_);
-  for (int flavor1=0; flavor1<flavors_; ++flavor1) {
-    for (int flavor2=0; flavor2<flavors_; ++flavor2) {
-      for (int flavor3=0; flavor3<flavors_; ++flavor3) {
-        for (int flavor4=0; flavor4<flavors_; ++flavor4) {
+  sparse_matrix_t ham(dim_, dim_);
+  for (int flavor1 = 0; flavor1 < flavors_; ++flavor1) {
+    for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
+      for (int flavor3 = 0; flavor3 < flavors_; ++flavor3) {
+        for (int flavor4 = 0; flavor4 < flavors_; ++flavor4) {
           const SCALAR uval = U_tensor_rot[flavor1][flavor2][flavor3][flavor4];
-          if (std::abs(uval)>eps_numerics) {
-            ham += uval*ddag_ops[flavor1]*ddag_ops[flavor2]*d_ops[flavor3]*d_ops[flavor4];
+          if (std::abs(uval) > eps_numerics) {
+            ham += uval * ddag_ops[flavor1] * ddag_ops[flavor2] * d_ops[flavor3] * d_ops[flavor4];
           }
         }
       }
     }
   }
-  for (int flavor2=0; flavor2<flavors_; ++flavor2) {
-    for (int flavor1=0; flavor1<flavors_; ++flavor1) {
-      if (std::abs(hopping_rot(flavor1,flavor2))>eps_numerics) {
-        ham += hopping_rot(flavor1,flavor2)*ddag_ops[flavor1]*d_ops[flavor2];
+  for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
+    for (int flavor1 = 0; flavor1 < flavors_; ++flavor1) {
+      if (std::abs(hopping_rot(flavor1, flavor2)) > eps_numerics) {
+        ham += hopping_rot(flavor1, flavor2) * ddag_ops[flavor1] * d_ops[flavor2];
       }
     }
   }
@@ -519,8 +521,8 @@ void ImpurityModel<SCALAR,DERIVED>::hilbert_space_partioning(const alps::params 
 
   //Partionining of Hilbert space according to symmetry
   Clustering cl(dim_);
-  for (int k=0; k<ham.outerSize(); ++k) {
-    for (typename Eigen::SparseMatrix<SCALAR>::InnerIterator it(ham,k); it; ++it) {
+  for (int k = 0; k < ham.outerSize(); ++k) {
+    for (typename Eigen::SparseMatrix<SCALAR>::InnerIterator it(ham, k); it; ++it) {
       cl.connect_vertices(it.row(), it.col());
     }
   }
@@ -535,7 +537,7 @@ void ImpurityModel<SCALAR,DERIVED>::hilbert_space_partioning(const alps::params 
   Clustering cl2(cl.get_num_clusters());
   const int num_c = cl.get_num_clusters();
   real_matrix_t block_mat(num_c, num_c);
-  for (int flavor=0; flavor<flavors_; ++flavor) {
+  for (int flavor = 0; flavor < flavors_; ++flavor) {
     merge_according_to_c_or_cdag(ddag_ops[flavor], block_mat, cl, cl2);
     merge_according_to_c_or_cdag(d_ops[flavor], block_mat, cl, cl2);
   }
@@ -550,24 +552,24 @@ void ImpurityModel<SCALAR,DERIVED>::hilbert_space_partioning(const alps::params 
   sector_members.resize(num_sectors_);
   sector_of_state.resize(dim_);
   index_of_state_in_sector.resize(dim_);
-  for (int state=0; state<dim_; ++state) {
+  for (int state = 0; state < dim_; ++state) {
     int sector_tmp = cl2.get_cluster_label(cl.get_cluster_label(state));
-    assert(sector_tmp<num_sectors_);
+    assert(sector_tmp < num_sectors_);
     index_of_state_in_sector[state] = sector_members[sector_tmp].size();
     sector_of_state[state] = sector_tmp;
     sector_members[sector_tmp].push_back(state);
   }
   dim_sectors.resize(num_sectors_);
-  for (int sector=0; sector<num_sectors_; ++sector) {
+  for (int sector = 0; sector < num_sectors_; ++sector) {
     dim_sectors[sector] = sector_members[sector].size();
   }
 
 #ifndef NDEBUG
-  for (int k=0; k<ham.outerSize(); ++k) {
+  for (int k = 0; k < ham.outerSize(); ++k) {
     for (typename Eigen::SparseMatrix<SCALAR>::InnerIterator it(ham, k); it; ++it) {
       const int dst_state = it.row();
       const int src_state = it.col();
-      assert(sector_of_state[src_state]==sector_of_state[dst_state]);
+      assert(sector_of_state[src_state] == sector_of_state[dst_state]);
     }
   }
 #endif
@@ -575,36 +577,55 @@ void ImpurityModel<SCALAR,DERIVED>::hilbert_space_partioning(const alps::params 
   //divide Hamiltonin by sector
   ham_sectors.resize(num_sectors_);
   std::vector<int> dummy(num_sectors_);
-  split_op_into_sectors(num_sectors_, ham, dim_sectors, index_of_state_in_sector, sector_of_state, dummy.begin(), ham_sectors, true);
+  split_op_into_sectors(num_sectors_,
+                        ham,
+                        dim_sectors,
+                        index_of_state_in_sector,
+                        sector_of_state,
+                        dummy.begin(),
+                        ham_sectors,
+                        true);
 
   //identify which sectors are connected by a creation/annihilation operator
   sector_connection.resize(boost::extents[2][flavors_][num_sectors_]);
   d_ops_sectors.resize(flavors_);
   ddag_ops_sectors.resize(flavors_);
-  std::fill(sector_connection.origin(), sector_connection.origin()+sector_connection.num_elements(), -1);
-  for (int flavor=0; flavor<flavors_; ++flavor) {
+  std::fill(sector_connection.origin(), sector_connection.origin() + sector_connection.num_elements(), -1);
+  for (int flavor = 0; flavor < flavors_; ++flavor) {
     d_ops_sectors[flavor].resize(num_sectors_);
     ddag_ops_sectors[flavor].resize(num_sectors_);
 
     typedef boost::multi_array_types::index_range range;
 
-    boost::multi_array<int,3>::array_view<1>::type myview =
-            sector_connection[boost::indices[0][flavor][range(0,num_sectors_)]];
-    split_op_into_sectors(num_sectors_, ddag_ops[flavor], dim_sectors, index_of_state_in_sector, sector_of_state, myview.origin(), ddag_ops_sectors[flavor]);
+    boost::multi_array<int, 3>::array_view<1>::type myview =
+        sector_connection[boost::indices[0][flavor][range(0, num_sectors_)]];
+    split_op_into_sectors(num_sectors_,
+                          ddag_ops[flavor],
+                          dim_sectors,
+                          index_of_state_in_sector,
+                          sector_of_state,
+                          myview.origin(),
+                          ddag_ops_sectors[flavor]);
 
-    boost::multi_array<int,3>::array_view<1>::type myview2 =
-            sector_connection[boost::indices[1][flavor][range(0,num_sectors_)]];
-    split_op_into_sectors(num_sectors_, d_ops[flavor], dim_sectors, index_of_state_in_sector, sector_of_state, myview2.origin(), d_ops_sectors[flavor]);
+    boost::multi_array<int, 3>::array_view<1>::type myview2 =
+        sector_connection[boost::indices[1][flavor][range(0, num_sectors_)]];
+    split_op_into_sectors(num_sectors_,
+                          d_ops[flavor],
+                          dim_sectors,
+                          index_of_state_in_sector,
+                          sector_of_state,
+                          myview2.origin(),
+                          d_ops_sectors[flavor]);
   }
 
   sector_connection_reverse.resize(boost::extents[2][flavors_][num_sectors_]);
   std::fill(sector_connection_reverse.origin(),
-            sector_connection_reverse.origin()+sector_connection_reverse.num_elements(), -1);
-  for (int flavor=0; flavor<flavors_; ++flavor) {
-    for (int op=0; op<2; ++op) {
-      for (int src_sector=0; src_sector<num_sectors_; ++src_sector) {
+            sector_connection_reverse.origin() + sector_connection_reverse.num_elements(), -1);
+  for (int flavor = 0; flavor < flavors_; ++flavor) {
+    for (int op = 0; op < 2; ++op) {
+      for (int src_sector = 0; src_sector < num_sectors_; ++src_sector) {
         const int dst_sector = sector_connection[op][flavor][src_sector];
-        if (dst_sector!=nirvana) {
+        if (dst_sector != nirvana) {
           sector_connection_reverse[op][flavor][dst_sector] = src_sector;
         }
       }
@@ -612,48 +633,48 @@ void ImpurityModel<SCALAR,DERIVED>::hilbert_space_partioning(const alps::params 
   }
 
 #ifndef NDEBUG
-  for (int flavor=0; flavor<flavors_; ++flavor) {
-    for (int k=0; k<d_ops[flavor].outerSize(); ++k) {
+  for (int flavor = 0; flavor < flavors_; ++flavor) {
+    for (int k = 0; k < d_ops[flavor].outerSize(); ++k) {
       int count = 0;
       int dst_sector = -1;
       for (typename Eigen::SparseMatrix<SCALAR>::InnerIterator it(d_ops[flavor], k); it; ++it) {
         const int src_sector = sector_of_state[it.col()];
-        if (count==0) {
+        if (count == 0) {
           dst_sector = sector_connection[0][flavor][src_sector];
         }
-        assert(dst_sector==sector_connection[0][flavor][src_sector]);
+        assert(dst_sector == sector_connection[0][flavor][src_sector]);
       }
     }
 
-    for (int k=0; k<ddag_ops[flavor].outerSize(); ++k) {
+    for (int k = 0; k < ddag_ops[flavor].outerSize(); ++k) {
       int count = 0;
       int dst_sector = -1;
       for (typename Eigen::SparseMatrix<SCALAR>::InnerIterator it(ddag_ops[flavor], k); it; ++it) {
         const int src_sector = sector_of_state[it.col()];
-        if (count==0) {
+        if (count == 0) {
           dst_sector = sector_connection[1][flavor][src_sector];
         }
-        assert(dst_sector==sector_connection[1][flavor][src_sector]);
+        assert(dst_sector == sector_connection[1][flavor][src_sector]);
       }
     }
   }
 #endif
 }
 
-template<typename SCALAR,typename DERIVED>
+template<typename SCALAR, typename DERIVED>
 template<int N>
-void ImpurityModel<SCALAR,DERIVED>::apply_op_bra(const EqualTimeOperator<N>& op, BRAKET_T& bra) const {
-  for (int i=0; i<N; ++i) {
-    static_cast<const DERIVED*>(this)->apply_op_hyb_bra(CREATION_OP, op.flavor(2*i), bra);
-    static_cast<const DERIVED*>(this)->apply_op_hyb_bra(ANNIHILATION_OP, op.flavor(2*i+1), bra);
+void ImpurityModel<SCALAR, DERIVED>::apply_op_bra(const EqualTimeOperator<N> &op, BRAKET_T &bra) const {
+  for (int i = 0; i < N; ++i) {
+    static_cast<const DERIVED *>(this)->apply_op_hyb_bra(CREATION_OP, op.flavor(2 * i), bra);
+    static_cast<const DERIVED *>(this)->apply_op_hyb_bra(ANNIHILATION_OP, op.flavor(2 * i + 1), bra);
   }
 }
 
-template<typename SCALAR,typename DERIVED>
+template<typename SCALAR, typename DERIVED>
 template<int N>
-void ImpurityModel<SCALAR,DERIVED>::apply_op_ket(const EqualTimeOperator<N>& op, BRAKET_T& ket) const {
-  for (int i=0; i<N; ++i) {
-    static_cast<const DERIVED*>(this)->apply_op_hyb_ket(ANNIHILATION_OP, op.flavor(2*N-1-2*i), ket);
-    static_cast<const DERIVED*>(this)->apply_op_hyb_ket(CREATION_OP, op.flavor(2*N-2-2*i), ket);
+void ImpurityModel<SCALAR, DERIVED>::apply_op_ket(const EqualTimeOperator<N> &op, BRAKET_T &ket) const {
+  for (int i = 0; i < N; ++i) {
+    static_cast<const DERIVED *>(this)->apply_op_hyb_ket(ANNIHILATION_OP, op.flavor(2 * N - 1 - 2 * i), ket);
+    static_cast<const DERIVED *>(this)->apply_op_hyb_ket(CREATION_OP, op.flavor(2 * N - 2 - 2 * i), ket);
   }
 }

@@ -3,6 +3,9 @@ project(ALPSCoreCTHYB CXX)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_SOURCE_DIR})
 
+#To include alps/fastupdate
+set(CMAKE_INCLUDE_CURRENT_DIR on)
+
 # The project relies on the ALPSCore package. If ALPSCore is not found
 # automatically, specify its location using:
 # export ALPSCore_DIR=/location/to/ALPSCORE/

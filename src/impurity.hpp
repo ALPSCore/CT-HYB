@@ -30,7 +30,7 @@
 #include <boost/tuple/tuple_comparison.hpp>
 #include <boost/array.hpp>
 #ifdef MEASURE_TIMING
-  #include <boost/timer/timer.hpp>
+#include <boost/timer/timer.hpp>
 #endif
 
 //Eigen3
@@ -42,37 +42,36 @@
 #include <alps/mc/api.hpp>
 #include <alps/mc/mcbase.hpp>
 #ifdef ALPS_HAVE_MPI
-  #include <alps/mc/mpiadapter.hpp>
+#include <alps/mc/mpiadapter.hpp>
 #endif
 #include <alps/mc/stop_callback.hpp>
 #include <alps/params/convenience_params.hpp>
 
 #include "wide_scalar.hpp"
+#include "mc_config.hpp"
 #include "operator.hpp"
 #include "model.hpp"
 #include "moves.hpp"
 #include "sliding_window.hpp"
 #include "update_histogram.hpp"
 #include "accumulator.hpp"
-#include "resizable_matrix.hpp"
 #include "measurement.hpp"
 
 
 template<typename IMP_MODEL>
-class HybridizationSimulation : public alps::mcbase
-{
-public:
-  HybridizationSimulation(parameters_type const & params, int rank); //constructor
+class HybridizationSimulation: public alps::mcbase {
+ public:
+  HybridizationSimulation(parameters_type const &params, int rank); //constructor
 
   //TYPES
   typedef alps::mcbase Base;
   typedef typename model_traits<IMP_MODEL>::SCALAR_T SCALAR;
-  typedef alps::ResizableMatrix<SCALAR> matrix_t;
+  //typedef alps::ResizableMatrix<SCALAR> matrix_t;
   typedef std::complex<double> COMPLEX;
   typedef SlidingWindowManager<IMP_MODEL> SW_TYPE;
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
 
-  static void define_parameters(parameters_type & parameters);
+  static void define_parameters(parameters_type &parameters);
   void create_observables(); //build ALPS observables
 
   void update(); //the main monte carlo step
@@ -83,16 +82,18 @@ public:
   void resize_vectors(); //early initialization stuff
 
   bool is_thermalized() const;
-  static void print_copyright(std::ostream & os) {
-                         os << "Matrix code based on the hybridization expansion method of PRB 74, 155107 (2006)" << std::endl
-													<< "This program is licensed under GPLv2.";}
+  static void print_copyright(std::ostream &os) {
+    os << "Matrix code based on the hybridization expansion method of PRB 74, 155107 (2006)" << std::endl
+        << "This program is licensed under GPLv2.";
+  }
 
-private:
+ private:
   //for set up
   void read_eq_time_two_particle_greens_meas();
   void read_two_time_correlation_functions();
 
-  void expensive_updates(); //expensive updates
+  void local_updates(); // updates in window
+  void global_updates(); //expensive updates
   void update_MC_parameters(); //update parameters for MC moves during thermalization steps
   void measure_n();
   void measure_two_time_correlation_functions();
@@ -109,6 +110,8 @@ private:
   //Model object
   boost::scoped_ptr<IMP_MODEL> p_model;
 
+  boost::shared_ptr<HybridizationFunction<SCALAR> > F;
+
   //ALPS MPI communicator
 #ifdef ALPS_HAVE_MPI
   alps::mpi::communicator comm;
@@ -118,40 +121,34 @@ private:
   ThermalizationChecker thermalization_checker;
   const long total_sweeps;                    // sweeps to be done after equilibration
 
-  //Simulation parameters that may be modified after/during thermalization
-  int N_meas;
-  int N_meas_g;
-  const int N_shift;
-  int N_swap;
+  //Simulation parameters
+  const int N_meas;
+  const int N_swap;
+  //const int N_meas_g;
+  //const int N_shift;
+  int N_win_standard;
 
-  //Monte Calro status
+  //Monte Calro configuration
   long sweeps;                          // sweeps done
-  alps::ResizableMatrix<SCALAR> M;
-  SCALAR sign;							// the sign of w=Z_k_up*Z_k'_down*trace
-  EXTENDED_SCALAR trace;							// matrix trace
+  MonteCarloConfiguration<SCALAR> mc_config;
 
-  typedef typename std::iterator_traits<std::vector<int>::iterator>::value_type mytpe;
-
-  operator_container_t operators;	// contains times and types (site, flavor) of the operators
-  operator_container_t creation_operators;
-  operator_container_t annihilation_operators;
-  std::vector<int> order_creation_flavor;//deprecated
-  std::vector<int> order_annihilation_flavor;
-
-  std::vector<int> N_shift_flavor;
+  //Monte Carlo updater
+  std::vector<boost::shared_ptr<InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
+      ins_rem_updater;
+  std::vector<boost::shared_ptr<InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
+      ins_rem_diagonal_updater;
+  SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> single_op_shift_updater;
 
   //swap-flavor update
-  std::vector<std::pair<std::vector<int>, int> > swap_vector;		// contains the flavors f1 f2 f3 f4 ...   Flavors 1 ... N will be relabeled as f1 f2 ... fN.
+  std::vector<std::pair<std::vector<int>, int> >
+      swap_vector;        // contains the flavors f1 f2 f3 f4 ...   Flavors 1 ... N will be relabeled as f1 f2 ... fN.
   //the second elements of std::pair denote from which entries in input acual updates are generated.
 
   //sliding window
   SW_TYPE sliding_window;
 
-  double                    max_distance_pair; //cutoff for insert/removal of pair
-  double                    acc_rate_cutoff;
-  scalar_histogram_flavors  weight_ins;
-  scalar_histogram_flavors  weight_rem;
-  scalar_histogram_flavors  weight_shift;
+  //double max_distance_pair; //cutoff for insert/removal of pair
+  //double acc_rate_cutoff;
 
   //for measuring Green's function
   GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
@@ -166,8 +163,6 @@ private:
   AcceptanceRateMeasurement global_shift_acc_rate;
   std::vector<AcceptanceRateMeasurement> swap_acc_rate;
 
-  AcceptanceRateMeasurement prob_valid_rem_move, prob_valid_rem_move_offdiag;
-
   //timings (msec/N_MEAS steps)
   //0 : local update
   //1 : global update
@@ -178,12 +173,18 @@ private:
 
   bool verbose;
 
-  void sanity_check() const;
+  void sanity_check();
 };
 
 template<typename MAT, typename MAT_COMPLEX, typename COMPLEX>
 void
-transform_G_back_to_original_basis(int FLAVORS, int SITES, int SPINS, int Np1, const MAT& rotmat_Delta, const MAT& inv_rotmat_Delta, std::vector<COMPLEX>& G);
+    transform_G_back_to_original_basis(int FLAVORS,
+                                       int SITES,
+                                       int SPINS,
+                                       int Np1,
+                                       const MAT &rotmat_Delta,
+                                       const MAT &inv_rotmat_Delta,
+                                       std::vector<COMPLEX> &G);
 
 #include "./impurity.ipp"
 #include "./impurity_init.ipp"

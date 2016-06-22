@@ -7,7 +7,6 @@
 
 #include "gtest.h"
 
-#include "../src/resizable_matrix.hpp"
 #include "../src/model.hpp"
 
 /*
@@ -22,6 +21,7 @@ init_config<double>(int seed, int FLAVORS, int Np1, double BETA, int N_init_pair
 
     boost::random::mt19937 gen(seed);
     boost::uniform_smallint<> dist(0,FLAVORS-1);
+
     boost::uniform_real<> uni_dist(0,1);
     typedef double SCALAR;
 

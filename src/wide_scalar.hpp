@@ -43,57 +43,64 @@ inline std::complex<double> convert_to_complex(const std::complex<double>& x) {
 
 #else
 
-#if (!defined(__clang__) && __GNUG__>0)
-  #include <boost/multiprecision/float128.hpp>
-  typedef boost::multiprecision::float128 EXTENDED_REAL;
-//#elif (__INTEL_COMPILER>0)
-  //#include <boost/multiprecision/float128.hpp>
-  //typedef boost::multiprecision::float128 EXTENDED_REAL;
+#if (__INTEL_COMPILER > 0)
+#include <boost/multiprecision/cpp_bin_float.hpp>
+typedef boost::multiprecision::cpp_bin_float_quad EXTENDED_REAL;
+#elif (!defined(__clang__) && __GNUG__ > 0)
+#include <boost/multiprecision/float128.hpp>
+typedef boost::multiprecision::float128 EXTENDED_REAL;
 #else
-  #include <boost/multiprecision/cpp_bin_float.hpp>
-  typedef boost::multiprecision::cpp_bin_float_quad EXTENDED_REAL;
+#include <boost/multiprecision/cpp_bin_float.hpp>
+typedef boost::multiprecision::cpp_bin_float_quad EXTENDED_REAL;
 #endif
 
-template<typename T> class wcomplex;
+template<typename T>
+class wcomplex;
 typedef wcomplex<EXTENDED_REAL> EXTENDED_COMPLEX;
 
 template<typename T>
 class wcomplex {
-public:
-  wcomplex() : a_(0.0), b_(0.0) {};
-  wcomplex(T re) : a_(re), b_(0.0) {};
-  wcomplex(T re, T im) : a_(re), b_(im) {};
-  wcomplex(double re) : a_(re), b_(0.0) {};
-
-  template<typename S> wcomplex(const std::complex<S>& cval) : a_(cval.real()), b_(cval.imag()) {};
-
-  T real() const {return a_;}
-  T imag() const {return b_;}
-
-  wcomplex<T>& operator*=(const T& re) {a_ *= re; b_ *= re; return *this;}
+ public:
+  wcomplex() : a_(0.0), b_(0.0) { };
+  wcomplex(T re) : a_(re), b_(0.0) { };
+  wcomplex(T re, T im) : a_(re), b_(im) { };
+  wcomplex(double re) : a_(re), b_(0.0) { };
 
   template<typename S>
-  wcomplex<T>& operator*=(const std::complex<S>& z) {
-    *this = (*this)*z;
+  wcomplex(const std::complex<S> &cval) : a_(cval.real()), b_(cval.imag()) { };
+
+  T real() const { return a_; }
+  T imag() const { return b_; }
+
+  wcomplex<T> &operator*=(const T &re) {
+    a_ *= re;
+    b_ *= re;
     return *this;
   }
 
   template<typename S>
-  wcomplex<T>& operator+=(const std::complex<S>& z) {
-    *this = (*this)+z;
+  wcomplex<T> &operator*=(const std::complex<S> &z) {
+    *this = (*this) * z;
     return *this;
   }
 
-  wcomplex<T>& operator+=(const wcomplex<T>& z) {
-    *this = (*this)+z;
+  template<typename S>
+  wcomplex<T> &operator+=(const std::complex<S> &z) {
+    *this = (*this) + z;
     return *this;
   }
 
-  operator std::complex<double> () const {
+  wcomplex<T> &operator+=(const wcomplex<T> &z) {
+    *this = (*this) + z;
+    return *this;
+  }
+
+  operator std::complex<double>() const {
     return std::complex<double>(a_.template convert_to<double>(), b_.template convert_to<double>());
   }
 
-  template<typename S> S convert_to() const {
+  template<typename S>
+  S convert_to() const {
     return S(a_.template convert_to<double>(), b_.template convert_to<double>());
   };
 
@@ -101,13 +108,13 @@ public:
     return a_.template convert_to<double>();
   };
 
-private:
+ private:
   T a_, b_;
 };
 
 template<class T>
 wcomplex<T>
-operator+(const wcomplex<T>& z, const wcomplex<T>& w) {
+operator+(const wcomplex<T> &z, const wcomplex<T> &w) {
   T a = z.real();
   T b = z.imag();
   T c = w.real();
@@ -119,7 +126,7 @@ operator+(const wcomplex<T>& z, const wcomplex<T>& w) {
 
 template<class T>
 wcomplex<T>
-operator+(const wcomplex<T>& z, const std::complex<double>& w) {
+operator+(const wcomplex<T> &z, const std::complex<double> &w) {
   T a = z.real();
   T b = z.imag();
   double c = w.real();
@@ -134,8 +141,7 @@ operator+(const wcomplex<T>& z, const std::complex<double>& w) {
  */
 template<class T>
 wcomplex<T>
-operator*(const wcomplex<T>& z, const wcomplex<T>& w)
-{
+operator*(const wcomplex<T> &z, const wcomplex<T> &w) {
   T a = z.real();
   T b = z.imag();
   T c = w.real();
@@ -147,7 +153,7 @@ operator*(const wcomplex<T>& z, const wcomplex<T>& w)
 
 template<typename T, typename S>
 wcomplex<T>
-operator*(const wcomplex<T>& z, const std::complex<S>& w) {
+operator*(const wcomplex<T> &z, const std::complex<S> &w) {
   T a = z.real();
   T b = z.imag();
   S c = w.real();
@@ -159,13 +165,13 @@ operator*(const wcomplex<T>& z, const std::complex<S>& w) {
 
 template<typename T, typename S>
 wcomplex<T>
-operator*(const std::complex<S>& z, const wcomplex<T>& w) {
-  return w*z;
+operator*(const std::complex<S> &z, const wcomplex<T> &w) {
+  return w * z;
 };
 
 template<typename T>
 wcomplex<T>
-operator*(const wcomplex<T>& z, double w) {
+operator*(const wcomplex<T> &z, double w) {
   T a = z.real();
   T b = z.imag();
   return wcomplex<T>(a * w, b * w);
@@ -173,13 +179,13 @@ operator*(const wcomplex<T>& z, double w) {
 
 template<typename T>
 wcomplex<T>
-operator*(double z, const wcomplex<T>& w) {
-  return w*z;
+operator*(double z, const wcomplex<T> &w) {
+  return w * z;
 }
 
 template<typename T>
 wcomplex<T>
-operator*(const wcomplex<T>& z, EXTENDED_REAL w) {
+operator*(const wcomplex<T> &z, EXTENDED_REAL w) {
   T a = z.real();
   T b = z.imag();
   return wcomplex<T>(a * w, b * w);
@@ -187,8 +193,8 @@ operator*(const wcomplex<T>& z, EXTENDED_REAL w) {
 
 template<typename T>
 wcomplex<T>
-operator*(EXTENDED_REAL z, const wcomplex<T>& w) {
-  return w*z;
+operator*(EXTENDED_REAL z, const wcomplex<T> &w) {
+  return w * z;
 }
 
 /*
@@ -196,7 +202,7 @@ operator*(EXTENDED_REAL z, const wcomplex<T>& w) {
  */
 template<class T>
 wcomplex<T>
-operator-(const wcomplex<T>& z, const wcomplex<T>& w) {
+operator-(const wcomplex<T> &z, const wcomplex<T> &w) {
   T a = z.real();
   T b = z.imag();
   T c = w.real();
@@ -211,40 +217,44 @@ operator-(const wcomplex<T>& z, const wcomplex<T>& w) {
  */
 template<typename T>
 wcomplex<T>
-operator/(const wcomplex<T>& z, const wcomplex<T>& w)
-{
+operator/(const wcomplex<T> &z, const wcomplex<T> &w) {
   T a = z.real();
   T b = z.imag();
   T c = w.real();
   T d = w.imag();
-  T coeff = 1.0/(c*c + d*d);
-  T x = (a * c + b * d)*coeff;
-  T y = (-a * d + b * c)*coeff;
+  T coeff = 1.0 / (c * c + d * d);
+  T x = (a * c + b * d) * coeff;
+  T y = (-a * d + b * c) * coeff;
   return wcomplex<T>(x, y);
 }
 
 template<typename T>
 wcomplex<T>
-operator/(const wcomplex<T>& z, const std::complex<double>& w)
-{
+operator/(const wcomplex<T> &z, const std::complex<double> &w) {
   T a = z.real();
   T b = z.imag();
   double c = w.real();
   double d = w.imag();
-  double coeff = 1.0/(c*c + d*d);
-  T x = (a * c + b * d)*coeff;
-  T y = (-a * d + b * c)*coeff;
+  double coeff = 1.0 / (c * c + d * d);
+  T x = (a * c + b * d) * coeff;
+  T y = (-a * d + b * c) * coeff;
   return wcomplex<T>(x, y);
 }
 
 template<typename T>
-bool
-operator==(const wcomplex<T>& z, const wcomplex<T>& w) {
-  return (z.real()==w.real()) && (z.imag()==z.imag());
+wcomplex<T>
+operator/(const wcomplex<T> &z, const T &w) {
+  return wcomplex<T>(z.real() / w, z.imag() / w);
 }
 
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const wcomplex<T>& val) {
+bool
+operator==(const wcomplex<T> &z, const wcomplex<T> &w) {
+  return (z.real() == w.real()) && (z.imag() == z.imag());
+}
+
+template<typename T>
+std::ostream &operator<<(std::ostream &os, const wcomplex<T> &val) {
   os << "( " << val.real() << " , " << val.imag() << " )";
   return os;
 }
@@ -255,20 +265,20 @@ std::ostream& operator<<(std::ostream& os, const wcomplex<T>& val) {
  */
 //template <unsigned Digits10, class ExponentType2_t, class Allocator = void>
 //class cpp_dec_float
-inline EXTENDED_REAL get_real(const EXTENDED_REAL& x) {
+inline EXTENDED_REAL get_real(const EXTENDED_REAL &x) {
   return x;
 }
 
-inline EXTENDED_REAL get_imag(const EXTENDED_REAL& x) {
+inline EXTENDED_REAL get_imag(const EXTENDED_REAL &x) {
   return 0.0;
 }
 
 //inline EXTENDED_REAL get_real(const std::complex<EXTENDED_REAL>& x) {
-  //return x.real();
+//return x.real();
 //}
 
 //inline EXTENDED_REAL get_imag(const std::complex<EXTENDED_REAL>& x) {
-  //return x.real();
+//return x.real();
 //}
 
 inline EXTENDED_REAL myabs(EXTENDED_REAL x) {
@@ -276,8 +286,8 @@ inline EXTENDED_REAL myabs(EXTENDED_REAL x) {
 }
 
 inline EXTENDED_REAL
-myabs(const wcomplex<EXTENDED_REAL>& x) {
-  return boost::multiprecision::sqrt(x.real()*x.real() + x.imag()*x.imag());
+myabs(const wcomplex<EXTENDED_REAL> &x) {
+  return boost::multiprecision::sqrt(x.real() * x.real() + x.imag() * x.imag());
 }
 
 inline
@@ -292,32 +302,32 @@ bool my_isnan(wcomplex<EXTENDED_REAL> x) {
 
 template<typename T>
 EXTENDED_REAL mypow(EXTENDED_REAL x, T N) {
-  return boost::multiprecision::pow(x,N);
+  return boost::multiprecision::pow(x, N);
 }
 
 /*
  * Cast operator
  */
-inline double convert_to_scalar(const EXTENDED_REAL& x) {
+inline double convert_to_scalar(const EXTENDED_REAL &x) {
   return x.convert_to<double>();
 }
 
-inline std::complex<double> convert_to_scalar(const EXTENDED_COMPLEX& x) {
+inline std::complex<double> convert_to_scalar(const EXTENDED_COMPLEX &x) {
   return x.convert_to<std::complex<double> >();
 }
 
-inline double convert_to_double(const EXTENDED_REAL& x) {
+inline double convert_to_double(const EXTENDED_REAL &x) {
   return x.convert_to<double>();
 }
 
-inline std::complex<double> convert_to_complex(const EXTENDED_REAL& x) {
+inline std::complex<double> convert_to_complex(const EXTENDED_REAL &x) {
   return std::complex<double>(x.convert_to<double>(), 0.0);
 }
 
-inline std::complex<double> convert_to_complex(const EXTENDED_COMPLEX& x) {
+inline std::complex<double> convert_to_complex(const EXTENDED_COMPLEX &x) {
   return std::complex<double>(
-    x.real().convert_to<double>(),
-    x.imag().convert_to<double>()
+      x.real().convert_to<double>(),
+      x.imag().convert_to<double>()
   );
 }
 

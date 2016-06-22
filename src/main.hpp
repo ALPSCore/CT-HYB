@@ -20,8 +20,8 @@
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/stop_callback.hpp>
 #ifdef ALPS_HAVE_MPI
-  #include <alps/utilities/mpi.hpp>
-  #include "mc/mympiadapter.hpp"
+#include <alps/utilities/mpi.hpp>
+#include "mc/mympiadapter.hpp"
 #endif
 #include "mc/mymcadapter.hpp"
 #include "postprocess.hpp"
@@ -29,7 +29,7 @@
 int global_mpi_rank;
 
 template<class SOLVER_TYPE>
-int run_simulation(int argc, const char* argv[], typename alps::parameters_type<SOLVER_TYPE>::type& parameters) {
+int run_simulation(int argc, const char *argv[], typename alps::parameters_type<SOLVER_TYPE>::type &parameters) {
 #ifdef ALPS_HAVE_MPI
   typedef mymcmpiadapter<SOLVER_TYPE> sim_type;
 #else
@@ -41,7 +41,7 @@ int run_simulation(int argc, const char* argv[], typename alps::parameters_type<
     exit(0);
   }
 
-  char** argv_tmp = const_cast<char**>(argv);//ugly solution
+  char **argv_tmp = const_cast<char **>(argv);//ugly solution
 #ifdef ALPS_HAVE_MPI
   alps::mpi::environment env(argc, argv_tmp);
   alps::mpi::communicator c;
@@ -51,7 +51,7 @@ int run_simulation(int argc, const char* argv[], typename alps::parameters_type<
     std::cout << "Creating simulation..." << std::endl;
   }
   sim_type sim(parameters, c);
-  const boost::function<bool()> cb = alps::stop_callback(c,size_t(parameters["timelimit"]));
+  const boost::function<bool()> cb = alps::stop_callback(c, size_t(parameters["timelimit"]));
 #else
   global_mpi_rank = 0;
   sim_type sim(parameters);
@@ -62,7 +62,7 @@ int run_simulation(int argc, const char* argv[], typename alps::parameters_type<
 
   // Saving to the output file
 #ifdef ALPS_HAVE_MPI
-  if (c.rank()==0){
+  if (c.rank() == 0) {
 #endif
     typename alps::results_type<SOLVER_TYPE>::type results = alps::collect_results(sim);
     std::string output_file = parameters["outputfile"];
@@ -71,7 +71,7 @@ int run_simulation(int argc, const char* argv[], typename alps::parameters_type<
     ar["/simulation/results"] << results;
     compute_greens_functions<SOLVER_TYPE>(results, parameters, ar);
 #ifdef ALPS_HAVE_MPI
-  } else{
+  } else {
     alps::collect_results(sim);
   }
 #endif

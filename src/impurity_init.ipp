@@ -3,35 +3,27 @@
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_observables() {
   // create measurement objects
-  create_observable<COMPLEX,SimpleRealVectorObservable>(measurements, "Greens_rotated");
-  create_observable<COMPLEX,SimpleRealVectorObservable>(measurements, "Greens");
-  create_observable<COMPLEX,SimpleRealVectorObservable>(measurements, "Greens_legendre");
-  create_observable<COMPLEX,SimpleRealVectorObservable>(measurements, "Greens_legendre_rotated");
-  create_observable<COMPLEX,SimpleRealVectorObservable>(measurements, "Two_time_correlation_functions");
+  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_rotated");
+  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens");
+  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_legendre");
+  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_legendre_rotated");
+  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Two_time_correlation_functions");
 
   measurements << alps::accumulators::LogBinningAccumulator<std::vector<double> >("n");
   measurements << alps::accumulators::LogBinningAccumulator<double>("Sign");
-  //measurements << alps::accumulators::NoBinningAccumulator<double>("AbsDeterminant");
   measurements << alps::accumulators::NoBinningAccumulator<double>("AbsTrace");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("order");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("PerturbationOrderFlavors");
 
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_attempted");
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_accepted");
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Removal_attempted");
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Removal_accepted");
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_attempted");
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_accepted");
-
-  //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_attempted_flavors");
-  //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Insertion_accepted_flavors");
-  //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Removal_attempted_flavors");
-  //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Removal_accepted_flavors");
+  for (int k = 1; k < par["RANK_INSERTION_REMOVAL_UPDATE"].template as<int>() + 1; ++k) {
+    ins_rem_diagonal_updater[k - 1]->create_measurement_acc_rate(measurements);
+  }
+  single_op_shift_updater.create_measurement_acc_rate(measurements);
 
   measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Acceptance_rate_swap");
-  measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move");
-  measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move_offdiagonal");
+  //measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move");
+  //measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move_offdiagonal");
 
 #ifdef MEASURE_TIMING
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("TimingsSecPerNMEAS");
@@ -41,19 +33,14 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
 
-  order_creation_flavor.resize(FLAVORS);
-  order_annihilation_flavor.resize(FLAVORS);
-
-  M.clear();
-
   {
     swap_vector.resize(0);
     std::string input_str(par["SWAP_VECTOR"].template as<std::string>());
     //When SPINS==2, a global spin flip is always defined
-    if (SPINS==2) {
-      for (int site=0; site<SITES; ++site) {
-        input_str += " " + boost::lexical_cast<std::string>(2*site+1);
-        input_str += " " + boost::lexical_cast<std::string>(2*site);
+    if (SPINS == 2) {
+      for (int site = 0; site < SITES; ++site) {
+        input_str += " " + boost::lexical_cast<std::string>(2 * site + 1);
+        input_str += " " + boost::lexical_cast<std::string>(2 * site);
       }
     }
     std::vector<int> flavors_vector;
@@ -72,19 +59,20 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
       exit(1);
     }
 
-    const int num_templates = flavors_vector.size()/FLAVORS;
+    const int num_templates = flavors_vector.size() / FLAVORS;
     std::vector<int>::iterator it = flavors_vector.begin();
     std::set<std::vector<int> > updates_set;//no duplication
     std::map<std::vector<int>, int> source_templates;
     for (int itemplate = 0; itemplate < num_templates; ++itemplate) {
-      if (std::set<int>(it, it+FLAVORS).size()<FLAVORS) {
-        std::cerr << "Duplicate elements in the definition of the " << itemplate+1 << "-th update in SWAP_VECTOR! " << std::endl;
+      if (std::set<int>(it, it + FLAVORS).size() < FLAVORS) {
+        std::cerr << "Duplicate elements in the definition of the " << itemplate + 1 << "-th update in SWAP_VECTOR! "
+            << std::endl;
         exit(1);
       }
 
-      std::vector<int> tmp_vec(it, it+FLAVORS);
+      std::vector<int> tmp_vec(it, it + FLAVORS);
       std::vector<int> tmp_vec_rev(FLAVORS);
-      for (int flavor=0; flavor<FLAVORS; ++flavor) {
+      for (int flavor = 0; flavor < FLAVORS; ++flavor) {
         tmp_vec_rev[tmp_vec[flavor]] = flavor;
       }
       updates_set.insert(tmp_vec);
@@ -98,7 +86,7 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
     //remove the update which does nothing
     {
       std::vector<int> identity;
-      for (int flavor=0; flavor<FLAVORS; ++flavor) {
+      for (int flavor = 0; flavor < FLAVORS; ++flavor) {
         identity.push_back(flavor);
       }
       updates_set.erase(identity);
@@ -111,67 +99,57 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
 
     if (global_mpi_rank == 0) {
       std::cout << "The following swap updates will be performed." << std::endl;
-      for (int i=0; i<swap_vector.size(); ++i) {
+      for (int i = 0; i < swap_vector.size(); ++i) {
         std::cout << "Update #" << i << " generated from template #" << swap_vector[i].second << std::endl;
-        for (int j=0; j<swap_vector[i].first.size(); ++j) {
+        for (int j = 0; j < swap_vector[i].first.size(); ++j) {
           std::cout << "flavor " << j << " to flavor " << swap_vector[i].first[j] << std::endl;
         }
       }
-    }
-  }
-
-  //////////////////INITIALIZE SHIFT PROB FOR FLAVORS//////////////////
-  if (par.exists("N_SHIFT_FLAVOR")) {
-    std::string nsf(par["N_SHIFT_FLAVOR"].template as<std::string>());
-    std::stringstream nsf_strstream(nsf);
-    for (int i = 0; i < FLAVORS; ++i) {
-      std::cout << "adjusting shift probability for flavor: " << i << " ";
-      nsf_strstream >> N_shift_flavor[i];
-      std::cout << N_shift_flavor[i] << std::endl;
     }
   }
 }
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::read_eq_time_two_particle_greens_meas() {
-  const int GF_RANK=2;
+  const int GF_RANK = 2;
 
   const std::string fname_key = "EQUAL_TIME_TWO_PARTICLE_GREENS_FUNCTION";
-  const bool verbose = (global_mpi_rank==0);
+  const bool verbose = (global_mpi_rank == 0);
 
   if (!par.defined(fname_key)) {
     return;
   }
 
   std::ifstream infile_f(boost::lexical_cast<std::string>(par[fname_key]).c_str());
-  if(!infile_f.is_open()) {
-    std::cerr<<"We cannot open "<<par[fname_key]<<"!"<<std::endl;
+  if (!infile_f.is_open()) {
+    std::cerr << "We cannot open " << par[fname_key] << "!" << std::endl;
     exit(1);
   }
 
   int num_elem;
   infile_f >> num_elem;
-  if (num_elem<0) {
-    std::runtime_error("The number of Green's functions in "+fname_key+" cannot be negative!");
+  if (num_elem < 0) {
+    std::runtime_error("The number of Green's functions in " + fname_key + " cannot be negative!");
   }
   if (verbose) {
     std::cout << "The number of Green's functions is " << num_elem << std::endl;
   }
 
   eq_time_two_particle_greens_meas.reserve(num_elem);
-  for (int i_elem=0; i_elem<num_elem; ++i_elem) {
+  for (int i_elem = 0; i_elem < num_elem; ++i_elem) {
     int line;
     infile_f >> line;
     if (line != i_elem) {
       throw std::runtime_error(boost::str(boost::format("First column of line %1% is incorrect.") % i_elem));
     }
 
-    boost::array<int,2*GF_RANK> flavors_array;
-    for (int iflavor=0; iflavor<2*GF_RANK; ++iflavor) {
+    boost::array<int, 2 * GF_RANK> flavors_array;
+    for (int iflavor = 0; iflavor < 2 * GF_RANK; ++iflavor) {
       int flavor_tmp;
       infile_f >> flavor_tmp;
       if (flavor_tmp < 0 || flavor_tmp >= FLAVORS) {
-        throw std::runtime_error(boost::str(boost::format("Column %1% of line %2% is incorrect.")%(iflavor+2)%i_elem));
+        throw std::runtime_error(boost::str(
+            boost::format("Column %1% of line %2% is incorrect.") % (iflavor + 2) % i_elem));
       }
       flavors_array[iflavor] = flavor_tmp;
     }
@@ -182,65 +160,66 @@ void HybridizationSimulation<IMP_MODEL>::read_eq_time_two_particle_greens_meas()
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
   const std::string fname_key = "TWO_TIME_CORRELATION_FUNCTIONS";
-  const bool verbose = (global_mpi_rank==0);
+  const bool verbose = (global_mpi_rank == 0);
 
   if (!par.defined("N_TAU_TWO_TIME_CORRELATION_FUNCTIONS")) {
     return;
   }
   const int num_tau_points = par["N_TAU_TWO_TIME_CORRELATION_FUNCTIONS"];
-  if (num_tau_points<2 || !par.defined(fname_key)) {
+  if (num_tau_points < 2 || !par.defined(fname_key)) {
     return;
   }
 
-  if (par[fname_key].template as<std::string>()=="") {
+  if (par[fname_key].template as<std::string>() == "") {
     return;
   }
 
   std::ifstream infile_f(boost::lexical_cast<std::string>(par[fname_key]).c_str());
-  if(!infile_f.is_open()) {
-    std::cerr<<"We cannot open "<<par[fname_key]<<"!"<<std::endl;
+  if (!infile_f.is_open()) {
+    std::cerr << "We cannot open " << par[fname_key] << "!" << std::endl;
     exit(1);
   }
 
   int num_elem;
   infile_f >> num_elem;
-  if (num_elem<0) {
-    std::runtime_error("The number of two-time correlation functions in "+fname_key+" cannot be negative!");
+  if (num_elem < 0) {
+    std::runtime_error("The number of two-time correlation functions in " + fname_key + " cannot be negative!");
   }
   if (verbose) {
     std::cout << "The number of two-time correlation functions is " << num_elem << std::endl;
   }
 
-  std::vector<std::pair<EqualTimeOperator<1>,EqualTimeOperator<1> > > corr_meas;
+  std::vector<std::pair<EqualTimeOperator<1>, EqualTimeOperator<1> > > corr_meas;
   corr_meas.reserve(num_elem);
-  for (int i_elem=0; i_elem<num_elem; ++i_elem) {
+  for (int i_elem = 0; i_elem < num_elem; ++i_elem) {
     int line;
     infile_f >> line;
     if (line != i_elem) {
       throw std::runtime_error(boost::str(boost::format("First column of line %1% is incorrect.") % i_elem));
     }
 
-    boost::array<int,4> flavors_array;
-    for (int iflavor=0; iflavor<4; ++iflavor) {
+    boost::array<int, 4> flavors_array;
+    for (int iflavor = 0; iflavor < 4; ++iflavor) {
       int flavor_tmp;
       infile_f >> flavor_tmp;
       if (flavor_tmp < 0 || flavor_tmp >= FLAVORS) {
-        throw std::runtime_error(boost::str(boost::format("Column %1% of line %2% is incorrect.")%(iflavor+2)%i_elem));
+        throw std::runtime_error(boost::str(
+            boost::format("Column %1% of line %2% is incorrect.") % (iflavor + 2) % i_elem));
       }
       flavors_array[iflavor] = flavor_tmp;
     }
     corr_meas.push_back(
-      std::make_pair(
-        EqualTimeOperator<1>(flavors_array.data()),
-        EqualTimeOperator<1>((flavors_array.data()+2))
-      )
+        std::make_pair(
+            EqualTimeOperator<1>(flavors_array.data()),
+            EqualTimeOperator<1>((flavors_array.data() + 2))
+        )
     );
   }
-  assert(corr_meas.size()==num_elem);
+  assert(corr_meas.size() == num_elem);
 
   p_meas_corr.reset(
-    new MeasCorrelation<SW_TYPE,EqualTimeOperator<1> >(
-      corr_meas, num_tau_points
-    )
+      new MeasCorrelation<SW_TYPE, EqualTimeOperator<1> >(
+          corr_meas, num_tau_points
+      )
   );
 }
