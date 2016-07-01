@@ -26,9 +26,9 @@ template
 class ImpurityModel<std::complex<double>, ImpurityModelEigenBasis<std::complex<double> > >;
 template
 class ImpurityModelEigenBasis<std::complex<double> >;
-template voidImpurityModel<std::complex<double>, ImpurityModelEigenBasis<std::complex<double> > >::apply_op_bra<1>
+template void ImpurityModel<std::complex<double>, ImpurityModelEigenBasis<std::complex<double> > >::apply_op_bra<1>
     (const EqualTimeOperator<1> &op,
      ImpurityModelEigenBasis<std::complex<double> >::BRAKET_T &bra) const;
-template voidImpurityModel<std::complex<double>, ImpurityModelEigenBasis<std::complex<double> > >::apply_op_ket<1>
+template void ImpurityModel<std::complex<double>, ImpurityModelEigenBasis<std::complex<double> > >::apply_op_ket<1>
     (const EqualTimeOperator<1> &op,
      ImpurityModelEigenBasis<std::complex<double> >::BRAKET_T &ket) const;
