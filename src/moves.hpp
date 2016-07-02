@@ -18,19 +18,6 @@
 #include "sliding_window.hpp"
 
 /**
- * @brief pick one of elements randombly
- */
-template<typename T>
-inline
-const T &pick(const std::vector<T> &array, alps::random01 &rng);
-
-/**
- * @brief pick a n elements randombly from 0, 1, ..., N-1
- */
-template<class R>
-std::vector<int> pickup_a_few_numbers(int N, int n, R &random01);
-
-/**
  * @brief Change flavors of operators
  */
 struct ExchangeFlavor {
@@ -73,197 +60,6 @@ struct OperatorShift {
  private:
   double beta_, shift_;
 };
-
-/*
-template<unsigned int k>
-class Combination {
-  Combination(unsigned int N) : N_(N), smallest_elem_(0), comb_Nm1_(N - 1), done_(false) { }
-
-  void reset(unsigned N) {
-    N_ = N;
-    smallest_elem_ = 0;
-    comb_Nm1_ = N - 1;
-    done_ = false;
-  }
-
-  unsigned int get(unsigned int idx) const {
-    return idx == 0 ? smallest_elem_ : comb_Nm1_.get(idx - 1);
-  }
-
-  bool next_combination() {
-    if (comb_Nm1_.done()) {
-      ++smallest_elem_;
-      if (smallest_elem_ > N_ - k) {
-        done_ = true;
-        return false;
-      } else {
-        comb_Nm1_.reset(N_ - smallest_elem_ - 1);
-      }
-    } else {
-      return comb_Nm1_.next_combination();
-    }
-  }
-
-  bool done() const { return done_; }
-
- private:
-  unsigned int N_, smallest_elem_;
-  Combination<k - 1> comb_Nm1_;
-  bool done_;
-};
-
-template<>
-class Combination<1> {
-  Combination(unsigned int N) : smallest_elem_(0), N_(N) { }
-
-  void reset(unsigned N) {
-    smallest_elem_ = 0;
-    N_ = N;
-  }
-
-  unsigned int get(unsigned int idx) const {
-    assert(idx == 0);
-    return smallest_elem_;
-  }
-
-  bool next_combination() {
-    if (smallest_elem_ == N_ - 1) {
-      return false;
-    } else {
-      ++smallest_elem_;
-      return true;
-    }
-  }
-
-  bool done() const { return smallest_elem_ == N_ - 1; }
-
- private:
-  unsigned int smallest_elem_, N_;
-};
-*/
-
-/**
- * Assumed creation operators and annihilation operators are time-ordered, respectively
- */
-/*
-template<unsigned int RANK>
-int
-pick_up_pair_imp(const std::vector<psi> &cdagg_ops,
-                 const std::vector<psi> &c_ops,
-                 double distance,
-                 alps::random01 &rng,
-                 std::vector<psi> &cdagg_ops_pick,
-                 std::vector<psi> &c_ops_pick
-) {
-  cdagg_ops_pick.resize(0);
-  c_ops_pick.resize(0);
-
-  if (cdagg_ops.size() < RANK || c_ops.size() < RANK) {
-    return 0;
-  }
-
-  int idx = 0, num_pair = -100, target = -1000;
-  for (int path = 0; path < 2; ++path) {
-    double max_cdagg, min_cdagg, max_c, min_c;
-    for (Combination<RANK> comb1(cdagg_ops.size()); !comb1.done(); comb1.next_combination()) {
-      max_cdagg = comb1.get(RANK - 1);
-      min_cdagg = comb1.get(0);
-      if (std::abs(max_cdagg - min_cdagg) > distance) {
-        continue;
-      }
-      for (Combination<RANK> comb2(cdagg_ops.size()); !comb2.done(); comb2.next_combination()) {
-        max_c = comb2.get(RANK - 1);
-        min_c = comb2.get(0);
-        if (std::abs(std::max(max_cdagg, max_c) - std::min(min_cdagg, min_c)) <= distance) {
-          if (path == 1 && idx == target) {
-            cdagg_ops_pick.resize(RANK);
-            c_ops_pick.resize(RANK);
-            for (int rank = 0; rank < RANK; ++rank) {
-              cdagg_ops_pick[rank] = cdagg_ops[comb1.get(rank)];
-              c_ops_pick[rank] = c_ops[comb2.get(rank)];
-              return num_pair;
-            }
-          }
-          ++idx;
-        }
-      }
-    }
-    if (path == 0) {
-      num_pair = idx;
-      target = static_cast<int>(rng() * num_pair);
-    }
-  }
-
-  assert(false);
-  return 0;
-};
- */
-
-/**
-* Pick up a pair of creation and annihilation operators in a given time window and returns interators pointing to the picked-up operators
-*
-* @param pseudo-random-number generator
-* @param c_operators the list of creation operators
-* @param a_operators the list of annihilation operators
-* @param flavor_ins the flavor of creation operators of the pairs
-* @param flavor_rem the flavor of annihilation operators of the pairs
-* @param t1 upper bound or lower bound of the time window
-* @param t2 upper bound or lower bound of the time window
-* @param distance cutoff for the mutual distance of a pair of creation and annihilation operators
-* @param BETA inverse temperature
-*/
-/*
-template<typename R, typename Iterator>
-int
-pick_up_pair(int rank,
-             R &rng,
-             Iterator cdagg_ops_first,
-             Iterator cdagg_ops_end,
-             Iterator c_ops_first,
-             Iterator c_ops_end,
-             const std::vector<bool> &flavor_mask,
-             const std::vector<psi> &additional_cdagg_ops,
-             const std::vector<psi> &additional_c_ops,
-             double max_distance,
-             std::vector<psi> &cdagg_ops_picked,
-             std::vector<psi> &c_ops_picked
-) {
-  typedef std::vector<psi>::iterator Iterator2;
-
-  struct inactive_flavor {
-    bool operator()(const psi &op) const {
-      return !flavor_mask[op.flavor()];
-    }
-  };
-
-  //copy creation operators
-  std::vector<psi> cdagg_ops;
-  std::remove_copy_if(cdagg_ops_first, cdagg_ops_end, std::back_inserter(cdagg_ops), inactive_flavor());
-  std::remove_copy_if(additional_cdagg_ops.begin(),
-                      additional_cdagg_ops.end(),
-                      std::back_inserter(cdagg_ops),
-                      inactive_flavor());
-
-  //copy annihilation operators
-  std::vector<psi> c_ops;
-  std::remove_copy_if(c_ops_first, c_ops_end, std::back_inserter(c_ops), inactive_flavor());
-  std::remove_copy_if(additional_c_ops.begin(), additional_c_ops.end(), std::back_inserter(c_ops), inactive_flavor());
-
-  if (rank == 1) {
-    return pick_up_pair_imp<1>(cdagg_ops, c_ops, max_distance, rng, cdagg_ops_picked, c_ops_picked);
-  } else if (rank == 2) {
-    return pick_up_pair_imp<2>(cdagg_ops, c_ops, max_distance, rng, cdagg_ops_picked, c_ops_picked);
-  } else if (rank == 3) {
-    return pick_up_pair_imp<3>(cdagg_ops, c_ops, max_distance, rng, cdagg_ops_picked, c_ops_picked);
-  } else if (rank == 4) {
-    return pick_up_pair_imp<4>(cdagg_ops, c_ops, max_distance, rng, cdagg_ops_picked, c_ops_picked);
-  } else if (rank == 5) {
-    return pick_up_pair_imp<5>(cdagg_ops, c_ops, max_distance, rng, cdagg_ops_picked, c_ops_picked);
-  } else {
-    throw std::runtime_error("Not implemented pick_up_pair_imp");
-  }
-}
- */
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class LocalUpdater {
@@ -309,6 +105,7 @@ class LocalUpdater {
   std::vector<psi> c_ops_rem_;     //hybrized with bath
   std::vector<psi> cdagg_ops_add_; //hybrized with bath
   std::vector<psi> c_ops_add_;     //hybrized with bath
+  boost::shared_ptr<Worm> p_new_worm_; //New worm
 
   //some variables set on the exit of update()
   bool valid_move_generated_;
@@ -395,9 +192,7 @@ class InsertionRemovalDiagonalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCAL
 
   virtual void call_back();
 
-  virtual void finalize_learning() {
-    acc_rate_.reset();
-  }
+  virtual void finalize_learning() { acc_rate_.reset(); }
 
   virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements);
 
@@ -442,9 +237,7 @@ class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, S
 
   virtual void update_parameters();
 
-  virtual void finalize_learning() {
-    acc_rate_.reset();
-  }
+  virtual void finalize_learning() { acc_rate_.reset(); }
 
   virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements);
 
@@ -458,200 +251,117 @@ class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, S
   double distance_;
   int flavor_;
 
-  static int gen_new_flavor(const MonteCarloConfiguration<SCALAR> &mc_config, int old_flavor, alps::random01 &rng) {
-    const int block = mc_config.M.block_belonging_to(old_flavor);
-    return pick(mc_config.M.flavors(block), rng);
-  }
+  static int gen_new_flavor(const MonteCarloConfiguration<SCALAR> &mc_config, int old_flavor, alps::random01 &rng);
 };
-
-template<typename SCALAR>
-SCALAR compute_det_rat(
-    const std::vector<SCALAR> &det_vec_new,
-    const std::vector<SCALAR> &det_vec_old,
-    double eps=1e-30) {
-  const int num_loop = std::max(det_vec_new.size(), det_vec_old.size());
-
-  const double max_abs_elem = std::abs(*std::max_element(det_vec_new.begin(), det_vec_new.end(), AbsLessor<SCALAR>()));
-
-  SCALAR det_rat = 1.0;
-  for (int i = 0; i < num_loop; ++i) {
-    if (i < det_vec_new.size() && std::abs(det_vec_new[i] / max_abs_elem) > eps) {
-      det_rat *= det_vec_new[i];
-    }
-    if (i < det_vec_old.size()) {
-      det_rat /= det_vec_old[i];
-    }
-  }
-  return det_rat;
-}
-
-template<typename Scalar, typename M>
-std::vector<Scalar>
-lu_product(const M &matrix) {
-  if (matrix.rows() == 0) {
-    return std::vector<Scalar>();
-  }
-  Eigen::FullPivLU<Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> > lu(matrix);
-  const int size1 = lu.rows();
-  std::vector<Scalar> results(size1);
-  for (int i = 0; i < size1; ++i) {
-    results[i] = lu.matrixLU()(i, i);
-  }
-  results[0] *= lu.permutationP().determinant() * lu.permutationQ().determinant();
-  return results;
-};
-
-template<typename SCALAR, typename GreensFunction, typename DetMatType>
-SCALAR compute_det_rat(const std::vector<psi> &creation_operators,
-                       const std::vector<psi> &annihilation_operators,
-                       std::vector<SCALAR> &det_vec_old,
-                       DetMatType &M,
-                       std::vector<SCALAR> &det_vec_new
-) {
-  typedef alps::fastupdate::ResizableMatrix<SCALAR> M_TYPE;
-  std::vector<std::vector<psi> > cdagg_ops(M.num_blocks()), c_ops(M.num_blocks());
-
-  for (std::vector<psi>::const_iterator it = creation_operators.begin(); it != creation_operators.end(); ++it) {
-    cdagg_ops[M.block_belonging_to(it->flavor())].push_back(*it);
-  }
-  for (std::vector<psi>::const_iterator it = annihilation_operators.begin(); it != annihilation_operators.end(); ++it) {
-    c_ops[M.block_belonging_to(it->flavor())].push_back(*it);
-  }
-
-
-  //compute determinant as a product
-  boost::shared_ptr<GreensFunction> p_gf = M.get_greens_function();
-  std::vector<OperatorTime> cdagg_times, c_times;
-  det_vec_new.resize(0);
-  det_vec_new.reserve(creation_operators.size());
-  for (int ib = 0; ib < M.num_blocks(); ++ib) {
-    const int mat_size = cdagg_ops[ib].size();
-    assert(cdagg_ops[ib].size() == c_ops[ib].size());
-    if (mat_size == 0) {
-      continue;
-    }
-    Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> M_new(mat_size, mat_size);
-    for (int col = 0; col < mat_size; ++col) {
-      for (int row = 0; row < mat_size; ++row) {
-        M_new(row, col) = p_gf->operator()(c_ops[ib][row], cdagg_ops[ib][col]);
-      }
-    }
-    const std::vector<SCALAR> &vec_tmp = lu_product<SCALAR>(M_new);
-    std::copy(vec_tmp.begin(), vec_tmp.end(), std::back_inserter(det_vec_new));
-
-    for (int col = 0; col < mat_size; ++col) {
-      cdagg_times.push_back(cdagg_ops[ib][col].time());
-    }
-    for (int row = 0; row < mat_size; ++row) {
-      c_times.push_back(c_ops[ib][row].time());
-    }
-  }
-
-  if (det_vec_new.size() == 0) {
-    return 0.0;
-  }
-
-  //compute determinant ratio
-  std::sort(det_vec_old.begin(), det_vec_old.end(), AbsGreater<SCALAR>());
-  std::sort(det_vec_new.begin(), det_vec_new.end(), AbsGreater<SCALAR>());
-  const SCALAR det_rat = compute_det_rat(det_vec_new, det_vec_old);
-
-  //compute permulation sign from exchange of row and col
-  const int perm_sign_block = alps::fastupdate::comb_sort(cdagg_times.begin(), cdagg_times.end(), OperatorTimeLessor())
-      * alps::fastupdate::comb_sort(c_times.begin(), c_times.end(), OperatorTimeLessor());
-
-  det_vec_new[0] *= 1. * perm_sign_block;
-  return (1. * perm_sign_block) * det_rat;
-}
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename SLIDING_WINDOW, typename OperatorTransformer>
 bool
-global_update(R &rng,
-              double BETA,
-              MonteCarloConfiguration<SCALAR> &mc_config,
-              std::vector<SCALAR> &det_vec,
-              SLIDING_WINDOW &sliding_window,
-              int num_flavors,
-              OperatorTransformer transformer,
-              int Nwin
-) {
-  assert(sliding_window.get_tau_low() == 0);
-  assert(sliding_window.get_tau_high() == BETA);
-  const int pert_order = mc_config.pert_order();
-  if (pert_order == 0) {
-    return true;
+    global_update(R &rng,
+                  double BETA,
+                  MonteCarloConfiguration<SCALAR> &mc_config,
+                  std::vector<SCALAR> &det_vec,
+                  SLIDING_WINDOW &sliding_window,
+                  int num_flavors,
+                  OperatorTransformer transformer,
+                  int Nwin
+);
+
+/**
+ * Template class for move/insert/remove a worm
+ * This class is just a template.
+ * Actual updates are managed by a derived class which implements the member function propose().
+ */
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+ public:
+  WormUpdater(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit);
+  virtual ~WormUpdater() { }
+
+  virtual bool propose(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window
+  ) = 0;
+
+  //set the additional weight of the worm configuration space
+  virtual void set_worm_space_weight(double weight) {worm_space_weight_ = weight;};
+
+  virtual double worm_space_weight() const {return worm_space_weight_;};
+
+  /** Will be called on the exit of update() */
+  virtual void call_back();
+
+  /** updates parameters for Monte Carlo updates */
+  virtual void update_parameters();
+
+  /** fix parameters for Monte Carlo updates before measurement steps */
+  virtual void finalize_learning() { acc_rate_.reset(); }
+
+  /** create measurement */
+  virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements);
+
+  /** measure acceptance rate */
+  virtual void measure_acc_rate(alps::accumulators::accumulator_set &measurements);
+
+ protected:
+  std::string str_;
+  double beta_;
+  int num_flavors_;
+  double tau_lower_limit_, tau_upper_limit_;
+  scalar_histogram_flavors acc_rate_;
+  double max_distance_, distance_;
+  double worm_space_weight_;
+};
+
+/**
+ * Class managing the move of the existing worm
+ */
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+  typename WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+
+  //WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
+      //: BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) { }
+  WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit) {}
+
+  //virtual ~WormMover() : BaseType() { }
+
+  virtual bool propose(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window
+  );
+
+  virtual void set_weight();
+};
+
+/**
+ * Class managing the insertion and removal of a worm
+ */
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+  typename WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+
+  WormInsertionRemover(const std::string &str,
+                       double beta,
+                       int num_flavors,
+                       double tau_lower_limit,
+                       double tau_upper_limit,
+                       boost::shared_ptr<Worm> p_worm_template
+  ) : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit), p_worm_template_(p_worm_template) {
   }
 
-  //compute new trace (we use sliding window to avoid overflow/underflow).
-  operator_container_t operators_new;
-  for (operator_container_t::iterator it = mc_config.operators.begin();
-       it != mc_config.operators.end();
-       ++it) {
-    operators_new.insert(transformer(*it));
-  }
-  sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);
-  sliding_window.set_window_size(Nwin, operators_new, 0, ITIME_LEFT);
+  virtual bool propose(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window
+  );
 
-  std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
-  sliding_window.compute_trace_bound(operators_new, trace_bound);
+  virtual void set_weight();
 
-  std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(operators_new, EXTENDED_REAL(0.0), trace_bound);
-  const EXTENDED_SCALAR trace_new = r.second;
+ private:
+  boost::shared_ptr<Worm> p_worm_template_;
 
-  sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);
-  if (trace_new == EXTENDED_SCALAR(0.0)) {
-    return false;
-  }
-
-  //compute new operators
-  std::vector<psi> creation_operators_new, annihilation_operators_new;
-  std::transform(
-      mc_config.M.get_cdagg_ops().begin(), mc_config.M.get_cdagg_ops().end(),
-      std::back_inserter(creation_operators_new),
-      transformer);
-  std::transform(
-      mc_config.M.get_c_ops().begin(), mc_config.M.get_c_ops().end(),
-      std::back_inserter(annihilation_operators_new),
-      transformer);
-
-  //compute determinant ratio
-  std::vector<SCALAR> det_vec_new;
-  const SCALAR det_rat = compute_det_rat<SCALAR, HybridizationFunction<SCALAR> >(
-      creation_operators_new, annihilation_operators_new,
-      det_vec, mc_config.M, det_vec_new);
-
-  const SCALAR prob =
-      convert_to_scalar(
-          EXTENDED_SCALAR(
-              EXTENDED_SCALAR(det_rat) *
-                  EXTENDED_SCALAR(trace_new / mc_config.trace)
-          )
-      );
-
-  if (rng() < std::abs(prob)) {
-    std::vector<std::pair<psi, psi> > operator_pairs(pert_order);
-    for (int iop = 0; iop < pert_order; ++iop) {
-      operator_pairs[iop] = std::make_pair(creation_operators_new[iop], annihilation_operators_new[iop]);
-    }
-    typedef typename MonteCarloConfiguration<SCALAR>::DeterminantMatrixType DeterminantMatrixType;
-    DeterminantMatrixType M_new(
-        mc_config.M.get_greens_function(),
-        operator_pairs.begin(),
-        operator_pairs.end()
-    );
-
-    mc_config.trace = trace_new;
-    std::swap(mc_config.operators, operators_new);
-    std::swap(mc_config.M, M_new);
-    const int perm_sign_new = compute_permutation_sign(mc_config);
-    mc_config.sign *= (1. * perm_sign_new / mc_config.perm_sign) * prob / std::abs(prob);
-    mc_config.perm_sign = perm_sign_new;
-    std::swap(det_vec, det_vec_new);
-    mc_config.sanity_check(sliding_window);
-    return true;
-  } else {
-    return false;
-  }
-}
+};
 
 #include "moves.ipp"

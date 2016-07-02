@@ -62,8 +62,9 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
   range_check(c_ops_rem_, sliding_window.get_tau_low(), sliding_window.get_tau_high());
   range_check(cdagg_ops_add_, sliding_window.get_tau_low(), sliding_window.get_tau_high());
   range_check(c_ops_add_, sliding_window.get_tau_low(), sliding_window.get_tau_high());
+  range_check(p_new_worm_->get_operators(), sliding_window.get_tau_low(), sliding_window.get_tau_high());
 
-  //update operators
+  //update operators hybirized with bath and those from worms
   bool update_success = update_operators(mc_config);
   if (!update_success) {
     finalize_update();
@@ -113,6 +114,7 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     assert(!my_isnan(mc_config.sign));
     mc_config.perm_sign = perm_new;
     mc_config.trace = trace_new;
+    mc_config.p_worm = p_new_worm_;
     accepted_ = true;
   } else { // rejected
     mc_config.M.reject_update();
@@ -155,9 +157,16 @@ bool LocalUpdater<SCALAR,
     safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
     return false;
   }
-
   safe_insert(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
   safe_insert(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
+
+  if (mc_config.p_worm) {
+    safe_erase(mc_config.operators, mc_config.p_worm->get_operators());
+  }
+  if (p_new_worm_) {
+    safe_insert(mc_config.operators, p_new_worm_->get_operators());
+  }
+
   return true;
 }
 
@@ -169,6 +178,13 @@ void LocalUpdater<SCALAR,
   safe_erase(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
   safe_insert(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
   safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
+
+  if (p_new_worm_) {
+    safe_erase(mc_config.operators, p_new_worm->get_operators());
+  }
+  if (mc_config.p_worm) {
+    safe_insert(mc_config.operators, mc_config.p_worm->get_operators());
+  }
 }
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
@@ -180,6 +196,7 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::finalize_update() {
   c_ops_rem_.resize(0);
   cdagg_ops_add_.resize(0);
   c_ops_add_.resize(0);
+  p_new_worm_.reset(0);
   valid_move_generated_ = false;
   accepted_ = false;
 }
@@ -555,4 +572,349 @@ measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
   acc_rate_.reset();
 }
 
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+int SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
+gen_new_flavor(const MonteCarloConfiguration<SCALAR> &mc_config, int old_flavor, alps::random01 &rng) {
+  const int block = mc_config.M.block_belonging_to(old_flavor);
+  return pick(mc_config.M.flavors(block), rng);
+}
 
+template<typename SCALAR>
+SCALAR compute_det_rat(
+    const std::vector<SCALAR> &det_vec_new,
+    const std::vector<SCALAR> &det_vec_old,
+    double eps = 1e-30) {
+  const int num_loop = std::max(det_vec_new.size(), det_vec_old.size());
+
+  const double max_abs_elem = std::abs(*std::max_element(det_vec_new.begin(), det_vec_new.end(), AbsLessor<SCALAR>()));
+
+  SCALAR det_rat = 1.0;
+  for (int i = 0; i < num_loop; ++i) {
+    if (i < det_vec_new.size() && std::abs(det_vec_new[i] / max_abs_elem) > eps) {
+      det_rat *= det_vec_new[i];
+    }
+    if (i < det_vec_old.size()) {
+      det_rat /= det_vec_old[i];
+    }
+  }
+  return det_rat;
+}
+
+template<typename Scalar, typename M>
+std::vector<Scalar>
+lu_product(const M &matrix) {
+  if (matrix.rows() == 0) {
+    return std::vector<Scalar>();
+  }
+  Eigen::FullPivLU<Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> > lu(matrix);
+  const int size1 = lu.rows();
+  std::vector<Scalar> results(size1);
+  for (int i = 0; i < size1; ++i) {
+    results[i] = lu.matrixLU()(i, i);
+  }
+  results[0] *= lu.permutationP().determinant() * lu.permutationQ().determinant();
+  return results;
+};
+
+template<typename SCALAR, typename GreensFunction, typename DetMatType>
+SCALAR compute_det_rat(const std::vector<psi> &creation_operators,
+                       const std::vector<psi> &annihilation_operators,
+                       std::vector<SCALAR> &det_vec_old,
+                       DetMatType &M,
+                       std::vector<SCALAR> &det_vec_new
+) {
+  typedef alps::fastupdate::ResizableMatrix<SCALAR> M_TYPE;
+  std::vector<std::vector<psi> > cdagg_ops(M.num_blocks()), c_ops(M.num_blocks());
+
+  for (std::vector<psi>::const_iterator it = creation_operators.begin(); it != creation_operators.end(); ++it) {
+    cdagg_ops[M.block_belonging_to(it->flavor())].push_back(*it);
+  }
+  for (std::vector<psi>::const_iterator it = annihilation_operators.begin(); it != annihilation_operators.end(); ++it) {
+    c_ops[M.block_belonging_to(it->flavor())].push_back(*it);
+  }
+
+
+  //compute determinant as a product
+  boost::shared_ptr<GreensFunction> p_gf = M.get_greens_function();
+  std::vector<OperatorTime> cdagg_times, c_times;
+  det_vec_new.resize(0);
+  det_vec_new.reserve(creation_operators.size());
+  for (int ib = 0; ib < M.num_blocks(); ++ib) {
+    const int mat_size = cdagg_ops[ib].size();
+    assert(cdagg_ops[ib].size() == c_ops[ib].size());
+    if (mat_size == 0) {
+      continue;
+    }
+    Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> M_new(mat_size, mat_size);
+    for (int col = 0; col < mat_size; ++col) {
+      for (int row = 0; row < mat_size; ++row) {
+        M_new(row, col) = p_gf->operator()(c_ops[ib][row], cdagg_ops[ib][col]);
+      }
+    }
+    const std::vector<SCALAR> &vec_tmp = lu_product<SCALAR>(M_new);
+    std::copy(vec_tmp.begin(), vec_tmp.end(), std::back_inserter(det_vec_new));
+
+    for (int col = 0; col < mat_size; ++col) {
+      cdagg_times.push_back(cdagg_ops[ib][col].time());
+    }
+    for (int row = 0; row < mat_size; ++row) {
+      c_times.push_back(c_ops[ib][row].time());
+    }
+  }
+
+  if (det_vec_new.size() == 0) {
+    return 0.0;
+  }
+
+  //compute determinant ratio
+  std::sort(det_vec_old.begin(), det_vec_old.end(), AbsGreater<SCALAR>());
+  std::sort(det_vec_new.begin(), det_vec_new.end(), AbsGreater<SCALAR>());
+  const SCALAR det_rat = compute_det_rat(det_vec_new, det_vec_old);
+
+  //compute permulation sign from exchange of row and col
+  const int perm_sign_block = alps::fastupdate::comb_sort(cdagg_times.begin(), cdagg_times.end(), OperatorTimeLessor())
+      * alps::fastupdate::comb_sort(c_times.begin(), c_times.end(), OperatorTimeLessor());
+
+  det_vec_new[0] *= 1. * perm_sign_block;
+  return (1. * perm_sign_block) * det_rat;
+}
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename SLIDING_WINDOW, typename OperatorTransformer>
+bool
+global_update(R &rng,
+              double BETA,
+              MonteCarloConfiguration<SCALAR> &mc_config,
+              std::vector<SCALAR> &det_vec,
+              SLIDING_WINDOW &sliding_window,
+              int num_flavors,
+              OperatorTransformer transformer,
+              int Nwin
+) {
+  assert(sliding_window.get_tau_low() == 0);
+  assert(sliding_window.get_tau_high() == BETA);
+  const int pert_order = mc_config.pert_order();
+  if (pert_order == 0) {
+    return true;
+  }
+
+  //compute new trace (we use sliding window to avoid overflow/underflow).
+  operator_container_t operators_new;
+  for (operator_container_t::iterator it = mc_config.operators.begin();
+       it != mc_config.operators.end();
+       ++it) {
+    operators_new.insert(transformer(*it));
+  }
+  sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);
+  sliding_window.set_window_size(Nwin, operators_new, 0, ITIME_LEFT);
+
+  std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
+  sliding_window.compute_trace_bound(operators_new, trace_bound);
+
+  std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(operators_new, EXTENDED_REAL(0.0), trace_bound);
+  const EXTENDED_SCALAR trace_new = r.second;
+
+  sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);
+  if (trace_new == EXTENDED_SCALAR(0.0)) {
+    return false;
+  }
+
+  //compute new operators
+  std::vector<psi> creation_operators_new, annihilation_operators_new;
+  std::transform(
+      mc_config.M.get_cdagg_ops().begin(), mc_config.M.get_cdagg_ops().end(),
+      std::back_inserter(creation_operators_new),
+      transformer);
+  std::transform(
+      mc_config.M.get_c_ops().begin(), mc_config.M.get_c_ops().end(),
+      std::back_inserter(annihilation_operators_new),
+      transformer);
+
+  //compute determinant ratio
+  std::vector<SCALAR> det_vec_new;
+  const SCALAR det_rat = compute_det_rat<SCALAR, HybridizationFunction<SCALAR> >(
+      creation_operators_new, annihilation_operators_new,
+      det_vec, mc_config.M, det_vec_new);
+
+  const SCALAR prob =
+      convert_to_scalar(
+          EXTENDED_SCALAR(
+              EXTENDED_SCALAR(det_rat) *
+                  EXTENDED_SCALAR(trace_new / mc_config.trace)
+          )
+      );
+
+  if (rng() < std::abs(prob)) {
+    std::vector<std::pair<psi, psi> > operator_pairs(pert_order);
+    for (int iop = 0; iop < pert_order; ++iop) {
+      operator_pairs[iop] = std::make_pair(creation_operators_new[iop], annihilation_operators_new[iop]);
+    }
+    typedef typename MonteCarloConfiguration<SCALAR>::DeterminantMatrixType DeterminantMatrixType;
+    DeterminantMatrixType M_new(
+        mc_config.M.get_greens_function(),
+        operator_pairs.begin(),
+        operator_pairs.end()
+    );
+
+    mc_config.trace = trace_new;
+    std::swap(mc_config.operators, operators_new);
+    std::swap(mc_config.M, M_new);
+    const int perm_sign_new = compute_permutation_sign(mc_config);
+    mc_config.sign *= (1. * perm_sign_new / mc_config.perm_sign) * prob / std::abs(prob);
+    mc_config.perm_sign = perm_sign_new;
+    std::swap(det_vec, det_vec_new);
+    mc_config.sanity_check(sliding_window);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::WormUpdater(
+    const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit) :
+    str_(str),
+    beta_(beta),
+    num_flavors_(num_flavors),
+    tau_lower_limit_(tau_lower_limit),
+    tau_upper_limit_(tau_upper_limit),
+    acc_rate_(num_bins, 0.5 * beta, 1, 0.5 * beta),
+    max_distance_(0.5 * beta),
+    distance(-1.0),
+    worm_space_weight_(1.0) {
+}
+
+struct InRange {
+  InRange(double tau_low, double tau_high) : tau_low_(tau_low), tau_high_(tau_high) { };
+  bool operator()(double t) const {
+    return tau_low_ >= t && t <= tau_high_;
+  }
+  double tau_low_, tau_high_;
+};
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+void WomUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::call_back() {
+  if (!BaseType::valid_move_generated_) {
+    return;
+  }
+
+  if (BaseType::accepted_) {
+    acc_rate_.add_sample(std::min(distance_, beta_ - distance_), 1.0, 0);
+  } else {
+    acc_rate_.add_sample(std::min(distance_, beta_ - distance_), 0.0, 0);
+  }
+}
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
+create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
+  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >(str_ + "_attempted");
+  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >(str_ + "_accepted");
+}
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
+measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
+  measurements[str_ + "_attempted"] << to_std_vector(acc_rate_.get_counter());
+  measurements[str_ + "_accepted"] << to_std_vector(acc_rate_.get_sumval());
+  acc_rate_.reset();
+}
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update_parameters() {
+  max_distance_ = acc_rate_.update_cutoff(1E-2, 1.05);
+}
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
+    alps::random01 &rng,
+    MonteCarloConfiguration<SCALAR> &mc_config,
+    const SLIDING_WINDOW &sliding_window
+) {
+  if (!mc_config.p_worm) {
+    return false;
+  }
+
+  //count independent times in the time window
+  const double tau_low = std::max(sliding_window.get_tau_low(), BaseType::tau_lower_limit_);
+  const double tau_high = std::min(sliding_window.get_tau_high(), BaseType::tau_upper_limit_);
+  const int num_times = mc_config.p_worm->get_independent_times();
+  boost::shared_ptr<Worm> Base::p_new_worm = mc_config.p_worm->clone();
+  distance_ = 0.0;
+  bool is_movable = false;
+  for (int t = 0; t < num_times; ++t) {
+    if (InRange(tau_low, tau_high)(mc_config.p_worm->get_time(t))) {
+      const double new_time = (2 * rng() - 1.0) * max_distance_ + Base::p_new_worm->time().time();
+      if (new_time < tau_low || new_time > tau_high) {
+        is_movable = false;
+        return;
+      }
+      OperatorTime new_op_time(Base::p_new_worm->get_time(t));
+      new_op_time.set_time(new_time);
+      distance_ = std::max(
+          distance_,
+          std::abs(new_op_time.time() - Base::p_new_worm->get_time(t).time())
+      );
+      Base::p_new_worm_->set_time(t, new_op_time);
+      is_movable = true;
+    }
+  }
+  if (!is_movable) {
+    Base::p_new_worm.reset(0);
+    return false;
+  }
+  //update flavor indices
+  if (rng() < 0.5) {
+    for (int f = 0; f < Base::p_new_worm->num_independent_flavors(); ++f) {
+      const bool updatable = std::count_if(Base::p_new_worm->get_time_index(f), InRange(tau_low, tau_high))
+          == Base::p_new_worm->get_time_index(f).size();
+      if (updatable) {
+        Base::p_new_worm_->set_flavor(f, static_cast<int>(rng() * num_flavors_));
+      }
+    }
+  }
+
+  BaseType::acceptance_rate_correction_ = 1.0;
+  return true;
+}
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
+    alps::random01 &rng,
+    MonteCarloConfiguration<SCALAR> &mc_config,
+    const SLIDING_WINDOW &sliding_window
+) {
+  const double tau_low = std::max(sliding_window.get_tau_low(), BaseType::tau_lower_limit_);
+  const double tau_high = std::min(sliding_window.get_tau_high(), BaseType::tau_upper_limit_);
+
+  const int num_time_indices = p_worm_template->get_num_independent_times();
+  const int num_flavor_indices = p_worm_template->get_num_independent_flavors();
+
+  if (mc_config.p_worm) {
+    //propose removal
+    assert(typeid(mc_config.p_worm.get()) != typeid(p_worm_template.get()));
+    if (!is_worm_in_range(*mc_config.p_worm, tau_low, tau_high)) {
+      return false;
+    }
+    BaseType::p_new_worm_.reset(0);
+    BaseType::acceptance_rate_correction_ =
+        1. / (
+            worm_space_weight() *
+                std::pow(tau_high - tau_low, num_time_indices) *
+                std::pow(1. * BaseType::num_flavors_, num_flavor_indices)
+        );
+  } else {
+    //propose insertion
+    BaseType::p_new_worm_ = p_worm_template.create();
+
+    for (int t = 0; t < num_time_indices; ++t) {
+      BaseType::p_new_worm_->set_time(t, open_random(rng, tau_low, tau_high));
+    }
+    for (int f = 0; f < num_flavor_indices; ++f) {
+      BaseType::p_new_worm_->set_flavor(t, static_cast<int>(rng() * BaseType::num_flavors_));
+    }
+    BaseType::acceptance_rate_correction_ = worm_space_weight() *
+        std::pow(tau_high - tau_low, num_time_indices) *
+        std::pow(1. * BaseType::num_flavors_, num_flavor_indices);
+  }
+  return true;
+}

@@ -1,11 +1,12 @@
 #pragma once
 
+#include <alps/fastupdate/determinant_matrix_partitioned.hpp>
+
 #include "operator.hpp"
 #include "model.hpp"
 #include "wide_scalar.hpp"
 #include "sliding_window.hpp"
-#include <alps/fastupdate/determinant_matrix_partitioned.hpp>
-
+#include "worm.hpp"
 
 template<typename SCALAR>
 class HybridizationFunction {
@@ -92,8 +93,8 @@ struct MonteCarloConfiguration {
   SCALAR sign;                            // the sign of w=Z_k_up*Z_k'_down*trace
   EXTENDED_SCALAR trace;        // matrix trace
   DeterminantMatrixType M;
-  operator_container_t operators;
-  //all c and c^dagger operators
+  operator_container_t operators; //all c and c^dagger operators hybridized with bath and those from the worm
+  boost::shared_ptr<Worm> p_worm;
   int perm_sign;
 };
 
@@ -149,9 +150,6 @@ void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
   assert(std::abs(sign2 / sign - 1.0) < 1E-4);
 #endif
 }
-
-class Worm {
-};
 
 //compute the permutation sign (+/-) from the time-ordering of
 // c^dagger_0 c_0  c^dagger_1 c_1 ... c^dagger_N c_N,
