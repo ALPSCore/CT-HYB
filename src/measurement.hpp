@@ -219,3 +219,76 @@ class AcceptanceRateMeasurement {
  private:
   double num_samples_, num_accepted_;
 };
+
+/**
+ * @brief Class for measurement of two-time correlation function using Legendre basis
+ */
+template<typename SCALAR>
+class N2CorrelationFunctionMeasurement {
+ public:
+  /**
+   * Constructor
+   *
+   * @param num_flavors    the number of flavors
+   * @param num_legendre   the number of legendre coefficients
+   * @param beta           inverse temperature
+   */
+  N2CorrelationFunctionMeasurement(int num_flavors, int num_legendre, double beta) :
+      num_flavors_(num_flavors),
+      beta_(beta),
+      legendre_trans_(1, num_legendre),
+      data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_legendre]) {
+    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
+  }
+
+  void measure(const MonteCarloConfiguration<SCALAR> &mc_config,
+               alps::accumulators::accumulator_set &measurements, const std::string &str) {
+    if (mc_config.current_config_space() != N2_SPACE) {
+      return ;
+    }
+
+    boost::array<int, 4> flavors;
+    double tdiff = mc_config.p_worm->get_time(0) - mc_config.p_worm->get_time(1);
+    if (tdiff >= 0.0) {
+      for (int f = 0; f < 4; ++f) {
+        flavors[f] = mc_config.p_worm->get_flavor(f);
+      }
+    } else {
+      tdiff *= -1.0;
+      flavors[0] = mc_config.p_worm->get_flavor(2);
+      flavors[1] = mc_config.p_worm->get_flavor(3);
+      flavors[2] = mc_config.p_worm->get_flavor(0);
+      flavors[3] = mc_config.p_worm->get_flavor(1);
+    }
+
+    const int num_legendre =  legendre_trans_.num_legendre();
+    std::vector<double> Pl_vals(num_legendre);
+
+    legendre_trans_.compute_legendre(2 * tdiff / beta_ - 1.0, Pl_vals);
+    for (int il = 0; il < num_legendre; ++il) {
+      data_
+      [flavors[0]]
+      [flavors[1]]
+      [flavors[2]]
+      [flavors[3]][il] += 0.5 * mc_config.sign * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
+    }
+
+    legendre_trans_.compute_legendre(2 * (beta_ - tdiff) /beta_ - 1.0, Pl_vals);
+    for (int il = 0; il < num_legendre; ++il) {
+      data_
+      [flavors[2]]
+      [flavors[3]]
+      [flavors[0]]
+      [flavors[1]][il] += 0.5 * mc_config.sign * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
+    }
+
+    measurements[str.c_str()] << to_std_vector(data_);
+    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
+  }
+
+ private:
+  int num_flavors_;
+  double beta_;
+  LegendreTransformer legendre_trans_;
+  boost::multi_array<std::complex<double>, 5> data_;
+};

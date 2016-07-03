@@ -30,8 +30,8 @@ std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
   return list;
 }
 
-inline void range_check(std::vector<psi> &ops, double tau_low, double tau_high) {
-  for (std::vector<psi>::iterator it = ops.begin(); it != ops.end(); ++it) {
+inline void range_check(const std::vector<psi> &ops, double tau_low, double tau_high) {
+  for (std::vector<psi>::const_iterator it = ops.cbegin(); it != ops.cend(); ++it) {
     if (tau_low > it->time().time() || tau_high < it->time().time()) {
       throw std::runtime_error("Something went wrong: try to update operators outside the range");
     }
@@ -180,7 +180,7 @@ void LocalUpdater<SCALAR,
   safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
 
   if (p_new_worm_) {
-    safe_erase(mc_config.operators, p_new_worm->get_operators());
+    safe_erase(mc_config.operators, p_new_worm_->get_operators());
   }
   if (mc_config.p_worm) {
     safe_insert(mc_config.operators, mc_config.p_worm->get_operators());
@@ -196,7 +196,7 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::finalize_update() {
   c_ops_rem_.resize(0);
   cdagg_ops_add_.resize(0);
   c_ops_add_.resize(0);
-  p_new_worm_.reset(0);
+  p_new_worm_.reset();
   valid_move_generated_ = false;
   accepted_ = false;
 }
@@ -777,9 +777,9 @@ WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::WormUpdater(
     num_flavors_(num_flavors),
     tau_lower_limit_(tau_lower_limit),
     tau_upper_limit_(tau_upper_limit),
-    acc_rate_(num_bins, 0.5 * beta, 1, 0.5 * beta),
+    acc_rate_(1000, 0.5 * beta, 1, 0.5 * beta),
     max_distance_(0.5 * beta),
-    distance(-1.0),
+    distance_(-1.0),
     worm_space_weight_(1.0) {
 }
 
@@ -792,7 +792,7 @@ struct InRange {
 };
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-void WomUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::call_back() {
+void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::call_back() {
   if (!BaseType::valid_move_generated_) {
     return;
   }
@@ -838,37 +838,35 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   const double tau_low = std::max(sliding_window.get_tau_low(), BaseType::tau_lower_limit_);
   const double tau_high = std::min(sliding_window.get_tau_high(), BaseType::tau_upper_limit_);
   const int num_times = mc_config.p_worm->get_independent_times();
-  boost::shared_ptr<Worm> Base::p_new_worm = mc_config.p_worm->clone();
-  distance_ = 0.0;
+  BaseType::p_new_worm_ = mc_config.p_worm->clone();
+  BaseType::distance_ = 0.0;
   bool is_movable = false;
   for (int t = 0; t < num_times; ++t) {
     if (InRange(tau_low, tau_high)(mc_config.p_worm->get_time(t))) {
-      const double new_time = (2 * rng() - 1.0) * max_distance_ + Base::p_new_worm->time().time();
+      const double new_time = (2 * rng() - 1.0) * BaseType::max_distance_ + BaseType::p_new_worm_->get_time(t);
       if (new_time < tau_low || new_time > tau_high) {
-        is_movable = false;
-        return;
+        //is_movable = false;
+        return false;
       }
-      OperatorTime new_op_time(Base::p_new_worm->get_time(t));
-      new_op_time.set_time(new_time);
-      distance_ = std::max(
-          distance_,
-          std::abs(new_op_time.time() - Base::p_new_worm->get_time(t).time())
+      BaseType::distance_ = std::max(
+          BaseType::distance_,
+          std::abs(new_time - BaseType::p_new_worm->get_time(t))
       );
-      Base::p_new_worm_->set_time(t, new_op_time);
+      BaseType::p_new_worm_->set_time(t, new_time);
       is_movable = true;
     }
   }
   if (!is_movable) {
-    Base::p_new_worm.reset(0);
+    BaseType::p_new_worm.reset(0);
     return false;
   }
   //update flavor indices
   if (rng() < 0.5) {
-    for (int f = 0; f < Base::p_new_worm->num_independent_flavors(); ++f) {
-      const bool updatable = std::count_if(Base::p_new_worm->get_time_index(f), InRange(tau_low, tau_high))
-          == Base::p_new_worm->get_time_index(f).size();
+    for (int f = 0; f < BaseType::p_new_worm->num_independent_flavors(); ++f) {
+      const bool updatable = std::count_if(BaseType::p_new_worm->get_time_index(f), InRange(tau_low, tau_high))
+          == BaseType::p_new_worm->get_time_index(f).size();
       if (updatable) {
-        Base::p_new_worm_->set_flavor(f, static_cast<int>(rng() * num_flavors_));
+        BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
       }
     }
   }
@@ -886,33 +884,33 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   const double tau_low = std::max(sliding_window.get_tau_low(), BaseType::tau_lower_limit_);
   const double tau_high = std::min(sliding_window.get_tau_high(), BaseType::tau_upper_limit_);
 
-  const int num_time_indices = p_worm_template->get_num_independent_times();
-  const int num_flavor_indices = p_worm_template->get_num_independent_flavors();
+  const int num_time_indices = p_worm_template_->num_independent_times();
+  const int num_flavor_indices = p_worm_template_->num_independent_flavors();
 
   if (mc_config.p_worm) {
     //propose removal
-    assert(typeid(mc_config.p_worm.get()) != typeid(p_worm_template.get()));
+    assert(typeid(mc_config.p_worm.get()) != typeid(p_worm_template_.get()));
     if (!is_worm_in_range(*mc_config.p_worm, tau_low, tau_high)) {
       return false;
     }
     BaseType::p_new_worm_.reset(0);
     BaseType::acceptance_rate_correction_ =
         1. / (
-            worm_space_weight() *
+            BaseType::worm_space_weight() *
                 std::pow(tau_high - tau_low, num_time_indices) *
                 std::pow(1. * BaseType::num_flavors_, num_flavor_indices)
         );
   } else {
     //propose insertion
-    BaseType::p_new_worm_ = p_worm_template.create();
+    BaseType::p_new_worm_ = p_worm_template_->clone();
 
     for (int t = 0; t < num_time_indices; ++t) {
       BaseType::p_new_worm_->set_time(t, open_random(rng, tau_low, tau_high));
     }
     for (int f = 0; f < num_flavor_indices; ++f) {
-      BaseType::p_new_worm_->set_flavor(t, static_cast<int>(rng() * BaseType::num_flavors_));
+      BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
     }
-    BaseType::acceptance_rate_correction_ = worm_space_weight() *
+    BaseType::acceptance_rate_correction_ = BaseType::worm_space_weight() *
         std::pow(tau_high - tau_low, num_time_indices) *
         std::pow(1. * BaseType::num_flavors_, num_flavor_indices);
   }

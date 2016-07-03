@@ -11,7 +11,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
   measurements << alps::accumulators::LogBinningAccumulator<std::vector<double> >("n");
   measurements << alps::accumulators::LogBinningAccumulator<double>("Sign");
-  measurements << alps::accumulators::NoBinningAccumulator<double>("AbsTrace");
+  //measurements << alps::accumulators::NoBinningAccumulator<double>("AbsTrace");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("order");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("PerturbationOrderFlavors");
 
@@ -22,6 +22,12 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
   measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Acceptance_rate_swap");
+
+  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Configuration_space_weight");
+
+  //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("N2_correlation_function");
+  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "N2_correlation_function");
+
   //measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move");
   //measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move_offdiagonal");
 

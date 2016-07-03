@@ -202,3 +202,20 @@ std::vector<std::complex<double> > to_complex_double_std_vector(const boost::mul
   }
   return std_vec;
 }
+
+template<typename T, typename S>
+void operator/=(std::vector<T> &vec, const S& val) {
+  for (typename std::vector<T>::iterator it = vec.begin(); it != vec.end(); ++it) {
+    *it /= val;
+  }
+}
+
+template<typename T1, typename T2>
+void operator/=(std::vector<T1> &vec1, const std::vector<T2> &vec2) {
+  assert(vec1.size() == vec2.size());
+  typename std::vector<T2>::const_iterator it2 = vec2.cbegin();
+  for (typename std::vector<T1>::iterator it = vec1.begin(); it != vec1.end(); ++it, ++it2) {
+    *it /= *it2;
+  }
+}
+

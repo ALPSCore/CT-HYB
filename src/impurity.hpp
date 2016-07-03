@@ -75,7 +75,9 @@ class HybridizationSimulation: public alps::mcbase {
   void create_observables(); //build ALPS observables
 
   void update(); //the main monte carlo step
-  void measure(); //the main monte carlo step
+  void measure(); //the top level of the measurement
+  void measure_Z_function_space(); //the main monte carlo step
+  void measure_N2_space(); //the main monte carlo step
   void prepare_for_measurement(); //called once after thermalization is reached
   virtual double fraction_completed() const;
 
@@ -131,6 +133,7 @@ class HybridizationSimulation: public alps::mcbase {
   //Monte Calro configuration
   long sweeps;                          // sweeps done
   MonteCarloConfiguration<SCALAR> mc_config;
+  std::vector<double> config_space_extra_weight;
 
   //Monte Carlo updater
   std::vector<boost::shared_ptr<InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
@@ -142,7 +145,10 @@ class HybridizationSimulation: public alps::mcbase {
   //swap-flavor update
   std::vector<std::pair<std::vector<int>, int> >
       swap_vector;        // contains the flavors f1 f2 f3 f4 ...   Flavors 1 ... N will be relabeled as f1 f2 ... fN.
-  //the second elements of std::pair denote from which entries in input acual updates are generated.
+
+  //N2Worm updater
+  std::vector<boost::shared_ptr<WormMover> > worm_movers;
+  std::vector<boost::shared_ptr<WormMover> > worm_insertion_removers;
 
   //sliding window
   SW_TYPE sliding_window;
@@ -152,6 +158,9 @@ class HybridizationSimulation: public alps::mcbase {
 
   //for measuring Green's function
   GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
+
+  //Measurement of two-time correlation functions
+  N2CorrelationFunctionMeasurement<SCALAR> N2_meas;
 
   //For measuring equal-time two-particle Green's function
   std::vector<EqualTimeOperator<2> > eq_time_two_particle_greens_meas;

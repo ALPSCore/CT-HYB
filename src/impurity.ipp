@@ -12,6 +12,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<double>("BETA", "inverse temperature")
       .define<int>("N_TAU", "number of points (minus 1) for G(tau), number of Matsubara frequencies for G(i omega_n)")
       .define<int>("N_LEGENDRE_MEASUREMENT", 100, "number of legendre coefficients for measuring G(tau)")
+      .define<int>("N_LEGENDRE_N2_MEASUREMENT", 100, "number of legendre coefficients for measuring two-time correlation functions")
       .define<long>("SWEEPS", 1E+9, "number of sweeps for total run")
       .define<long>("THERMALIZATION", 10, "Minimum number of sweeps for thermalization")
       .define<int>("N_MEAS", 10, "Expensive measurements are performed every N_MEAS updates.")
@@ -75,9 +76,13 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       N_win_standard(1),
       sweeps(0),                                                                 //sweeps done up to now
       mc_config(F),
+      config_space_extra_weight(mc_config.num_config_spaces(), 1.0),
       single_op_shift_updater(BETA, FLAVORS, N),
+      worm_movers(0),
+      worm_insertion_removers(0),
       sliding_window(p_model.get(), BETA),
       g_meas_legendre(FLAVORS, p["N_LEGENDRE_MEASUREMENT"], N, BETA),
+      N2_meas(FLAVORS, p["N_LEGENDRE_N2_MEASUREMENT"], BETA),
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
@@ -146,6 +151,8 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   }
 
   create_observables();
+
+  //prepare configuration space
 }
 
 
@@ -209,7 +216,12 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     timings[1] += time3 - time2;
 #endif
 
-    g_meas_legendre.measure(mc_config);
+    if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
+      g_meas_legendre.measure(mc_config);
+    }
+    if (mc_config.current_config_space() == N2_SPACE) {
+      N2_meas.measure(mc_config, measurements, "N2_correlation_function");
+    }
 
 #ifdef MEASURE_TIMING
     const double time4 = timer.elapsed().wall*1E-9;
@@ -220,15 +232,34 @@ void HybridizationSimulation<IMP_MODEL>::update() {
   }//loop up to N_meas
 }
 
-//////////////////////////////////
-// ALPS measurements
-//////////////////////////////////
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure() {
   assert(is_thermalized());
 #ifdef MEASURE_TIMING
   boost::timer::cpu_timer timer;
 #endif
+
+  std::vector<double> config_space_weight(mc_config.num_config_spaces(), 0.0);
+  config_space_weight[static_cast<unsigned int>(mc_config.current_config_space())] += 1.0;
+  config_space_weight /= config_space_extra_weight;
+  config_space_weight /= std::accumulate(config_space_weight.begin(), config_space_weight.end(), 0.0);
+  measurements["Configuration_Space_Weight"] << config_space_weight;
+
+  if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
+    measure_Z_function_space();
+  } else if (mc_config.current_config_space() == N2_SPACE) {
+    measure_N2_space();
+  }
+
+#ifdef MEASURE_TIMING
+  timings[3] = timer.elapsed().wall*1E-9;
+  measurements["TimingsSecPerNMEAS"] << timings;
+  std::fill(timings.begin(), timings.end(), 0.0);
+#endif
+}
+
+template<typename IMP_MODEL>
+void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
   // measure the perturbation order
   {
     const std::vector<int> &order_creation_flavor = count_creation_operators(FLAVORS, mc_config);
@@ -247,8 +278,6 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
       measurements["PerturbationOrderFlavors"] << tmp;
     }
   }
-
-  measurements["AbsTrace"] << convert_to_double(myabs(mc_config.trace));
 
   single_op_shift_updater.measure_acc_rate(measurements);
   for (int k = 1; k < par["RANK_INSERTION_REMOVAL_UPDATE"].template as<int>() + 1; ++k) {
@@ -309,11 +338,36 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   }
   */
 
-#ifdef MEASURE_TIMING
-  timings[3] = timer.elapsed().wall*1E-9;
-  measurements["TimingsSecPerNMEAS"] << timings;
-  std::fill(timings.begin(), timings.end(), 0.0);
-#endif
+}
+
+template<typename IMP_MODEL>
+void HybridizationSimulation<IMP_MODEL>::measure_N2_space() {
+  /*
+  assert(mc_config.current_config_space() == N2_SPACE);
+
+  const int npoints = par["N_TAU_TWO_TIME_CORRELATION_FUNCTIONS"].template as<int>();
+  boost::multi_array<SCALAR, 5> data(boost::extents[FLAVORS][FLAVORS][FLAVORS][FLAVORS][npoints]);
+  std::fill(data.origin(), data.origin() + data.num_elements(), 0.0);
+  const double tdiff = mc_config.p_worm->get_time(0) - mc_config.p_worm->get_time(1);
+  const int index = std::min(npoints-1, static_cast<int>(tdiff/(0.5*BETA/(npoints-1))));
+  if (tdiff >= 0.0) {
+    data
+    [mc_config.p_worm->get_flavor(0)]
+    [mc_config.p_worm->get_flavor(1)]
+    [mc_config.p_worm->get_flavor(2)]
+    [mc_config.p_worm->get_flavor(3)]
+    [index] += 1.0;
+  } else {
+    data
+    [mc_config.p_worm->get_flavor(2)]
+    [mc_config.p_worm->get_flavor(3)]
+    [mc_config.p_worm->get_flavor(0)]
+    [mc_config.p_worm->get_flavor(1)]
+    [index] += 1.0;
+  }
+  std::vector<SCALAR> data2(data.origin(), data.origin() + data.num_elements());
+  measure_simple_vector_observable<COMPLEX>(measurements, "N2_correlation_function", data2);
+  */
 }
 
 //Measure the expectation values of density operators
@@ -390,13 +444,21 @@ void HybridizationSimulation<IMP_MODEL>::local_updates() {
   assert(sliding_window.get_position_right_edge() == 0);
   const int num_move = std::max(4 * current_n_window - 4, 1);
   for (int move = 0; move < num_move; ++move) {
+    //insertion and removal of operators hybridized with the bath
     for (int update = 0; update < FLAVORS; ++update) {
       ins_rem_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
       ins_rem_diagonal_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
     }
+
+    //shift move of operators hybridized with the bath
     for (int update = 0; update < FLAVORS * rank_ins_rem; ++update) {
       single_op_shift_updater.update(random, BETA, mc_config, sliding_window);
     }
+
+    if (mc_config.current_config_space() == N2_SPACE) {
+
+    }
+
     sliding_window.move_window_to_next_position(mc_config.operators);
   }
   thermalization_checker.add_sample(mc_config.M.size());

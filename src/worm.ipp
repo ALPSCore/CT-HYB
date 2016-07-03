@@ -1,7 +1,7 @@
 #include "../worm.hpp"
 
 template<unsigned int NumTimes>
-std::vector<psi> CorrelationWorm<NumTimes>::get_operators() const {
+std::vector <psi> CorrelationWorm<NumTimes>::get_operators() const {
   std::vector <psi> ops
   for (int it = 0; it < NumTimes; ++it) {
     //creation operator

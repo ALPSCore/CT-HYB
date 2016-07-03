@@ -273,6 +273,8 @@ bool
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+
  public:
   WormUpdater(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit);
   virtual ~WormUpdater() { }
@@ -284,9 +286,9 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
   ) = 0;
 
   //set the additional weight of the worm configuration space
-  virtual void set_worm_space_weight(double weight) {worm_space_weight_ = weight;};
+  virtual void set_worm_space_weight(double weight) { worm_space_weight_ = weight; };
 
-  virtual double worm_space_weight() const {return worm_space_weight_;};
+  virtual double worm_space_weight() const { return worm_space_weight_; };
 
   /** Will be called on the exit of update() */
   virtual void call_back();
@@ -318,11 +320,11 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
-  typename WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+  typedef WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
 
   //WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
-      //: BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) { }
-  WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit) {}
+  //: BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) { }
+  WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit) { }
 
   //virtual ~WormMover() : BaseType() { }
 
@@ -340,7 +342,7 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
-  typename WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+  typedef WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
 
   WormInsertionRemover(const std::string &str,
                        double beta,

@@ -19,21 +19,26 @@ class Worm {
   /** Get creation and annihilation operators (not time-ordered)*/
   virtual std::vector<psi> get_operators() const = 0;
 
+  /** Number of independent time variables*/
   virtual int num_independent_times() const = 0;
 
+  /** Return a time variable */
   virtual double get_time(int index) const = 0;
 
+  /** Set a new value to a time variable */
   virtual void set_time(int index, OperatorTime new_time) const = 0;
 
+  /** Number of independent flavor variables*/
   virtual int num_independent_flavors() const = 0;
 
+  /** Return a flavor variable */
   virtual int get_flavor(int index) const = 0;
 
+  /** Set a new value to a flavor variable */
   virtual void set_flavor(int index, int new_flavor) const = 0;
 
+  /** Return time variables for a given flavor variable */
   virtual const std::vector<int> &get_time_index(int flavor_index) const = 0;
-
-  //virtual const std::vector<int> &get_flavor_index(int time_index) const = 0;
 };
 
 inline bool is_worm_in_range(const Worm &worm, double tau_low, double tau_high) {
@@ -48,8 +53,9 @@ inline bool is_worm_in_range(const Worm &worm, double tau_low, double tau_high) 
 }
 
 /**
- * Measure < N_{i_0 i_0^\prime} (tau_0) ... N_{i_{N-1} i_{N-1}^\prime} (tau_{N-1})
- * N = NumTimes
+ * Measure < N_{i_0 i_1} (tau_0) ... N_{i_{2M-2} i_{2M-1}} (tau_{M-1})>,
+ *  where N_{ij} = c^dagger_i c_j and M = NumTimes.
+ * For M=1, we measure the single-particle density matrix.
  */
 template<unsigned int NumTimes>
 class CorrelationWorm: public Worm {
@@ -94,7 +100,7 @@ class CorrelationWorm: public Worm {
 
   virtual const std::vector<int> &get_time_index(int flavor_index) const {
     assert(index >= 0 && index < 2 * NumTimes);
-    return time_index[flavor_index];
+    return time_index_[flavor_index];
   }
 
  private:

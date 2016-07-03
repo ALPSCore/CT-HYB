@@ -1,5 +1,7 @@
 #pragma once
 
+#include <typeinfo>
+
 #include <alps/fastupdate/determinant_matrix_partitioned.hpp>
 
 #include "operator.hpp"
@@ -60,11 +62,18 @@ class HybridizationFunction {
   boost::multi_array<bool, 2> connected_;
 };
 
+enum CONFIG_SPACE {
+  Z_FUNCTION_SPACE,
+  N2_SPACE,
+  CONFIG_SPACE_END
+};
+
 template<typename SCALAR>
 struct MonteCarloConfiguration {
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
   typedef alps::fastupdate::DeterminantMatrixPartitioned<SCALAR, HybridizationFunction<SCALAR>, psi, psi>
       DeterminantMatrixType;
+
 
   MonteCarloConfiguration(boost::shared_ptr<HybridizationFunction<SCALAR> > F) :
       sign(1.0),
@@ -73,6 +82,19 @@ struct MonteCarloConfiguration {
       operators(),
       perm_sign(1) {
   }
+
+  CONFIG_SPACE current_config_space() const {
+    typedef CorrelationWorm<2> N2Worm;
+    if (p_worm) {
+      return Z_FUNCTION_SPACE;
+    }
+    if (typeid(*p_worm.get()) == typeid(N2Worm)) {
+      return N2_SPACE;
+    }
+    throw std::runtime_error("Unknown worm type!");
+  }
+
+  int num_config_spaces() const { return static_cast<int>(CONFIG_SPACE_END); }
 
   void check_nan() const {
     if (my_isnan(trace)) {
@@ -152,8 +174,9 @@ void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
 }
 
 //compute the permutation sign (+/-) from the time-ordering of
-// c^dagger_0 c_0  c^dagger_1 c_1 ... c^dagger_N c_N,
+// c^dagger_0 c_0  c^dagger_1 c_1 ... c^dagger_N c_N  W_0 W_1 ...
 // where creation and annihilation operators are already time-ordered, respectively.
+// W_0, W_1 are operators of the worm.
 template<typename SCALAR>
 int compute_permutation_sign(
     const MonteCarloConfiguration<SCALAR> &mc_config
@@ -175,6 +198,12 @@ int compute_permutation_sign(
   for (int pert_order = 0; pert_order < mc_config.pert_order(); ++pert_order) {
     times_work.push_back(work1[pert_order]);
     times_work.push_back(work2[pert_order]);
+  }
+  if (mc_config.p_worm) {
+    const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
+    for (std::vector<psi>::const_iterator it = worm_ops.cbegin(); it != worm_ops.cend(); ++it) {
+      times_work.push_back(it->time());
+    }
   }
   const int perm_sign = alps::fastupdate::comb_sort(
       times_work.begin(), times_work.end(),

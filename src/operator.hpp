@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <cassert>
+#include <vector>
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
@@ -201,6 +202,10 @@ inline void safe_erase(operator_container_t &operators, Iterator first, Iterator
   }
 }
 
+inline void safe_erase(operator_container_t &operators, const std::vector<psi> &ops) {
+  safe_erase(operators, ops.cbegin(), ops.cend());
+}
+
 inline std::pair<operator_container_t::iterator, bool> safe_insert(operator_container_t &operators, const psi &op) {
   std::pair<operator_container_t::iterator, bool> r = operators.insert(op);
   if (!r.second) {
@@ -218,6 +223,9 @@ inline void safe_insert(operator_container_t &operators, Iterator first, Iterato
   }
 }
 
+inline void safe_insert(operator_container_t &operators, const std::vector<psi> &ops) {
+  safe_insert(operators, ops.cbegin(), ops.cend());
+}
 
 //c^¥dagger(flavor0) c(flavor1) c^¥dagger(flavor2) c(flavor3) ... at the equal time
 template<int N>
