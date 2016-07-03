@@ -72,7 +72,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
         )
       ),
 #ifdef ALPS_HAVE_MPI
-    comm(),
+      comm(),
 #endif
       thermalization_checker(parameters["THERMALIZATION"].template as<long>()),          //minimum sweeps needed for thermalization
       N_win_standard(1),
@@ -88,6 +88,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
+      num_steps_in_config_space(mc_config.num_config_spaces(), 0.0),
       timings(4, 0.0),
       verbose(p["VERBOSE"].template as<int>() != 0) {
   /////////////////////////////////////////////////////////////////////
@@ -207,6 +208,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 #endif
 
     //Perform global updates which might cost O(beta)
+    //Ex: flavor exchanges, global shift, worm insertion/removal
     global_updates();
 
     //update parameters for MC moves and window size
@@ -219,11 +221,15 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     timings[1] += time3 - time2;
 #endif
 
-    if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
-      g_meas_legendre.measure(mc_config);
-    }
-    if (mc_config.current_config_space() == N2_SPACE) {
-      N2_meas.measure(mc_config, measurements, "N2_correlation_function");
+    if (is_thermalized()) {
+      if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
+        g_meas_legendre.measure(mc_config);
+      }
+      if (mc_config.current_config_space() == N2_SPACE) {
+        N2_meas.measure(mc_config, measurements, "N2_correlation_function");
+      }
+      //measure configuration space volume
+      num_steps_in_config_space[static_cast<int>(mc_config.current_config_space())] += 1.0;
     }
 
 #ifdef MEASURE_TIMING
@@ -242,11 +248,10 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   boost::timer::cpu_timer timer;
 #endif
 
-  std::vector<double> config_space_weight(mc_config.num_config_spaces(), 0.0);
-  config_space_weight[static_cast<unsigned int>(mc_config.current_config_space())] += 1.0;
-  config_space_weight /= config_space_extra_weight;
-  config_space_weight /= std::accumulate(config_space_weight.begin(), config_space_weight.end(), 0.0);
-  measurements["Configuration_Space_Weight"] << config_space_weight;
+  num_steps_in_config_space /= config_space_extra_weight;
+  num_steps_in_config_space /= std::accumulate(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
+  measurements["Configuration_space_volume"] << num_steps_in_config_space;
+  std::fill(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
 
   if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
     measure_Z_function_space();
@@ -552,30 +557,28 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   assert(!is_thermalized());
 
   //Adjust window size according to perturbation order
-  if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
-    //collect expansion order
-    std::vector<double> expansion_order(1);
-    std::vector<double> expansion_order_local;
-    expansion_order_local.push_back(1.0 * mc_config.pert_order());
+  //collect expansion order
+  std::vector<double> expansion_order(1);
+  std::vector<double> expansion_order_local;
+  expansion_order_local.push_back(1.0 * mc_config.pert_order());
 #ifdef ALPS_HAVE_MPI
-    my_all_reduce<double>(comm, expansion_order_local, expansion_order, std::plus<double>());
+  my_all_reduce<double>(comm, expansion_order_local, expansion_order, std::plus<double>());
   expansion_order[0] /= comm.size();
 #else
-    expansion_order[0] = expansion_order_local[0];
+  expansion_order[0] = expansion_order_local[0];
 #endif
 
-    //new window size for single-pair insertion and removal update
-    N_win_standard = static_cast<std::size_t>(
-        std::max(
-            par["MIN_N_SLIDING_WINDOW"].template as<int>(),
-            std::min(
-                static_cast<int>(std::ceil(expansion_order[0] / FLAVORS)),
-                par["MAX_N_SLIDING_WINDOW"].template as<int>()
-            )
+  //new window size for single-pair insertion and removal update
+  N_win_standard = static_cast<std::size_t>(
+      std::max(
+          par["MIN_N_SLIDING_WINDOW"].template as<int>(),
+          std::min(
+              static_cast<int>(std::ceil(expansion_order[0] / FLAVORS)),
+              par["MAX_N_SLIDING_WINDOW"].template as<int>()
+          )
 
-        )
-    );
-  }
+      )
+  );
 
   single_op_shift_updater.update_parameters();
 }

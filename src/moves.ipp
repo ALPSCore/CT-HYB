@@ -62,7 +62,17 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
   range_check(c_ops_rem_, sliding_window.get_tau_low(), sliding_window.get_tau_high());
   range_check(cdagg_ops_add_, sliding_window.get_tau_low(), sliding_window.get_tau_high());
   range_check(c_ops_add_, sliding_window.get_tau_low(), sliding_window.get_tau_high());
-  range_check(p_new_worm_->get_operators(), sliding_window.get_tau_low(), sliding_window.get_tau_high());
+  if (!mc_config.p_worm && p_new_worm_) {
+    //worm insertion
+    range_check(p_new_worm_->get_operators(), sliding_window.get_tau_low(), sliding_window.get_tau_high());
+  } else if (mc_config.p_worm && !p_new_worm_) {
+    //worm removal
+    range_check(mc_config.p_worm->get_operators(), sliding_window.get_tau_low(), sliding_window.get_tau_high());
+  } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
+    //worm replacement
+    range_check(p_new_worm_->get_operators(), sliding_window.get_tau_low(), sliding_window.get_tau_high());
+    range_check(mc_config.p_worm->get_operators(), sliding_window.get_tau_low(), sliding_window.get_tau_high());
+  }
 
   //update operators hybirized with bath and those from worms
   bool update_success = update_operators(mc_config);
@@ -710,16 +720,21 @@ global_update(R &rng,
       std::back_inserter(annihilation_operators_new),
       hyb_op_transformer);
 
-  //new worm
-  boost::shared_ptr<Worm> p_new_worm = worm_transformer(*(mc_config.p_worm));
-  std::vector<psi> new_worm_ops = p_new_worm->get_operators();
 
-  //compute new trace (we use sliding window to avoid overflow/underflow).
+  //create operator list
   operator_container_t operators_new;
   operators_new.insert(creation_operators_new.begin(), creation_operators_new.end());
   operators_new.insert(annihilation_operators_new.begin(), annihilation_operators_new.end());
-  operators_new.insert(new_worm_ops.begin(), new_worm_ops.end());
+  //worm
+  boost::shared_ptr<Worm> p_new_worm;
+  if (mc_config.p_worm) {
+    boost::shared_ptr<Worm> p_w = worm_transformer(*(mc_config.p_worm));
+    p_new_worm.swap(p_w);
+    std::vector<psi> new_worm_ops = p_new_worm->get_operators();
+    operators_new.insert(new_worm_ops.begin(), new_worm_ops.end());
+  }
 
+  //compute new trace (we use sliding window to avoid overflow/underflow).
   sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);
   sliding_window.set_window_size(Nwin, operators_new, 0, ITIME_LEFT);
 
@@ -767,7 +782,9 @@ global_update(R &rng,
     mc_config.sign *= (1. * perm_sign_new / mc_config.perm_sign) * prob / std::abs(prob);
     mc_config.perm_sign = perm_sign_new;
     std::swap(det_vec, det_vec_new);
-    mc_config.p_worm.swap(p_new_worm);
+    if (mc_config.p_worm) {
+      mc_config.p_worm.swap(p_new_worm);
+    }
     mc_config.sanity_check(sliding_window);
     return true;
   } else {

@@ -23,7 +23,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Acceptance_rate_swap");
 
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Configuration_space_weight");
+  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Configuration_space_volume");
 
   //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("N2_correlation_function");
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "N2_correlation_function");
@@ -51,11 +51,11 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
           )
       )
   );
-  assert(worm_movers.size() == mc_config.num_config_spaces());
-  assert(worm_insertion_removers.size() == mc_config.num_config_spaces());
+  assert(worm_movers.size() == mc_config.num_config_spaces() - 1);
+  assert(worm_insertion_removers.size() == mc_config.num_config_spaces() - 1);
   assert(config_space_extra_weight.size() == mc_config.num_config_spaces());
 
-  for (int w = 0; w < mc_config.num_config_spaces(); ++w) {
+  for (int w = 0; w < mc_config.num_config_spaces() - 1 ; ++w) {
     worm_movers[w]->set_weight(config_space_extra_weight[w]);
     worm_insertion_removers[w]->set_weight(config_space_extra_weight[w]);
   }
@@ -66,7 +66,7 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
   {
     swap_vector.resize(0);
     std::string input_str(par["SWAP_VECTOR"].template as<std::string>());
-    //When SPINS==2, a global spin flip is always defined
+    //When SPINS==2, a global spin flip is pre-defined
     if (SPINS == 2) {
       for (int site = 0; site < SITES; ++site) {
         input_str += " " + boost::lexical_cast<std::string>(2 * site + 1);

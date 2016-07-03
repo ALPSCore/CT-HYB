@@ -85,7 +85,7 @@ struct MonteCarloConfiguration {
 
   CONFIG_SPACE current_config_space() const {
     typedef CorrelationWorm<2> N2Worm;
-    if (p_worm) {
+    if (!p_worm) {
       return Z_FUNCTION_SPACE;
     }
     if (typeid(*p_worm.get()) == typeid(N2Worm)) {
@@ -127,6 +127,10 @@ void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
   operator_container_t operators2;
   operators2.insert(M.get_cdagg_ops().begin(), M.get_cdagg_ops().end());
   operators2.insert(M.get_c_ops().begin(), M.get_c_ops().end());
+  if (p_worm) {
+    std::vector<psi> worm_ops = p_worm->get_operators();
+    operators2.insert(worm_ops.begin(), worm_ops.end());
+  }
   if (operators2 != operators) {
     std::cout << "debug1 size " << operators.size() << std::endl;
     std::cout << "debug2 size " << operators2.size() << std::endl;

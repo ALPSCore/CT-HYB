@@ -169,6 +169,9 @@ class HybridizationSimulation: public alps::mcbase {
   AcceptanceRateMeasurement global_shift_acc_rate;
   std::vector<AcceptanceRateMeasurement> swap_acc_rate;
 
+  //for measuring the volume of configuration spaces
+  std::vector<double> num_steps_in_config_space;
+
   //timings (msec/N_MEAS steps)
   //0 : local update
   //1 : global update
