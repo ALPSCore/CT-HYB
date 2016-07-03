@@ -73,6 +73,7 @@ class HybridizationSimulation: public alps::mcbase {
 
   static void define_parameters(parameters_type &parameters);
   void create_observables(); //build ALPS observables
+  void create_worm_updaters();
 
   void update(); //the main monte carlo step
   void measure(); //the top level of the measurement
@@ -100,7 +101,7 @@ class HybridizationSimulation: public alps::mcbase {
   void measure_n();
   void measure_two_time_correlation_functions();
 
-  //Definition of system constant during simulation
+  //Definition of system parameters constant during simulation
   const parameters_type par;
   const double BETA;
   const int SITES;
@@ -108,6 +109,9 @@ class HybridizationSimulation: public alps::mcbase {
   const int FLAVORS;
   const int N;
   const int Np1;
+  const int N_meas;
+  const int N_swap;
+  const long total_sweeps;                    // sweeps to be done after equilibration
 
   //Model object
   boost::scoped_ptr<IMP_MODEL> p_model;
@@ -121,13 +125,7 @@ class HybridizationSimulation: public alps::mcbase {
 
   //Constant simulation parameters
   ThermalizationChecker thermalization_checker;
-  const long total_sweeps;                    // sweeps to be done after equilibration
 
-  //Simulation parameters
-  const int N_meas;
-  const int N_swap;
-  //const int N_meas_g;
-  //const int N_shift;
   int N_win_standard;
 
   //Monte Calro configuration
@@ -147,14 +145,13 @@ class HybridizationSimulation: public alps::mcbase {
       swap_vector;        // contains the flavors f1 f2 f3 f4 ...   Flavors 1 ... N will be relabeled as f1 f2 ... fN.
 
   //N2Worm updater
-  std::vector<boost::shared_ptr<WormMover> > worm_movers;
-  std::vector<boost::shared_ptr<WormMover> > worm_insertion_removers;
+  typedef WormMover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormMoverType;
+  typedef WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormInsertionRemoverType;
+  std::vector<boost::shared_ptr<WormMoverType> > worm_movers;
+  std::vector<boost::shared_ptr<WormInsertionRemoverType> > worm_insertion_removers;
 
   //sliding window
   SW_TYPE sliding_window;
-
-  //double max_distance_pair; //cutoff for insert/removal of pair
-  //double acc_rate_cutoff;
 
   //for measuring Green's function
   GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;

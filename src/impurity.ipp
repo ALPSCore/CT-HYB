@@ -12,7 +12,9 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<double>("BETA", "inverse temperature")
       .define<int>("N_TAU", "number of points (minus 1) for G(tau), number of Matsubara frequencies for G(i omega_n)")
       .define<int>("N_LEGENDRE_MEASUREMENT", 100, "number of legendre coefficients for measuring G(tau)")
-      .define<int>("N_LEGENDRE_N2_MEASUREMENT", 100, "number of legendre coefficients for measuring two-time correlation functions")
+      .define<int>("N_LEGENDRE_N2_MEASUREMENT",
+                   100,
+                   "number of legendre coefficients for measuring two-time correlation functions")
       .define<long>("SWEEPS", 1E+9, "number of sweeps for total run")
       .define<long>("THERMALIZATION", 10, "Minimum number of sweeps for thermalization")
       .define<int>("N_MEAS", 10, "Expensive measurements are performed every N_MEAS updates.")
@@ -61,18 +63,18 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       FLAVORS(SPINS * SITES),                             //flavors, i.e. #spins * #sites
       N(static_cast<int>(parameters["N_TAU"])),                  //time slices
       Np1(N + 1),
+      N_meas(parameters["N_MEAS"]),
+      N_swap(parameters["N_SWAP"]),
+      total_sweeps(parameters["SWEEPS"]),                           //sweeps needed for total run
       p_model(new IMP_MODEL(p, rank == 0)),//impurity model
       F(new HybridizationFunction<SCALAR>(
           BETA, N, FLAVORS, p_model->get_F()
         )
       ),
 #ifdef ALPS_HAVE_MPI
-      comm(),
+    comm(),
 #endif
       thermalization_checker(parameters["THERMALIZATION"].template as<long>()),          //minimum sweeps needed for thermalization
-      total_sweeps(parameters["SWEEPS"]),                           //sweeps needed for total run
-      N_meas(parameters["N_MEAS"]),
-      N_swap(parameters["N_SWAP"]),
       N_win_standard(1),
       sweeps(0),                                                                 //sweeps done up to now
       mc_config(F),
@@ -152,6 +154,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
 
   create_observables();
 
+  create_worm_updaters();
   //prepare configuration space
 }
 
@@ -455,8 +458,10 @@ void HybridizationSimulation<IMP_MODEL>::local_updates() {
       single_op_shift_updater.update(random, BETA, mc_config, sliding_window);
     }
 
-    if (mc_config.current_config_space() == N2_SPACE) {
-
+    //worm move
+    const int i_worm = static_cast<int>(mc_config.current_config_space()) - 1;
+    if (i_worm >= 0) {
+      worm_movers[i_worm]->update(random, BETA, mc_config, sliding_window);
     }
 
     sliding_window.move_window_to_next_position(mc_config.operators);
@@ -472,6 +477,15 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
   sliding_window.set_window_size(1, mc_config.operators);
 
   std::vector<SCALAR> det_vec = mc_config.M.compute_determinant_as_product();
+
+  //Worm insertion/removal
+  if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
+    const int i_worm = static_cast<int>(random() * worm_insertion_removers.size());
+    worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
+  } else {
+    const int i_worm = static_cast<int>(mc_config.current_config_space()) - 1;
+    worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
+  }
 
   //Swap flavors
   if (N_swap != 0 && sweeps % N_swap == 0 && swap_vector.size() > 0) {
@@ -490,9 +504,8 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
                                                                    det_vec,
                                                                    sliding_window,
                                                                    FLAVORS,
-                                                                   ExchangeFlavor(
-                                                                       &swap_vector[iupdate].first[0]
-                                                                   ),
+                                                                   ExchangeFlavor(&swap_vector[iupdate].first[0]),
+                                                                   WormExchangeFlavor(&swap_vector[iupdate].first[0]),
                                                                    std::max(N_win_standard, 10)
       );
 
@@ -513,9 +526,8 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
                                                                  det_vec,
                                                                  sliding_window,
                                                                  FLAVORS,
-                                                                 OperatorShift(
-                                                                     BETA, random() * BETA
-                                                                 ),
+                                                                 OperatorShift(BETA, random() * BETA),
+                                                                 WormShift(BETA, random() * BETA),
                                                                  std::max(N_win_standard, 10)
     );
     if (accepted) {
@@ -539,28 +551,32 @@ template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   assert(!is_thermalized());
 
-  //collect expansion order
-  std::vector<double> expansion_order(1);
-  std::vector<double> expansion_order_local;
-  expansion_order_local.push_back(1.0 * mc_config.pert_order());
+  //Adjust window size according to perturbation order
+  if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
+    //collect expansion order
+    std::vector<double> expansion_order(1);
+    std::vector<double> expansion_order_local;
+    expansion_order_local.push_back(1.0 * mc_config.pert_order());
 #ifdef ALPS_HAVE_MPI
-  my_all_reduce<double>(comm, expansion_order_local, expansion_order, std::plus<double>());
+    my_all_reduce<double>(comm, expansion_order_local, expansion_order, std::plus<double>());
   expansion_order[0] /= comm.size();
 #else
-  expansion_order[0] = expansion_order_local[0];
+    expansion_order[0] = expansion_order_local[0];
 #endif
 
-  //new window size for single-pair insertion and removal update
-  N_win_standard = static_cast<std::size_t>(
-      std::max(
-          par["MIN_N_SLIDING_WINDOW"].template as<int>(),
-          std::min(
-              static_cast<int>(std::ceil(expansion_order[0] / FLAVORS)),
-              par["MAX_N_SLIDING_WINDOW"].template as<int>()
-          )
+    //new window size for single-pair insertion and removal update
+    N_win_standard = static_cast<std::size_t>(
+        std::max(
+            par["MIN_N_SLIDING_WINDOW"].template as<int>(),
+            std::min(
+                static_cast<int>(std::ceil(expansion_order[0] / FLAVORS)),
+                par["MAX_N_SLIDING_WINDOW"].template as<int>()
+            )
 
-      )
-  );
+        )
+    );
+  }
+
   single_op_shift_updater.update_parameters();
 }
 
@@ -590,7 +606,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
     }
   }
 #else
-  for (int flavor=0; flavor<FLAVORS; ++flavor) {
+  for (int flavor = 0; flavor < FLAVORS; ++flavor) {
     std::cout << " flavor " << flavor << " " << order_creation_flavor[flavor] << std::endl;
   }
   std::cout << std::endl;

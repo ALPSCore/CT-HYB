@@ -254,7 +254,8 @@ class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, S
   static int gen_new_flavor(const MonteCarloConfiguration<SCALAR> &mc_config, int old_flavor, alps::random01 &rng);
 };
 
-template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename SLIDING_WINDOW, typename OperatorTransformer>
+template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename SLIDING_WINDOW,
+    typename HybridizedOperatorTransformer, typename WormTransformer>
 bool
     global_update(R &rng,
                   double BETA,
@@ -262,7 +263,8 @@ bool
                   std::vector<SCALAR> &det_vec,
                   SLIDING_WINDOW &sliding_window,
                   int num_flavors,
-                  OperatorTransformer transformer,
+                  const HybridizedOperatorTransformer &hyb_op_transformer,
+                  const WormTransformer &worm_transformer,
                   int Nwin
 );
 
@@ -313,6 +315,8 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
   scalar_histogram_flavors acc_rate_;
   double max_distance_, distance_;
   double worm_space_weight_;
+
+  //using BaseType::p_new_worm;
 };
 
 /**
@@ -320,21 +324,22 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
-  typedef WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+ public:
+  typedef WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
 
-  //WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
-  //: BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) { }
-  WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit) { }
+  WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
+    : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) { }
 
-  //virtual ~WormMover() : BaseType() { }
+  virtual void set_weight(double weight) {weight_ = weight;};
 
+private:
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window
   );
 
-  virtual void set_weight();
+  double weight_;
 };
 
 /**
@@ -342,8 +347,9 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
-  typedef WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+  typedef WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
 
+ public:
   WormInsertionRemover(const std::string &str,
                        double beta,
                        int num_flavors,
@@ -353,17 +359,55 @@ class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_
   ) : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit), p_worm_template_(p_worm_template) {
   }
 
+  virtual void set_weight(double weight) {weight_ = weight;};
+
+ private:
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window
   );
 
-  virtual void set_weight();
-
- private:
   boost::shared_ptr<Worm> p_worm_template_;
+  double weight_;
+};
 
+/**
+ * @brief Exchange flavors of a worm
+ */
+struct WormExchangeFlavor {
+  WormExchangeFlavor(int *first) : first_(first) { }
+  boost::shared_ptr<Worm> operator()(const Worm &worm) const {
+    boost::shared_ptr<Worm> new_worm = worm.clone();
+    for (int findx = 0; findx < worm.num_independent_flavors(); ++findx) {
+      new_worm->set_flavor(findx, first_[worm.get_flavor(findx)]);
+    }
+    return new_worm;
+  }
+ private:
+  int *first_;
+};
+
+/**
+ * @brief Shift a worm by a constant time
+ */
+struct WormShift{
+  WormShift(double beta, double shift) : beta_(beta), shift_(shift) { }
+  boost::shared_ptr<Worm> operator()(const Worm &worm) const {
+    assert(shift_ >= 0.0);
+
+    boost::shared_ptr<Worm> new_worm = worm.clone();
+    for (int tindx = 0; tindx < worm.num_independent_times(); ++tindx) {
+      double new_t = worm.get_time(tindx) + shift_;
+      if (new_t > beta_) {
+        new_t -= beta_;
+      }
+      new_worm->set_time(tindx, new_t);
+    }
+    return new_worm;
+  }
+ private:
+  double beta_, shift_;
 };
 
 #include "moves.ipp"

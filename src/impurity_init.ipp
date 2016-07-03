@@ -37,8 +37,32 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 }
 
 template<typename IMP_MODEL>
-void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
+void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
+  worm_movers.push_back(
+      boost::shared_ptr<WormMoverType>(
+          new WormMoverType("N2_CORRELATION", BETA, FLAVORS, 0.0, BETA)
+      )
+  );
+  worm_insertion_removers.push_back(
+      boost::shared_ptr<WormInsertionRemoverType>(
+          new WormInsertionRemoverType(
+              "N2_CORRELATION", BETA, FLAVORS, 0.0, BETA,
+              boost::shared_ptr<Worm>(new CorrelationWorm<2>())
+          )
+      )
+  );
+  assert(worm_movers.size() == mc_config.num_config_spaces());
+  assert(worm_insertion_removers.size() == mc_config.num_config_spaces());
+  assert(config_space_extra_weight.size() == mc_config.num_config_spaces());
 
+  for (int w = 0; w < mc_config.num_config_spaces(); ++w) {
+    worm_movers[w]->set_weight(config_space_extra_weight[w]);
+    worm_insertion_removers[w]->set_weight(config_space_extra_weight[w]);
+  }
+}
+
+template<typename IMP_MODEL>
+void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
   {
     swap_vector.resize(0);
     std::string input_str(par["SWAP_VECTOR"].template as<std::string>());

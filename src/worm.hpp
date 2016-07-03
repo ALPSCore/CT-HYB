@@ -26,7 +26,7 @@ class Worm {
   virtual double get_time(int index) const = 0;
 
   /** Set a new value to a time variable */
-  virtual void set_time(int index, OperatorTime new_time) const = 0;
+  virtual void set_time(int index, double new_time) = 0;
 
   /** Number of independent flavor variables*/
   virtual int num_independent_flavors() const = 0;
@@ -35,7 +35,7 @@ class Worm {
   virtual int get_flavor(int index) const = 0;
 
   /** Set a new value to a flavor variable */
-  virtual void set_flavor(int index, int new_flavor) const = 0;
+  virtual void set_flavor(int index, int new_flavor) = 0;
 
   /** Return time variables for a given flavor variable */
   virtual const std::vector<int> &get_time_index(int flavor_index) const = 0;
@@ -62,7 +62,7 @@ class CorrelationWorm: public Worm {
  public:
   CorrelationWorm() : time_index_(2 * NumTimes) {
     for (int f = 0; f < 2 * NumTimes; ++f) {
-      time_index_[f] = f / 2;
+      time_index_[f].push_back(f / 2);
     }
   }
 
@@ -81,7 +81,7 @@ class CorrelationWorm: public Worm {
     return times_[index];
   }
 
-  virtual void set_time(int index, double new_time) const {
+  virtual void set_time(int index, double new_time) {
     assert(index >= 0 && index < NumTimes);
     times_[index] = new_time;
   }
@@ -93,13 +93,13 @@ class CorrelationWorm: public Worm {
     return flavors_[index];
   }
 
-  virtual void set_flavor(int index, int new_flavor) const {
+  virtual void set_flavor(int index, int new_flavor) {
     assert(index >= 0 && index < 2 * NumTimes);
     flavors_[index] = new_flavor;
   }
 
   virtual const std::vector<int> &get_time_index(int flavor_index) const {
-    assert(index >= 0 && index < 2 * NumTimes);
+    assert(flavor_index >= 0 && flavor_index < 2 * NumTimes);
     return time_index_[flavor_index];
   }
 
@@ -108,3 +108,5 @@ class CorrelationWorm: public Worm {
   boost::array<int, 2 * NumTimes> flavors_;
   std::vector<std::vector<int> > time_index_;
 };
+
+#include "worm.ipp"
