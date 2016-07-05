@@ -38,13 +38,37 @@ inline void range_check(const std::vector<psi> &ops, double tau_low, double tau_
   }
 }
 
+template<typename T>
+struct InRange {
+  InRange(double tau_low, double tau_high) : tau_low_(tau_low), tau_high_(tau_high) { };
+  bool operator()(const T &t) const {
+    return tau_low_ <= t && t <= tau_high_;
+  }
+  double tau_low_, tau_high_;
+};
+
+template<typename T>
+struct OutOfRange {
+  OutOfRange(double tau_low, double tau_high) : tau_low_(tau_low), tau_high_(tau_high) { };
+  bool operator()(const T &t) const {
+    return !(tau_low_ <= t && t <= tau_high_);
+  }
+  double tau_low_, tau_high_;
+};
+
+
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     alps::random01 &rng, double BETA,
     MonteCarloConfiguration<SCALAR> &mc_config,
     SLIDING_WINDOW &sliding_window
 ) {
+  mc_config.sanity_check(sliding_window);
+
   accepted_ = false;
+
+  //by default, the state of the worm is not updated.
+  p_new_worm_ = mc_config.p_worm;
 
   valid_move_generated_ = propose(
       rng, mc_config, sliding_window
@@ -57,25 +81,38 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     assert(acceptance_rate_correction_);
   }
 
-  //make sure all operators to be updated in the window
-  range_check(cdagg_ops_rem_, sliding_window.get_tau_low(), sliding_window.get_tau_high());
-  range_check(c_ops_rem_, sliding_window.get_tau_low(), sliding_window.get_tau_high());
-  range_check(cdagg_ops_add_, sliding_window.get_tau_low(), sliding_window.get_tau_high());
-  range_check(c_ops_add_, sliding_window.get_tau_low(), sliding_window.get_tau_high());
+  const double tau_low = sliding_window.get_tau_low();
+  const double tau_high = sliding_window.get_tau_high();
+
+  std::vector<psi> worm_ops_rem, worm_ops_add;
   if (!mc_config.p_worm && p_new_worm_) {
     //worm insertion
-    range_check(p_new_worm_->get_operators(), sliding_window.get_tau_low(), sliding_window.get_tau_high());
+    worm_ops_add = p_new_worm_->get_operators();
   } else if (mc_config.p_worm && !p_new_worm_) {
     //worm removal
-    range_check(mc_config.p_worm->get_operators(), sliding_window.get_tau_low(), sliding_window.get_tau_high());
+  } else if (mc_config.p_worm && !p_new_worm_) {
+    worm_ops_rem = mc_config.p_worm->get_operators();
   } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
-    //worm replacement
-    range_check(p_new_worm_->get_operators(), sliding_window.get_tau_low(), sliding_window.get_tau_high());
-    range_check(mc_config.p_worm->get_operators(), sliding_window.get_tau_low(), sliding_window.get_tau_high());
+    //worm move
+    std::vector<psi> worm_ops_new = p_new_worm_->get_operators();
+    std::remove_copy_if(worm_ops_new.begin(), worm_ops_new.end(), std::back_inserter(worm_ops_add), OutOfRange<psi>(tau_low, tau_high));
+
+    std::vector<psi> worm_ops_old = mc_config.p_worm->get_operators();
+    std::remove_copy_if(worm_ops_old.begin(), worm_ops_old.end(), std::back_inserter(worm_ops_rem), OutOfRange<psi>(tau_low, tau_high));
+
+    assert(worm_ops_add.size() == worm_ops_rem.size());
   }
 
+  //make sure all operators to be updated in the window
+  range_check(cdagg_ops_rem_, tau_low, tau_high);
+  range_check(c_ops_rem_, tau_low, tau_high);
+  range_check(cdagg_ops_add_, tau_low, tau_high);
+  range_check(c_ops_add_, tau_low, tau_high);
+  range_check(worm_ops_add, tau_low, tau_high);
+  range_check(worm_ops_rem, tau_low, tau_high);
+
   //update operators hybirized with bath and those from worms
-  bool update_success = update_operators(mc_config);
+  bool update_success = update_operators(mc_config, worm_ops_rem, worm_ops_add);
   if (!update_success) {
     finalize_update();
     return;
@@ -85,7 +122,7 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
   trace_bound.resize(sliding_window.get_num_brakets());
   const EXTENDED_REAL trace_bound_sum = sliding_window.compute_trace_bound(mc_config.operators, trace_bound);
   if (trace_bound_sum == 0.0) {
-    revert_operators(mc_config);
+    revert_operators(mc_config, worm_ops_rem, worm_ops_add);
     finalize_update();
     return;
   }
@@ -128,7 +165,7 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     accepted_ = true;
   } else { // rejected
     mc_config.M.reject_update();
-    revert_operators(mc_config);
+    revert_operators(mc_config, worm_ops_rem, worm_ops_add);
   }
   mc_config.check_nan();
 
@@ -138,7 +175,8 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool LocalUpdater<SCALAR,
                   EXTENDED_SCALAR,
-                  SLIDING_WINDOW>::update_operators(MonteCarloConfiguration<SCALAR> &mc_config) {
+                  SLIDING_WINDOW>::update_operators(MonteCarloConfiguration<SCALAR> &mc_config,
+                                                    const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add) {
   //erase should success. Otherwise, something went wrong in the proposal of the update.
   safe_erase(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
   safe_erase(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
@@ -170,11 +208,13 @@ bool LocalUpdater<SCALAR,
   safe_insert(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
   safe_insert(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
 
-  if (mc_config.p_worm) {
-    safe_erase(mc_config.operators, mc_config.p_worm->get_operators());
-  }
-  if (p_new_worm_) {
+  if (!mc_config.p_worm && p_new_worm_) {
     safe_insert(mc_config.operators, p_new_worm_->get_operators());
+  } else if (mc_config.p_worm && !p_new_worm_) {
+    safe_erase(mc_config.operators, mc_config.p_worm->get_operators());
+  } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
+    safe_erase(mc_config.operators, worm_ops_rem);
+    safe_insert(mc_config.operators, worm_ops_add);
   }
 
   return true;
@@ -183,17 +223,20 @@ bool LocalUpdater<SCALAR,
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void LocalUpdater<SCALAR,
                   EXTENDED_SCALAR,
-                  SLIDING_WINDOW>::revert_operators(MonteCarloConfiguration<SCALAR> &mc_config) {
+                  SLIDING_WINDOW>::revert_operators(MonteCarloConfiguration<SCALAR> &mc_config,
+                                                    const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add) {
   safe_erase(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
   safe_erase(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
   safe_insert(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
   safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
 
-  if (p_new_worm_) {
+  if (!mc_config.p_worm && p_new_worm_) {
     safe_erase(mc_config.operators, p_new_worm_->get_operators());
-  }
-  if (mc_config.p_worm) {
+  } else if (mc_config.p_worm && !p_new_worm_) {
     safe_insert(mc_config.operators, mc_config.p_worm->get_operators());
+  } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
+    safe_erase(mc_config.operators, worm_ops_add);
+    safe_insert(mc_config.operators, worm_ops_rem);
   }
 }
 
@@ -505,11 +548,11 @@ bool SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propos
   double tau_high = sliding_window.get_tau_high();
 
   std::pair<IteratorType, IteratorType> cdagg_ops_range =
-      mc_config.operators.range(tau_low <= bll::_1, bll::_1 <= tau_high);
+      mc_config.M.get_cdagg_ops_set().range(tau_low <= bll::_1, bll::_1 <= tau_high);
   const int num_cdagg_ops = std::distance(cdagg_ops_range.first, cdagg_ops_range.second);
 
   std::pair<IteratorType, IteratorType> c_ops_range =
-      mc_config.operators.range(tau_low <= bll::_1, bll::_1 <= tau_high);
+      mc_config.M.get_c_ops_set().range(tau_low <= bll::_1, bll::_1 <= tau_high);
   const int num_c_ops = std::distance(c_ops_range.first, c_ops_range.second);
 
   if (num_cdagg_ops + num_c_ops == 0) {
@@ -806,13 +849,6 @@ WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::WormUpdater(
     worm_space_weight_(1.0) {
 }
 
-struct InRange {
-  InRange(double tau_low, double tau_high) : tau_low_(tau_low), tau_high_(tau_high) { };
-  bool operator()(double t) const {
-    return tau_low_ >= t && t <= tau_high_;
-  }
-  double tau_low_, tau_high_;
-};
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::call_back() {
@@ -865,7 +901,7 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   BaseType::distance_ = 0.0;
   bool is_movable = false;
   for (int t = 0; t < num_times; ++t) {
-    if (InRange(tau_low, tau_high)(mc_config.p_worm->get_time(t))) {
+    if (InRange<OperatorTime>(tau_low, tau_high)(mc_config.p_worm->get_time(t))) {
       const double new_time = (2 * rng() - 1.0) * BaseType::max_distance_ + BaseType::p_new_worm_->get_time(t);
       if (new_time < tau_low || new_time > tau_high) {
         //is_movable = false;
@@ -886,7 +922,7 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   //update flavor indices
   if (rng() < 0.5) {
     for (int f = 0; f < BaseType::p_new_worm_->num_independent_flavors(); ++f) {
-      const bool updatable = boost::count_if(BaseType::p_new_worm_->get_time_index(f), InRange(tau_low, tau_high))
+      const bool updatable = boost::count_if(BaseType::p_new_worm_->get_time_index(f), InRange<double>(tau_low, tau_high))
           == BaseType::p_new_worm_->get_time_index(f).size();
       if (updatable) {
         BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
@@ -912,17 +948,24 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
 
   if (mc_config.p_worm) {
     //propose removal
-    assert(typeid(mc_config.p_worm.get()) != typeid(p_worm_template_.get()));
+    assert(typeid(mc_config.p_worm.get()) == typeid(p_worm_template_.get()));
     if (!is_worm_in_range(*mc_config.p_worm, tau_low, tau_high)) {
       return false;
     }
+    if (rng() < 0.5) {
+      BaseType::acceptance_rate_correction_ =
+          1. / (BaseType::worm_space_weight() *
+                  std::pow(tau_high - tau_low, num_time_indices) *
+                  std::pow(1. * BaseType::num_flavors_, num_flavor_indices));
+    } else {
+      if (!is_worm_diagonal_in_flavor(*mc_config.p_worm)) {
+        return false;
+      }
+      BaseType::acceptance_rate_correction_ =
+          1. / (BaseType::worm_space_weight() *
+              std::pow(tau_high - tau_low, num_time_indices) * BaseType::num_flavors_);
+    }
     BaseType::p_new_worm_.reset();
-    BaseType::acceptance_rate_correction_ =
-        1. / (
-            BaseType::worm_space_weight() *
-                std::pow(tau_high - tau_low, num_time_indices) *
-                std::pow(1. * BaseType::num_flavors_, num_flavor_indices)
-        );
   } else {
     //propose insertion
     BaseType::p_new_worm_ = p_worm_template_->clone();
@@ -930,12 +973,21 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     for (int t = 0; t < num_time_indices; ++t) {
       BaseType::p_new_worm_->set_time(t, open_random(rng, tau_low, tau_high));
     }
-    for (int f = 0; f < num_flavor_indices; ++f) {
-      BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
+    if (rng() < 0.5) {
+      for (int f = 0; f < num_flavor_indices; ++f) {
+        BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
+      }
+      BaseType::acceptance_rate_correction_ = BaseType::worm_space_weight() *
+          std::pow(tau_high - tau_low, num_time_indices) *
+          std::pow(1. * BaseType::num_flavors_, num_flavor_indices);
+    } else {
+      int diagonal_flavor = static_cast<int>(rng() * BaseType::num_flavors_);
+      for (int f = 0; f < num_flavor_indices; ++f) {
+        BaseType::p_new_worm_->set_flavor(f, diagonal_flavor);
+      }
+      BaseType::acceptance_rate_correction_ = BaseType::worm_space_weight() *
+          std::pow(tau_high - tau_low, num_time_indices) * BaseType::num_flavors_;
     }
-    BaseType::acceptance_rate_correction_ = BaseType::worm_space_weight() *
-        std::pow(tau_high - tau_low, num_time_indices) *
-        std::pow(1. * BaseType::num_flavors_, num_flavor_indices);
   }
   return true;
 }

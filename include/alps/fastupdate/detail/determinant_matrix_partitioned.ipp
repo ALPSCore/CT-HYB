@@ -115,8 +115,8 @@ namespace alps {
 
     namespace detail {
       //note: set.lower_bound() points the element we're going to erase.
-      template<typename T>
-      int erase_and_compute_perm_sign_change(std::set<T>& set, std::vector<std::set<T> >& sectored_set, const T& t, int target_sector) {
+      template<typename SET, typename T>
+      int erase_and_compute_perm_sign_change(SET& set, std::vector<SET>& sectored_set, const T& t, int target_sector) {
         int num_ops = std::distance(set.lower_bound(t), set.end());
         for (int sector = target_sector + 1; sector < sectored_set.size(); ++sector) {
           num_ops += sectored_set[sector].size();
@@ -127,8 +127,8 @@ namespace alps {
         return num_ops%2 == 0 ? 1 : -1;
       }
 
-      template<typename T>
-      int insert_and_compute_perm_sign_change(std::set<T>& set, std::vector<std::set<T> >& sectored_set, const T& t, int target_sector) {
+      template<typename SET, typename T>
+      int insert_and_compute_perm_sign_change(SET& set, std::vector<SET>& sectored_set, const T& t, int target_sector) {
         int num_ops = std::distance(set.lower_bound(t), set.end());
         for (int sector = target_sector + 1; sector < sectored_set.size(); ++sector) {
           num_ops += sectored_set[sector].size();
@@ -270,23 +270,23 @@ namespace alps {
       }
 
       if (state_ == waiting) {
-        std::set<CdaggerOp> cdagg_work;
-        std::set<COp> c_work;
+        cdagg_set_t cdagg_work;
+        c_set_t c_work;
         for (int sector=0; sector<num_sectors_; ++sector) {
           cdagg_work.insert(cdagg_times_sectored_set_[sector].begin(), cdagg_times_sectored_set_[sector].end());
           c_work.insert(c_times_sectored_set_[sector].begin(), c_times_sectored_set_[sector].end());
         }
         assert(cdagg_work == cdagg_times_set_);
         assert(c_work == c_times_set_);
-        assert(cdagg_work == std::set<CdaggerOp>(cdagg_ops_actual_order_.begin(), cdagg_ops_actual_order_.end()));
-        assert(c_work == std::set<COp>(c_ops_actual_order_.begin(), c_ops_actual_order_.end()));
+        assert(cdagg_work == cdagg_set_t(cdagg_ops_actual_order_.begin(), cdagg_ops_actual_order_.end()));
+        assert(c_work == c_set_t(c_ops_actual_order_.begin(), c_ops_actual_order_.end()));
       }
 
       for (int sector=0; sector<num_sectors_; ++sector) {
-        for (typename std::set<CdaggerOp>::iterator it = cdagg_times_sectored_set_[sector].begin(); it != cdagg_times_sectored_set_[sector].end(); ++it) {
+        for (typename cdagg_set_t::iterator it = cdagg_times_sectored_set_[sector].begin(); it != cdagg_times_sectored_set_[sector].end(); ++it) {
           assert(block_belonging_to(it->flavor()) == sector);
         }
-        for (typename std::set<COp>::iterator it = c_times_sectored_set_[sector].begin(); it != c_times_sectored_set_[sector].end(); ++it) {
+        for (typename c_set_t::iterator it = c_times_sectored_set_[sector].begin(); it != c_times_sectored_set_[sector].end(); ++it) {
           assert(block_belonging_to(it->flavor()) == sector);
         }
       }
@@ -299,10 +299,10 @@ namespace alps {
 
       std::vector<std::pair<int,CdaggerOp> > cdagg_ops_work;
       std::vector<std::pair<int,COp> > c_ops_work;
-      for (typename std::set<CdaggerOp>::iterator it = cdagg_times_set_.begin(); it != cdagg_times_set_.end(); ++it) {
+      for (typename cdagg_set_t::iterator it = cdagg_times_set_.begin(); it != cdagg_times_set_.end(); ++it) {
         cdagg_ops_work.push_back(std::make_pair(block_belonging_to(it->flavor()), *it));
       }
-      for (typename std::set<COp>::iterator it = c_times_set_.begin(); it != c_times_set_.end(); ++it) {
+      for (typename c_set_t::iterator it = c_times_set_.begin(); it != c_times_set_.end(); ++it) {
         c_ops_work.push_back(std::make_pair(block_belonging_to(it->flavor()), *it));
       }
 

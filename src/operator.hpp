@@ -164,6 +164,14 @@ inline bool operator<=(const double t1, const psi &t2) {
   return OperatorTime(t1) <= t2.time();
 }
 
+inline bool operator<=(const OperatorTime &t1, const double &t2) {
+  return t1 <= OperatorTime(t2, 0);
+}
+
+inline bool operator<=(const double &t1, const OperatorTime &t2) {
+  return OperatorTime(t1, 0) <= t2;
+}
+
 inline bool operator>(const psi &t1, const psi &t2) {
   return t1.time() > t2.time();
 }

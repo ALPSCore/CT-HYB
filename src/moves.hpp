@@ -114,9 +114,11 @@ class LocalUpdater {
  private:
   std::vector<psi> duplicate_check_work_;
 
-  bool update_operators(MonteCarloConfiguration<SCALAR> &mc_config);
+  bool update_operators(MonteCarloConfiguration<SCALAR> &mc_config,
+                        const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add);
 
-  void revert_operators(MonteCarloConfiguration<SCALAR> &mc_config);
+  void revert_operators(MonteCarloConfiguration<SCALAR> &mc_config,
+                        const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add);
 
   void finalize_update();
 

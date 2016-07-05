@@ -106,5 +106,52 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
     }
   }
   gomega.save(ar, "/gf");
+}
 
+template<typename SOLVER_TYPE>
+void correlation_function(const typename alps::results_type<SOLVER_TYPE>::type &results,
+                          const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
+  const int n_legendre(parms["N_LEGENDRE_N2_MEASUREMENT"].template as<int>());
+  const int n_tau(parms["N_TAU_TWO_TIME_CORRELATION_FUNCTIONS"].template as<int>());
+  const double beta(parms["BETA"]);
+  const int n_flavors = parms["SITES"] * parms["SPINS"];
+  const double temperature(1.0 / beta);
+  const double coeff =
+      std::pow(1. * n_flavors, 4.0) *
+          results["worm_space_volume_N2_correlation"].template mean<double>() /
+          (results["Sign"].template mean<double>() * results["Z_function_space_volume"].template mean<double>());
+
+  const std::vector<double> data_Re = results["N2_correlation_function"].template mean<std::vector<double> >();
+  const std::vector<double> data_Im = results["N2_correlation_function"].template mean<std::vector<double> >();
+  assert(data_Re.size() == n_flavors * n_flavors * n_flavors * n_flavors * n_legendre);
+  boost::multi_array<std::complex<double>, 5>
+      data(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_legendre]);
+  std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
+
+  LegendreTransformer legendre_transformer(1, n_legendre);
+  std::vector<double> Pvals(n_legendre);
+  const std::vector<double> &sqrt_array = legendre_transformer.get_sqrt_2l_1();
+
+  boost::multi_array<std::complex<double>, 5>
+      data_tau(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_tau]);
+  for (int itau = 0; itau < n_tau + 1; ++itau) {
+    const double tau = itau * (beta / n_tau);
+    const double x = 2 * tau / beta - 1.0;
+    legendre_transformer.compute_legendre(x, Pvals); //Compute P_l[x]
+
+    for (int flavor = 0; flavor < n_flavors; ++flavor) {
+      for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
+        for (int flavor3 = 0; flavor3 < n_flavors; ++flavor3) {
+          for (int flavor4 = 0; flavor4 < n_flavors; ++flavor4) {
+            for (int il = 0; il < n_legendre; ++il) {
+              data_tau[flavor][flavor2][flavor3][flavor4][itau]
+                  += coeff * Pvals[il] * data[flavor][flavor2][flavor3][flavor4][il] * sqrt_array[il] * temperature;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  ar["/N2_CORRELATION_FUNCTION"] << data_tau;
 }

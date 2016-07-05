@@ -18,16 +18,12 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<long>("SWEEPS", 1E+9, "number of sweeps for total run")
       .define<long>("THERMALIZATION", 10, "Minimum number of sweeps for thermalization")
       .define<int>("N_MEAS", 10, "Expensive measurements are performed every N_MEAS updates.")
-          //.define<int>("N_MEAS_GREENS_FUNCTION", 1,
-          //"Measurement of Green's function is performed every N_MEAS_GREENS_FUNCTION updates.")
       .define<int>("RANK_INSERTION_REMOVAL_UPDATE", 1, "1 for only single-pair update. k for up to k-pair update.")
-          //.define<int>("N_SHIFT", 1, "how may shift moves attempted at each Monte Carlo step (N_SHIFT>0)")
       .define<int>("N_SWAP", 10, "We attempt to swap flavors every N_SWAP Monte Carlo steps.")
       .define<std::string>("SWAP_VECTOR",
                            "",
                            "Definition of global updates in which the flavors of creation and annihilation operators are exchanged. Refer to manual for details.")
       .define<double>("ACCEPTANCE_RATE_CUTOFF", 0.01, "cutoff for acceptance rate in sliding window update")
-          //.define<int>("N_SLIDING_WINDOW", 1, "Number of segments for sliding window update")
       .define<int>("MAX_N_SLIDING_WINDOW", 10000, "Maximum number of segments for sliding window update")
       .define<int>("MIN_N_SLIDING_WINDOW",
                    1,
@@ -153,10 +149,9 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     );
   }
 
-  create_observables();
-
   create_worm_updaters();
-  //prepare configuration space
+
+  create_observables();
 }
 
 
@@ -178,12 +173,12 @@ double HybridizationSimulation<IMP_MODEL>::fraction_completed() const {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::update() {
-  const long interval_update_cutoff = static_cast<long>(
-      std::max(
-          static_cast<double>(par["THERMALIZATION"].template as<long>()) / par["N_UPDATE_CUTOFF"].template as<int>(),
-          1.0
-      )
-  );
+  //const long interval_update_cutoff = static_cast<long>(
+      //std::max(
+          //static_cast<double>(par["THERMALIZATION"].template as<long>()) / par["N_UPDATE_CUTOFF"].template as<int>(),
+          //1.0
+      //)
+  //);
 
 #ifdef MEASURE_TIMING
   boost::timer::cpu_timer timer;
@@ -208,7 +203,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 #endif
 
     //Perform global updates which might cost O(beta)
-    //Ex: flavor exchanges, global shift, worm insertion/removal
+    //Ex: flavor exchanges, global shift
     global_updates();
 
     //update parameters for MC moves and window size
@@ -221,6 +216,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     timings[1] += time3 - time2;
 #endif
 
+    std::cout << " " << mc_config.current_config_space() << std::endl;
     if (is_thermalized()) {
       if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
         g_meas_legendre.measure(mc_config);
@@ -250,7 +246,10 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
 
   num_steps_in_config_space /= config_space_extra_weight;
   num_steps_in_config_space /= std::accumulate(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
-  measurements["Configuration_space_volume"] << num_steps_in_config_space;
+  measurements["Z_function_space_volume"] << num_steps_in_config_space[0];
+  for (int w = 0; w < worm_names.size(); ++w) {
+    measurements["worm_space_volume_"+worm_names[w]] << num_steps_in_config_space[w+1];
+  }
   std::fill(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
 
   if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
@@ -454,13 +453,27 @@ void HybridizationSimulation<IMP_MODEL>::local_updates() {
   for (int move = 0; move < num_move; ++move) {
     //insertion and removal of operators hybridized with the bath
     for (int update = 0; update < FLAVORS; ++update) {
+      sanity_check();//for debug
       ins_rem_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
+      sanity_check();//for debug
       ins_rem_diagonal_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
+      sanity_check();//for debug
     }
 
     //shift move of operators hybridized with the bath
     for (int update = 0; update < FLAVORS * rank_ins_rem; ++update) {
       single_op_shift_updater.update(random, BETA, mc_config, sliding_window);
+    }
+
+    //Worm insertion/removal
+    if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
+      //try to insert a worm
+      const int i_worm = static_cast<int>(random() * worm_insertion_removers.size());
+      worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
+    } else {
+      //try to remove the existing worm
+      const int i_worm = static_cast<int>(mc_config.current_config_space()) - 1;
+      worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
     }
 
     //worm move
@@ -484,13 +497,15 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
   std::vector<SCALAR> det_vec = mc_config.M.compute_determinant_as_product();
 
   //Worm insertion/removal
-  if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
-    const int i_worm = static_cast<int>(random() * worm_insertion_removers.size());
-    worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
-  } else {
-    const int i_worm = static_cast<int>(mc_config.current_config_space()) - 1;
-    worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
-  }
+  //if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
+    //try to insert a worm
+    //const int i_worm = static_cast<int>(random() * worm_insertion_removers.size());
+    //worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
+  //} else {
+    //try to remove the existing worm
+    //const int i_worm = static_cast<int>(mc_config.current_config_space()) - 1;
+    //worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
+  //}
 
   //Swap flavors
   if (N_swap != 0 && sweeps % N_swap == 0 && swap_vector.size() > 0) {
@@ -526,13 +541,14 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
 
   //Shift operators to restore translational symmetry
   {
+    const double shift = random() * BETA;
     const bool accepted = global_update<SCALAR, EXTENDED_SCALAR>(random, BETA,
                                                                  mc_config,
                                                                  det_vec,
                                                                  sliding_window,
                                                                  FLAVORS,
-                                                                 OperatorShift(BETA, random() * BETA),
-                                                                 WormShift(BETA, random() * BETA),
+                                                                 OperatorShift(BETA, shift),
+                                                                 WormShift(BETA, shift),
                                                                  std::max(N_win_standard, 10)
     );
     if (accepted) {

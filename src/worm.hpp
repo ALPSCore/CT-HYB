@@ -64,6 +64,17 @@ inline bool is_worm_in_range(const Worm &worm, double tau_low, double tau_high) 
   return true;
 }
 
+inline bool is_worm_diagonal_in_flavor(const Worm &worm) {
+  const int num_f = worm.num_independent_flavors();
+  const int flavor0 = worm.get_flavor(0);
+  for (int f = 1; f < num_f; ++f) {
+    if (worm.get_flavor(f) != flavor0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 inline bool operator==(const Worm &worm1, const Worm &worm2) {
   if (typeid(worm1) != typeid(worm2)) {
     return false;

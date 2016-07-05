@@ -147,6 +147,7 @@ class HybridizationSimulation: public alps::mcbase {
   //N2Worm updater
   typedef WormMover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormMoverType;
   typedef WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormInsertionRemoverType;
+  std::vector<std::string> worm_names;
   std::vector<boost::shared_ptr<WormMoverType> > worm_movers;
   std::vector<boost::shared_ptr<WormInsertionRemoverType> > worm_insertion_removers;
 

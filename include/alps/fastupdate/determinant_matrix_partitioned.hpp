@@ -161,12 +161,12 @@ namespace alps {
 
       /** see determinant_matrix_base.hpp */
       const cdagg_set_t& get_cdagg_ops_set() const {
-        throw std::runtime_error("Not implemented!");
+        return cdagg_times_set_;
       }
 
       /** see determinant_matrix_base.hpp */
       const c_set_t& get_c_ops_set() const {
-        throw std::runtime_error("Not implemented!");
+        return c_times_set_;
       }
 
       /** see determinant_matrix_base.hpp */
@@ -390,10 +390,10 @@ namespace alps {
       mutable std::vector<COp> c_ops_actual_order_;
 
       //time-ordered set
-      std::set<CdaggerOp> cdagg_times_set_;
-      std::set<COp> c_times_set_;
-      std::vector<std::set<CdaggerOp> > cdagg_times_sectored_set_;
-      std::vector<std::set<COp> > c_times_sectored_set_;
+      cdagg_set_t cdagg_times_set_;
+      c_set_t c_times_set_;
+      std::vector<cdagg_set_t> cdagg_times_sectored_set_;
+      std::vector<c_set_t> c_times_sectored_set_;
 
       //for update
       int new_perm_;

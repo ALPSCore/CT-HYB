@@ -11,7 +11,6 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
   measurements << alps::accumulators::LogBinningAccumulator<std::vector<double> >("n");
   measurements << alps::accumulators::LogBinningAccumulator<double>("Sign");
-  //measurements << alps::accumulators::NoBinningAccumulator<double>("AbsTrace");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("order");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("PerturbationOrderFlavors");
 
@@ -23,13 +22,12 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Acceptance_rate_swap");
 
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Configuration_space_volume");
+  measurements << alps::accumulators::NoBinningAccumulator<double>("Z_function_space_volume");
+  for (int w = 0; w < worm_names.size(); ++w) {
+    measurements << alps::accumulators::NoBinningAccumulator<double>("worm_space_volume_"+worm_names[w]);
+  }
 
-  //measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("N2_correlation_function");
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "N2_correlation_function");
-
-  //measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move");
-  //measurements << alps::accumulators::NoBinningAccumulator<double>("Probability_valid_removal_move_offdiagonal");
 
 #ifdef MEASURE_TIMING
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("TimingsSecPerNMEAS");
@@ -38,6 +36,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
+  worm_names.push_back("N2_CORRELATION");
   worm_movers.push_back(
       boost::shared_ptr<WormMoverType>(
           new WormMoverType("N2_CORRELATION", BETA, FLAVORS, 0.0, BETA)
@@ -51,6 +50,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
           )
       )
   );
+
+  assert(worm_names.size() == mc_config.num_config_spaces() - 1);
   assert(worm_movers.size() == mc_config.num_config_spaces() - 1);
   assert(worm_insertion_removers.size() == mc_config.num_config_spaces() - 1);
   assert(config_space_extra_weight.size() == mc_config.num_config_spaces());
