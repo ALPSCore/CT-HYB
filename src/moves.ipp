@@ -56,6 +56,36 @@ struct OutOfRange {
   double tau_low_, tau_high_;
 };
 
+inline void take_worm_diff(const Worm &worm_old, const Worm &worm_new, double tau_low, double tau_high,
+                    std::vector<psi> &worm_ops_rem, std::vector<psi> &worm_ops_add) {
+  const OutOfRange<psi> out_of_range = OutOfRange<psi>(tau_low, tau_high);
+  std::vector<psi> worm_ops_old = worm_old.get_operators();
+  std::vector<psi> worm_ops_new = worm_new.get_operators();
+  worm_ops_add.resize(0);
+  worm_ops_rem.resize(0);
+  std::remove_copy_if(worm_ops_new.begin(), worm_ops_new.end(), std::back_inserter(worm_ops_add), out_of_range);
+  std::remove_copy_if(worm_ops_old.begin(), worm_ops_old.end(), std::back_inserter(worm_ops_rem), out_of_range);
+  assert(worm_ops_add.size() == worm_ops_rem.size());
+
+  //make sure operators out side the rage is not going to be modified.
+  for (std::vector<psi>::const_iterator it = worm_ops_old.begin(); it != worm_ops_old.end(); ++it) {
+    if (!out_of_range(*it)) {
+      continue;
+    }
+    if (std::find(worm_ops_new.begin(), worm_ops_new.end(), *it) == worm_ops_new.end()) {
+      throw std::runtime_error("Error in take_worm_diff: you are going to modify an operator outside the window");
+    }
+  }
+  for (std::vector<psi>::const_iterator it = worm_ops_new.begin(); it != worm_ops_new.end(); ++it) {
+    if (!out_of_range(*it)) {
+      continue;
+    }
+    if (std::find(worm_ops_old.begin(), worm_ops_old.end(), *it) == worm_ops_old.end()) {
+      throw std::runtime_error("Error in take_worm_diff: you are going to modify an operator outside the window");
+    }
+  }
+}
+
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
@@ -94,13 +124,7 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     worm_ops_rem = mc_config.p_worm->get_operators();
   } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
     //worm move
-    std::vector<psi> worm_ops_new = p_new_worm_->get_operators();
-    std::remove_copy_if(worm_ops_new.begin(), worm_ops_new.end(), std::back_inserter(worm_ops_add), OutOfRange<psi>(tau_low, tau_high));
-
-    std::vector<psi> worm_ops_old = mc_config.p_worm->get_operators();
-    std::remove_copy_if(worm_ops_old.begin(), worm_ops_old.end(), std::back_inserter(worm_ops_rem), OutOfRange<psi>(tau_low, tau_high));
-
-    assert(worm_ops_add.size() == worm_ops_rem.size());
+    take_worm_diff(*mc_config.p_worm, *p_new_worm_, tau_low, tau_high, worm_ops_rem, worm_ops_add);
   }
 
   //make sure all operators to be updated in the window
@@ -747,6 +771,7 @@ global_update(R &rng,
 ) {
   assert(sliding_window.get_tau_low() == 0);
   assert(sliding_window.get_tau_high() == BETA);
+  mc_config.sanity_check(sliding_window);
   const int pert_order = mc_config.pert_order();
   if (pert_order == 0) {
     return true;
@@ -922,8 +947,12 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   //update flavor indices
   if (rng() < 0.5) {
     for (int f = 0; f < BaseType::p_new_worm_->num_independent_flavors(); ++f) {
-      const bool updatable = boost::count_if(BaseType::p_new_worm_->get_time_index(f), InRange<double>(tau_low, tau_high))
-          == BaseType::p_new_worm_->get_time_index(f).size();
+      bool updatable = true;
+      const std::vector<int> &time_index = BaseType::p_new_worm_->get_time_index(f);
+      for (int t = 0; t < time_index.size(); ++ t) {
+        updatable = updatable
+            && InRange<double>(tau_low, tau_high)(BaseType::p_new_worm_->get_time(time_index[t]));
+      }
       if (updatable) {
         BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
       }

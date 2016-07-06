@@ -281,3 +281,5 @@ inline bool operator<(const EqualTimeOperator<N> &op1, const EqualTimeOperator<N
 std::ostream &operator<<(std::ostream &os, const psi &psi);
 
 std::ostream &operator<<(std::ostream &os, const operator_container_t &operators);
+
+std::ostream &operator<<(std::ostream &os, const std::vector<psi> &operators);

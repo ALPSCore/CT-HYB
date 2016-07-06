@@ -216,7 +216,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     timings[1] += time3 - time2;
 #endif
 
-    std::cout << " " << mc_config.current_config_space() << std::endl;
+    std::cout << " debug: current config space" << mc_config.current_config_space() << std::endl;
     if (is_thermalized()) {
       if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
         g_meas_legendre.measure(mc_config);

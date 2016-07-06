@@ -136,6 +136,7 @@ void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
     std::cout << "debug2 size " << operators2.size() << std::endl;
     std::cout << "debug1 " << operators << std::endl;
     std::cout << "debug2 " << operators2 << std::endl;
+    throw std::runtime_error("operators is wrong!");
   }
   assert(operators2 == operators);
 

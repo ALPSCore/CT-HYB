@@ -135,3 +135,10 @@ std::ostream &operator<<(std::ostream &os, const operator_container_t &operators
   }
   return os;
 }
+
+std::ostream &operator<<(std::ostream &os, const std::vector<psi> &operators) {
+  for (std::vector<psi>::const_iterator it = operators.begin(); it != operators.end(); ++it) {
+    os << *it;
+  }
+  return os;
+}
