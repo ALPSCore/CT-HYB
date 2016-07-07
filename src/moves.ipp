@@ -151,13 +151,21 @@ bool LocalUpdater<SCALAR,
   }
   if (duplicate_found) {
     std::cout << "duplicate found " << std::endl;
-    safe_insert(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
-    safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
+    try {
+      safe_insert(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
+      safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
+    } catch (std::exception &e) {
+      throw std::runtime_error("Insertion error B");
+    }
     return false;
   }
 
-  safe_insert(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
-  safe_insert(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
+  try {
+    safe_insert(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
+    safe_insert(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
+  } catch (std::exception &e) {
+    throw std::runtime_error("Insertion error A");
+  }
   return true;
 }
 
@@ -167,8 +175,12 @@ void LocalUpdater<SCALAR,
                   SLIDING_WINDOW>::revert_operators(MonteCarloConfiguration<SCALAR> &mc_config) {
   safe_erase(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
   safe_erase(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
-  safe_insert(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
-  safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
+  try {
+    safe_insert(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
+    safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
+  } catch (std::exception &e) {
+    throw std::runtime_error("Insertion error C");
+  }
 }
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>

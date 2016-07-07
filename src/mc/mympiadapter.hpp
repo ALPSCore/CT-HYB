@@ -24,7 +24,7 @@ class mymcmpiadapter: public alps::mcmpiadapter<Base, ScheduleChecker> {
     bool was_thermalized_before = false;
     const time_t start_time = time(NULL);
     time_t time_last_output = start_time;
-    const double min_output_interval = 1; //1 sec
+    const double min_output_interval = 10; //1 sec
     do {
       const bool is_thermalized = this->is_thermalized();
       if (is_thermalized && !was_thermalized_before) {
@@ -39,7 +39,8 @@ class mymcmpiadapter: public alps::mcmpiadapter<Base, ScheduleChecker> {
 
       was_thermalized_before = is_thermalized;
       const time_t current_time = time(NULL);
-      if (stopped || ABase::schedule_checker.pending()) {
+      //if (stopped || ABase::schedule_checker.pending()) {
+        //std::cout << "collecting " << " " << std::endl;
         stopped = stop_callback();
         double local_fraction = stopped ? 1. : Base::fraction_completed();
         ABase::schedule_checker.update(
@@ -59,7 +60,7 @@ class mymcmpiadapter: public alps::mcmpiadapter<Base, ScheduleChecker> {
         //}
         //time_last_output = current_time;
         //}
-      }
+      //}
     } while (!done);
     return !stopped;
   }

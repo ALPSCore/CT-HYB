@@ -151,7 +151,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
 
 template<typename IMP_MODEL>
 bool HybridizationSimulation<IMP_MODEL>::is_thermalized() const {
-  return thermalization_checker.is_thermalized(sweeps, (global_mpi_rank == 0 && verbose));
+  return thermalization_checker.is_thermalized();
 }
 
 template<typename IMP_MODEL>
@@ -218,6 +218,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 
     sanity_check();
   }//loop up to N_meas
+  thermalization_checker.update(sweeps,  (global_mpi_rank == 0 && verbose));
 }
 
 //////////////////////////////////
@@ -478,14 +479,17 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   assert(!is_thermalized());
 
   //collect expansion order
-  std::vector<double> expansion_order(1);
-  std::vector<double> expansion_order_local;
-  expansion_order_local.push_back(1.0 * mc_config.pert_order());
+  std::vector<double> expansion_order_local(FLAVORS), expansion_order(FLAVORS);
+  const std::vector<int> &tmp = count_creation_operators(FLAVORS, mc_config);
+  for (int flavor = 0; flavor < FLAVORS; ++flavor) {
+      expansion_order_local[flavor] = tmp[flavor];
+  }
 #ifdef ALPS_HAVE_MPI
   my_all_reduce<double>(comm, expansion_order_local, expansion_order, std::plus<double>());
-  expansion_order[0] /= comm.size();
+  const double min_expansion_order = (1.*(*std::min_element(expansion_order.begin(), expansion_order.end())))/comm.size();
 #else
-  expansion_order[0] = expansion_order_local[0];
+  expansion_order = expansion_order_local;
+  const double min_expansion_order = (1.*(*std::min_element(expansion_order.begin(), expansion_order.end())));
 #endif
 
   //new window size for single-pair insertion and removal update
@@ -493,12 +497,15 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
       std::max(
           par["MIN_N_SLIDING_WINDOW"].template as<int>(),
           std::min(
-              static_cast<int>(std::ceil(expansion_order[0] / FLAVORS)),
+              static_cast<int>(std::ceil(min_expansion_order)),
               par["MAX_N_SLIDING_WINDOW"].template as<int>()
           )
 
       )
   );
+  if (verbose && global_mpi_rank == 0) {
+      std::cout << " new window size = " << N_win_standard << std::endl;
+  }
   single_op_shift_updater.update_parameters();
 }
 

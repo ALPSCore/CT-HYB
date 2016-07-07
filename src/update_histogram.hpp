@@ -312,26 +312,26 @@ class ThermalizationChecker {
     return actual_thermalization_steps_;
   }
 
-  bool is_thermalized(long steps, bool verbose = false) const {
-#ifdef ALPS_HAVE_MPI
-    alps::mpi::communicator alps_comm;
-#endif
+  bool is_thermalized() const {
+    return thermalized_;
+  }
+
+  void update(long steps, bool verbose = false) {
     if (thermalized_) {
-      return true;
-    }
-    if (steps < num_thermalization_steps_) {
-      return false;
+      return;
     }
 
     if (actual_thermalization_steps_ > 0) {
       if (steps < actual_thermalization_steps_) {
-        return false;
+        return;
+      } else {
+        thermalized_ = true;
+        return;
       }
-      thermalized_ = true;
-      return true;
     }
 
 #ifdef ALPS_HAVE_MPI
+    alps::mpi::communicator alps_comm;
     if (time_series_.size() > 0) {
       std::vector<double> tmp(time_series_.size(), 0.0);
       my_all_reduce<double>(alps_comm, time_series_, tmp, std::plus<double>());
@@ -343,8 +343,9 @@ class ThermalizationChecker {
       );
     }
 #endif
+
     if (time_series_.size() < 3 * 100) {
-      return false;
+      return;
     }
     const int bin_size = static_cast<int>(time_series_.size() / 3);
 
@@ -354,7 +355,7 @@ class ThermalizationChecker {
     if (global_mpi_rank == 0 && verbose) {
       std::cout << "Binned expansion order = ";
       for (int ibin = 0; ibin < num_bins; ++ibin) {
-        std::cout << rebinned[ibin];
+        std::cout << rebinned[ibin] << " ";
       }
       std::cout << std::endl;
     }
@@ -368,13 +369,12 @@ class ThermalizationChecker {
             << std::endl;
       }
     }
-    return false;
   }
 
  private:
   long num_thermalization_steps_;
   mutable bool thermalized_;
-  mutable std::vector<double> time_series_;
-  mutable long actual_thermalization_steps_;
+  std::vector<double> time_series_;
+  long actual_thermalization_steps_;
 };
 
