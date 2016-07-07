@@ -225,20 +225,33 @@ bool LocalUpdater<SCALAR,
   }
   if (duplicate_found) {
     std::cout << "duplicate found " << std::endl;
-    safe_insert(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
-    safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
+    try {
+      safe_insert(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
+      safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
+    } catch (std::exception &e) {
+      throw std::runtime_error("Insertion error B");
+    }
     return false;
   }
-  safe_insert(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
-  safe_insert(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
+<<<<<<< HEAD
+  try {
+    safe_insert(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
+    safe_insert(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
+  } catch (std::exception &e) {
+    throw std::runtime_error("Insertion error A");
+  }
 
-  if (!mc_config.p_worm && p_new_worm_) {
-    safe_insert(mc_config.operators, p_new_worm_->get_operators());
-  } else if (mc_config.p_worm && !p_new_worm_) {
-    safe_erase(mc_config.operators, mc_config.p_worm->get_operators());
-  } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
-    safe_erase(mc_config.operators, worm_ops_rem);
-    safe_insert(mc_config.operators, worm_ops_add);
+  try {
+    if (!mc_config.p_worm && p_new_worm_) {
+      safe_insert(mc_config.operators, p_new_worm_->get_operators());
+    } else if (mc_config.p_worm && !p_new_worm_) {
+      safe_erase(mc_config.operators, mc_config.p_worm->get_operators());
+    } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
+      safe_erase(mc_config.operators, worm_ops_rem);
+      safe_insert(mc_config.operators, worm_ops_add);
+    }
+  } catch (std::exception &e) {
+    throw std::runtime_error("Insertion error E");
   }
 
   return true;
@@ -251,16 +264,24 @@ void LocalUpdater<SCALAR,
                                                     const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add) {
   safe_erase(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
   safe_erase(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
-  safe_insert(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
-  safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
+  try {
+    safe_insert(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end());
+    safe_insert(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end());
+  } catch (std::exception &e) {
+    throw std::runtime_error("Insertion error C");
+  }
 
-  if (!mc_config.p_worm && p_new_worm_) {
-    safe_erase(mc_config.operators, p_new_worm_->get_operators());
-  } else if (mc_config.p_worm && !p_new_worm_) {
-    safe_insert(mc_config.operators, mc_config.p_worm->get_operators());
-  } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
-    safe_erase(mc_config.operators, worm_ops_add);
-    safe_insert(mc_config.operators, worm_ops_rem);
+  try {
+    if (!mc_config.p_worm && p_new_worm_) {
+      safe_erase(mc_config.operators, p_new_worm_->get_operators());
+    } else if (mc_config.p_worm && !p_new_worm_) {
+      safe_insert(mc_config.operators, mc_config.p_worm->get_operators());
+    } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
+      safe_erase(mc_config.operators, worm_ops_add);
+      safe_insert(mc_config.operators, worm_ops_rem);
+    }
+  } catch (std::exception &e) {
+    throw std::runtime_error("Insertion error F");
   }
 }
 
