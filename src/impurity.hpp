@@ -137,6 +137,7 @@ class HybridizationSimulation: public alps::mcbase {
       ins_rem_updater;
   std::vector<boost::shared_ptr<InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
       ins_rem_diagonal_updater;
+  OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> operator_pair_flavor_updater;
   SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> single_op_shift_updater;
 
   //swap-flavor update

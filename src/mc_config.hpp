@@ -184,6 +184,84 @@ int compute_permutation_sign(
   return perm_sign;
 }
 
+//The number of operators whose times are less than t.
+template<typename S, typename T>
+int num_ops_less_than(const S &ops, const T &t) {
+  return std::distance(ops.begin(), ops.upper_bound(t));
+}
+
+//Count the number of exchanges in time ordering
+//between the operators of a worm and operators hybridized with the batCount the number of exchanges between the operators of a worm and operators hybridized with the bath
+template<typename S>
+long count_worm_op_exchange(const S &ops,
+                           const std::vector<psi> &worm_ops) {
+  long count = 0;
+  for (int iop = 0; iop < worm_ops.size(); ++iop) {
+    count += num_ops_less_than(ops, worm_ops[iop]);
+  }
+  return count;
+}
+
+
+// Compute the change of the permutation sign (+/-) from the time-ordering of
+// c^dagger_0 c_0  c^dagger_1 c_1 ... c^dagger_N c_N,
+// where creation and annihilation operators are already time-ordered, respectively.
+template<typename SCALAR>
+int compute_permutation_sign_change(
+    const operator_container_t &cdagg_ops_old,
+    const operator_container_t &c_ops_old,
+    const std::vector<psi> &cdagg_ops_rem,
+    const std::vector<psi> &c_ops_rem,
+    const std::vector<psi> &cdagg_ops_add,
+    const std::vector<psi> &c_ops_add
+    //const Worm &worm_old,
+    //const Worm &worm_new
+) {
+  namespace bll = boost::lambda;
+  typedef std::vector<psi>::const_iterator IteratorType;
+
+  std::set<OperatorTime> cdagg_time_changed, c_time_changed;
+
+  long count_exchange = 0;
+  for (IteratorType it = cdagg_ops_rem.begin(); it != cdagg_ops_rem.end(); ++it) {
+    count_exchange += num_ops_less_than(c_ops_old, it->time());
+    count_exchange += num_ops_less_than(c_time_changed, it->time());
+    cdagg_time_changed.insert(it->time());
+  }
+
+  for (IteratorType it = c_ops_rem.begin(); it != c_ops_rem.end(); ++it) {
+    count_exchange += num_ops_less_than(cdagg_ops_old, it->time());
+    count_exchange += num_ops_less_than(cdagg_time_changed, it->time());
+    c_time_changed.insert(it->time());
+  }
+
+  for (IteratorType it = cdagg_ops_add.begin(); it != cdagg_ops_add.end(); ++it) {
+    count_exchange += num_ops_less_than(c_ops_old, it->time());
+    count_exchange += num_ops_less_than(c_time_changed, it->time());
+    cdagg_time_changed.insert(it->time());
+  }
+
+  for (IteratorType it = c_ops_add.begin(); it != c_ops_add.end(); ++it) {
+    count_exchange += num_ops_less_than(cdagg_ops_old, it->time());
+    count_exchange += num_ops_less_than(cdagg_time_changed, it->time());
+    c_time_changed.insert(it->time());
+  }
+
+  /*
+  const std::vector<psi> &worm_ops_old = worm_old.get_operators();
+  count_exchange += count_worm_op_exchange(cdagg_ops_old, worm_ops_old);
+  count_exchange += count_worm_op_exchange(c_ops_old, worm_ops_old);
+
+  const std::vector<psi> &worm_ops_new = worm_new.get_operators();
+  count_exchange += count_worm_op_exchange(cdagg_ops_old, worm_ops_new);
+  count_exchange += count_worm_op_exchange(cdagg_time_changed, worm_ops_new);
+  count_exchange += count_worm_op_exchange(c_ops_old, worm_ops_new);
+  count_exchange += count_worm_op_exchange(c_time_changed, worm_ops_new);
+  */
+
+  return count_exchange % 2 == 0 ? 1 : -1;
+}
+
 template<typename SCALAR>
 std::vector<int>
 count_creation_operators(int num_flavors, const MonteCarloConfiguration<SCALAR> &mc_config) {

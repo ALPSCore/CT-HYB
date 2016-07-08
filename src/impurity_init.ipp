@@ -19,6 +19,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
     ins_rem_diagonal_updater[k - 1]->create_measurement_acc_rate(measurements);
   }
   single_op_shift_updater.create_measurement_acc_rate(measurements);
+  operator_pair_flavor_updater.create_measurement_acc_rate(measurements);
 
   measurements << alps::accumulators::NoBinningAccumulator<double>("Acceptance_rate_global_shift");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Acceptance_rate_swap");

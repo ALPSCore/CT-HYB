@@ -75,6 +75,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       N_win_standard(1),
       sweeps(0),                                                                 //sweeps done up to now
       mc_config(F),
+      operator_pair_flavor_updater(FLAVORS),
       single_op_shift_updater(BETA, FLAVORS, N),
       sliding_window(p_model.get(), BETA),
       g_meas_legendre(FLAVORS, p["N_LEGENDRE_MEASUREMENT"], N, BETA),
@@ -256,6 +257,8 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
     ins_rem_diagonal_updater[k - 1]->measure_acc_rate(measurements);
   }
 
+  //operator_pair_flavor_updater.measure_acc_rate(measurements);
+
   //measure acceptance rate of global shift
   if (global_shift_acc_rate.has_samples()) {
     measurements["Acceptance_rate_global_shift"] << global_shift_acc_rate.compute_acceptance_rate();
@@ -394,6 +397,7 @@ void HybridizationSimulation<IMP_MODEL>::local_updates() {
     for (int update = 0; update < FLAVORS; ++update) {
       ins_rem_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
       ins_rem_diagonal_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
+      //operator_pair_flavor_updater.update(random, BETA, mc_config, sliding_window);
     }
     for (int update = 0; update < FLAVORS * rank_ins_rem; ++update) {
       single_op_shift_updater.update(random, BETA, mc_config, sliding_window);
