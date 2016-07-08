@@ -216,6 +216,51 @@ class InsertionRemovalDiagonalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCAL
 };
 
 /**
+ * Change the flavors of a pair of the creation and annihilation operators hybridized with the bath
+ */
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class OperatorPairFlavorUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+ public:
+  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+  OperatorPairFlavorUpdater(int num_flavors)
+      : num_flavors_(num_flavors),
+        num_attempted_(0.0),
+        num_accepted_(0.0)
+        { }
+
+  virtual bool propose(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window
+  );
+
+  virtual void call_back() {
+    if (BaseType::valid_move_generated_) {
+      num_attempted_ += 1.0;
+      if (BaseType::accepted_) {
+        num_accepted_ += 1.0;
+      }
+    }
+  };
+
+  virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
+    measurements << alps::accumulators::NoBinningAccumulator<double>("Operator_pair_flavor_update_attempted");
+    measurements << alps::accumulators::NoBinningAccumulator<double>("Operator_pair_flavor_update_accepted");
+  }
+
+  virtual void measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
+    measurements["Operator_pair_flavor_update_attempted"] << num_attempted_;
+    measurements["Operator_pair_flavor_update_accepted"] << num_accepted_;
+    num_attempted_ = 0;
+    num_accepted_ = 0;
+  }
+
+ private:
+  const int num_flavors_;
+  double num_attempted_, num_accepted_;
+};
+
+/**
  * Update creation and annihilation operators hybridized with the bath (the same flavor)
  * Do not update the worm
  */

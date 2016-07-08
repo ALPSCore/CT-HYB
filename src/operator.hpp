@@ -144,6 +144,12 @@ struct OperatorTimeLessor {
   }
 };
 
+struct OperatorEqualTime {
+  bool operator()(const psi &op1, const psi &op2) const {
+    return op1.time() == op2.time();
+  }
+};
+
 inline bool operator<(const psi &t1, const psi &t2) {
   return t1.time() < t2.time();
 }

@@ -212,7 +212,7 @@ bool LocalUpdater<SCALAR,
     std::copy(cdagg_ops_add_.begin(), cdagg_ops_add_.end(), std::back_inserter(duplicate_check_work_));
     std::copy(c_ops_add_.begin(), c_ops_add_.end(), std::back_inserter(duplicate_check_work_));
     std::sort(duplicate_check_work_.begin(), duplicate_check_work_.end());
-    if (boost::adjacent_find(duplicate_check_work_) != duplicate_check_work_.end()) {
+    if (boost::adjacent_find(duplicate_check_work_, OperatorEqualTime()) != duplicate_check_work_.end()) {
       duplicate_found = true;
     } else {
       for (std::vector<psi>::iterator it = duplicate_check_work_.begin(); it != duplicate_check_work_.end(); ++it) {
@@ -233,12 +233,16 @@ bool LocalUpdater<SCALAR,
     }
     return false;
   }
-<<<<<<< HEAD
+
   try {
     safe_insert(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
+  } catch (std::exception &e) {
+    throw std::runtime_error("Insertion error A.1");
+  }
+  try {
     safe_insert(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
   } catch (std::exception &e) {
-    throw std::runtime_error("Insertion error A");
+    throw std::runtime_error("Insertion error A.2");
   }
 
   try {
@@ -579,6 +583,47 @@ measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
       + boost::lexical_cast<std::string>(update_rank_)
       + "_accepted"] << to_std_vector(acc_rate_.get_sumval());
   acc_rate_.reset();
+}
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+bool OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
+    alps::random01 &rng,
+    MonteCarloConfiguration<SCALAR> &mc_config,
+    const SLIDING_WINDOW &sliding_window
+) {
+  namespace bll = boost::lambda;
+  typedef operator_container_t::iterator it_t;
+
+  const double tau_low = sliding_window.get_tau_low();
+  const double tau_high = sliding_window.get_tau_high();
+
+  std::pair<it_t, it_t> cdagg_range = mc_config.M.get_cdagg_ops_set().range(tau_low <= bll::_1, bll::_1 <= tau_high);
+  std::pair<it_t, it_t> c_range = mc_config.M.get_c_ops_set().range(tau_low <= bll::_1, bll::_1 <= tau_high);
+
+  const int num_cdagg_ops = std::distance(cdagg_range.first, cdagg_range.second);
+  const int num_c_ops = std::distance(c_range.first, c_range.second);
+
+  if (num_cdagg_ops == 0 || num_c_ops == 0) {
+    return false;
+  }
+
+  it_t it_cdagg = cdagg_range.first;
+  std::advance(it_cdagg, static_cast<int>(num_cdagg_ops*rng()));
+  BaseType::cdagg_ops_rem_.push_back(*it_cdagg);
+  psi cdagg_op_new = *it_cdagg;
+  cdagg_op_new.set_flavor(static_cast<int>(num_flavors_*rng()));
+  BaseType::cdagg_ops_add_.push_back(cdagg_op_new);
+
+  it_t it_c = c_range.first;
+  std::advance(it_c, static_cast<int>(num_c_ops*rng()));
+  BaseType::c_ops_rem_.push_back(*it_c);
+  psi c_op_new = *it_c;
+  c_op_new.set_flavor(static_cast<int>(num_flavors_*rng()));
+  BaseType::c_ops_add_.push_back(c_op_new);
+
+  BaseType::acceptance_rate_correction_ = 1.0;
+
+  return true;
 }
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
