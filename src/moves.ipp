@@ -138,7 +138,7 @@ bool LocalUpdater<SCALAR,
     std::copy(cdagg_ops_add_.begin(), cdagg_ops_add_.end(), std::back_inserter(duplicate_check_work_));
     std::copy(c_ops_add_.begin(), c_ops_add_.end(), std::back_inserter(duplicate_check_work_));
     std::sort(duplicate_check_work_.begin(), duplicate_check_work_.end());
-    if (boost::adjacent_find(duplicate_check_work_) != duplicate_check_work_.end()) {
+    if (boost::adjacent_find(duplicate_check_work_, OperatorEqualTime()) != duplicate_check_work_.end()) {
       duplicate_found = true;
     } else {
       for (std::vector<psi>::iterator it = duplicate_check_work_.begin(); it != duplicate_check_work_.end(); ++it) {
@@ -162,10 +162,15 @@ bool LocalUpdater<SCALAR,
 
   try {
     safe_insert(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end());
+  } catch (std::exception &e) {
+    throw std::runtime_error("Insertion error A.1");
+  }
+  try {
     safe_insert(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end());
   } catch (std::exception &e) {
-    throw std::runtime_error("Insertion error A");
+    throw std::runtime_error("Insertion error A.2");
   }
+
   return true;
 }
 
