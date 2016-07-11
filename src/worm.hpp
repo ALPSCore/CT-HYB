@@ -40,17 +40,6 @@ class Worm {
 
   /** Return time variables for a given flavor variable */
   virtual const std::vector<int> &get_time_index(int flavor_index) const = 0;
-
-  //virtual bool operator==(const Worm &other_worm) const {
-  //if (num_independent_flavors() != other_worm.num_independent_flavors()) {
-  //return false;
-  //}
-  //if (num_independent_flavors() != other_worm.num_independent_flavors()) {
-  //return false;
-  //}
-  //}
-  //virtual bool operator!=(const Worm &other_worm) const = 0;
-
 };
 
 inline bool is_worm_in_range(const Worm &worm, double tau_low, double tau_high) {

@@ -43,7 +43,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<std::string>("TWO_TIME_CORRELATION_FUNCTIONS",
                            "",
                            "Input file for definition of two-time correlation functions to be measured")
-      .define<int>("VERBOSE", 0, "If VERBOSE is not zero, more messages will be outputed.");
+      .define<int>("VERBOSE", 0, "If VERBOSE is not zero, more messages will be outputed.")
+      .define<double>("WORM_SPACE_WEIGHT", 1.0, "Weight of worm space");
 
   IMP_MODEL::define_parameters(parameters);
 }
@@ -217,7 +218,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     timings[1] += time3 - time2;
 #endif
 
-    std::cout << " debug: current config space" << mc_config.current_config_space() << std::endl;
+    //std::cout << " debug: current config space" << mc_config.current_config_space() << std::endl;
     if (is_thermalized()) {
       if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
         g_meas_legendre.measure(mc_config);
@@ -246,13 +247,16 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   boost::timer::cpu_timer timer;
 #endif
 
-  num_steps_in_config_space /= config_space_extra_weight;
-  num_steps_in_config_space /= std::accumulate(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
-  measurements["Z_function_space_volume"] << num_steps_in_config_space[0];
-  for (int w = 0; w < worm_names.size(); ++w) {
-    measurements["worm_space_volume_"+worm_names[w]] << num_steps_in_config_space[w+1];
+  //Measure the volumes of the configuration spaces
+  {
+    num_steps_in_config_space /= config_space_extra_weight;
+    //num_steps_in_config_space /= std::accumulate(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
+    measurements["Z_function_space_volume"] << num_steps_in_config_space[0];
+    for (int w = 0; w < worm_names.size(); ++w) {
+      measurements["worm_space_volume_"+worm_names[w]] << num_steps_in_config_space[w+1];
+    }
+    std::fill(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
   }
-  std::fill(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
 
   if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
     measure_Z_function_space();

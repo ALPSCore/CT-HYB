@@ -206,7 +206,7 @@ int compute_permutation_sign(
   }
   if (mc_config.p_worm) {
     const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
-    for (std::vector<psi>::const_iterator it = worm_ops.cbegin(); it != worm_ops.cend(); ++it) {
+    for (std::vector<psi>::const_iterator it = worm_ops.begin(); it != worm_ops.end(); ++it) {
       times_work.push_back(it->time());
     }
   }

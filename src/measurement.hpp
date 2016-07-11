@@ -282,7 +282,8 @@ class N2CorrelationFunctionMeasurement {
       [flavors[1]][il] += 0.5 * mc_config.sign * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
     }
 
-    measurements[str.c_str()] << to_std_vector(data_);
+    //measurements[str.c_str()] << to_std_vector(data_);
+    measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
     std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
   }
 

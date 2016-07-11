@@ -217,7 +217,7 @@ inline void safe_erase(operator_container_t &operators, Iterator first, Iterator
 }
 
 inline void safe_erase(operator_container_t &operators, const std::vector<psi> &ops) {
-  safe_erase(operators, ops.cbegin(), ops.cend());
+  safe_erase(operators, ops.begin(), ops.end());
 }
 
 inline std::pair<operator_container_t::iterator, bool> safe_insert(operator_container_t &operators, const psi &op) {
@@ -238,7 +238,7 @@ inline void safe_insert(operator_container_t &operators, Iterator first, Iterato
 }
 
 inline void safe_insert(operator_container_t &operators, const std::vector<psi> &ops) {
-  safe_insert(operators, ops.cbegin(), ops.cend());
+  safe_insert(operators, ops.begin(), ops.end());
 }
 
 //c^¥dagger(flavor0) c(flavor1) c^¥dagger(flavor2) c(flavor3) ... at the equal time

@@ -37,16 +37,16 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
-  worm_names.push_back("N2_CORRELATION");
+  worm_names.push_back("N2_correlation");
   worm_movers.push_back(
       boost::shared_ptr<WormMoverType>(
-          new WormMoverType("N2_CORRELATION", BETA, FLAVORS, 0.0, BETA)
+          new WormMoverType("N2_correlation", BETA, FLAVORS, 0.0, BETA)
       )
   );
   worm_insertion_removers.push_back(
       boost::shared_ptr<WormInsertionRemoverType>(
           new WormInsertionRemoverType(
-              "N2_CORRELATION", BETA, FLAVORS, 0.0, BETA,
+              "N2_correlation", BETA, FLAVORS, 0.0, BETA,
               boost::shared_ptr<Worm>(new CorrelationWorm<2>())
           )
       )
@@ -57,9 +57,12 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   assert(worm_insertion_removers.size() == mc_config.num_config_spaces() - 1);
   assert(config_space_extra_weight.size() == mc_config.num_config_spaces());
 
+  config_space_extra_weight[0] = 1.0;
+  config_space_extra_weight[1] = par["WORM_SPACE_WEIGHT"].template as<double>();
+
   for (int w = 0; w < mc_config.num_config_spaces() - 1 ; ++w) {
-    worm_movers[w]->set_weight(config_space_extra_weight[w]);
-    worm_insertion_removers[w]->set_weight(config_space_extra_weight[w]);
+    //worm_movers[w]->set_weight(config_space_extra_weight[w+1]/config_space_extra_weight[0]);
+    worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w+1]/config_space_extra_weight[0]);
   }
 }
 

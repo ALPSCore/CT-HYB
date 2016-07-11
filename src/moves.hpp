@@ -6,6 +6,7 @@
 
 #include <boost/assert.hpp>
 #include <boost/optional.hpp>
+#include <boost/optional/optional_io.hpp>
 #include <boost/math/special_functions/factorials.hpp>
 #include <boost/math/special_functions/binomial.hpp>
 #include <boost/range/algorithm.hpp>
@@ -335,9 +336,9 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
   ) = 0;
 
   //set the additional weight of the worm configuration space
-  virtual void set_worm_space_weight(double weight) { worm_space_weight_ = weight; };
+  //virtual void set_worm_space_weight(double weight) { worm_space_weight_ = weight; };
 
-  virtual double worm_space_weight() const { return worm_space_weight_; };
+  //virtual double worm_space_weight() const { return worm_space_weight_; };
 
   /** Will be called on the exit of update() */
   virtual void call_back();
@@ -377,7 +378,7 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
   WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
     : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) { }
 
-  virtual void set_weight(double weight) {weight_ = weight;};
+  //virtual void set_worm_space_weight(double weight) {weight_ = weight;};
 
 private:
   virtual bool propose(
@@ -386,7 +387,7 @@ private:
       const SLIDING_WINDOW &sliding_window
   );
 
-  double weight_;
+  //double weight_;
 };
 
 /**
@@ -406,7 +407,7 @@ class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_
   ) : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit), p_worm_template_(p_worm_template) {
   }
 
-  virtual void set_weight(double weight) {weight_ = weight;};
+  virtual void set_worm_space_weight(double weight) {weight_ = weight;};
 
  private:
   virtual bool propose(

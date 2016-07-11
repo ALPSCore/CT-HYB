@@ -31,7 +31,7 @@ std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
 }
 
 inline void range_check(const std::vector<psi> &ops, double tau_low, double tau_high) {
-  for (std::vector<psi>::const_iterator it = ops.cbegin(); it != ops.cend(); ++it) {
+  for (std::vector<psi>::const_iterator it = ops.begin(); it != ops.end(); ++it) {
     if (tau_low > it->time().time() || tau_high < it->time().time()) {
       throw std::runtime_error("Something went wrong: try to update operators outside the range");
     }
@@ -1048,17 +1048,25 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
       return false;
     }
     if (rng() < 0.5) {
+      //diagonal & off-diagonal in flavor
+      //BaseType::acceptance_rate_correction_ = 1. / weight_;
       BaseType::acceptance_rate_correction_ =
-          1. / (BaseType::worm_space_weight() *
+          1. / (weight_ *
                   std::pow(tau_high - tau_low, num_time_indices) *
                   std::pow(1. * BaseType::num_flavors_, num_flavor_indices));
     } else {
+      //diagonal in flavor
       if (!is_worm_diagonal_in_flavor(*mc_config.p_worm)) {
         return false;
       }
+      //BaseType::acceptance_rate_correction_ = std::pow(1.*BaseType::num_flavors_, num_flavor_indices - 1.0 ) / weight_;
+      //BaseType::acceptance_rate_correction_ =
+          //1. / (weight_ *
+              //std::pow(tau_high - tau_low, num_time_indices) * BaseType::num_flavors_);
       BaseType::acceptance_rate_correction_ =
-          1. / (BaseType::worm_space_weight() *
-              std::pow(tau_high - tau_low, num_time_indices) * BaseType::num_flavors_);
+          1. / (weight_ *
+              std::pow(tau_high - tau_low, num_time_indices) *
+              BaseType::num_flavors_);
     }
     BaseType::p_new_worm_.reset();
   } else {
@@ -1072,15 +1080,18 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
       for (int f = 0; f < num_flavor_indices; ++f) {
         BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
       }
-      BaseType::acceptance_rate_correction_ = BaseType::worm_space_weight() *
+      BaseType::acceptance_rate_correction_ = weight_ *
           std::pow(tau_high - tau_low, num_time_indices) *
           std::pow(1. * BaseType::num_flavors_, num_flavor_indices);
     } else {
+      //diagonal in flavor
       int diagonal_flavor = static_cast<int>(rng() * BaseType::num_flavors_);
       for (int f = 0; f < num_flavor_indices; ++f) {
         BaseType::p_new_worm_->set_flavor(f, diagonal_flavor);
       }
-      BaseType::acceptance_rate_correction_ = BaseType::worm_space_weight() *
+      //BaseType::acceptance_rate_correction_ = 1.0;
+      //BaseType::acceptance_rate_correction_ = weight_ / std::pow(1.*BaseType::num_flavors_, num_flavor_indices - 1.0 );
+      BaseType::acceptance_rate_correction_ = weight_ *
           std::pow(tau_high - tau_low, num_time_indices) * BaseType::num_flavors_;
     }
   }

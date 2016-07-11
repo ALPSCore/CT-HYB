@@ -70,6 +70,7 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
     ar["/parameters"] << parameters;
     ar["/simulation/results"] << results;
     compute_greens_functions<SOLVER_TYPE>(results, parameters, ar);
+    N2_correlation_function<SOLVER_TYPE>(results, parameters, ar);
 #ifdef ALPS_HAVE_MPI
   } else {
     alps::collect_results(sim);
