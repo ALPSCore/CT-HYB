@@ -1,4 +1,10 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+
+if(NOT CMAKE_BUILD_TYPE)
+    message("Using default build type: Release")
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+endif()
+
 project(ALPSCoreCTHYB CXX)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_SOURCE_DIR})
