@@ -117,7 +117,6 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
   const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
   const double temperature(1.0 / beta);
   const double coeff =
-      //std::pow(1. * n_flavors, 4.0) *
           results["worm_space_volume_N2_correlation"].template mean<double>() /
           (results["Sign"].template mean<double>() * results["Z_function_space_volume"].template mean<double>());
 
@@ -127,16 +126,21 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
   boost::multi_array<std::complex<double>, 5>
       data(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_legendre]);
   std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
+  std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
+                 std::bind1st(std::multiplies<std::complex<double> >(), coeff));
 
   LegendreTransformer legendre_transformer(1, n_legendre);
   std::vector<double> Pvals(n_legendre);
   const std::vector<double> &sqrt_array = legendre_transformer.get_sqrt_2l_1();
 
+
   boost::multi_array<std::complex<double>, 5>
       data_tau(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_tau]);
   for (int itau = 0; itau < n_tau ; ++itau) {
     const double tau = itau * (beta / (n_tau - 1) );
-    const double x = 2 * tau / beta - 1.0;
+    double x = 2 * tau / beta - 1.0;
+    x = std::max(-1+1E-8, x);
+    x = std::min( 1-1E-8, x);
     legendre_transformer.compute_legendre(x, Pvals); //Compute P_l[x]
 
     for (int flavor = 0; flavor < n_flavors; ++flavor) {
@@ -145,7 +149,7 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
           for (int flavor4 = 0; flavor4 < n_flavors; ++flavor4) {
             for (int il = 0; il < n_legendre; ++il) {
               data_tau[flavor][flavor2][flavor3][flavor4][itau]
-                  += coeff * Pvals[il] * data[flavor][flavor2][flavor3][flavor4][il] * sqrt_array[il] * temperature;
+                  += Pvals[il] * data[flavor][flavor2][flavor3][flavor4][il] * sqrt_array[il] * temperature;
             }
           }
         }
@@ -153,5 +157,6 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
     }
   }
 
+  ar["/N2_CORRELATION_FUNCTION_LEGENDRE"] << data;
   ar["/N2_CORRELATION_FUNCTION"] << data_tau;
 }

@@ -13,10 +13,11 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("N_TAU", "number of points (minus 1) for G(tau), number of Matsubara frequencies for G(i omega_n)")
       .define<int>("N_LEGENDRE_MEASUREMENT", 100, "number of legendre coefficients for measuring G(tau)")
       .define<int>("N_LEGENDRE_N2_MEASUREMENT",
-                   100,
+                   50,
                    "number of legendre coefficients for measuring two-time correlation functions")
       .define<long>("SWEEPS", 1E+9, "number of sweeps for total run")
       .define<long>("THERMALIZATION", 10, "Minimum number of sweeps for thermalization")
+      .define<long>("MAX_THERMALIZATION_SWEEPS", 1E+9, "Maximimum number of sweeps for thermalization")
       .define<int>("N_MEAS", 10, "Expensive measurements are performed every N_MEAS updates.")
       .define<int>("RANK_INSERTION_REMOVAL_UPDATE", 1, "1 for only single-pair update. k for up to k-pair update.")
       .define<int>("N_SWAP", 10, "We attempt to swap flavors every N_SWAP Monte Carlo steps.")
@@ -71,7 +72,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
 #ifdef ALPS_HAVE_MPI
       comm(),
 #endif
-      thermalization_checker(parameters["THERMALIZATION"].template as<long>()),          //minimum sweeps needed for thermalization
+      thermalization_checker(parameters["THERMALIZATION"].template as<long>(), parameters["MAX_THERMALIZATION_SWEEPS"].template as<long>()),          //minimum sweeps needed for thermalization
       N_win_standard(1),
       sweeps(0),                                                                 //sweeps done up to now
       mc_config(F),
@@ -218,13 +219,12 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     timings[1] += time3 - time2;
 #endif
 
-    //std::cout << " debug: current config space" << mc_config.current_config_space() << std::endl;
     if (is_thermalized()) {
       if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
         g_meas_legendre.measure(mc_config);
       }
       if (mc_config.current_config_space() == N2_SPACE) {
-        N2_meas.measure(mc_config, measurements, "N2_correlation_function");
+        N2_meas.measure_new(mc_config, measurements, random, sliding_window, "N2_correlation_function");
       }
       //measure configuration space volume
       num_steps_in_config_space[static_cast<int>(mc_config.current_config_space())] += 1.0;

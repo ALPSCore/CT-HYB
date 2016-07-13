@@ -241,6 +241,116 @@ class N2CorrelationFunctionMeasurement {
     std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
   }
 
+  template<typename SlidingWindow>
+  void measure_new(MonteCarloConfiguration<SCALAR> &mc_config,
+               alps::accumulators::accumulator_set &measurements,
+                   alps::random01 &random, SlidingWindow &sliding_window, const std::string &str) {
+    namespace bll = boost::lambda;
+    typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
+    typedef operator_container_t::iterator Iterator;
+    if (mc_config.current_config_space() != N2_SPACE) {
+      return;
+    }
+
+    //Remove the left-hand-side operators
+    operator_container_t ops(mc_config.operators);
+    std::vector<psi> worm_ops = mc_config.p_worm->get_operators();
+    safe_erase(ops, worm_ops[0]);
+    safe_erase(ops, worm_ops[1]);
+    const double original_time = worm_ops[0].time().time();
+
+    //Shifted times of the left hand c^dagger c
+    const int num_samples = 1;
+    std::set<double> shifted_times;
+    shifted_times.insert(original_time);
+    while(shifted_times.size() < num_samples) {
+      double t = open_random(random, 0.0, beta_);
+      if (shifted_times.find(t) == shifted_times.end()) {
+        shifted_times.insert(t);
+      }
+    }
+    assert(shifted_times.size() == num_samples);
+    
+    const typename SlidingWindow::state_t state = sliding_window.get_state();
+    //reset memory and create a window
+    sliding_window.set_window_size(num_samples, ops, 0, ITIME_LEFT);
+
+    std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
+    const EXTENDED_REAL trace_cutoff = EXTENDED_REAL(1.0E-30)*myabs(mc_config.trace);
+
+    std::valarray<SCALAR> weight(0.0, num_samples);
+    std::set<double>::iterator it = shifted_times.begin();
+    double norm = 0.0;
+    for (int i = 0; i < num_samples; ++i, ++it) {
+      //move the window so that it contains the time
+      while (*it > sliding_window.get_tau_high()) {
+        sliding_window.move_window_to_next_position(ops);
+      }
+      assert(*it <= sliding_window.get_tau_high());
+      assert(*it >= sliding_window.get_tau_low());
+
+      worm_ops[0].set_time(OperatorTime(*it, +1));
+      worm_ops[1].set_time(OperatorTime(*it,  0));
+
+      safe_insert(ops, worm_ops[0]);
+      safe_insert(ops, worm_ops[1]);
+
+      sliding_window.compute_trace_bound(ops, trace_bound);
+      std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(ops, EXTENDED_REAL(0.0), trace_bound);
+      if (myabs(r.second) > trace_cutoff) {
+        weight[i] = convert_to_scalar(r.second/mc_config.trace);
+        norm += std::abs(weight[i]);
+      }
+
+      safe_erase(ops, worm_ops[0]);
+      safe_erase(ops, worm_ops[1]);
+    }
+
+    weight /= norm;
+    it = shifted_times.begin();
+    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
+    for (int i = 0; i < num_samples; ++i, ++it) {
+      worm_ops[0].set_time(OperatorTime(*it, +1));
+      worm_ops[1].set_time(OperatorTime(*it,  0));
+      measure_impl(worm_ops, mc_config.sign*weight[i], data_);
+    }
+    measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
+
+    sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);//reset brakets
+    sliding_window.restore_state(mc_config.operators, state);
+  }
+
+  void measure_impl(const std::vector<psi> &worm_ops, SCALAR weight,
+                    boost::multi_array<std::complex<double>,5> &data) {
+                    //alps::accumulators::accumulator_set &measurements, const std::string &str) {
+    boost::array<int, 4> flavors;
+    if (worm_ops[0].time().time() != worm_ops[1].time().time()) {
+      throw std::runtime_error("time worm_ops0 != time worm_ops1");
+    }
+    if (worm_ops[2].time().time() != worm_ops[3].time().time()) {
+      throw std::runtime_error("time worm_ops2 != time worm_ops3");
+    }
+    double tdiff = worm_ops[0].time().time() - worm_ops[2].time().time();
+    if (tdiff < 0.0) {
+      tdiff += beta_;
+    }
+    for (int f = 0; f < 4; ++f) {
+      flavors[f] = worm_ops[f].flavor();
+    }
+
+    const int num_legendre = legendre_trans_.num_legendre();
+    std::vector<double> Pl_vals(num_legendre);
+
+    legendre_trans_.compute_legendre(2 * tdiff / beta_ - 1.0, Pl_vals);
+    for (int il = 0; il < num_legendre; ++il) {
+      data
+      [flavors[0]]
+      [flavors[1]]
+      [flavors[2]]
+      [flavors[3]][il] += weight * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
+    }
+  }
+
   void measure(const MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements, const std::string &str) {
     if (mc_config.current_config_space() != N2_SPACE) {

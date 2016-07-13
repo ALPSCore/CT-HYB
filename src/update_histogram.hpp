@@ -42,8 +42,6 @@ void rebin(std::valarray<T> &org_array, double maxval, double maxval_new, int ne
   std::valarray<T> new_array(0.0, new_len);
   const int old_len = org_array.size();
 
-  assert(maxval_new <= maxval);
-
   for (int i = 0; i < old_len; ++i) {
     const double cent = (i + 0.5) * (maxval / old_len);
     const int pos = static_cast<int>(std::floor(new_len * cent / maxval_new));
@@ -291,8 +289,9 @@ class scalar_histogram_flavors {
 
 class ThermalizationChecker {
  public:
-  ThermalizationChecker(long num_thermalization_steps) :
+  ThermalizationChecker(long num_thermalization_steps, long max_thermalization_steps) :
       num_thermalization_steps_(num_thermalization_steps),
+      max_thermalization_steps_(max_thermalization_steps),
       thermalized_(false),
       time_series_(0),
       actual_thermalization_steps_(-1000000000) {
@@ -318,6 +317,12 @@ class ThermalizationChecker {
 
   void update(long steps, bool verbose = false) {
     if (thermalized_) {
+      return;
+    }
+
+    if (steps >= max_thermalization_steps_) {
+      thermalized_ = true;
+      actual_thermalization_steps_ = steps;
       return;
     }
 
@@ -373,6 +378,7 @@ class ThermalizationChecker {
 
  private:
   long num_thermalization_steps_;
+  long max_thermalization_steps_;
   mutable bool thermalized_;
   std::vector<double> time_series_;
   long actual_thermalization_steps_;
