@@ -177,9 +177,7 @@ class HybridizationSimulation: public alps::mcbase {
   //timings (msec/N_MEAS steps)
   //0 : local update
   //1 : global update
-  //2 : move of sliding window
-  //3 : measuring single-particle green's function
-  //4 : rest of measurement
+  //2 : measuring single-particle green's function and N2 correlation function
   std::vector<double> timings;
 
   bool verbose;

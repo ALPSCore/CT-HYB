@@ -42,12 +42,13 @@ class mymcmpiadapter: public alps::mcmpiadapter<Base, ScheduleChecker> {
       //if (stopped || ABase::schedule_checker.pending()) {
         //std::cout << "collecting " << " " << std::endl;
         stopped = stop_callback();
-        double local_fraction = stopped ? 1. : Base::fraction_completed();
-        ABase::schedule_checker.update(
-            ABase::fraction = alps::alps_mpi::all_reduce(ABase::communicator, local_fraction, std::plus<double>()));
+        double local_fraction = stopped ? 1.1 : Base::fraction_completed();
+        //ABase::schedule_checker.update(
+            //ABase::fraction = alps::alps_mpi::all_reduce(ABase::communicator, local_fraction, std::plus<double>()));
+        ABase::fraction = alps::alps_mpi::all_reduce(ABase::communicator, local_fraction, std::plus<double>());
         if (ABase::communicator.rank() == 0 && (current_time - time_last_output) > min_output_interval) {
           std::cout << "Checking if the simulation is finished: "
-              << std::min(static_cast<int>(ABase::fraction * 100), 100) << "% of Monte Carlo steps done." << std::endl;
+              << std::min(static_cast<int>(ABase::fraction * 100), 100) << "% of Monte Carlo steps done. " << current_time - start_time << " sec passed." << std::endl;
           time_last_output = current_time;
         }
         done = ABase::fraction >= 1.;

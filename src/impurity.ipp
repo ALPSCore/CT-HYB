@@ -17,7 +17,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
                    "number of legendre coefficients for measuring two-time correlation functions")
       .define<long>("SWEEPS", 1E+9, "number of sweeps for total run")
       .define<long>("THERMALIZATION", 10, "Minimum number of sweeps for thermalization")
-      .define<long>("MAX_THERMALIZATION_SWEEPS", 1E+9, "Maximimum number of sweeps for thermalization")
+      .define<long>("MAX_THERMALIZATION_SWEEPS", 1E+9, "Maximimum number of Monte Carlo steps for thermalization")
       .define<int>("N_MEAS", 10, "Expensive measurements are performed every N_MEAS updates.")
       .define<int>("RANK_INSERTION_REMOVAL_UPDATE", 1, "1 for only single-pair update. k for up to k-pair update.")
       .define<int>("N_SWAP", 10, "We attempt to swap flavors every N_SWAP Monte Carlo steps.")

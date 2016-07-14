@@ -254,69 +254,99 @@ class N2CorrelationFunctionMeasurement {
 
     //Remove the left-hand-side operators
     operator_container_t ops(mc_config.operators);
-    std::vector<psi> worm_ops = mc_config.p_worm->get_operators();
-    safe_erase(ops, worm_ops[0]);
-    safe_erase(ops, worm_ops[1]);
-    const double original_time = worm_ops[0].time().time();
+    const std::vector<psi> worm_ops_original = mc_config.p_worm->get_operators();
+    safe_erase(ops, worm_ops_original);
 
-    //Shifted times of the left hand c^dagger c
-    const int num_samples = 1;
-    std::set<double> shifted_times;
-    shifted_times.insert(original_time);
-    while(shifted_times.size() < num_samples) {
-      double t = open_random(random, 0.0, beta_);
-      if (shifted_times.find(t) == shifted_times.end()) {
-        shifted_times.insert(t);
+    //Generate times of the left hand operator pair c^dagger c
+    //Make sure there is no duplicate
+    const int num_times = 10;
+    std::set<double> new_times;
+    new_times.insert(worm_ops_original[0].time().time());
+    if (new_times.size() < num_times) {
+      std::set<double> duplicate_check;
+      for (operator_container_t::iterator it = mc_config.operators.begin(); it != mc_config.operators.end(); ++it) {
+        duplicate_check.insert(it->time().time());
       }
+      while(new_times.size() < num_times) {
+        double t = open_random(random, 0.0, beta_);
+        if (duplicate_check.find(t) == duplicate_check.end()) {
+          new_times.insert(t);
+          duplicate_check.insert(t);
+        }
+      }
+      assert(new_times.size() == num_times);
     }
-    assert(shifted_times.size() == num_samples);
     
+    //remember the current status of the sliding window
     const typename SlidingWindow::state_t state = sliding_window.get_state();
-    //reset memory and create a window
-    sliding_window.set_window_size(num_samples, ops, 0, ITIME_LEFT);
+    const int n_win = sliding_window.get_n_window();
 
     std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
+
+    //configurations whose trace is smaller than this cutoff are ignored.
     const EXTENDED_REAL trace_cutoff = EXTENDED_REAL(1.0E-30)*myabs(mc_config.trace);
 
-    std::valarray<SCALAR> weight(0.0, num_samples);
-    std::set<double>::iterator it = shifted_times.begin();
     double norm = 0.0;
-    for (int i = 0; i < num_samples; ++i, ++it) {
-      //move the window so that it contains the time
-      while (*it > sliding_window.get_tau_high()) {
-        sliding_window.move_window_to_next_position(ops);
-      }
-      assert(*it <= sliding_window.get_tau_high());
-      assert(*it >= sliding_window.get_tau_low());
-
-      worm_ops[0].set_time(OperatorTime(*it, +1));
-      worm_ops[1].set_time(OperatorTime(*it,  0));
-
-      safe_insert(ops, worm_ops[0]);
-      safe_insert(ops, worm_ops[1]);
-
-      sliding_window.compute_trace_bound(ops, trace_bound);
-      std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(ops, EXTENDED_REAL(0.0), trace_bound);
-      if (myabs(r.second) > trace_cutoff) {
-        weight[i] = convert_to_scalar(r.second/mc_config.trace);
-        norm += std::abs(weight[i]);
-      }
-
-      safe_erase(ops, worm_ops[0]);
-      safe_erase(ops, worm_ops[1]);
-    }
-
-    weight /= norm;
-    it = shifted_times.begin();
     std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
-    for (int i = 0; i < num_samples; ++i, ++it) {
-      worm_ops[0].set_time(OperatorTime(*it, +1));
-      worm_ops[1].set_time(OperatorTime(*it,  0));
-      measure_impl(worm_ops, mc_config.sign*weight[i], data_);
+
+    //compute Monte Carlo weights of configurations with new time
+    // sweep = 0: configuration with new time for the left-hand operator pair
+    // sweep = 1: configuration with new time and new flavors for all worm operators
+    for (int sweep = 0; sweep < 2; ++sweep) {
+      std::vector<psi> worm_ops = worm_ops_original;
+      if (sweep == 1) {//change flavors of all worm operators
+        for (int iop = 0; iop < worm_ops.size(); ++iop) {
+          worm_ops[iop].set_flavor(static_cast<int>(random()*num_flavors_));
+        }
+      }
+
+      //insert worm operators which are not shifted in time
+      for (int iop = 2; iop < worm_ops.size(); ++iop) {
+        safe_insert(ops, worm_ops[iop]);
+      }
+
+      //reset the window and move to the right most position
+      sliding_window.set_window_size(std::max(num_times, n_win), ops, 0, ITIME_LEFT);
+
+      for (std::set<double>::iterator it = new_times.begin(); it != new_times.end(); ++it) {
+        //move the window so that it contains the time
+        while (*it > sliding_window.get_tau_high()) {
+          sliding_window.move_window_to_next_position(ops);
+        }
+        assert(*it <= sliding_window.get_tau_high());
+        assert(*it >= sliding_window.get_tau_low());
+  
+        worm_ops[0].set_time(OperatorTime(*it, +1));
+        worm_ops[1].set_time(OperatorTime(*it,  0));
+        safe_insert(ops, worm_ops[0]);
+        safe_insert(ops, worm_ops[1]);
+  
+        sliding_window.compute_trace_bound(ops, trace_bound);
+        std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(ops, EXTENDED_REAL(0.0), trace_bound);
+        if (myabs(r.second) > trace_cutoff) {
+          const SCALAR weight = convert_to_scalar(r.second/mc_config.trace);
+          measure_impl(worm_ops, mc_config.sign*weight, data_);
+          norm += std::abs(weight);
+        }
+  
+        safe_erase(ops, worm_ops[0]);
+        safe_erase(ops, worm_ops[1]);
+      }
+      
+      //remove worm operators which are not shifted in time
+      for (int iop = 2; iop < worm_ops.size(); ++iop) {
+        safe_erase(ops, worm_ops[iop]);
+      }
     }
+
+    //normalize the data
+    std::transform(data_.origin(), data_.origin() + data_.num_elements(), data_.origin(), std::bind2nd(std::divides<std::complex<double> >(), norm));
+
+    //pass the data to ALPS libraries
     measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
 
-    sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);//reset brakets
+    //restore the status of the sliding window
+    //sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);//reset brakets
     sliding_window.restore_state(mc_config.operators, state);
   }
 

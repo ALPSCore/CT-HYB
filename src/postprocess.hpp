@@ -110,7 +110,7 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
 
 template<typename SOLVER_TYPE>
 void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                          const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
+                          const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar, bool verbose = false) {
   const int n_legendre(parms["N_LEGENDRE_N2_MEASUREMENT"].template as<int>());
   const int n_tau(parms["N_TAU_TWO_TIME_CORRELATION_FUNCTIONS"].template as<int>());
   const double beta(parms["BETA"]);
@@ -119,6 +119,11 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
   const double coeff =
           results["worm_space_volume_N2_correlation"].template mean<double>() /
           (results["Sign"].template mean<double>() * results["Z_function_space_volume"].template mean<double>());
+
+  if (verbose) {
+    std::cout << "Number of steps in N2_correlation space/Z_function_space is " << results["worm_space_volume_N2_correlation"].template mean<double>() 
+      << " : " << results["Z_function_space_volume"].template mean<double>() << std::endl;
+  }
 
   const std::vector<double> data_Re = results["N2_correlation_function_Re"].template mean<std::vector<double> >();
   const std::vector<double> data_Im = results["N2_correlation_function_Im"].template mean<std::vector<double> >();
@@ -159,4 +164,19 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
 
   ar["/N2_CORRELATION_FUNCTION_LEGENDRE"] << data;
   ar["/N2_CORRELATION_FUNCTION"] << data_tau;
+}
+
+template<typename SOLVER_TYPE>
+void show_statistics(const typename alps::results_type<SOLVER_TYPE>::type &results,
+                          const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
+#ifdef MEASURE_TIMING
+  const std::vector<double> timings = results["TimingsSecPerNMEAS"].template mean<std::vector<double> >();
+  std::cout << "Timings analysis " << std::endl;
+  std::cout << "MPI syncronization takes place every N_MEAS (=" << parms["N_MEAS"] << ") window sweeps." << std::endl;
+  std::cout << "Green's function and correlation function (worm) are measured every window sweep. But, the data are passed to ALPS libraries once per N_MEAS sweeps." << std::endl;
+  std::cout << "The following is the timings per window sweep (in sec): " << std::endl;
+  std::cout << "Local updates (insertion/removal/shift of operators/worm: " << timings[0] << std::endl;
+  std::cout << "Global updates (global shift etc.): " << timings[1] << std::endl;
+  std::cout << "Measurement of Green's function and correlation function: " << timings[2] << std::endl;
+#endif
 }
