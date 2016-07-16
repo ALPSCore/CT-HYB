@@ -40,6 +40,9 @@ class Worm {
 
   /** Return time variables for a given flavor variable */
   virtual const std::vector<int> &get_time_index(int flavor_index) const = 0;
+
+  /** Return the name of the worm instance */
+  virtual const std::string& get_name() const = 0;
 };
 
 inline bool is_worm_in_range(const Worm &worm, double tau_low, double tau_high) {
@@ -92,7 +95,7 @@ inline bool operator!=(const Worm &worm1, const Worm &worm2) {
 template<unsigned int NumTimes>
 class CorrelationWorm: public Worm, private boost::equality_comparable<CorrelationWorm<NumTimes> > {
  public:
-  CorrelationWorm() : time_index_(2 * NumTimes) {
+  CorrelationWorm(const std::string &name) : name_(name), time_index_(2 * NumTimes) {
     for (int f = 0; f < 2 * NumTimes; ++f) {
       time_index_[f].push_back(f / 2);
     }
@@ -139,7 +142,12 @@ class CorrelationWorm: public Worm, private boost::equality_comparable<Correlati
     return (times_ == other_worm.times_ && flavors_ == other_worm.flavors_);
   }
 
+  const std::string& get_name() const {
+    return name_;
+  }
+
  private:
+  std::string name_;
   boost::array<double, NumTimes> times_;
   boost::array<int, 2 * NumTimes> flavors_;
   std::vector<std::vector<int> > time_index_;

@@ -24,8 +24,10 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Acceptance_rate_swap");
 
   measurements << alps::accumulators::NoBinningAccumulator<double>("Z_function_space_volume");
+  measurements << alps::accumulators::NoBinningAccumulator<double>("Z_function_space_num_steps");
   for (int w = 0; w < worm_names.size(); ++w) {
-    measurements << alps::accumulators::NoBinningAccumulator<double>("worm_space_volume_"+worm_names[w]);
+    measurements << alps::accumulators::NoBinningAccumulator<double>("worm_space_volume_" + worm_names[w]);
+    measurements << alps::accumulators::NoBinningAccumulator<double>("worm_space_num_steps_" + worm_names[w]);
   }
 
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "N2_correlation_function");
@@ -47,22 +49,22 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       boost::shared_ptr<WormInsertionRemoverType>(
           new WormInsertionRemoverType(
               "N2_correlation", BETA, FLAVORS, 0.0, BETA,
-              boost::shared_ptr<Worm>(new CorrelationWorm<2>())
+              boost::shared_ptr<Worm>(new CorrelationWorm<2>("N2_correlation"))
           )
       )
   );
+
+  p_flat_histogram_config_space.reset(new FlatHistogram(worm_names.size()));
 
   assert(worm_names.size() == mc_config.num_config_spaces() - 1);
   assert(worm_movers.size() == mc_config.num_config_spaces() - 1);
   assert(worm_insertion_removers.size() == mc_config.num_config_spaces() - 1);
   assert(config_space_extra_weight.size() == mc_config.num_config_spaces());
 
-  config_space_extra_weight[0] = 1.0;
-  config_space_extra_weight[1] = par["WORM_SPACE_WEIGHT"].template as<double>();
-
-  for (int w = 0; w < mc_config.num_config_spaces() - 1 ; ++w) {
-    //worm_movers[w]->set_weight(config_space_extra_weight[w+1]/config_space_extra_weight[0]);
-    worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w+1]/config_space_extra_weight[0]);
+  config_space_extra_weight.resize(0);
+  config_space_extra_weight.resize(worm_names.size() + 1, 1.0);
+  for (int w = 0; w < worm_names.size(); ++w) {
+    worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1] / config_space_extra_weight[0]);
   }
 }
 

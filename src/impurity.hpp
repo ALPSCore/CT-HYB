@@ -56,6 +56,7 @@
 #include "update_histogram.hpp"
 #include "accumulator.hpp"
 #include "measurement.hpp"
+#include "wang_landau.hpp"
 
 
 template<typename IMP_MODEL>
@@ -100,6 +101,7 @@ class HybridizationSimulation: public alps::mcbase {
   void update_MC_parameters(); //update parameters for MC moves during thermalization steps
   void measure_n();
   void measure_two_time_correlation_functions();
+  void measure_and_adjust_worm_space_weight();
 
   //Definition of system parameters constant during simulation
   const parameters_type par;
@@ -133,38 +135,42 @@ class HybridizationSimulation: public alps::mcbase {
   MonteCarloConfiguration<SCALAR> mc_config;
   std::vector<double> config_space_extra_weight;
 
-  //Monte Carlo updater
+  /* Monte Carlo updater */
+  //insertion/removal updater for single pair update, double pair update, triple pair update, etc.
   std::vector<boost::shared_ptr<InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
       ins_rem_updater;
   std::vector<boost::shared_ptr<InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
       ins_rem_diagonal_updater;
+  //change the flavor of a pair of operators
   OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> operator_pair_flavor_updater;
+  //change the time of an operator (hybrized with the bath)
   SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> single_op_shift_updater;
-
   //swap-flavor update
   std::vector<std::pair<std::vector<int>, int> >
       swap_vector;        // contains the flavors f1 f2 f3 f4 ...   Flavors 1 ... N will be relabeled as f1 f2 ... fN.
 
-  //N2Worm updater
+  //N2Worm updater: worm for computing <c^\dagger_i(tau) c_j(tau) c^\dagger_k(0) c_l(0)>
   typedef WormMover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormMoverType;
   typedef WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormInsertionRemoverType;
   std::vector<std::string> worm_names;
   std::vector<boost::shared_ptr<WormMoverType> > worm_movers;
   std::vector<boost::shared_ptr<WormInsertionRemoverType> > worm_insertion_removers;
+  boost::shared_ptr<FlatHistogram> p_flat_histogram_config_space;
 
-  //sliding window
+  //sliding window for computing trace
   SW_TYPE sliding_window;
 
-  //for measuring Green's function
+  //for measuring Green's function (by removal)
   GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
 
-  //Measurement of two-time correlation functions
+  //Measurement of two-time correlation functions by worm sampling
   N2CorrelationFunctionMeasurement<SCALAR> N2_meas;
 
-  //For measuring equal-time two-particle Green's function
+  //For measuring equal-time two-particle Green's function by insertion
   std::vector<EqualTimeOperator<2> > eq_time_two_particle_greens_meas;
 
-  //For measuring two-time correlation functions <c^dagger(tau) c(tau) c^dagger(0) c(0)>
+  //For measuring two-time correlation functions <c^dagger(tau) c(tau) c^dagger(0) c(0)> by insertion
+  //Deprecated: will be relaced by worm sampling
   boost::scoped_ptr<MeasCorrelation<SW_TYPE, EqualTimeOperator<1> > > p_meas_corr;
 
   //Acceptance rate of global shift and swap updates
@@ -181,6 +187,8 @@ class HybridizationSimulation: public alps::mcbase {
   std::vector<double> timings;
 
   bool verbose;
+
+  bool thermalized;
 
   void sanity_check();
 };

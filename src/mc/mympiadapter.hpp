@@ -23,45 +23,40 @@ class mymcmpiadapter: public alps::mcmpiadapter<Base, ScheduleChecker> {
     bool done = false, stopped = false;
     bool was_thermalized_before = false;
     const time_t start_time = time(NULL);
-    time_t time_last_output = start_time;
-    const double min_output_interval = 10; //1 sec
     do {
       const bool is_thermalized = this->is_thermalized();
       if (is_thermalized && !was_thermalized_before) {
+        //MPI communication may take place in prepare_for_measurement()
         this->prepare_for_measurement();
       }
 
+      //MPI communication is NOT allowed in update()
       this->update();
 
       if (is_thermalized) {
+        //MPI communication is NOT allowed in measure()
         this->measure();
       }
 
       was_thermalized_before = is_thermalized;
       const time_t current_time = time(NULL);
-      //if (stopped || ABase::schedule_checker.pending()) {
-        //std::cout << "collecting " << " " << std::endl;
-        stopped = stop_callback();
-        double local_fraction = stopped ? 1.1 : Base::fraction_completed();
-        //ABase::schedule_checker.update(
-            //ABase::fraction = alps::alps_mpi::all_reduce(ABase::communicator, local_fraction, std::plus<double>()));
-        ABase::fraction = alps::alps_mpi::all_reduce(ABase::communicator, local_fraction, std::plus<double>());
-        if (ABase::communicator.rank() == 0 && (current_time - time_last_output) > min_output_interval) {
-          std::cout << "Checking if the simulation is finished: "
-              << std::min(static_cast<int>(ABase::fraction * 100), 100) << "% of Monte Carlo steps done. " << current_time - start_time << " sec passed." << std::endl;
-          time_last_output = current_time;
-        }
+      stopped = stop_callback();
+      if (stopped || ABase::schedule_checker.pending()) {
+        const double local_fraction = stopped ? 1.1 : Base::fraction_completed();
+        ABase::schedule_checker.update(
+            ABase::fraction = alps::alps_mpi::all_reduce(ABase::communicator, local_fraction, std::plus<double>()));
         done = ABase::fraction >= 1.;
-        //} else if (!stopped && !is_thermalized) {
-        //if ((current_time - time_last_output) > min_output_interval) {
-        //if (ABase::communicator.rank() == 0) {
-        //std::cout
-        //<< boost::format("Not thermalized yet: %1% sec passed.") % static_cast<int>((current_time - start_time))
-        //<< std::endl;
-        //}
-        //time_last_output = current_time;
-        //}
-      //}
+        if (ABase::communicator.rank() == 0) {
+          if (is_thermalized) {
+            std::cout << "Checking if the simulation is finished: "
+                << std::min(static_cast<int>(ABase::fraction * 100), 100) << "% of Monte Carlo steps done. " << current_time - start_time << " sec passed." << std::endl;
+          } else {
+            std::cout
+                << boost::format("Not thermalized yet: %1% sec passed.") % static_cast<int>((current_time - start_time))
+                << std::endl;
+          }
+        }
+      }
     } while (!done);
     return !stopped;
   }

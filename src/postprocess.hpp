@@ -117,7 +117,7 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
   const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
   const double temperature(1.0 / beta);
   const double coeff =
-          results["worm_space_volume_N2_correlation"].template mean<double>() /
+          temperature * results["worm_space_volume_N2_correlation"].template mean<double>() /
           (results["Sign"].template mean<double>() * results["Z_function_space_volume"].template mean<double>());
 
   if (verbose) {
@@ -154,7 +154,7 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
           for (int flavor4 = 0; flavor4 < n_flavors; ++flavor4) {
             for (int il = 0; il < n_legendre; ++il) {
               data_tau[flavor][flavor2][flavor3][flavor4][itau]
-                  += Pvals[il] * data[flavor][flavor2][flavor3][flavor4][il] * sqrt_array[il] * temperature;
+                  += Pvals[il] * data[flavor][flavor2][flavor3][flavor4][il] * sqrt_array[il] * temperature * temperature;
             }
           }
         }

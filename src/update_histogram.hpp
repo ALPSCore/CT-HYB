@@ -115,9 +115,9 @@ class scalar_histogram {
                                            double maxdist,
                                            double mag,
                                            bool verbose = false) const {
-#ifdef ALPS_HAVE_MPI
-    alps::mpi::communicator alps_comm;
-#endif
+//#ifdef ALPS_HAVE_MPI
+    //alps::mpi::communicator alps_comm;
+//#endif
     assert(cutoff_ratio >= 0.0 && cutoff_ratio <= 1.0);
     assert(mag >= 1.0);
     const int min_count = 10;//for stabilization
@@ -127,18 +127,18 @@ class scalar_histogram {
     std::valarray<double> counter_gathered(0.0, num_data);
     std::valarray<double> sumval_gathered(0.0, num_data);
 
-#ifdef ALPS_HAVE_MPI
-    alps_comm.barrier();
-    assert(sumval.size() == num_data);
-    assert(counter_gathered.size() == num_data);
-    assert(sumval_gathered.size() == num_data);
-    my_all_reduce<double>(alps_comm, counter, counter_gathered, std::plus<double>());
-    my_all_reduce<double>(alps_comm, sumval, sumval_gathered, std::plus<double>());
-    alps_comm.barrier();
-#else
+//#ifdef ALPS_HAVE_MPI
+    //alps_comm.barrier();
+    //assert(sumval.size() == num_data);
+    //assert(counter_gathered.size() == num_data);
+    //assert(sumval_gathered.size() == num_data);
+    //my_all_reduce<double>(alps_comm, counter, counter_gathered, std::plus<double>());
+    //my_all_reduce<double>(alps_comm, sumval, sumval_gathered, std::plus<double>());
+    //alps_comm.barrier();
+//#else
     counter_gathered = counter;
     sumval_gathered = sumval;
-#endif
+//#endif
 
     double maxdist_new = maxdist;
 
@@ -335,19 +335,19 @@ class ThermalizationChecker {
       }
     }
 
-#ifdef ALPS_HAVE_MPI
-    alps::mpi::communicator alps_comm;
-    if (time_series_.size() > 0) {
-      std::vector<double> tmp(time_series_.size(), 0.0);
-      my_all_reduce<double>(alps_comm, time_series_, tmp, std::plus<double>());
-      time_series_ = tmp;
-      std::transform(time_series_.begin(), time_series_.end(), time_series_.begin(),
-                     std::bind2nd(
-                         std::multiplies<double>(), 1.0 / alps_comm.size()
-                     )
-      );
-    }
-#endif
+//#ifdef ALPS_HAVE_MPI
+    //alps::mpi::communicator alps_comm;
+    //if (time_series_.size() > 0) {
+      //std::vector<double> tmp(time_series_.size(), 0.0);
+      //my_all_reduce<double>(alps_comm, time_series_, tmp, std::plus<double>());
+      //time_series_ = tmp;
+      //std::transform(time_series_.begin(), time_series_.end(), time_series_.begin(),
+                     //std::bind2nd(
+                         //std::multiplies<double>(), 1.0 / alps_comm.size()
+                     //)
+      //);
+    //}
+//#endif
 
     if (time_series_.size() < 3 * 100) {
       return;
@@ -357,10 +357,10 @@ class ThermalizationChecker {
     std::vector<double> rebinned(time_series_);
     rebin<double>(rebinned, bin_size);
     const int num_bins = rebinned.size();
-    if (global_mpi_rank == 0 && verbose) {
-      std::cout << "Binned expansion order = ";
+    if (verbose) {
+      std::cout << "Binned expansion orders = ";
       for (int ibin = 0; ibin < num_bins; ++ibin) {
-        std::cout << rebinned[ibin] << " ";
+        std::cout << rebinned[ibin]/bin_size << " ";
       }
       std::cout << std::endl;
     }
