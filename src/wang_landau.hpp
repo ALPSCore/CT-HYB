@@ -17,6 +17,10 @@ class FlatHistogram {
    */
   FlatHistogram(unsigned int max_val)
       : max_val_(max_val), num_bin_(max_val + 1),
+        criterion(0.8),
+        min_count(std::max(10.0, 1 / ((1.0 - criterion) * (1.0 - criterion)))),
+        init_log_lambda_(0.993251773010283), //std::log(2.7);
+        min_log_lambda_(0.000999500333083), //std::log(1.001);
         log_lambda_(init_log_lambda_), log_f_(num_bin_, 0),
         counter_(num_bin_, 0), done_(false), top_index_(0), max_index_(0), has_guess_(true) {
     max_index_ = max_val;
@@ -131,10 +135,10 @@ class FlatHistogram {
 
  private:
   const uint max_val_, num_bin_;
-  const double criterion = 0.8;
-  const double min_count = std::max(10.0, 1 / ((1.0 - criterion) * (1.0 - criterion)));
-  const double init_log_lambda_ = 0.993251773010283; //std::log(2.7);
-  const double min_log_lambda_ = 0.000999500333083; //std::log(1.001);
+  double criterion;
+  double min_count;
+  double init_log_lambda_;
+  double min_log_lambda_;
 
   double log_lambda_;
   std::vector<double> log_f_, log_dos_guess_;
