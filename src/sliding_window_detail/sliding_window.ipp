@@ -386,6 +386,8 @@ SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t &ope
   const double tau_right = get_tau_edge(position_right_edge);
   const double tau_left = get_tau_edge(position_left_edge);
   std::pair<op_it_t, op_it_t> ops_range = operators.range(tau_right <= bll::_1, bll::_1 <= tau_left);
+  std::vector<psi> ops_in_range(ops_range.first, ops_range.second);
+  const int num_ops = ops_in_range.size();
 
   assert(tau_left >= tau_right);
   assert(bound.size() >= get_num_brakets());
@@ -400,10 +402,9 @@ SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t &ope
     int sector_ket = right_states[braket].back().sector();
     EXTENDED_REAL norm_prod = 1.0;
 
-    const int num_ops = std::distance(ops_range.first, ops_range.second);
     if (num_ops > 0) {
-      op_it_t it = ops_range.first;
-      op_it_t it_up = it;
+      std::vector<psi>::const_iterator it = ops_in_range.begin();
+      std::vector<psi>::const_iterator it_up = it;
       it_up++;
 
       assert(sector_ket >= 0);
@@ -416,7 +417,7 @@ SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t &ope
         }
         min_dim = std::min(min_dim, p_model->dim_sector(sector_ket));
 
-        if (it_up != ops_range.second) {
+        if (it_up != ops_in_range.end()) {
           norm_prod *= compute_exp(sector_ket, it_up->time() - it->time());
         } else {
           norm_prod *= compute_exp(sector_ket, tau_left - it->time());
