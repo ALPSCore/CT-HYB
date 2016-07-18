@@ -67,6 +67,11 @@ bool operator>(const OperatorTimeTemplate<T> &t1, const OperatorTimeTemplate<T> 
 }
 
 template<class T>
+bool operator>=(const OperatorTimeTemplate<T> &t1, const OperatorTimeTemplate<T> &t2) {
+  return t2 <= t1;
+}
+
+template<class T>
 bool operator==(const OperatorTimeTemplate<T> &t1, const OperatorTimeTemplate<T> &t2) {
   return (t1.time() == t2.time()) && (t1.small_index() == t2.small_index());
 }

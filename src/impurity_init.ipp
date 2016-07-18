@@ -32,6 +32,10 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "N2_correlation_function");
 
+  //fidelity susceptibility
+  create_observable<SCALAR , SimpleRealObservable>(measurements, "kLkR");
+  create_observable<SCALAR , SimpleRealObservable>(measurements, "k");
+
 #ifdef MEASURE_TIMING
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("TimingsSecPerNMEAS");
 #endif

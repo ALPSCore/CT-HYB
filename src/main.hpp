@@ -73,6 +73,7 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
     if (parameters["N_LEGENDRE_N2_MEASUREMENT"] > 0) {
       N2_correlation_function<SOLVER_TYPE>(results, parameters, ar, global_mpi_rank == 0);
     }
+    compute_fidelity_susceptibility<SOLVER_TYPE>(results, parameters, ar);
     if (global_mpi_rank == 0) {
       show_statistics<SOLVER_TYPE>(results, parameters, ar);
     }

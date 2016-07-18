@@ -167,6 +167,14 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
 }
 
 template<typename SOLVER_TYPE>
+void compute_fidelity_susceptibility(const typename alps::results_type<SOLVER_TYPE>::type &results,
+                     const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
+  std::complex<double> kLkR = std::complex<double>(results["kLkR_Re"].template mean<double>(), results["kLkR_Im"].template mean<double>());
+  std::complex<double> k = std::complex<double>(results["k_Re"].template mean<double>(), results["k_Im"].template mean<double>());
+  ar["FIDELITY_SUSCEPTIBILITY"] << 0.5*(kLkR - 0.25 * k * k);
+}
+
+template<typename SOLVER_TYPE>
 void show_statistics(const typename alps::results_type<SOLVER_TYPE>::type &results,
                           const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
 #ifdef MEASURE_TIMING

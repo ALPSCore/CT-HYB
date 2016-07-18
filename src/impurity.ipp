@@ -84,7 +84,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       worm_insertion_removers(0),
       sliding_window(p_model.get(), BETA),
       g_meas_legendre(FLAVORS, p["N_LEGENDRE_MEASUREMENT"], N, BETA),
-      //p_N2_meas(0),
+    //p_N2_meas(0),
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
@@ -216,7 +216,13 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 
     if (is_thermalized()) {
       if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
-        g_meas_legendre.measure(mc_config);
+        g_meas_legendre.measure(mc_config);//measure Green's function by removal
+        measure_scalar_observable<SCALAR>(measurements, "kLkR",
+                                          static_cast<double>(measure_kLkR(mc_config.operators, BETA,
+                                                                           0.5 * BETA * random())) * mc_config.sign);
+        measure_scalar_observable<SCALAR>(measurements,
+                                          "k",
+                                          static_cast<double>(mc_config.operators.size()) * mc_config.sign);
       }
       if (mc_config.current_config_space() == N2_SPACE) {
         p_N2_meas->measure_new(mc_config, measurements, random, sliding_window, "N2_correlation_function");
@@ -340,17 +346,6 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
   }
 
   measurements["Sign"] << mycast<double>(mc_config.sign);
-
-  //fidelity susceptibility
-  /*
-  {
-      measure_scalar_observable<SCALAR>(measurements, "kLkR", static_cast<double>(measure_kLkR(operators, BETA,
-                                                                                               0.5 * BETA *
-                                                                                               random())) *
-                                                              mc_config.sign);
-      measure_scalar_observable<SCALAR>(measurements, "k", static_cast<double>(operators.size()) * mc_config.sign);
-  }
-  */
 
 }
 
@@ -627,10 +622,10 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   config_space_extra_weight = tmp2;
   std::transform(
       config_space_extra_weight.begin(), config_space_extra_weight.end(), config_space_extra_weight.begin(),
-      std::bind2nd(std::divides<double>(), 1.0*comm.size())
+      std::bind2nd(std::divides<double>(), 1.0 * comm.size())
   );
   for (int w = 0; w < worm_names.size(); ++w) {
-    worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1] );
+    worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1]);
   }
 #endif
 }
@@ -695,7 +690,7 @@ void HybridizationSimulation<IMP_MODEL>::adjust_worm_space_weight() {
   config_space_extra_weight[0] = 1.0;
   for (int w = 0; w < worm_names.size(); ++w) {
     config_space_extra_weight[w + 1] = p_flat_histogram_config_space->weight_ratio(w + 1, 0);
-    worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1] );
+    worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1]);
   }
 
   //If the histogram is flat enough,
@@ -705,7 +700,7 @@ void HybridizationSimulation<IMP_MODEL>::adjust_worm_space_weight() {
     config_space_extra_weight[0] = 1.0;
     for (int w = 0; w < worm_names.size(); ++w) {
       config_space_extra_weight[w + 1] = p_flat_histogram_config_space->weight_ratio(w + 1, 0);
-      worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1] );
+      worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1]);
     }
     if (p_flat_histogram_config_space->converged()) {
       p_flat_histogram_config_space->finish_learning(false);

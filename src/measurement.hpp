@@ -157,11 +157,11 @@ class GreensFunctionLegendreMeasurement {
 /**
  * Helper for measuring kL and KR
  */
-template<class OP>
+template<class OP, typename T>
 class Window: public std::unary_function<OP, bool> {
  public:
 
-  Window(const double itau_lower, const double itau_upper)
+  Window(const T itau_lower, const T itau_upper)
       : lower_(itau_lower), upper_(itau_upper) {
   }
 
@@ -169,20 +169,18 @@ class Window: public std::unary_function<OP, bool> {
     return (op.time() >= lower_) && (op.time() < upper_);
   }
  private:
-  const double lower_;
-  const double upper_;
+  const T lower_;
+  const T upper_;
 };
 
 /**
  * Measure kL and KR for fidelity susceptibility
  */
-/*
 inline unsigned measure_kLkR(const operator_container_t& operators, const double beta, const double start=0.0) {
-  Window<psi> is_left(start, start+ 0.5*beta);
+  Window<psi,OperatorTime> is_left(OperatorTime(start,0), OperatorTime(start+ 0.5*beta,0));
   unsigned kL = std::count_if(operators.begin(), operators.end(), is_left);
   return kL*(operators.size()-kL);
 }
- */
 
 /**
  * Measure acceptance rate
