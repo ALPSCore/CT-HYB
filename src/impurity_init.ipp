@@ -37,30 +37,39 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 #endif
 }
 
+
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
-  worm_names.push_back("N2_correlation");
-  worm_movers.push_back(
-      boost::shared_ptr<WormMoverType>(
-          new WormMoverType("N2_correlation", BETA, FLAVORS, 0.0, BETA)
-      )
-  );
-  worm_insertion_removers.push_back(
-      boost::shared_ptr<WormInsertionRemoverType>(
-          new WormInsertionRemoverType(
-              "N2_correlation", BETA, FLAVORS, 0.0, BETA,
-              boost::shared_ptr<Worm>(new CorrelationWorm<2>("N2_correlation"))
-          )
-      )
-  );
+  if (par["N_LEGENDRE_N2_MEASUREMENT"] > 0) {
+    worm_names.push_back("N2_correlation");
+    worm_movers.push_back(
+        boost::shared_ptr<WormMoverType>(
+            new WormMoverType("N2_correlation", BETA, FLAVORS, 0.0, BETA)
+        )
+    );
+    worm_insertion_removers.push_back(
+        boost::shared_ptr<WormInsertionRemoverType>(
+            new WormInsertionRemoverType(
+                "N2_correlation", BETA, FLAVORS, 0.0, BETA,
+                boost::shared_ptr<Worm>(new CorrelationWorm<2>("N2_correlation"))
+            )
+        )
+    );
+    p_N2_meas.reset(
+        new N2CorrelationFunctionMeasurement<SCALAR>(FLAVORS, par["N_LEGENDRE_N2_MEASUREMENT"], BETA)
+    );
+  }
 
-  p_flat_histogram_config_space.reset(new FlatHistogram(worm_names.size()));
+  if (worm_names.size() > 0) {
+    p_flat_histogram_config_space.reset(new FlatHistogram(worm_names.size()));
+  }
 
   assert(worm_names.size() == mc_config.num_config_spaces() - 1);
   assert(worm_movers.size() == mc_config.num_config_spaces() - 1);
   assert(worm_insertion_removers.size() == mc_config.num_config_spaces() - 1);
   assert(config_space_extra_weight.size() == mc_config.num_config_spaces());
 
+  //set weight of configuration spaces
   config_space_extra_weight.resize(0);
   config_space_extra_weight.resize(worm_names.size() + 1, 1.0);
   for (int w = 0; w < worm_names.size(); ++w) {

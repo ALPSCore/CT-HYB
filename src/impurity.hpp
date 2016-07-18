@@ -79,7 +79,6 @@ class HybridizationSimulation: public alps::mcbase {
   void update(); //the main monte carlo step
   void measure(); //the top level of the measurement
   void measure_Z_function_space(); //the main monte carlo step
-  void measure_N2_space(); //the main monte carlo step
   void prepare_for_measurement(); //called once after thermalization is reached
   virtual double fraction_completed() const;
 
@@ -101,7 +100,7 @@ class HybridizationSimulation: public alps::mcbase {
   void update_MC_parameters(); //update parameters for MC moves during thermalization steps
   void measure_n();
   void measure_two_time_correlation_functions();
-  void measure_and_adjust_worm_space_weight();
+  void adjust_worm_space_weight();
 
   //Definition of system parameters constant during simulation
   const parameters_type par;
@@ -164,7 +163,7 @@ class HybridizationSimulation: public alps::mcbase {
   GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
 
   //Measurement of two-time correlation functions by worm sampling
-  N2CorrelationFunctionMeasurement<SCALAR> N2_meas;
+  boost::shared_ptr<N2CorrelationFunctionMeasurement<SCALAR> > p_N2_meas;
 
   //For measuring equal-time two-particle Green's function by insertion
   std::vector<EqualTimeOperator<2> > eq_time_two_particle_greens_meas;

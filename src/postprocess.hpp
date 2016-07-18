@@ -171,12 +171,12 @@ void show_statistics(const typename alps::results_type<SOLVER_TYPE>::type &resul
                           const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
 #ifdef MEASURE_TIMING
   const std::vector<double> timings = results["TimingsSecPerNMEAS"].template mean<std::vector<double> >();
-  std::cout << "Timings analysis " << std::endl;
-  std::cout << "MPI syncronization takes place every N_MEAS (=" << parms["N_MEAS"] << ") window sweeps." << std::endl;
-  std::cout << "Green's function and correlation function (worm) are measured every window sweep. But, the data are passed to ALPS libraries once per N_MEAS sweeps." << std::endl;
-  std::cout << "The following is the timings per window sweep (in sec): " << std::endl;
-  std::cout << "Local updates (insertion/removal/shift of operators/worm: " << timings[0] << std::endl;
-  std::cout << "Global updates (global shift etc.): " << timings[1] << std::endl;
-  std::cout << "Measurement of Green's function and correlation function: " << timings[2] << std::endl;
+  std::cout << std::endl << "==== Timings analysis ====" << std::endl;
+  std::cout << " MPI syncronization takes place every N_MEAS (=" << parms["N_MEAS"] << ") window sweeps." << std::endl;
+  std::cout << " Green's function and correlation function (worm) are measured every window sweep. But, the data are passed to ALPS libraries once per N_MEAS sweeps." << std::endl;
+  std::cout << " The following is the timings per window sweep (in sec): " << std::endl;
+  std::cout << " Local updates (insertion/removal/shift of operators/worm: " << timings[0] << std::endl;
+  std::cout << " Global updates (global shift etc.): " << timings[1] << std::endl;
+  std::cout << " Measurement of Green's function and correlation function: " << timings[2] << std::endl;
 #endif
 }

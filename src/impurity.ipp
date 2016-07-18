@@ -7,15 +7,15 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
   alps::define_convenience_parameters(parameters);
   parameters
       .description("Continous-time hybridization expansion impurity solver")
-      .define<int>("SITES", "number of sites/orbitals")
-      .define<int>("SPINS", "number of spins")
-      .define<double>("BETA", "inverse temperature")
-      .define<int>("N_TAU", "number of points (minus 1) for G(tau), number of Matsubara frequencies for G(i omega_n)")
-      .define<int>("N_LEGENDRE_MEASUREMENT", 100, "number of legendre coefficients for measuring G(tau)")
+      .define<int>("SITES", "Number of sites/orbitals")
+      .define<int>("SPINS", "Number of spins")
+      .define<double>("BETA", "Inverse temperature")
+      .define<int>("N_TAU", "Number of points (minus 1) for G(tau), number of Matsubara frequencies for G(i omega_n)")
+      .define<int>("N_LEGENDRE_MEASUREMENT", 100, "Number of legendre coefficients for measuring G(tau)")
       .define<int>("N_LEGENDRE_N2_MEASUREMENT",
-                   50,
-                   "number of legendre coefficients for measuring two-time correlation functions")
-      .define<long>("SWEEPS", 1E+9, "number of sweeps for total run")
+                   0,
+                   "Number of legendre coefficients for measuring two-time correlation functions. Set 0 to deactivate the measurement.")
+      .define<long>("SWEEPS", 1E+9, "Number of sweeps for total run")
       .define<long>("THERMALIZATION", 10, "Minimum number of sweeps for thermalization")
       .define<long>("MAX_THERMALIZATION_SWEEPS", 1E+9, "Maximimum number of Monte Carlo steps for thermalization")
       .define<int>("N_MEAS", 10, "Expensive measurements are performed every N_MEAS updates.")
@@ -84,7 +84,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       worm_insertion_removers(0),
       sliding_window(p_model.get(), BETA),
       g_meas_legendre(FLAVORS, p["N_LEGENDRE_MEASUREMENT"], N, BETA),
-      N2_meas(FLAVORS, p["N_LEGENDRE_N2_MEASUREMENT"], BETA),
+      //p_N2_meas(0),
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
@@ -219,7 +219,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
         g_meas_legendre.measure(mc_config);
       }
       if (mc_config.current_config_space() == N2_SPACE) {
-        N2_meas.measure_new(mc_config, measurements, random, sliding_window, "N2_correlation_function");
+        p_N2_meas->measure_new(mc_config, measurements, random, sliding_window, "N2_correlation_function");
       }
       //measure configuration space volume
       num_steps_in_config_space[static_cast<int>(mc_config.current_config_space())] += 1.0;
@@ -260,7 +260,7 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
     measure_Z_function_space();
   } else if (mc_config.current_config_space() == N2_SPACE) {
-    measure_N2_space();
+    //measure_N2_space();
   }
 
 #ifdef MEASURE_TIMING
@@ -354,36 +354,6 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
 
 }
 
-template<typename IMP_MODEL>
-void HybridizationSimulation<IMP_MODEL>::measure_N2_space() {
-  /*
-  assert(mc_config.current_config_space() == N2_SPACE);
-
-  const int npoints = par["N_TAU_TWO_TIME_CORRELATION_FUNCTIONS"].template as<int>();
-  boost::multi_array<SCALAR, 5> data(boost::extents[FLAVORS][FLAVORS][FLAVORS][FLAVORS][npoints]);
-  std::fill(data.origin(), data.origin() + data.num_elements(), 0.0);
-  const double tdiff = mc_config.p_worm->get_time(0) - mc_config.p_worm->get_time(1);
-  const int index = std::min(npoints-1, static_cast<int>(tdiff/(0.5*BETA/(npoints-1))));
-  if (tdiff >= 0.0) {
-    data
-    [mc_config.p_worm->get_flavor(0)]
-    [mc_config.p_worm->get_flavor(1)]
-    [mc_config.p_worm->get_flavor(2)]
-    [mc_config.p_worm->get_flavor(3)]
-    [index] += 1.0;
-  } else {
-    data
-    [mc_config.p_worm->get_flavor(2)]
-    [mc_config.p_worm->get_flavor(3)]
-    [mc_config.p_worm->get_flavor(0)]
-    [mc_config.p_worm->get_flavor(1)]
-    [index] += 1.0;
-  }
-  std::vector<SCALAR> data2(data.origin(), data.origin() + data.num_elements());
-  measure_simple_vector_observable<COMPLEX>(measurements, "N2_correlation_function", data2);
-  */
-}
-
 //Measure the expectation values of density operators
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure_n() {
@@ -413,7 +383,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_n() {
   measurements["n"] << result_meas_Re;
 }
 
-//Measure two-time correlation functions
+//Measure two-time correlation functions by insertion
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure_two_time_correlation_functions() {
   assert(is_thermalized());
@@ -471,20 +441,21 @@ void HybridizationSimulation<IMP_MODEL>::local_updates() {
     }
 
     //Worm insertion/removal
-    if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
-      //try to insert a worm
-      const int i_worm = static_cast<int>(random() * worm_insertion_removers.size());
-      worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
-    } else {
-      //try to remove the existing worm
-      const int i_worm = static_cast<int>(mc_config.current_config_space()) - 1;
-      worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
-    }
+    if (worm_names.size() > 0) {
+      //worm insertion and removal
+      if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
+        const int i_worm = static_cast<int>(random() * worm_insertion_removers.size());
+        worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
+      } else {
+        const int i_worm = static_cast<int>(mc_config.current_config_space()) - 1;
+        worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
+      }
 
-    //worm move
-    const int i_worm = static_cast<int>(mc_config.current_config_space()) - 1;
-    if (i_worm >= 0) {
-      worm_movers[i_worm]->update(random, BETA, mc_config, sliding_window);
+      //worm move
+      const int i_worm = static_cast<int>(mc_config.current_config_space()) - 1;
+      if (i_worm >= 0) {
+        worm_movers[i_worm]->update(random, BETA, mc_config, sliding_window);
+      }
     }
 
     //record expansion order to check if the Monte Carlo dynamics is thermalized
@@ -492,7 +463,7 @@ void HybridizationSimulation<IMP_MODEL>::local_updates() {
 
     //measure and adjust relative weight of Z-function and worm spaces
     if (!is_thermalized()) {
-      measure_and_adjust_worm_space_weight();
+      adjust_worm_space_weight();
     }
 
     sliding_window.move_window_to_next_position(mc_config.operators);
@@ -610,7 +581,11 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   //check if thermalization is checked
   if (!thermalized) {
     thermalization_checker.update(sweeps, (global_mpi_rank == 0 && verbose));
-    thermalized = thermalization_checker.is_thermalized() && p_flat_histogram_config_space->converged();
+    if (p_flat_histogram_config_space) {
+      thermalized = thermalization_checker.is_thermalized() && p_flat_histogram_config_space->converged();
+    } else {
+      thermalized = thermalization_checker.is_thermalized();
+    }
   }
 }
 
@@ -702,8 +677,8 @@ void HybridizationSimulation<IMP_MODEL>::sanity_check() {
 
 
 template<typename IMP_MODEL>
-void HybridizationSimulation<IMP_MODEL>::measure_and_adjust_worm_space_weight() {
-  if (is_thermalized()) return;
+void HybridizationSimulation<IMP_MODEL>::adjust_worm_space_weight() {
+  if (!p_flat_histogram_config_space || is_thermalized()) return;
 
   //measure current configuration space
   if (mc_config.current_config_space() == Z_FUNCTION_SPACE) {
