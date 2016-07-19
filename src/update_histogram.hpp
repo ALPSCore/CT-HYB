@@ -115,9 +115,6 @@ class scalar_histogram {
                                            double maxdist,
                                            double mag,
                                            bool verbose = false) const {
-//#ifdef ALPS_HAVE_MPI
-    //alps::mpi::communicator alps_comm;
-//#endif
     assert(cutoff_ratio >= 0.0 && cutoff_ratio <= 1.0);
     assert(mag >= 1.0);
     const int min_count = 10;//for stabilization
@@ -127,18 +124,8 @@ class scalar_histogram {
     std::valarray<double> counter_gathered(0.0, num_data);
     std::valarray<double> sumval_gathered(0.0, num_data);
 
-//#ifdef ALPS_HAVE_MPI
-    //alps_comm.barrier();
-    //assert(sumval.size() == num_data);
-    //assert(counter_gathered.size() == num_data);
-    //assert(sumval_gathered.size() == num_data);
-    //my_all_reduce<double>(alps_comm, counter, counter_gathered, std::plus<double>());
-    //my_all_reduce<double>(alps_comm, sumval, sumval_gathered, std::plus<double>());
-    //alps_comm.barrier();
-//#else
     counter_gathered = counter;
     sumval_gathered = sumval;
-//#endif
 
     double maxdist_new = maxdist;
 
@@ -297,11 +284,11 @@ class ThermalizationChecker {
       actual_thermalization_steps_(-1000000000) {
   }
 
-  void add_sample(int current_expansion_order) {
+  void add_sample(double current_expansion_order) {
     if (thermalized_) {
       return;
     }
-    time_series_.push_back(1. * current_expansion_order);
+    time_series_.push_back(current_expansion_order);
   }
 
   long get_actual_thermalization_steps() const {
@@ -335,43 +322,26 @@ class ThermalizationChecker {
       }
     }
 
-//#ifdef ALPS_HAVE_MPI
-    //alps::mpi::communicator alps_comm;
-    //if (time_series_.size() > 0) {
-      //std::vector<double> tmp(time_series_.size(), 0.0);
-      //my_all_reduce<double>(alps_comm, time_series_, tmp, std::plus<double>());
-      //time_series_ = tmp;
-      //std::transform(time_series_.begin(), time_series_.end(), time_series_.begin(),
-                     //std::bind2nd(
-                         //std::multiplies<double>(), 1.0 / alps_comm.size()
-                     //)
-      //);
-    //}
-//#endif
-
-    if (time_series_.size() < 3 * 100) {
+    const int num_bins2 = 10;
+    if (time_series_.size() < num_bins2 * 1000) {
       return;
     }
-    const int bin_size = static_cast<int>(time_series_.size() / 3);
+    const int bin_size = static_cast<int>(time_series_.size() / num_bins2);
 
     std::vector<double> rebinned(time_series_);
     rebin<double>(rebinned, bin_size);
     const int num_bins = rebinned.size();
-    if (verbose) {
-      std::cout << "Binned expansion orders = ";
-      for (int ibin = 0; ibin < num_bins; ++ibin) {
-        std::cout << rebinned[ibin]/bin_size << " ";
-      }
-      std::cout << std::endl;
-    }
-    if (
-        rebinned[num_bins / 2] > 0.9 * rebinned[num_bins - 1] &&
-            rebinned[num_bins / 2] < 1.1 * rebinned[num_bins - 1]
-        ) {
-      actual_thermalization_steps_ = 5 * steps;
+    const double max_val = *std::max_element(rebinned.begin() + num_bins/2, rebinned.end());
+    const double min_val = *std::min_element(rebinned.begin() + num_bins/2, rebinned.end());
+    if (max_val - min_val < 0.05*max_val) {
+      actual_thermalization_steps_ = 5.0 * steps;
       if (verbose) {
-        std::cout << "Actual number of thermalization steps is set to " << actual_thermalization_steps_ << "."
-            << std::endl;
+        std::cout << "Actual number of thermalization steps is set to " << actual_thermalization_steps_ << " at MPI rank = " << global_mpi_rank;
+        std::cout << ", Binned expansion orders = ";
+        for (int ib = 0; ib < num_bins; ++ib) {
+          std::cout << rebinned[ib]/bin_size << " ";
+        }
+        std::cout << std::endl;
       }
     }
   }

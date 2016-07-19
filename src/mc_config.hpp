@@ -62,11 +62,11 @@ class HybridizationFunction {
   boost::multi_array<bool, 2> connected_;
 };
 
-enum CONFIG_SPACE {
-  Z_FUNCTION_SPACE,
-  N2_SPACE,
-  CONFIG_SPACE_END
-};
+//enum CONFIG_SPACE {
+  //Z_FUNCTION_SPACE,
+  //N2_SPACE,
+  //CONFIG_SPACE_END
+//};
 
 template<typename SCALAR>
 struct MonteCarloConfiguration {
@@ -83,18 +83,20 @@ struct MonteCarloConfiguration {
       perm_sign(1) {
   }
 
-  CONFIG_SPACE current_config_space() const {
+  std::string current_config_space() const {
     typedef CorrelationWorm<2> N2Worm;
     if (!p_worm) {
-      return Z_FUNCTION_SPACE;
+      return "Z_FUNCTION_SPACE";
+    } else {
+      return p_worm->get_name();
     }
-    if (typeid(*p_worm.get()) == typeid(N2Worm)) {
-      return N2_SPACE;
-    }
-    throw std::runtime_error("Unknown worm type!");
+    //if (typeid(*p_worm.get()) == typeid(N2Worm)) {
+      //return N2_SPACE;
+    //}
+    //throw std::runtime_error("Unknown worm type!");
   }
 
-  int num_config_spaces() const { return static_cast<int>(CONFIG_SPACE_END); }
+  //int num_config_spaces() const { return static_cast<int>(CONFIG_SPACE_END); }
 
   void check_nan() const {
     if (my_isnan(trace)) {

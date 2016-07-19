@@ -58,12 +58,15 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
   const boost::function<bool()> cb = alps::stop_callback(size_t(parameters["timelimit"]));
 #endif
 
-  sim.run(cb);
+  std::pair<bool,bool> r = sim.run(cb);
 
   // Saving to the output file
 #ifdef ALPS_HAVE_MPI
   if (c.rank() == 0) {
 #endif
+    if (!r.second) {
+      throw std::runtime_error("Master process is not thermalized yet. Increase simulation time!");
+    }
     typename alps::results_type<SOLVER_TYPE>::type results = alps::collect_results(sim);
     std::string output_file = parameters["outputfile"];
     alps::hdf5::archive ar(boost::filesystem::path(output_file), "w");
@@ -79,7 +82,11 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
     }
 #ifdef ALPS_HAVE_MPI
   } else {
-    alps::collect_results(sim);
+    if (r.second) {
+      alps::collect_results(sim);
+    } else {
+      throw std::runtime_error((boost::format("Warning: MPI process %1% is not thermalized yet. Increase simulation time!")%global_mpi_rank).str());
+    }
   }
 #endif
 

@@ -102,6 +102,23 @@ class HybridizationSimulation: public alps::mcbase {
   void measure_two_time_correlation_functions();
   void adjust_worm_space_weight();
 
+  int get_config_space_position(const std::string &name) const {
+    if (name == "Z_FUNCTION_SPACE") {
+      return 0;
+    } else {
+      return get_worm_position(name) + 1;
+    }
+  }
+
+  int get_worm_position(const std::string &name) const {
+    std::vector<std::string>::const_iterator it = std::find(worm_names.begin(), worm_names.end(), name);
+    if (it == worm_names.end()) {
+      throw std::runtime_error("Worm not found: " + name);
+    } else {
+      return std::distance(worm_names.begin(), it);
+    }
+  }
+
   //Definition of system parameters constant during simulation
   const parameters_type par;
   const double BETA;

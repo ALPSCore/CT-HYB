@@ -3,8 +3,8 @@
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_observables() {
   // create measurement objects
-  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_rotated");
-  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens");
+  //create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_rotated");
+  //create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens");
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_legendre");
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_legendre_rotated");
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Two_time_correlation_functions");
@@ -30,7 +30,9 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
     measurements << alps::accumulators::NoBinningAccumulator<double>("worm_space_num_steps_" + worm_names[w]);
   }
 
-  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "N2_correlation_function");
+  if (par["N_LEGENDRE_N2_MEASUREMENT"] > 0) {
+    create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "N2_correlation_function");
+  }
 
   //fidelity susceptibility
   create_observable<SCALAR , SimpleRealObservable>(measurements, "kLkR");
@@ -68,17 +70,15 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     p_flat_histogram_config_space.reset(new FlatHistogram(worm_names.size()));
   }
 
-  assert(worm_names.size() == mc_config.num_config_spaces() - 1);
-  assert(worm_movers.size() == mc_config.num_config_spaces() - 1);
-  assert(worm_insertion_removers.size() == mc_config.num_config_spaces() - 1);
-  assert(config_space_extra_weight.size() == mc_config.num_config_spaces());
-
   //set weight of configuration spaces
   config_space_extra_weight.resize(0);
   config_space_extra_weight.resize(worm_names.size() + 1, 1.0);
   for (int w = 0; w < worm_names.size(); ++w) {
     worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1] / config_space_extra_weight[0]);
   }
+
+  num_steps_in_config_space.resize(0);
+  num_steps_in_config_space.resize(worm_names.size() + 1);
 }
 
 template<typename IMP_MODEL>

@@ -231,25 +231,36 @@ namespace alps {
     DeterminantMatrixPartitioned<Scalar,GreensFunction,CdaggerOp,COp>::reject_update() {
       for (int sector=0; sector<num_sectors_; ++sector) {
         det_mat_[sector].reject_update();
+      }
 
-        //revert the changes in the time ordered sets
+      //revert the changes in the time ordered sets
+      //make sure the operators inserted first must be remove last
+      for (int sector=0; sector<num_sectors_; ++sector) {
         for (int iop = 0; iop < cdagg_ops_add_[sector].size(); ++iop) {
           cdagg_times_set_.erase(cdagg_ops_add_[sector][iop]);
           cdagg_times_sectored_set_[sector].erase(cdagg_ops_add_[sector][iop]);
         }
+      }
+
+      for (int sector=0; sector<num_sectors_; ++sector) {
         for (int iop = 0; iop < c_ops_add_[sector].size(); ++iop) {
           c_times_set_.erase(c_ops_add_[sector][iop]);
           c_times_sectored_set_[sector].erase(c_ops_add_[sector][iop]);
         }
+      }
+
+      for (int sector=0; sector<num_sectors_; ++sector) {
         for (int iop = 0; iop < cdagg_ops_rem_[sector].size(); ++iop) {
           cdagg_times_set_.insert(cdagg_ops_rem_[sector][iop]);
           cdagg_times_sectored_set_[sector].insert(cdagg_ops_rem_[sector][iop]);
         }
+      }
+
+      for (int sector=0; sector<num_sectors_; ++sector) {
         for (int iop = 0; iop < c_ops_rem_[sector].size(); ++iop) {
           c_times_set_.insert(c_ops_rem_[sector][iop]);
           c_times_sectored_set_[sector].insert(c_ops_rem_[sector][iop]);
         }
-
       }
       reconstruct_operator_list_in_actual_order();//Operators may be swapped even if an update is rejected.
 

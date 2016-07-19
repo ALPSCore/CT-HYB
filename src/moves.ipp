@@ -607,6 +607,7 @@ bool OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose
     return false;
   }
 
+  //asign a new random flavor to one of creation operators
   it_t it_cdagg = cdagg_range.first;
   std::advance(it_cdagg, static_cast<int>(num_cdagg_ops*rng()));
   BaseType::cdagg_ops_rem_.push_back(*it_cdagg);
@@ -614,6 +615,7 @@ bool OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose
   cdagg_op_new.set_flavor(static_cast<int>(num_flavors_*rng()));
   BaseType::cdagg_ops_add_.push_back(cdagg_op_new);
 
+  //asign a new random flavor to one of annihilation operators
   it_t it_c = c_range.first;
   std::advance(it_c, static_cast<int>(num_c_ops*rng()));
   BaseType::c_ops_rem_.push_back(*it_c);

@@ -42,7 +42,6 @@ MeasCorrelation<SW, OBS>::perform_meas(SW &sw,
   typename SW::state_t state_bak = sw.get_state();
   sw.set_window_size(num_win_, operators, num_win_ / 2);
   sw.move_left_edge_to(operators, left_edge_pos_);
-  assert(left_edge_pos_ - right_edge_pos_ == num_tau_points_ - 1);
 
   //make a list of tau points
   std::vector<double> tau_points(num_tau_points_);

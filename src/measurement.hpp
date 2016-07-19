@@ -246,7 +246,7 @@ class N2CorrelationFunctionMeasurement {
     namespace bll = boost::lambda;
     typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
     typedef operator_container_t::iterator Iterator;
-    if (mc_config.current_config_space() != N2_SPACE) {
+    if (mc_config.current_config_space() != "N2_correlation") {
       return;
     }
 
@@ -381,7 +381,7 @@ class N2CorrelationFunctionMeasurement {
 
   void measure(const MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements, const std::string &str) {
-    if (mc_config.current_config_space() != N2_SPACE) {
+    if (mc_config.current_config_space() != "N2_correlation") {
       return ;
     }
 

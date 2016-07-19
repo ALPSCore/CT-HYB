@@ -17,7 +17,7 @@ class mymcadapter: public Base {
       : Base(parameters, 0),
         schedule_checker(parameters["Tmin"], parameters["Tmax"]) { }
 
-  bool run(boost::function<bool()> const &stop_callback) {
+  std::pair<bool,bool> run(boost::function<bool()> const &stop_callback) {
     bool done = false, stopped = false;
     bool was_thermalized_before = false;
     const time_t start_time = time(NULL);
@@ -56,7 +56,7 @@ class mymcadapter: public Base {
         //}
       }
     } while (!done);
-    return !stopped;
+    return std::make_pair(!stopped, this->is_thermalized());
   }
  private:
   ScheduleChecker schedule_checker;
