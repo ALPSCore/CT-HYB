@@ -15,9 +15,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("N_LEGENDRE_N2_MEASUREMENT",
                    0,
                    "Number of legendre coefficients for measuring two-time correlation functions. Set 0 to deactivate the measurement.")
-      .define<long>("SWEEPS", 1E+9, "Number of sweeps for total run")
-      .define<long>("THERMALIZATION", 10, "Minimum number of sweeps for thermalization")
-      .define<long>("MAX_THERMALIZATION_SWEEPS", 1E+9, "Maximimum number of Monte Carlo steps for thermalization")
+      .define<double>("THERMALIZATION_TIME", -1,
+                    "Thermalization time (in units of second). If you do not set a positive value, the default value (10 % of the total simulation time) will be used.")
       .define<int>("N_MEAS", 10, "Expensive measurements are performed every N_MEAS updates.")
       .define<int>("N_GLOBAL_UPDATES", 10, "Global updates are performed every N_GLOBAL_UPDATES updates.")
       .define<int>("RANK_INSERTION_REMOVAL_UPDATE", 1, "1 for only single-pair update. k for up to k-pair update.")
@@ -64,7 +63,8 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       Np1(N + 1),
       N_meas(parameters["N_MEAS"]),
       N_swap(parameters["N_SWAP"]),
-      total_sweeps(parameters["SWEEPS"]),                           //sweeps needed for total run
+      thermalization_time(parameters["THERMALIZATION_TIME"]),
+      start_time(time(NULL)),
       p_model(new IMP_MODEL(p, rank == 0)),//impurity model
       F(new HybridizationFunction<SCALAR>(
           BETA, N, FLAVORS, p_model->get_F()
@@ -73,8 +73,6 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
 #ifdef ALPS_HAVE_MPI
       comm(),
 #endif
-      thermalization_checker(parameters["THERMALIZATION"].template as<long>(),
-                             parameters["MAX_THERMALIZATION_SWEEPS"].template as<long>()),          //minimum sweeps needed for thermalization
       N_win_standard(1),
       sweeps(0),                                                                 //sweeps done up to now
       mc_config(F),
@@ -85,14 +83,21 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       worm_insertion_removers(0),
       sliding_window(p_model.get(), BETA),
       g_meas_legendre(FLAVORS, p["N_LEGENDRE_MEASUREMENT"], N, BETA),
-    //p_N2_meas(0),
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
-      //num_steps_in_config_space(mc_config.num_config_spaces(), 0.0),
       timings(4, 0.0),
       verbose(p["VERBOSE"].template as<int>() != 0),
-      thermalized(false) {
+      thermalized(false),
+      pert_order_recorder() {
+
+  if (thermalization_time < 0) {
+    thermalization_time = static_cast<double>(0.1*parameters["timelimit"].template as<long>());
+  }
+  if (thermalization_time > 0.9 * parameters["timelimit"].template as<double>()) {
+    throw std::runtime_error("timelimit is too short in comparison with THERMALIZATION_TIME.");
+  }
+
   /////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////
   ////Vectors Initialization Part//////////////////////////////////////
@@ -163,18 +168,19 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
 
 template<typename IMP_MODEL>
 bool HybridizationSimulation<IMP_MODEL>::is_thermalized() const {
-  return thermalization_checker.is_thermalized();
+  return thermalized;
 }
 
 template<typename IMP_MODEL>
 double HybridizationSimulation<IMP_MODEL>::fraction_completed() const {
-  double work =
-      (is_thermalized() ? (sweeps - thermalization_checker.get_actual_thermalization_steps()) / double(total_sweeps)
-                        : 0.);
-  if (work > 1.0) {
-    work = 1.0;
-  }
-  return work;
+  //double work =
+      //(is_thermalized() ? (sweeps - thermalization_checker.get_actual_thermalization_steps()) / double(total_sweeps)
+                        //: 0.);
+  //if (work > 1.0) {
+    //work = 1.0;
+  //}
+  //return work;
+  return 0.0;
 }
 
 template<typename IMP_MODEL>
@@ -189,12 +195,14 @@ void HybridizationSimulation<IMP_MODEL>::update() {
   for (int imeas = 0; imeas < N_meas; imeas++) {    // accumulate measurements from N_meas updates before storing
     sweeps++;
 
+    pert_order_recorder << mc_config.pert_order();
+
 #ifdef MEASURE_TIMING
     const double time1 = timer.elapsed().wall * 1E-9;
 #endif
 
     /** one sweep of the window */
-    local_updates();
+    do_one_sweep();
 
 #ifdef MEASURE_TIMING
     const double time2 = timer.elapsed().wall * 1E-9;
@@ -226,9 +234,8 @@ void HybridizationSimulation<IMP_MODEL>::update() {
         measure_scalar_observable<SCALAR>(measurements,
                                           "k",
                                           static_cast<double>(mc_config.operators.size()) * mc_config.sign);
-      }
-      if (mc_config.current_config_space() == "N2_correlation") {
-        p_N2_meas->measure_new(mc_config, measurements, random, sliding_window, "N2_correlation_function");
+      } else if (mc_config.current_config_space() == "N2_correlation") {
+        p_N2_meas->measure_new(mc_config, measurements, random, sliding_window, N_win_standard, "N2_correlation_function");
       }
       //measure configuration space volume
       num_steps_in_config_space[get_config_space_position(mc_config.current_config_space())] += 1.0;
@@ -414,7 +421,7 @@ class MyRandomNumberGenerator: public std::unary_function<unsigned int, unsigned
 };
 
 template<typename IMP_MODEL>
-void HybridizationSimulation<IMP_MODEL>::local_updates() {
+void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
   assert(sliding_window.get_position_right_edge() == 0);
 
   boost::random::uniform_int_distribution<> dist(1, par["RANK_INSERTION_REMOVAL_UPDATE"].template as<int>());
@@ -436,7 +443,7 @@ void HybridizationSimulation<IMP_MODEL>::local_updates() {
       pert_order_sum += mc_config.pert_order();
     }
     //record expansion order to check if the Monte Carlo dynamics is thermalized
-    thermalization_checker.add_sample(pert_order_sum/FLAVORS);
+    //thermalization_checker.add_sample(pert_order_sum/FLAVORS);
 
     //shift move of operators hybridized with the bath
     for (int update = 0; update < FLAVORS * rank_ins_rem; ++update) {
@@ -445,25 +452,27 @@ void HybridizationSimulation<IMP_MODEL>::local_updates() {
 
     //Worm insertion/removal
     if (worm_names.size() > 0) {
-      //worm insertion and removal
-      if (mc_config.current_config_space() == "Z_FUNCTION_SPACE") {
-        const int i_worm = static_cast<int>(random() * worm_insertion_removers.size());
-        worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
-      } else {
-        const int i_worm = get_worm_position(mc_config.current_config_space());
-        worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
-      }
+      for (int update = 0; update < FLAVORS; ++update) {
+        //worm insertion and removal
+        if (mc_config.current_config_space() == "Z_FUNCTION_SPACE") {
+          const int i_worm = static_cast<int>(random() * worm_insertion_removers.size());
+          worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
+        } else {
+          const int i_worm = get_worm_position(mc_config.current_config_space());
+          worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
+        }
 
-      //worm move
-      const int i_config_space = get_config_space_position(mc_config.current_config_space());
-      if (i_config_space > 0) {
-        worm_movers[i_config_space - 1]->update(random, BETA, mc_config, sliding_window);
-      }
-    }
+        //worm move
+        const int i_config_space = get_config_space_position(mc_config.current_config_space());
+        if (i_config_space > 0) {
+          worm_movers[i_config_space - 1]->update(random, BETA, mc_config, sliding_window);
+        }
 
-    //measure and adjust relative weight of Z-function and worm spaces
-    if (!is_thermalized()) {
-      adjust_worm_space_weight();
+        //measure and adjust relative weight of Z-function and worm spaces
+        if (!is_thermalized()) {
+          adjust_worm_space_weight();
+        }
+      }
     }
 
     sliding_window.move_window_to_next_position(mc_config.operators);
@@ -547,18 +556,8 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
     throw std::logic_error("called update_MC_parameters after thermalized");
   }
 
-
-  //Adjust window size according to perturbation order
-  //collect expansion order
+  //record expansion order
   static std::list<double> min_pert_order_hist;
-  //std::vector<double> expansion_order_local(FLAVORS), expansion_order(FLAVORS);
-  //const std::vector<int> &tmp = count_creation_operators(FLAVORS, mc_config);
-  //for (int flavor = 0; flavor < FLAVORS; ++flavor) {
-    //expansion_order_local[flavor] = tmp[flavor];
-  //}
-  //expansion_order = expansion_order_local;
-  //const double min_expansion_order = (1.*(*std::min_element(expansion_order.begin(), expansion_order.end())));
-
   min_pert_order_hist.push_back(mc_config.pert_order());
   if (min_pert_order_hist.size() > 20) {
     min_pert_order_hist.pop_front();
@@ -584,11 +583,8 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   single_op_shift_updater.update_parameters();
 
   //check if thermalization is checked
-  thermalization_checker.update(sweeps, verbose);
-  if (p_flat_histogram_config_space) {
-    thermalized = thermalization_checker.is_thermalized() && p_flat_histogram_config_space->converged();
-  } else {
-    thermalized = thermalization_checker.is_thermalized();
+  if (time(NULL) - start_time > thermalization_time) {
+    thermalized = true;
   }
 }
 
@@ -615,6 +611,18 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
     }
     std::cout << std::endl;
   }
+  if (p_flat_histogram_config_space) {
+    if (!p_flat_histogram_config_space->converged()) {
+      std::cout << "Warning: flat histogram procedure is not yet converged for MPI rank " << global_mpi_rank << "." << std::endl;
+    }
+    p_flat_histogram_config_space->finish_learning(false);
+  }
+  measurements["Pert_order_start"] << pert_order_recorder.mean();
+}
+
+template<typename IMP_MODEL>
+void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
+  measurements["Pert_order_end"] << pert_order_recorder.mean();
 }
 
 /**
@@ -668,11 +676,6 @@ void HybridizationSimulation<IMP_MODEL>::adjust_worm_space_weight() {
   } else {
     const int i_worm = get_worm_position(mc_config.current_config_space());
     p_flat_histogram_config_space->measure(i_worm + 1);
-    //for (int iw = 0; iw < worm_names.size(); ++iw) {
-      //if (mc_config.p_worm->get_name() == worm_names[iw]) {
-        //p_flat_histogram_config_space->measure(iw + 1);
-      //}
-    //}
   }
 
   //adjust worm space weights

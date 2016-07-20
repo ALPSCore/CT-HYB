@@ -110,19 +110,22 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
 
 template<typename SOLVER_TYPE>
 void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                          const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar, bool verbose = false) {
+                             const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                             alps::hdf5::archive ar,
+                             bool verbose = false) {
   const int n_legendre(parms["N_LEGENDRE_N2_MEASUREMENT"].template as<int>());
   const int n_tau(parms["N_TAU_TWO_TIME_CORRELATION_FUNCTIONS"].template as<int>());
   const double beta(parms["BETA"]);
   const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
   const double temperature(1.0 / beta);
   const double coeff =
-          temperature * results["worm_space_volume_N2_correlation"].template mean<double>() /
+      temperature * results["worm_space_volume_N2_correlation"].template mean<double>() /
           (results["Sign"].template mean<double>() * results["Z_function_space_volume"].template mean<double>());
 
   if (verbose) {
-    std::cout << "Number of steps in N2_correlation space/Z_function_space is " << results["worm_space_volume_N2_correlation"].template mean<double>() 
-      << " : " << results["Z_function_space_volume"].template mean<double>() << std::endl;
+    std::cout << "Number of steps in N2_correlation space/Z_function_space is "
+        << results["worm_space_volume_N2_correlation"].template mean<double>()
+        << " : " << results["Z_function_space_volume"].template mean<double>() << std::endl;
   }
 
   const std::vector<double> data_Re = results["N2_correlation_function_Re"].template mean<std::vector<double> >();
@@ -141,11 +144,11 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
 
   boost::multi_array<std::complex<double>, 5>
       data_tau(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_tau]);
-  for (int itau = 0; itau < n_tau ; ++itau) {
-    const double tau = itau * (beta / (n_tau - 1) );
+  for (int itau = 0; itau < n_tau; ++itau) {
+    const double tau = itau * (beta / (n_tau - 1));
     double x = 2 * tau / beta - 1.0;
-    x = std::max(-1+1E-8, x);
-    x = std::min( 1-1E-8, x);
+    x = std::max(-1 + 1E-8, x);
+    x = std::min(1 - 1E-8, x);
     legendre_transformer.compute_legendre(x, Pvals); //Compute P_l[x]
 
     for (int flavor = 0; flavor < n_flavors; ++flavor) {
@@ -154,7 +157,8 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
           for (int flavor4 = 0; flavor4 < n_flavors; ++flavor4) {
             for (int il = 0; il < n_legendre; ++il) {
               data_tau[flavor][flavor2][flavor3][flavor4][itau]
-                  += Pvals[il] * data[flavor][flavor2][flavor3][flavor4][il] * sqrt_array[il] * temperature * temperature;
+                  +=
+                  Pvals[il] * data[flavor][flavor2][flavor3][flavor4][il] * sqrt_array[il] * temperature * temperature;
             }
           }
         }
@@ -168,23 +172,32 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
 
 template<typename SOLVER_TYPE>
 void compute_fidelity_susceptibility(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                     const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
-  std::complex<double> kLkR = std::complex<double>(results["kLkR_Re"].template mean<double>(), results["kLkR_Im"].template mean<double>());
-  std::complex<double> k = std::complex<double>(results["k_Re"].template mean<double>(), results["k_Im"].template mean<double>());
-  ar["FIDELITY_SUSCEPTIBILITY"] << 0.5*(kLkR - 0.25 * k * k);
+                                     const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                                     alps::hdf5::archive ar) {
+  std::complex<double> kLkR =
+      std::complex<double>(results["kLkR_Re"].template mean<double>(), results["kLkR_Im"].template mean<double>());
+  std::complex<double>
+      k = std::complex<double>(results["k_Re"].template mean<double>(), results["k_Im"].template mean<double>());
+  ar["FIDELITY_SUSCEPTIBILITY"] << 0.5 * (kLkR - 0.25 * k * k);
 }
 
 template<typename SOLVER_TYPE>
 void show_statistics(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                          const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
+                     const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
 #ifdef MEASURE_TIMING
   const std::vector<double> timings = results["TimingsSecPerNMEAS"].template mean<std::vector<double> >();
   std::cout << std::endl << "==== Timings analysis ====" << std::endl;
-  std::cout << " MPI syncronization takes place every N_MEAS (=" << parms["N_MEAS"] << ") window sweeps." << std::endl;
-  std::cout << " Green's function and correlation function (worm) are measured every window sweep. But, the data are passed to ALPS libraries once per N_MEAS sweeps." << std::endl;
-  std::cout << " The following is the timings per window sweep (in sec): " << std::endl;
+  std::cout
+      << " Green's function and correlation function (worm) are measured every window sweep. But, the data are passed to ALPS libraries once per N_MEAS sweeps."
+      << std::endl;
+  std::cout << " The following are the timings per window sweep (in units of second): " << std::endl;
   std::cout << " Local updates (insertion/removal/shift of operators/worm: " << timings[0] << std::endl;
   std::cout << " Global updates (global shift etc.): " << timings[1] << std::endl;
   std::cout << " Measurement of Green's function and correlation function: " << timings[2] << std::endl;
 #endif
+
+  std::cout << std::endl << "==== Thermalization analysis ====" << std::endl;
+  std::cout << boost::format("Perturbation orders just before and after measurement steps are %1% and %2%.") %
+      results["Pert_order_start"].template mean<double>() %
+      results["Pert_order_end"].template mean<double>() << std::endl;
 }

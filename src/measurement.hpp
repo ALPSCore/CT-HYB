@@ -242,7 +242,7 @@ class N2CorrelationFunctionMeasurement {
   template<typename SlidingWindow>
   void measure_new(MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements,
-                   alps::random01 &random, SlidingWindow &sliding_window, const std::string &str) {
+                   alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str) {
     namespace bll = boost::lambda;
     typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
     typedef operator_container_t::iterator Iterator;
@@ -257,7 +257,7 @@ class N2CorrelationFunctionMeasurement {
 
     //Generate times of the left hand operator pair c^dagger c
     //Make sure there is no duplicate
-    const int num_times = 10;
+    const int num_times = std::max(20, average_pert_order);
     std::set<double> new_times;
     new_times.insert(worm_ops_original[0].time().time());
     if (new_times.size() < num_times) {

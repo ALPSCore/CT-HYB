@@ -60,14 +60,15 @@ class mymcmpiadapter: public alps::mcmpiadapter<Base, ScheduleChecker> {
               std::cout << "Checking if the simulation is finished: "
                   <<  current_time - start_time << " sec passed." << std::endl;
             } else {
-              std::cout
-                  << boost::format("%1% processes are not thermalized yet. : %2% sec passed.") % (ABase::communicator.size() - num_thermalized) % static_cast<int>((current_time - start_time))
-                  << std::endl;
+              //std::cout
+                  //<< boost::format("%1% processes are not thermalized yet. : %2% sec passed.") % (ABase::communicator.size() - num_thermalized) % static_cast<int>((current_time - start_time))
+                  //<< std::endl;
             }
           }
         }
       }
     } while (!done);
+    this->finish_measurement();
     return std::make_pair(!stopped, this->is_thermalized());
   }
 };

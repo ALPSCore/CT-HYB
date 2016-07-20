@@ -56,6 +56,7 @@ class mymcadapter: public Base {
         //}
       }
     } while (!done);
+    this->finish_measurement();
     return std::make_pair(!stopped, this->is_thermalized());
   }
  private:

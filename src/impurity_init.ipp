@@ -38,6 +38,9 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   create_observable<SCALAR , SimpleRealObservable>(measurements, "kLkR");
   create_observable<SCALAR , SimpleRealObservable>(measurements, "k");
 
+  measurements << alps::accumulators::NoBinningAccumulator<double>("Pert_order_start");
+  measurements << alps::accumulators::NoBinningAccumulator<double>("Pert_order_end");
+
 #ifdef MEASURE_TIMING
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("TimingsSecPerNMEAS");
 #endif

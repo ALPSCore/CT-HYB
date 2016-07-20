@@ -354,3 +354,24 @@ class ThermalizationChecker {
   long actual_thermalization_steps_;
 };
 
+
+class PertOrderRecorder {
+ public:
+  PertOrderRecorder(int max_num_data = 20) : max_num_data_(max_num_data) {}
+
+  void operator<<(int pert_order) {
+    data_.push_back(pert_order);
+    if (data_.size() > max_num_data_) {
+      data_.pop_front();
+    }
+    assert(data_.size() <= max_num_data_);
+  }
+
+  double mean() const {
+    return static_cast<double>(std::accumulate(data_.begin(), data_.end(), 0))/data_.size();
+  }
+
+ private:
+  int max_num_data_;
+  std::list<int> data_;
+};

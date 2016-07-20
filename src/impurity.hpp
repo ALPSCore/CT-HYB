@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <valarray>
+#include <time.h>
 
 #include <boost/assert.hpp>
 #include <boost/multi_index_container.hpp>
@@ -80,6 +81,7 @@ class HybridizationSimulation: public alps::mcbase {
   void measure(); //the top level of the measurement
   void measure_Z_function_space(); //the main monte carlo step
   void prepare_for_measurement(); //called once after thermalization is reached
+  void finish_measurement(); //called once after thermalization is done
   virtual double fraction_completed() const;
 
   void resize_vectors(); //early initialization stuff
@@ -95,7 +97,7 @@ class HybridizationSimulation: public alps::mcbase {
   void read_eq_time_two_particle_greens_meas();
   void read_two_time_correlation_functions();
 
-  void local_updates(); // updates in window
+  void do_one_sweep(); // one sweep of the window
   void global_updates(); //expensive updates
   void update_MC_parameters(); //update parameters for MC moves during thermalization steps
   void measure_n();
@@ -129,7 +131,8 @@ class HybridizationSimulation: public alps::mcbase {
   const int Np1;
   const int N_meas;
   const int N_swap;
-  const long total_sweeps;                    // sweeps to be done after equilibration
+  double thermalization_time;
+  const time_t start_time;
 
   //Model object
   boost::scoped_ptr<IMP_MODEL> p_model;
@@ -141,9 +144,7 @@ class HybridizationSimulation: public alps::mcbase {
   alps::mpi::communicator comm;
 #endif
 
-  //Constant simulation parameters
-  ThermalizationChecker thermalization_checker;
-
+  //nearly equal to the average perturbation order (must be kept fixed during measurement steps)
   int N_win_standard;
 
   //Monte Calro configuration
@@ -205,6 +206,8 @@ class HybridizationSimulation: public alps::mcbase {
   bool verbose;
 
   bool thermalized;
+
+  PertOrderRecorder pert_order_recorder;
 
   void sanity_check();
 };

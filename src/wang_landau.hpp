@@ -72,7 +72,6 @@ class FlatHistogram {
   bool flat_enough() const {
     const double mean = std::accumulate(counter_.begin(), counter_.end(), 0.0) / (max_index_ + 1);
     const double min = *std::min_element(counter_.begin(), counter_.end());
-    std::cout << "debug2 " << counter_[0] << " " << counter_[1] << " size " << counter_.size() << std::endl;
     if (min < min_count) {
       return false;
     }
