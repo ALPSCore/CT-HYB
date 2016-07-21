@@ -33,6 +33,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   if (par["N_LEGENDRE_N2_MEASUREMENT"] > 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "N2_correlation_function");
   }
+  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "G1");
 
   //fidelity susceptibility
   create_observable<SCALAR , SimpleRealObservable>(measurements, "kLkR");
@@ -49,6 +50,30 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
+  /*
+   * Single-particle Green's function
+   */
+  worm_names.push_back("G1");
+  worm_movers.push_back(
+      boost::shared_ptr<WormMoverType>(
+          new WormMoverType("G1", BETA, FLAVORS, 0.0, BETA)
+      )
+  );
+  worm_insertion_removers.push_back(
+      boost::shared_ptr<WormInsertionRemoverType>(
+          new WormInsertionRemoverType(
+              "G1", BETA, FLAVORS, 0.0, BETA,
+              boost::shared_ptr<Worm>(new GWorm<1>("G1"))
+          )
+      )
+  );
+  p_G1_meas.reset(
+     new GMeasurement<SCALAR,1>(FLAVORS, par["N_LEGENDRE_MEASUREMENT"], BETA)
+  );
+
+  /*
+   * Generalized spin-spin correlations
+   */
   if (par["N_LEGENDRE_N2_MEASUREMENT"] > 0) {
     worm_names.push_back("N2_correlation");
     worm_movers.push_back(
@@ -69,17 +94,21 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     );
   }
 
+  //Proposal probability of worm insertion is smaller than that of removal by the number of active worm spaces.
+  //We correct this here.
+  for (int w = 0; w < worm_names.size(); ++w) {
+    worm_insertion_removers[w]->set_relative_insertion_proposal_rate(1.0 / worm_names.size());
+  }
+
+  //if we have active worm spaces, we activate flat histogram algorithm.
   if (worm_names.size() > 0) {
     p_flat_histogram_config_space.reset(new FlatHistogram(worm_names.size()));
   }
-
-  //set weight of configuration spaces
   config_space_extra_weight.resize(0);
   config_space_extra_weight.resize(worm_names.size() + 1, 1.0);
   for (int w = 0; w < worm_names.size(); ++w) {
     worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1] / config_space_extra_weight[0]);
   }
-
   num_steps_in_config_space.resize(0);
   num_steps_in_config_space.resize(worm_names.size() + 1);
 }

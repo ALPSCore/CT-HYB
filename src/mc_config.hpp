@@ -181,7 +181,7 @@ void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
 }
 
 //compute the permutation sign (+/-) from the time-ordering of
-// c^dagger_0 c_0  c^dagger_1 c_1 ... c^dagger_N c_N  W_0 W_1 ...
+// c_0 c^dagger_0 c^dagger_1 c_1 ... c_{N-1} c^dagger_{N-1} W_0 W_1 ...
 // where creation and annihilation operators are already time-ordered, respectively.
 // W_0, W_1 are operators of the worm.
 template<typename SCALAR>
@@ -199,12 +199,12 @@ int compute_permutation_sign(
     work1[iop] = mc_config.M.get_cdagg_ops()[iop].time();
     work2[iop] = mc_config.M.get_c_ops()[iop].time();
   }
-  std::sort(work1.begin(), work1.end(), OperatorTimeLessor());
-  std::sort(work2.begin(), work2.end(), OperatorTimeLessor());
+  std::sort(work1.begin(), work1.end(), OperatorTimeGreator());
+  std::sort(work2.begin(), work2.end(), OperatorTimeGreator());
   times_work.resize(0);
   for (int pert_order = 0; pert_order < mc_config.pert_order(); ++pert_order) {
-    times_work.push_back(work1[pert_order]);
     times_work.push_back(work2[pert_order]);
+    times_work.push_back(work1[pert_order]);
   }
   if (mc_config.p_worm) {
     const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
@@ -214,7 +214,7 @@ int compute_permutation_sign(
   }
   const int perm_sign = alps::fastupdate::comb_sort(
       times_work.begin(), times_work.end(),
-      OperatorTimeLessor());
+      OperatorTimeGreator());
   return perm_sign;
 }
 

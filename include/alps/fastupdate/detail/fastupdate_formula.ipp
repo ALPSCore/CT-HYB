@@ -294,6 +294,12 @@ namespace alps {
       block_t tR_view (invG.block(N_, 0,  M_old_, N_     ));
       block_t tS_view (invG.block(N_, N_, M_old_, M_old_ ));
 
+      //FIX ME: use an alternative formula for the case the intermediate state is singular
+      if (detail::safe_determinant(tS_view) == 0.0) {
+        std::cout << "Warning: intermediate state is singular " << std::endl;
+        return 0.0;
+      }
+
       //matrix M
       Mmat_ = tP_view;
       if (M_old_ > 0) {

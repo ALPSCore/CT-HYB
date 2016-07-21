@@ -153,4 +153,71 @@ class CorrelationWorm: public Worm, private boost::equality_comparable<Correlati
   std::vector<std::vector<int> > time_index_;
 };
 
+/**
+ * Measure Green's function <c c^dagger, ..., c c^dagger>
+ * Rank = 1: single-particle Green's function
+ * Rank = 2: two-particle Green's function
+ *
+ */
+template<unsigned int Rank>
+class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
+ public:
+  GWorm(const std::string &name) : name_(name), time_index_(2*Rank) {
+    for (int f = 0; f < 2 * Rank; ++f) {
+      time_index_[f].push_back(f);
+    }
+  }
+
+  virtual boost::shared_ptr<Worm> clone() const {
+    return boost::shared_ptr<Worm>(new GWorm<Rank>(*this));
+  }
+
+  virtual int num_operators() const { return 2 * Rank; };
+
+  virtual std::vector<psi> get_operators() const;//implemented in worm.ipp
+
+  virtual int num_independent_times() const { return 2 * Rank; }
+
+  virtual double get_time(int index) const {
+    assert(index >= 0 && index < 2 * Rank);
+    return times_[index];
+  }
+
+  virtual void set_time(int index, double new_time) {
+    assert(index >= 0 && index < 2 * Rank);
+    times_[index] = new_time;
+  }
+
+  virtual int num_independent_flavors() const { return 2 * Rank; }
+
+  virtual int get_flavor(int index) const {
+    assert(index >= 0 && index < 2 * Rank);
+    return flavors_[index];
+  }
+
+  virtual void set_flavor(int index, int new_flavor) {
+    assert(index >= 0 && index < 2 * Rank);
+    flavors_[index] = new_flavor;
+  }
+
+  virtual const std::vector<int> &get_time_index(int flavor_index) const {
+    assert(flavor_index >= 0 && flavor_index < 2 * Rank);
+    return time_index_[flavor_index];
+  }
+
+  virtual bool operator==(const GWorm<Rank> &other_worm) const {
+    return (times_ == other_worm.times_ && flavors_ == other_worm.flavors_);
+  }
+
+  const std::string& get_name() const {
+    return name_;
+  }
+
+ private:
+  std::string name_;
+  boost::array<double, 2 * Rank> times_;
+  boost::array<int, 2 * Rank> flavors_;
+  std::vector<std::vector<int> > time_index_;
+};
+
 #include "worm.ipp"

@@ -180,12 +180,12 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
 
   if (accepted) { // move accepted
     mc_config.M.perform_update();
-    const int perm_new = compute_permutation_sign(mc_config);
-    mc_config.sign *= (1. * perm_new / mc_config.perm_sign) * mysign(prob);
-    assert(!my_isnan(mc_config.sign));
-    mc_config.perm_sign = perm_new;
     mc_config.trace = trace_new;
     mc_config.p_worm = p_new_worm_;
+    const int perm_new = compute_permutation_sign(mc_config);
+    mc_config.sign *= (1. * perm_new / mc_config.perm_sign) * mysign(prob);
+    mc_config.perm_sign = perm_new;
+    assert(!my_isnan(mc_config.sign));
     accepted_ = true;
   } else { // rejected
     mc_config.M.reject_update();
@@ -611,17 +611,27 @@ bool OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose
   it_t it_cdagg = cdagg_range.first;
   std::advance(it_cdagg, static_cast<int>(num_cdagg_ops*rng()));
   BaseType::cdagg_ops_rem_.push_back(*it_cdagg);
+  //std::cout << "cdagg_rem " << *it_cdagg << std::endl;
   psi cdagg_op_new = *it_cdagg;
   cdagg_op_new.set_flavor(static_cast<int>(num_flavors_*rng()));
   BaseType::cdagg_ops_add_.push_back(cdagg_op_new);
+  //std::cout << "cdagg_add " << cdagg_op_new << std::endl;
 
   //asign a new random flavor to one of annihilation operators
   it_t it_c = c_range.first;
   std::advance(it_c, static_cast<int>(num_c_ops*rng()));
   BaseType::c_ops_rem_.push_back(*it_c);
+  //std::cout << "c_rem " << *it_c << std::endl;
   psi c_op_new = *it_c;
   c_op_new.set_flavor(static_cast<int>(num_flavors_*rng()));
   BaseType::c_ops_add_.push_back(c_op_new);
+  //std::cout << "c_add " << c_op_new << std::endl;
+
+  //std::cout << mc_config.M.get_cdagg_ops(c_op_new.flavor()) << std::endl;
+  //std::cout << mc_config.M.get_c_ops(c_op_new.flavor()) << std::endl;
+  //std::cout << mc_config.M.compute_inverse_matrix() << std::endl;
+  //std::cout << mc_config.M.compute_G_matrix(c_op_new.flavor()) << std::endl;
+  //std::cout << std::endl;
 
   BaseType::acceptance_rate_correction_ = 1.0;
 
@@ -914,13 +924,13 @@ global_update(R &rng,
     mc_config.trace = trace_new;
     std::swap(mc_config.operators, operators_new);
     std::swap(mc_config.M, M_new);
-    const int perm_sign_new = compute_permutation_sign(mc_config);
-    mc_config.sign *= (1. * perm_sign_new / mc_config.perm_sign) * prob / std::abs(prob);
-    mc_config.perm_sign = perm_sign_new;
     std::swap(det_vec, det_vec_new);
     if (mc_config.p_worm) {
       mc_config.p_worm.swap(p_new_worm);
     }
+    const int perm_sign_new = compute_permutation_sign(mc_config);
+    mc_config.sign *= (1. * perm_sign_new / mc_config.perm_sign) * prob / std::abs(prob);
+    mc_config.perm_sign = perm_sign_new;
     mc_config.sanity_check(sliding_window);
     return true;
   } else {
@@ -1043,6 +1053,8 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   const int num_time_indices = p_worm_template_->num_independent_times();
   const int num_flavor_indices = p_worm_template_->num_independent_flavors();
 
+  const double weight_scaled = weight_ / insertion_proposal_rate_;
+
   if (mc_config.p_worm) {
     //propose removal
     assert(typeid(mc_config.p_worm.get()) == typeid(p_worm_template_.get()));
@@ -1051,9 +1063,8 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     }
     if (rng() < 0.5) {
       //diagonal & off-diagonal in flavor
-      //BaseType::acceptance_rate_correction_ = 1. / weight_;
       BaseType::acceptance_rate_correction_ =
-          1. / (weight_ *
+          1. / (weight_scaled *
                   std::pow(tau_high - tau_low, num_time_indices) *
                   std::pow(1. * BaseType::num_flavors_, num_flavor_indices));
     } else {
@@ -1061,12 +1072,8 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
       if (!is_worm_diagonal_in_flavor(*mc_config.p_worm)) {
         return false;
       }
-      //BaseType::acceptance_rate_correction_ = std::pow(1.*BaseType::num_flavors_, num_flavor_indices - 1.0 ) / weight_;
-      //BaseType::acceptance_rate_correction_ =
-          //1. / (weight_ *
-              //std::pow(tau_high - tau_low, num_time_indices) * BaseType::num_flavors_);
       BaseType::acceptance_rate_correction_ =
-          1. / (weight_ *
+          1. / (weight_scaled *
               std::pow(tau_high - tau_low, num_time_indices) *
               BaseType::num_flavors_);
     }
@@ -1082,7 +1089,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
       for (int f = 0; f < num_flavor_indices; ++f) {
         BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
       }
-      BaseType::acceptance_rate_correction_ = weight_ *
+      BaseType::acceptance_rate_correction_ = weight_scaled *
           std::pow(tau_high - tau_low, num_time_indices) *
           std::pow(1. * BaseType::num_flavors_, num_flavor_indices);
     } else {
@@ -1091,9 +1098,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
       for (int f = 0; f < num_flavor_indices; ++f) {
         BaseType::p_new_worm_->set_flavor(f, diagonal_flavor);
       }
-      //BaseType::acceptance_rate_correction_ = 1.0;
-      //BaseType::acceptance_rate_correction_ = weight_ / std::pow(1.*BaseType::num_flavors_, num_flavor_indices - 1.0 );
-      BaseType::acceptance_rate_correction_ = weight_ *
+      BaseType::acceptance_rate_correction_ = weight_scaled *
           std::pow(tau_high - tau_low, num_time_indices) * BaseType::num_flavors_;
     }
   }

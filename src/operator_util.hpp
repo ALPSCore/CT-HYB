@@ -134,3 +134,21 @@ int count_num_pairs_after_insert(const operator_container_t &operators,
                                  double tau_ins,
                                  double tau_rem,
                                  bool &error);
+
+/**
+ * @brief Count the number of operators in a given time window (min[t1,t2], max[t1,t2])
+ * @param operators set of operators
+ * @param t1 an end point of the window
+ * @param t2 an end point of the window
+ */
+template<typename T>
+int num_operators_in_range_open(const operator_container_t &operators, T t1, T t2) {
+  namespace bll = boost::lambda;
+  typedef operator_container_t::iterator Iterator;
+
+  std::pair<Iterator,Iterator> ops_range
+      = operators.range(
+          std::min(t1, t2) < bll::_1, bll::_1 < std::max(t1, t2)
+      );
+  return std::distance(ops_range.first, ops_range.second);
+}

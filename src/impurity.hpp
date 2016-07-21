@@ -68,7 +68,6 @@ class HybridizationSimulation: public alps::mcbase {
   //TYPES
   typedef alps::mcbase Base;
   typedef typename model_traits<IMP_MODEL>::SCALAR_T SCALAR;
-  //typedef alps::ResizableMatrix<SCALAR> matrix_t;
   typedef std::complex<double> COMPLEX;
   typedef SlidingWindowManager<IMP_MODEL> SW_TYPE;
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
@@ -92,12 +91,17 @@ class HybridizationSimulation: public alps::mcbase {
         << "This program is licensed under GPLv2.";
   }
 
+  Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> get_rotmat_Delta() {
+    return p_model->get_rotmat_Delta();
+  }
+
  private:
   //for set up
   void read_eq_time_two_particle_greens_meas();
   void read_two_time_correlation_functions();
 
   void do_one_sweep(); // one sweep of the window
+  void transition_between_config_spaces();
   void global_updates(); //expensive updates
   void update_MC_parameters(); //update parameters for MC moves during thermalization steps
   void measure_n();
@@ -182,6 +186,9 @@ class HybridizationSimulation: public alps::mcbase {
 
   //Measurement of two-time correlation functions by worm sampling
   boost::shared_ptr<N2CorrelationFunctionMeasurement<SCALAR> > p_N2_meas;
+
+  //Measurement of single-particle Green's functions by worm sampling
+  boost::shared_ptr<GMeasurement<SCALAR,1> > p_G1_meas;
 
   //For measuring equal-time two-particle Green's function by insertion
   std::vector<EqualTimeOperator<2> > eq_time_two_particle_greens_meas;

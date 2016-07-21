@@ -415,7 +415,7 @@ namespace alps {
       eigen_matrix_t matrix(pert_order, pert_order);
       for (int j=0; j<pert_order; ++j) {
         for (int i = 0; i < pert_order; ++i) {
-          matrix(i, j) = p_gf_->opeator()(c_ops_[i], cdagg_ops_[j]);
+          matrix(i, j) = p_gf_->operator()(c_ops_[i], cdagg_ops_[j]);
         }
       }
       return matrix;

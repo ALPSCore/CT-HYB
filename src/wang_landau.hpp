@@ -20,9 +20,16 @@ class FlatHistogram {
         criterion(0.8),
         min_count(std::max(10.0, 1 / ((1.0 - criterion) * (1.0 - criterion)))),
         init_log_lambda_(0.993251773010283), //std::log(2.7);
-        min_log_lambda_(0.000999500333083), //std::log(1.001);
+        //min_log_lambda_(0.000999500333083), //std::log(1.001);
+        min_log_lambda_(0.000099995000334), //std::log(1.0001);
         log_lambda_(init_log_lambda_), log_f_(num_bin_, 0),
-        counter_(num_bin_, 0), done_(false), top_index_(0), max_index_(0), has_guess_(true) {
+        counter_(num_bin_, 0),
+        done_(false),
+        top_index_(0),
+        max_index_(0),
+        has_guess_(true),
+        num_updates_lambda_(0)
+  {
     max_index_ = max_val;
   }
 
@@ -34,7 +41,16 @@ class FlatHistogram {
       return 0;
     }
 
-    return std::exp(log_weight(value_new) - log_weight(value_old));
+    const double max_log_val = 115.1292546497023; //log(1E+50)
+    const double min_log_val = - max_log_val;
+    const double log_val = log_weight(value_new) - log_weight(value_old);
+    if (log_val > max_log_val) {
+      return 1E+50;
+    }
+    if (log_val < min_log_val) {
+      return 1E-50;
+    }
+    return std::exp(log_val);
   }
 
   /**
@@ -85,7 +101,14 @@ class FlatHistogram {
   void update_dos(bool verbose = false) {
     if (done_ || !has_guess_) return;
 
-    log_lambda_ = std::max(0.5 * log_lambda_, min_log_lambda_);
+    ++ num_updates_lambda_;
+    log_lambda_ = std::max(
+        -2.0 * std::log(num_updates_lambda_),
+        std::max(0.5 * log_lambda_, min_log_lambda_)
+    );//limited by 1/num_updates_lambda**2
+    if (global_mpi_rank == 81) {
+      std::cout << " new lambda = " << std::exp(log_lambda_) << std::endl;
+    }
     if (verbose) {
       std::cout << " new lambda = " << std::exp(log_lambda_) << std::endl;
       std::cout << " new log_lambda = " << log_lambda_ << std::endl;
@@ -144,6 +167,8 @@ class FlatHistogram {
   std::vector<double> counter_;
   uint top_index_, max_index_;
   bool done_, has_guess_;
+
+  long num_updates_lambda_;//how many time lambda has been updated
 
   void check_range(uint value) const {
     if (value > max_val_) {

@@ -3,6 +3,7 @@
 #include <complex>
 
 #include <Eigen/Dense>
+#include <Eigen/LU>
 
 #include <alps/gf/gf.hpp>
 #include <alps/gf/tail.hpp>
@@ -79,7 +80,7 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
       }
     }
   }
-  itime_gf.save(ar, "/gtau");
+  itime_gf.save(ar, "/gtau_removal");
 
   /*
    * Compute Gomega from Legendre coefficients
@@ -105,7 +106,7 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
       }
     }
   }
-  gomega.save(ar, "/gf");
+  gomega.save(ar, "/gf_removal");
 }
 
 template<typename SOLVER_TYPE>
@@ -170,6 +171,121 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
   ar["/N2_CORRELATION_FUNCTION"] << data_tau;
 }
 
+
+template<typename SOLVER_TYPE>
+void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
+                const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
+                alps::hdf5::archive ar,
+                bool verbose = false) {
+  namespace g=alps::gf;
+  typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
+  typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
+
+  const int n_legendre(parms["N_LEGENDRE_MEASUREMENT"].template as<int>());
+  const int n_tau(parms["N_TAU"].template as<int>());
+  const int n_matsubara(n_tau);
+  const double beta(parms["BETA"]);
+  const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
+  const double temperature(1.0 / beta);
+  const double sign = results["Sign"].template mean<double>();
+  //The factor of temperature below comes from the extra degree of freedom for beta in the worm
+  const double coeff =
+      - temperature * results["worm_space_volume_G1"].template mean<double>() /
+          (sign * results["Z_function_space_volume"].template mean<double>());
+
+  boost::multi_array<std::complex<double>, 3>
+      Gl_org_basis(boost::extents[n_flavors][n_flavors][n_legendre]);
+  {
+    const std::vector<double> Gl_Re = results["G1_Re"].template mean<std::vector<double> >();
+    const std::vector<double> Gl_Im = results["G1_Im"].template mean<std::vector<double> >();
+    assert(Gl_Re.size() == n_flavors * n_flavors * n_legendre);
+    boost::multi_array<std::complex<double>, 3>
+        Gl(boost::extents[n_flavors][n_flavors][n_legendre]);
+    std::transform(Gl_Re.begin(), Gl_Re.end(), Gl_Im.begin(), Gl.origin(), to_complex<double>());
+    std::transform(Gl.origin(), Gl.origin() + Gl.num_elements(), Gl.origin(),
+                   std::bind1st(std::multiplies<std::complex<double> >(), coeff));
+
+    //rotate back to the original basis
+    complex_matrix_t mattmp(n_flavors, n_flavors), mattmp2(n_flavors, n_flavors);
+    const matrix_t inv_rotmat_Delta = rotmat_Delta.inverse();
+    for (int il = 0; il < n_legendre; ++il) {
+      for (int flavor1 = 0; flavor1 < n_flavors; ++flavor1) {
+        for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
+          mattmp(flavor1, flavor2) = Gl[flavor1][flavor2][il];
+        }
+      }
+      mattmp2 = rotmat_Delta * mattmp * inv_rotmat_Delta;
+      for (int flavor1 = 0; flavor1 < n_flavors; ++flavor1) {
+        for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
+          Gl_org_basis[flavor1][flavor2][il] = mattmp2(flavor1, flavor2);
+        }
+      }
+    }
+  }
+  ar["/G1_LEGENDRE"] << Gl_org_basis;
+
+  /*
+   * Initialize LegendreTransformer
+   */
+  LegendreTransformer legendre_transformer(n_matsubara, n_legendre);
+
+  /*
+   * Compute G(tau) from Legendre coefficients
+   */
+  typedef alps::gf::three_index_gf<std::complex<double>, alps::gf::itime_mesh,
+                                   alps::gf::index_mesh,
+                                   alps::gf::index_mesh
+  > ITIME_GF;
+
+  ITIME_GF
+      itime_gf(alps::gf::itime_mesh(beta, n_tau + 1), alps::gf::index_mesh(n_flavors), alps::gf::index_mesh(n_flavors));
+  std::vector<double> Pvals(n_legendre);
+  const std::vector<double> &sqrt_array = legendre_transformer.get_sqrt_2l_1();
+  for (int itau = 0; itau < n_tau + 1; ++itau) {
+    const double tau = itau * (beta / n_tau);
+    const double x = 2 * tau / beta - 1.0;
+    legendre_transformer.compute_legendre(x, Pvals); //Compute P_l[x]
+
+    for (int flavor = 0; flavor < n_flavors; ++flavor) {
+      for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
+        for (int il = 0; il < n_legendre; ++il) {
+          itime_gf(g::itime_index(itau), g::index(flavor), g::index(flavor2)) +=
+              Pvals[il] * Gl_org_basis[flavor][flavor2][il] * sqrt_array[il] * temperature;
+        }
+      }
+    }
+  }
+  itime_gf.save(ar, "/gtau");
+
+  /*
+   * Compute Gomega from Legendre coefficients
+   */
+  typedef alps::gf::three_index_gf<std::complex<double>, alps::gf::matsubara_positive_mesh,
+                                   alps::gf::index_mesh,
+                                   alps::gf::index_mesh
+  > GOMEGA;
+
+  const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> &Tnl(legendre_transformer.Tnl());
+  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> tmp_mat(n_legendre, 1), tmp_mat2(n_tau, 1);
+  GOMEGA gomega(alps::gf::matsubara_positive_mesh(beta, n_tau),
+                alps::gf::index_mesh(n_flavors),
+                alps::gf::index_mesh(n_flavors));
+  for (int flavor = 0; flavor < n_flavors; ++flavor) {
+    for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
+      for (int il = 0; il < n_legendre; ++il) {
+        tmp_mat(il, 0) = Gl_org_basis[flavor][flavor2][il];
+      }
+      tmp_mat2 = Tnl * tmp_mat;
+      for (int im = 0; im < n_tau; ++im) {
+        gomega(g::matsubara_index(im), g::index(flavor), g::index(flavor2)) = tmp_mat2(im, 0);
+      }
+    }
+  }
+  gomega.save(ar, "/gf");
+
+}
+
 template<typename SOLVER_TYPE>
 void compute_fidelity_susceptibility(const typename alps::results_type<SOLVER_TYPE>::type &results,
                                      const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
@@ -193,7 +309,8 @@ void show_statistics(const typename alps::results_type<SOLVER_TYPE>::type &resul
   std::cout << " The following are the timings per window sweep (in units of second): " << std::endl;
   std::cout << " Local updates (insertion/removal/shift of operators/worm: " << timings[0] << std::endl;
   std::cout << " Global updates (global shift etc.): " << timings[1] << std::endl;
-  std::cout << " Measurement of Green's function and correlation function: " << timings[2] << std::endl;
+  std::cout << " Worm measurement: " << timings[2] << std::endl;
+  std::cout << " Rest of measurement: " << timings[3] << std::endl;
 #endif
 
   std::cout << std::endl << "==== Thermalization analysis ====" << std::endl;

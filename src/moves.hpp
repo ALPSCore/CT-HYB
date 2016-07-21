@@ -335,11 +335,6 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
       const SLIDING_WINDOW &sliding_window
   ) = 0;
 
-  //set the additional weight of the worm configuration space
-  //virtual void set_worm_space_weight(double weight) { worm_space_weight_ = weight; };
-
-  //virtual double worm_space_weight() const { return worm_space_weight_; };
-
   /** Will be called on the exit of update() */
   virtual void call_back();
 
@@ -363,8 +358,6 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
   scalar_histogram_flavors acc_rate_;
   double max_distance_, distance_;
   double worm_space_weight_;
-
-  //using BaseType::p_new_worm;
 };
 
 /**
@@ -404,10 +397,14 @@ class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_
                        double tau_lower_limit,
                        double tau_upper_limit,
                        boost::shared_ptr<Worm> p_worm_template
-  ) : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit), p_worm_template_(p_worm_template) {
+  ) : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit), p_worm_template_(p_worm_template),
+      insertion_proposal_rate_(0.0)
+  {
   }
 
   virtual void set_worm_space_weight(double weight) {weight_ = weight;};
+
+  void set_relative_insertion_proposal_rate(double insertion_proposal_rate) {insertion_proposal_rate_ = insertion_proposal_rate;};
 
  private:
   virtual bool propose(
@@ -418,6 +415,7 @@ class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_
 
   boost::shared_ptr<Worm> p_worm_template_;
   double weight_;
+  double insertion_proposal_rate_;
 };
 
 /**

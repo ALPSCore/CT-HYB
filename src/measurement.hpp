@@ -239,195 +239,67 @@ class N2CorrelationFunctionMeasurement {
     std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
   }
 
+  /**
+   * @brief Measure correlation functions with shifting two of the four operators on the interval [0,beta]
+   * @param average_pert_order average perturbation order, which is used for determining the number of shifts
+   */
   template<typename SlidingWindow>
-  void measure_new(MonteCarloConfiguration<SCALAR> &mc_config,
+  void measure(MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements,
-                   alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str) {
-    namespace bll = boost::lambda;
-    typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
-    typedef operator_container_t::iterator Iterator;
-    if (mc_config.current_config_space() != "N2_correlation") {
-      return;
-    }
-
-    //Remove the left-hand-side operators
-    operator_container_t ops(mc_config.operators);
-    const std::vector<psi> worm_ops_original = mc_config.p_worm->get_operators();
-    safe_erase(ops, worm_ops_original);
-
-    //Generate times of the left hand operator pair c^dagger c
-    //Make sure there is no duplicate
-    const int num_times = std::max(20, average_pert_order);
-    std::set<double> new_times;
-    new_times.insert(worm_ops_original[0].time().time());
-    if (new_times.size() < num_times) {
-      std::set<double> duplicate_check;
-      for (operator_container_t::iterator it = mc_config.operators.begin(); it != mc_config.operators.end(); ++it) {
-        duplicate_check.insert(it->time().time());
-      }
-      while(new_times.size() < num_times) {
-        double t = open_random(random, 0.0, beta_);
-        if (duplicate_check.find(t) == duplicate_check.end()) {
-          new_times.insert(t);
-          duplicate_check.insert(t);
-        }
-      }
-      assert(new_times.size() == num_times);
-    }
-    
-    //remember the current status of the sliding window
-    const typename SlidingWindow::state_t state = sliding_window.get_state();
-    const int n_win = sliding_window.get_n_window();
-
-    std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
-
-    //configurations whose trace is smaller than this cutoff are ignored.
-    const EXTENDED_REAL trace_cutoff = EXTENDED_REAL(1.0E-30)*myabs(mc_config.trace);
-
-    double norm = 0.0;
-    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
-
-    //compute Monte Carlo weights of configurations with new time
-    // sweep = 0: configuration with new time for the left-hand operator pair
-    // sweep = 1: configuration with new time and new flavors for all worm operators
-    for (int sweep = 0; sweep < 2; ++sweep) {
-      std::vector<psi> worm_ops = worm_ops_original;
-      if (sweep == 1) {//change flavors of all worm operators
-        for (int iop = 0; iop < worm_ops.size(); ++iop) {
-          worm_ops[iop].set_flavor(static_cast<int>(random()*num_flavors_));
-        }
-      }
-
-      //insert worm operators which are not shifted in time
-      for (int iop = 2; iop < worm_ops.size(); ++iop) {
-        safe_insert(ops, worm_ops[iop]);
-      }
-
-      //reset the window and move to the right most position
-      sliding_window.set_window_size(std::max(num_times, n_win), ops, 0, ITIME_LEFT);
-
-      for (std::set<double>::iterator it = new_times.begin(); it != new_times.end(); ++it) {
-        //move the window so that it contains the time
-        while (*it > sliding_window.get_tau_high()) {
-          sliding_window.move_window_to_next_position(ops);
-        }
-        assert(*it <= sliding_window.get_tau_high());
-        assert(*it >= sliding_window.get_tau_low());
-  
-        worm_ops[0].set_time(OperatorTime(*it, +1));
-        worm_ops[1].set_time(OperatorTime(*it,  0));
-        safe_insert(ops, worm_ops[0]);
-        safe_insert(ops, worm_ops[1]);
-  
-        sliding_window.compute_trace_bound(ops, trace_bound);
-        std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(ops, EXTENDED_REAL(0.0), trace_bound);
-        if (myabs(r.second) > trace_cutoff) {
-          const SCALAR weight = convert_to_scalar(r.second/mc_config.trace);
-          measure_impl(worm_ops, mc_config.sign*weight, data_);
-          norm += std::abs(weight);
-        }
-  
-        safe_erase(ops, worm_ops[0]);
-        safe_erase(ops, worm_ops[1]);
-      }
-      
-      //remove worm operators which are not shifted in time
-      for (int iop = 2; iop < worm_ops.size(); ++iop) {
-        safe_erase(ops, worm_ops[iop]);
-      }
-    }
-
-    //normalize the data
-    std::transform(data_.origin(), data_.origin() + data_.num_elements(), data_.origin(), std::bind2nd(std::divides<std::complex<double> >(), norm));
-
-    //pass the data to ALPS libraries
-    measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
-
-    //restore the status of the sliding window
-    //sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);//reset brakets
-    sliding_window.restore_state(mc_config.operators, state);
-  }
-
-  void measure_impl(const std::vector<psi> &worm_ops, SCALAR weight,
-                    boost::multi_array<std::complex<double>,5> &data) {
-                    //alps::accumulators::accumulator_set &measurements, const std::string &str) {
-    boost::array<int, 4> flavors;
-    if (worm_ops[0].time().time() != worm_ops[1].time().time()) {
-      throw std::runtime_error("time worm_ops0 != time worm_ops1");
-    }
-    if (worm_ops[2].time().time() != worm_ops[3].time().time()) {
-      throw std::runtime_error("time worm_ops2 != time worm_ops3");
-    }
-    double tdiff = worm_ops[0].time().time() - worm_ops[2].time().time();
-    if (tdiff < 0.0) {
-      tdiff += beta_;
-    }
-    for (int f = 0; f < 4; ++f) {
-      flavors[f] = worm_ops[f].flavor();
-    }
-
-    const int num_legendre = legendre_trans_.num_legendre();
-    std::vector<double> Pl_vals(num_legendre);
-
-    legendre_trans_.compute_legendre(2 * tdiff / beta_ - 1.0, Pl_vals);
-    for (int il = 0; il < num_legendre; ++il) {
-      data
-      [flavors[0]]
-      [flavors[1]]
-      [flavors[2]]
-      [flavors[3]][il] += weight * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
-    }
-  }
-
-  void measure(const MonteCarloConfiguration<SCALAR> &mc_config,
-               alps::accumulators::accumulator_set &measurements, const std::string &str) {
-    if (mc_config.current_config_space() != "N2_correlation") {
-      return ;
-    }
-
-    boost::array<int, 4> flavors;
-    double tdiff = mc_config.p_worm->get_time(0) - mc_config.p_worm->get_time(1);
-    if (tdiff >= 0.0) {
-      for (int f = 0; f < 4; ++f) {
-        flavors[f] = mc_config.p_worm->get_flavor(f);
-      }
-    } else {
-      tdiff *= -1.0;
-      flavors[0] = mc_config.p_worm->get_flavor(2);
-      flavors[1] = mc_config.p_worm->get_flavor(3);
-      flavors[2] = mc_config.p_worm->get_flavor(0);
-      flavors[3] = mc_config.p_worm->get_flavor(1);
-    }
-
-    const int num_legendre =  legendre_trans_.num_legendre();
-    std::vector<double> Pl_vals(num_legendre);
-
-    legendre_trans_.compute_legendre(2 * tdiff / beta_ - 1.0, Pl_vals);
-    for (int il = 0; il < num_legendre; ++il) {
-      data_
-      [flavors[0]]
-      [flavors[1]]
-      [flavors[2]]
-      [flavors[3]][il] += 0.5 * mc_config.sign * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
-    }
-
-    legendre_trans_.compute_legendre(2 * (beta_ - tdiff) /beta_ - 1.0, Pl_vals);
-    for (int il = 0; il < num_legendre; ++il) {
-      data_
-      [flavors[2]]
-      [flavors[3]]
-      [flavors[0]]
-      [flavors[1]][il] += 0.5 * mc_config.sign * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
-    }
-
-    //measurements[str.c_str()] << to_std_vector(data_);
-    measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
-    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
-  }
+                   alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str);
 
  private:
+  /** Measure correlation functions for a single configuration */
+  void measure_impl(const std::vector<psi> &worm_ops, SCALAR weight,
+                    boost::multi_array<std::complex<double>,5> &data);
   int num_flavors_;
   double beta_;
   LegendreTransformer legendre_trans_;
   boost::multi_array<std::complex<double>, 5> data_;
 };
+
+template<int Rank>
+void init_work_space(boost::multi_array<std::complex<double>, 4 * Rank - 1> &data, int num_flavors, int num_legendre);
+
+/**
+ * @brief Class for measurement of Green's function using Legendre basis
+ */
+template<typename SCALAR, int Rank>
+class GMeasurement {
+ public:
+  /**
+   * Constructor
+   *
+   * @param num_flavors    the number of flavors
+   * @param num_legendre   the number of legendre coefficients
+   * @param beta           inverse temperature
+   */
+  GMeasurement(int num_flavors, int num_legendre, double beta) :
+      num_flavors_(num_flavors),
+      beta_(beta),
+      legendre_trans_(1, num_legendre) {
+    init_work_space<Rank>(data_, num_flavors, num_legendre);
+  };
+
+  /**
+   * @brief Measure correlation functions with shifting two of the four operators on the interval [0,beta]
+   * @param average_pert_order average perturbation order per flavor, which is used for determining the number of shifts
+   */
+  template<typename SlidingWindow>
+  void measure(MonteCarloConfiguration<SCALAR> &mc_config,
+               alps::accumulators::accumulator_set &measurements,
+               alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str);
+
+ private:
+  /** Measure single-particle Green's function */
+  typename boost::enable_if_c<Rank==1, SCALAR>::type
+  measure_impl(const std::vector<psi> &worm_ops, int idx_operator_shifted, SCALAR sign, std::vector<SCALAR> &weight_flavors);
+
+  int num_flavors_;
+  double beta_;
+  LegendreTransformer legendre_trans_;
+  //flavor, ..., flavor, legendre, legendre, ..., legendre
+  boost::multi_array<std::complex<double>, 4 * Rank - 1> data_;
+};
+
+#include "measurement.ipp"
