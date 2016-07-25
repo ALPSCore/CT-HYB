@@ -611,27 +611,17 @@ bool OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose
   it_t it_cdagg = cdagg_range.first;
   std::advance(it_cdagg, static_cast<int>(num_cdagg_ops*rng()));
   BaseType::cdagg_ops_rem_.push_back(*it_cdagg);
-  //std::cout << "cdagg_rem " << *it_cdagg << std::endl;
   psi cdagg_op_new = *it_cdagg;
   cdagg_op_new.set_flavor(static_cast<int>(num_flavors_*rng()));
   BaseType::cdagg_ops_add_.push_back(cdagg_op_new);
-  //std::cout << "cdagg_add " << cdagg_op_new << std::endl;
 
   //asign a new random flavor to one of annihilation operators
   it_t it_c = c_range.first;
   std::advance(it_c, static_cast<int>(num_c_ops*rng()));
   BaseType::c_ops_rem_.push_back(*it_c);
-  //std::cout << "c_rem " << *it_c << std::endl;
   psi c_op_new = *it_c;
   c_op_new.set_flavor(static_cast<int>(num_flavors_*rng()));
   BaseType::c_ops_add_.push_back(c_op_new);
-  //std::cout << "c_add " << c_op_new << std::endl;
-
-  //std::cout << mc_config.M.get_cdagg_ops(c_op_new.flavor()) << std::endl;
-  //std::cout << mc_config.M.get_c_ops(c_op_new.flavor()) << std::endl;
-  //std::cout << mc_config.M.compute_inverse_matrix() << std::endl;
-  //std::cout << mc_config.M.compute_G_matrix(c_op_new.flavor()) << std::endl;
-  //std::cout << std::endl;
 
   BaseType::acceptance_rate_correction_ = 1.0;
 

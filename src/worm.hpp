@@ -20,25 +20,25 @@ class Worm {
   /** Get creation and annihilation operators (not time-ordered)*/
   virtual std::vector<psi> get_operators() const = 0;
 
-  /** Number of independent time variables*/
+  /** Number of independent time indices*/
   virtual int num_independent_times() const = 0;
 
-  /** Return a time variable */
+  /** Return a time index */
   virtual double get_time(int index) const = 0;
 
-  /** Set a new value to a time variable */
+  /** Set a new value to a time index */
   virtual void set_time(int index, double new_time) = 0;
 
-  /** Number of independent flavor variables*/
+  /** Number of independent flavor indices */
   virtual int num_independent_flavors() const = 0;
 
-  /** Return a flavor variable */
+  /** Return a flavor index */
   virtual int get_flavor(int index) const = 0;
 
-  /** Set a new value to a flavor variable */
+  /** Set a new value to a flavor index */
   virtual void set_flavor(int index, int new_flavor) = 0;
 
-  /** Return time variables for a given flavor variable */
+  /** Return all time indices corresponding to a given flavor index */
   virtual const std::vector<int> &get_time_index(int flavor_index) const = 0;
 
   /** Return the name of the worm instance */
@@ -218,6 +218,71 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
   boost::array<double, 2 * Rank> times_;
   boost::array<int, 2 * Rank> flavors_;
   std::vector<std::vector<int> > time_index_;
+};
+
+/**
+ * Measure equal-time Green's function <c^dagger c , ..., c^dagger c>
+ * Rank = 1: single-particle Green's function
+ * Rank = 2: two-particle Green's function
+ *
+ */
+template<unsigned int Rank>
+class EqualTimeGWorm: public Worm, private boost::equality_comparable<EqualTimeGWorm<Rank> > {
+ public:
+  EqualTimeGWorm(const std::string &name) : name_(name) {
+    time_index_.push_back(0);
+  }
+
+  virtual boost::shared_ptr<Worm> clone() const {
+    return boost::shared_ptr<Worm>(new EqualTimeGWorm<Rank>(*this));
+  }
+
+  virtual int num_operators() const { return 2 * Rank; };
+
+  virtual std::vector<psi> get_operators() const;//implemented in worm.ipp
+
+  virtual int num_independent_times() const { return 1; }
+
+  virtual double get_time(int index) const {
+    assert(index == 0);
+    return time_;
+  }
+
+  virtual void set_time(int index, double new_time) {
+    assert(index == 0);
+    time_ = new_time;
+  }
+
+  virtual int num_independent_flavors() const { return 2 * Rank; }
+
+  virtual int get_flavor(int index) const {
+    assert(index >= 0 && index < 2 * Rank);
+    return flavors_[index];
+  }
+
+  virtual void set_flavor(int index, int new_flavor) {
+    assert(index >= 0 && index < 2 * Rank);
+    flavors_[index] = new_flavor;
+  }
+
+  virtual const std::vector<int> &get_time_index(int flavor_index) const {
+    assert(flavor_index >= 0 && flavor_index < 2 * Rank);
+    return time_index_;
+  }
+
+  virtual bool operator==(const EqualTimeGWorm<Rank> &other_worm) const {
+    return (time_ == other_worm.time_ && flavors_ == other_worm.flavors_);
+  }
+
+  const std::string& get_name() const {
+    return name_;
+  }
+
+ private:
+  std::string name_;
+  double time_;
+  boost::array<int, 2 * Rank> flavors_;
+  std::vector<int> time_index_;
 };
 
 #include "worm.ipp"

@@ -77,6 +77,9 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
     if (parameters["N_LEGENDRE_N2_MEASUREMENT"] > 0) {
       N2_correlation_function<SOLVER_TYPE>(results, parameters, ar, global_mpi_rank == 0);
     }
+    if (parameters["N_MEASURE_EQUAL_TIME_G2"] > 0) {
+      compute_euqal_time_G2<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
+    }
     compute_fidelity_susceptibility<SOLVER_TYPE>(results, parameters, ar);
     if (global_mpi_rank == 0) {
       show_statistics<SOLVER_TYPE>(results, parameters, ar);

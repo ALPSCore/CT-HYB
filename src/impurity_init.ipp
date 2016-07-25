@@ -35,6 +35,10 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   }
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "G1");
 
+  if (par["N_MEASURE_EQUAL_TIME_G2"] > 0) {
+    create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G2");
+  }
+
   //fidelity susceptibility
   create_observable<SCALAR , SimpleRealObservable>(measurements, "kLkR");
   create_observable<SCALAR , SimpleRealObservable>(measurements, "k");
@@ -91,6 +95,30 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     );
     p_N2_meas.reset(
         new N2CorrelationFunctionMeasurement<SCALAR>(FLAVORS, par["N_LEGENDRE_N2_MEASUREMENT"], BETA)
+    );
+  }
+
+  /*
+   * Equal-time two-particle Green's function
+   */
+  if (par["N_MEASURE_EQUAL_TIME_G2"] > 0) {
+    const std::string name("Equal_time_G2");
+    worm_names.push_back(name);
+    worm_movers.push_back(
+        boost::shared_ptr<WormMoverType>(
+            new WormMoverType(name, BETA, FLAVORS, 0.0, BETA)
+        )
+    );
+    worm_insertion_removers.push_back(
+        boost::shared_ptr<WormInsertionRemoverType>(
+            new WormInsertionRemoverType(
+                name, BETA, FLAVORS, 0.0, BETA,
+                boost::shared_ptr<Worm>(new EqualTimeGWorm<2>(name))
+            )
+        )
+    );
+    p_equal_time_G2_meas.reset(
+        new EqualTimeGMeasurement<SCALAR,2>(FLAVORS)
     );
   }
 

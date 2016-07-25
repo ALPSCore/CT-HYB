@@ -18,6 +18,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<double>("THERMALIZATION_TIME", -1,
                     "Thermalization time (in units of second). If you do not set a positive value, the default value (25 % of the total simulation time) will be used.")
       .define<int>("N_MEAS", 10, "Expensive measurements are performed every N_MEAS updates.")
+      .define<int>("N_MEASURE_EQUAL_TIME_G2", 0, "Set a non-zero value to measure equal-time two-particle Green's function.")
       .define<int>("N_GLOBAL_UPDATES", 10, "Global updates are performed every N_GLOBAL_UPDATES updates.")
       .define<int>("RANK_INSERTION_REMOVAL_UPDATE", 1, "1 for only single-pair update. k for up to k-pair update.")
       .define<int>("N_SWAP", 10, "We attempt to swap flavors every N_SWAP Monte Carlo steps.")
@@ -238,6 +239,8 @@ void HybridizationSimulation<IMP_MODEL>::update() {
         p_G1_meas->measure(mc_config, measurements, random, sliding_window, N_win_standard, "G1");
       } else if (mc_config.current_config_space() == "N2_correlation") {
         p_N2_meas->measure(mc_config, measurements, random, sliding_window, N_win_standard, "N2_correlation_function");
+      }  else if (mc_config.current_config_space() == "Equal_time_G2") {
+        p_equal_time_G2_meas->measure(mc_config, measurements, "Equal_time_G2");
       }
       //measure configuration space volume
       num_steps_in_config_space[get_config_space_position(mc_config.current_config_space())] += 1.0;
@@ -551,7 +554,6 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
       global_shift_acc_rate.rejected();
       if (p_model->translationally_invariant()) {
         std::cerr << "Warning: a global shift is rejected!" << std::endl;
-        //exit(-1);
       }
     }
     sanity_check();

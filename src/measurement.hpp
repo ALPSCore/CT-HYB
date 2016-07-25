@@ -302,4 +302,31 @@ class GMeasurement {
   boost::multi_array<std::complex<double>, 4 * Rank - 1> data_;
 };
 
+/**
+ * @brief Class for measurement of equal-time Green's function
+ */
+template<typename SCALAR, int Rank>
+class EqualTimeGMeasurement {
+ public:
+  /**
+   * Constructor
+   *
+   * @param num_flavors    the number of flavors
+   */
+  EqualTimeGMeasurement(int num_flavors) :
+      num_flavors_(num_flavors) {};
+
+  /**
+   * @brief Measure correlation functions with shifting two of the four operators on the interval [0,beta]
+   * @param average_pert_order average perturbation order per flavor, which is used for determining the number of shifts
+   */
+  typename boost::enable_if_c<Rank==2, SCALAR>::type
+  measure(MonteCarloConfiguration<SCALAR> &mc_config,
+               alps::accumulators::accumulator_set &measurements,
+               const std::string &str);
+
+ private:
+  int num_flavors_;
+};
+
 #include "measurement.ipp"

@@ -320,3 +320,19 @@ GMeasurement<SCALAR,Rank>::measure_impl(const std::vector<psi> &worm_ops, int id
   return 0.0; //dummy
 }
 
+template<typename SCALAR, int Rank>
+typename boost::enable_if_c<Rank==2, SCALAR>::type
+EqualTimeGMeasurement<SCALAR,Rank>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
+            alps::accumulators::accumulator_set &measurements,
+            const std::string &str) {
+  boost::multi_array<std::complex<double>,4> data;
+  data.resize(boost::extents[num_flavors_][num_flavors_][num_flavors_][num_flavors_]);
+  std::fill(data.origin(), data.origin() + data.num_elements(), 0.0);
+
+  data[mc_config.p_worm->get_flavor(0)][mc_config.p_worm->get_flavor(1)]
+    [mc_config.p_worm->get_flavor(2)][ mc_config.p_worm->get_flavor(3)] = mc_config.sign;
+
+  measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data));
+
+  return 0.0; //dummy
+};
