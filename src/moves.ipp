@@ -56,6 +56,9 @@ struct OutOfRange {
   double tau_low_, tau_high_;
 };
 
+/**
+ * Determine which operators to be removed and what operators to be inserted in worm update
+ */
 inline void take_worm_diff(const Worm &worm_old, const Worm &worm_new, double tau_low, double tau_high,
                     std::vector<psi> &worm_ops_rem, std::vector<psi> &worm_ops_add) {
   const OutOfRange<psi> out_of_range = OutOfRange<psi>(tau_low, tau_high);
@@ -286,16 +289,27 @@ bool LocalUpdater<SCALAR,
     throw std::runtime_error("Insertion error A.2");
   }
 
+  int mode;
   try {
     if (!mc_config.p_worm && p_new_worm_) {
+      mode = 0;
       safe_insert(mc_config.operators, p_new_worm_->get_operators());
     } else if (mc_config.p_worm && !p_new_worm_) {
+      mode = 1;
       safe_erase(mc_config.operators, mc_config.p_worm->get_operators());
     } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
+      mode = 2;
       safe_erase(mc_config.operators, worm_ops_rem);
       safe_insert(mc_config.operators, worm_ops_add);
     }
   } catch (std::exception &e) {
+    std::cout << "debug info: mode = " << mode << std::endl;
+    std::cout << "debug info: worm_ops_rem = " << worm_ops_rem << std::endl;
+    std::cout << "debug info: worm_ops_add = " << worm_ops_add << std::endl;
+    if (mc_config.p_worm) {
+      std::cout << "debug info: old_worm_ops = " << mc_config.p_worm->get_operators() << std::endl;
+      std::cout << "debug info: new_worm_ops = " << p_new_worm_->get_operators() << std::endl;
+    }
     throw std::runtime_error("Insertion error E");
   }
 
