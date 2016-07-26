@@ -169,8 +169,20 @@ inline bool operator<(const psi &t1, const double t2) {
   return t1.time() < OperatorTime(t2);
 }
 
+inline bool operator<(const psi &t1, const OperatorTime t2) {
+  return t1.time() < t2;
+}
+
 inline bool operator<(const double t1, const psi &t2) {
   return OperatorTime(t1) < t2.time();
+}
+
+inline bool operator<(const OperatorTime &t1, const double &t2) {
+  return t1 < OperatorTime(t2, 0);
+}
+
+inline bool operator<(const OperatorTime &t1, const psi &t2) {
+  return t1 < t2.time();
 }
 
 inline bool operator<=(const psi &t1, const double t2) {
@@ -227,9 +239,28 @@ inline void safe_erase(operator_container_t &operators, Iterator first, Iterator
   }
 }
 
+/*
+template<typename Iterator>
+inline bool safe_erase_with_record(operator_container_t &operators, Iterator first, Iterator last, std::vector<psi> &ops_removed) {
+  for (Iterator it = first; it != last; ++it) {
+    if (operators.erase(*it) == operators.end()) {
+      return false;
+    }
+    ops_removed.push_back(*it);
+  }
+  return true;
+}
+ */
+
 inline void safe_erase(operator_container_t &operators, const std::vector<psi> &ops) {
   safe_erase(operators, ops.begin(), ops.end());
 }
+
+/*
+inline bool safe_erase_with_record(operator_container_t &operators, const std::vector<psi> &ops, std::vector<psi> &ops_removed) {
+  return safe_erase_with_record(operators, ops.begin(), ops.end(), ops_removed);
+}
+*/
 
 inline std::pair<operator_container_t::iterator, bool> safe_insert(operator_container_t &operators, const psi &op) {
   std::pair<operator_container_t::iterator, bool> r = operators.insert(op);
@@ -248,8 +279,24 @@ inline void safe_insert(operator_container_t &operators, Iterator first, Iterato
   }
 }
 
+template<typename Iterator>
+inline bool safe_insert_with_record(operator_container_t &operators, Iterator first, Iterator last, std::vector<psi> &ops_inserted) {
+  for (Iterator it = first; it != last; ++it) {
+    std::pair<operator_container_t::iterator,bool> info = operators.insert(*it);
+    if (!info.second) {
+      return false;
+    }
+    ops_inserted.push_back(*it);
+  }
+  return true;
+}
+
 inline void safe_insert(operator_container_t &operators, const std::vector<psi> &ops) {
   safe_insert(operators, ops.begin(), ops.end());
+}
+
+inline bool safe_insert_with_record(operator_container_t &operators, const std::vector<psi> &ops, std::vector<psi> &ops_inserted) {
+  return safe_insert_with_record(operators, ops.begin(), ops.end(), ops_inserted);
 }
 
 //c^¥dagger(flavor0) c(flavor1) c^¥dagger(flavor2) c(flavor3) ... at the equal time

@@ -196,6 +196,47 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
   finalize_update();
 };
 
+/**
+ * Check if insertion is possible
+ */
+//bool insertion_possible(const operator_container_t &ops, const std::vector<psi> &ops_add) {
+  //for (std::vector<psi>::const_iterator it = ops_add.begin(); it != ops_add.end(); ++it) {
+    //if (ops.find)
+  //}
+  //return true;
+//}
+
+/*
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+bool LocalUpdater<SCALAR,
+                  EXTENDED_SCALAR,
+                  SLIDING_WINDOW>::update_operators(MonteCarloConfiguration<SCALAR> &mc_config,
+                                                    const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add) {
+  std::vector<psi> ops_already_removed, ops_already_inserted;
+
+  try {
+    safe_erase_with_record(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end(), ops_already_removed);
+    safe_erase_with_record(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end(), ops_already_removed);
+    safe_insert_with_record(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end(), ops_already_inserted);
+    safe_insert_with_record(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end(), ops_already_inserted);
+
+    if (!mc_config.p_worm && p_new_worm_) {
+      safe_insert_with_record(mc_config.operators, p_new_worm_->get_operators(), ops_already_inserted);
+    } else if (mc_config.p_worm && !p_new_worm_) {
+      safe_erase_with_record(mc_config.operators, mc_config.p_worm->get_operators(), ops_already_removed);
+    } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
+      safe_erase_with_record(mc_config.operators, worm_ops_rem, ops_already_removed);
+      safe_insert_with_record(mc_config.operators, worm_ops_add, ops_already_inserted);
+    }
+  } catch (std::exception &e) {
+    safe_erase_with_record(mc_config.operators, )
+
+  }
+
+  return true;
+}
+*/
+
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool LocalUpdater<SCALAR,
                   EXTENDED_SCALAR,
@@ -996,8 +1037,8 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   for (int t = 0; t < num_times; ++t) {
     if (InRange<OperatorTime>(tau_low, tau_high)(mc_config.p_worm->get_time(t))) {
       const double new_time = (2 * rng() - 1.0) * BaseType::max_distance_ + BaseType::p_new_worm_->get_time(t);
-      if (new_time < tau_low || new_time > tau_high) {
-        //is_movable = false;
+      if (new_time < tau_low || new_time > tau_high ||
+          num_operators_in_range_open(mc_config.operators, OperatorTime(new_time, -10000), OperatorTime(new_time, +10000)) != 0) {
         return false;
       }
       BaseType::distance_ = std::max(
@@ -1072,8 +1113,18 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     //propose insertion
     BaseType::p_new_worm_ = p_worm_template_->clone();
 
+    std::set<double> duplicate_check;
     for (int t = 0; t < num_time_indices; ++t) {
-      BaseType::p_new_worm_->set_time(t, open_random(rng, tau_low, tau_high));
+      double rand_time;
+      while (true) {
+        rand_time = open_random(rng, tau_low, tau_high);
+        if (duplicate_check.find(rand_time) == duplicate_check.end()
+            &&  num_operators_in_range_open(mc_config.operators, OperatorTime(rand_time, -100000), OperatorTime(rand_time, +100000)) == 0) {
+          duplicate_check.insert(rand_time);
+          break;
+        }
+      }
+      BaseType::p_new_worm_->set_time(t, rand_time);
     }
     if (rng() < 0.5) {
       for (int f = 0; f < num_flavor_indices; ++f) {
