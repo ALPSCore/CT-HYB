@@ -65,7 +65,7 @@ struct OperatorShift {
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class LocalUpdater {
  public:
-  LocalUpdater() { }
+  LocalUpdater() : trace_is_not_updated_(false) {}
   virtual ~LocalUpdater() { }
 
   /** Update the configuration */
@@ -107,6 +107,7 @@ class LocalUpdater {
   std::vector<psi> cdagg_ops_add_; //hybrized with bath
   std::vector<psi> c_ops_add_;     //hybrized with bath
   boost::shared_ptr<Worm> p_new_worm_; //New worm
+  bool trace_is_not_updated_; //set true if the trace is not updated.
 
   //some variables set on the exit of update()
   bool valid_move_generated_;
@@ -384,7 +385,7 @@ private:
 };
 
 /**
- * Class managing the insertion and removal of a worm
+ * Class for the insertion and removal of a worm
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
@@ -417,6 +418,38 @@ class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_
   double weight_;
   double insertion_proposal_rate_;
 };
+
+/**
+ * @brief Class for the insertion and removal of a Green's function worm by connecting or cutting hybridization lines
+ * This may be more efficient than the general version, WormInsertionRemover,
+ * because one does not need to re-evaluate the trace.
+ */
+template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+
+ public:
+  GWormInsertionRemover(const std::string &str,
+                       double beta,
+                       int num_flavors,
+                       boost::shared_ptr<Worm> p_worm_template
+  ) : BaseType(), p_worm_template_(p_worm_template)
+  {
+  }
+
+  virtual void set_worm_space_weight(double weight) {weight_ = weight;};
+
+ private:
+  virtual bool propose(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window
+  );
+
+  boost::shared_ptr<Worm> p_worm_template_;
+  double weight_;
+};
+
 
 /**
  * @brief Exchange flavors of a worm

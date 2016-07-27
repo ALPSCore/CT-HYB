@@ -479,6 +479,18 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
       const int i_worm = get_worm_position(mc_config.current_config_space());
       worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window);
     }
+    //measure and adjust relative weight of Z-function and worm spaces
+    if (!is_thermalized()) {
+      adjust_worm_space_weight();
+    }
+
+    //G1 worm insertion and removal by changing hybridization lines
+    if (mc_config.current_config_space() == "Z_FUNCTION_SPACE" || mc_config.current_config_space() == "G1") {
+      p_g1_worm_insertion_remover->update(random, BETA, mc_config, sliding_window);
+    }
+    if (!is_thermalized()) {
+      adjust_worm_space_weight();
+    }
 
     //worm move
     const int i_config_space = get_config_space_position(mc_config.current_config_space());
@@ -486,10 +498,6 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
       worm_movers[i_config_space - 1]->update(random, BETA, mc_config, sliding_window);
     }
 
-    //measure and adjust relative weight of Z-function and worm spaces
-    if (!is_thermalized()) {
-      adjust_worm_space_weight();
-    }
   }
 }
 
@@ -709,6 +717,10 @@ void HybridizationSimulation<IMP_MODEL>::adjust_worm_space_weight() {
   for (int w = 0; w < worm_names.size(); ++w) {
     config_space_extra_weight[w + 1] = p_flat_histogram_config_space->weight_ratio(w + 1, 0);
     worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1]);
+  }
+
+  if (p_g1_worm_insertion_remover) {
+    p_g1_worm_insertion_remover->set_worm_space_weight(config_space_extra_weight[get_config_space_position("G1")]);
   }
 
   //If the histogram is flat enough,

@@ -40,8 +40,8 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   }
 
   //fidelity susceptibility
-  create_observable<SCALAR , SimpleRealObservable>(measurements, "kLkR");
-  create_observable<SCALAR , SimpleRealObservable>(measurements, "k");
+  create_observable<SCALAR, SimpleRealObservable>(measurements, "kLkR");
+  create_observable<SCALAR, SimpleRealObservable>(measurements, "k");
 
   measurements << alps::accumulators::NoBinningAccumulator<double>("Pert_order_start");
   measurements << alps::accumulators::NoBinningAccumulator<double>("Pert_order_end");
@@ -72,7 +72,12 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       )
   );
   p_G1_meas.reset(
-     new GMeasurement<SCALAR,1>(FLAVORS, par["N_LEGENDRE_MEASUREMENT"], BETA)
+      new GMeasurement<SCALAR, 1>(FLAVORS, par["N_LEGENDRE_MEASUREMENT"], BETA)
+  );
+  p_g1_worm_insertion_remover.reset(
+      new G1WormInsertionRemoverType(
+          "G1", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>("G1"))
+      )
   );
 
   /*
@@ -118,7 +123,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         )
     );
     p_equal_time_G2_meas.reset(
-        new EqualTimeGMeasurement<SCALAR,2>(FLAVORS)
+        new EqualTimeGMeasurement<SCALAR, 2>(FLAVORS)
     );
   }
 

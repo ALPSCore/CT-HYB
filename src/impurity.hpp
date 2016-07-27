@@ -173,9 +173,11 @@ class HybridizationSimulation: public alps::mcbase {
   //N2Worm updater: worm for computing <c^\dagger_i(tau) c_j(tau) c^\dagger_k(0) c_l(0)>
   typedef WormMover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormMoverType;
   typedef WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormInsertionRemoverType;
+  typedef GWormInsertionRemover<SCALAR, 1, EXTENDED_SCALAR, SW_TYPE> G1WormInsertionRemoverType;
   std::vector<std::string> worm_names;
   std::vector<boost::shared_ptr<WormMoverType> > worm_movers;
   std::vector<boost::shared_ptr<WormInsertionRemoverType> > worm_insertion_removers;
+  boost::shared_ptr<G1WormInsertionRemoverType> p_g1_worm_insertion_remover;//connecting or cutting hybridization lines
   boost::shared_ptr<FlatHistogram> p_flat_histogram_config_space;
 
   //sliding window for computing trace

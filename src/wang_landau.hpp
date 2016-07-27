@@ -106,10 +106,7 @@ class FlatHistogram {
         -2.0 * std::log(num_updates_lambda_),
         std::max(0.5 * log_lambda_, min_log_lambda_)
     );//limited by 1/num_updates_lambda**2
-    if (global_mpi_rank == 81) {
-      std::cout << " new lambda = " << std::exp(log_lambda_) << std::endl;
-    }
-    if (verbose) {
+    if (verbose && global_mpi_rank == 0) {
       std::cout << " new lambda = " << std::exp(log_lambda_) << std::endl;
       std::cout << " new log_lambda = " << log_lambda_ << std::endl;
     }
