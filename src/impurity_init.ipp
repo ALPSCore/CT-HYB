@@ -25,17 +25,19 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
   measurements << alps::accumulators::NoBinningAccumulator<double>("Z_function_space_volume");
   measurements << alps::accumulators::NoBinningAccumulator<double>("Z_function_space_num_steps");
-  for (int w = 0; w < worm_names.size(); ++w) {
-    measurements << alps::accumulators::NoBinningAccumulator<double>("worm_space_volume_" + worm_names[w]);
-    measurements << alps::accumulators::NoBinningAccumulator<double>("worm_space_num_steps_" + worm_names[w]);
+  for (int w = 0; w < worm_types.size(); ++w) {
+    measurements << alps::accumulators::NoBinningAccumulator<double>(
+        "worm_space_volume_" + get_config_space_name(worm_types[w]));
+    measurements << alps::accumulators::NoBinningAccumulator<double>(
+        "worm_space_num_steps_" + get_config_space_name(worm_types[w]));
   }
 
-  if (par["N_LEGENDRE_N2_MEASUREMENT"] > 0) {
-    create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "N2_correlation_function");
+  if (par["MEASURE_TWO_TIME_G2"] != 0) {
+    create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Two_time_G2");
   }
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "G1");
 
-  if (par["N_MEASURE_EQUAL_TIME_G2"] > 0) {
+  if (par["MEASURE_EQUAL_TIME_G2"] != 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G2");
   }
 
@@ -57,7 +59,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   /*
    * Single-particle Green's function
    */
-  worm_names.push_back("G1");
+  worm_types.push_back(G1);
   worm_movers.push_back(
       boost::shared_ptr<WormMoverType>(
           new WormMoverType("G1", BETA, FLAVORS, 0.0, BETA)
@@ -67,48 +69,51 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       boost::shared_ptr<WormInsertionRemoverType>(
           new WormInsertionRemoverType(
               "G1", BETA, FLAVORS, 0.0, BETA,
-              boost::shared_ptr<Worm>(new GWorm<1>("G1"))
+              boost::shared_ptr<Worm>(new GWorm<1>())
           )
       )
   );
   p_G1_meas.reset(
-      new GMeasurement<SCALAR, 1>(FLAVORS, par["N_LEGENDRE_MEASUREMENT"], BETA)
-  );
-  p_g1_worm_insertion_remover.reset(
-      new G1WormInsertionRemoverType(
-          "G1", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>("G1"))
-      )
+      new GMeasurement<SCALAR, 1>(FLAVORS, par["N_LEGENDRE_G1"], BETA)
   );
 
+  //Via connecting or cutting hybridization lines
+  specialized_updaters["G1_hyb"] =
+      boost::shared_ptr<LocalUpdaterType>(
+          new G1WormInsertionRemoverType(
+              "G1_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>())
+          )
+      );
+
   /*
-   * Generalized spin-spin correlations
+   * Generalized spin-spin correlations (two-time two-particle Green's function)
    */
-  if (par["N_LEGENDRE_N2_MEASUREMENT"] > 0) {
-    worm_names.push_back("N2_correlation");
+  if (par["MEASURE_TWO_TIME_G2"] != 0) {
+    worm_types.push_back(Two_time_G2);
     worm_movers.push_back(
         boost::shared_ptr<WormMoverType>(
-            new WormMoverType("N2_correlation", BETA, FLAVORS, 0.0, BETA)
+            new WormMoverType("Two_time_G2", BETA, FLAVORS, 0.0, BETA)
         )
     );
     worm_insertion_removers.push_back(
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
-                "N2_correlation", BETA, FLAVORS, 0.0, BETA,
-                boost::shared_ptr<Worm>(new CorrelationWorm<2>("N2_correlation"))
+                "Two_time_G2", BETA, FLAVORS, 0.0, BETA,
+                boost::shared_ptr<Worm>(new CorrelationWorm<2>())
             )
         )
     );
     p_N2_meas.reset(
-        new N2CorrelationFunctionMeasurement<SCALAR>(FLAVORS, par["N_LEGENDRE_N2_MEASUREMENT"], BETA)
+        new N2CorrelationFunctionMeasurement<SCALAR>(FLAVORS, par["N_LEGENDRE_TWO_TIME_G2"], BETA)
     );
   }
 
   /*
    * Equal-time two-particle Green's function
    */
-  if (par["N_MEASURE_EQUAL_TIME_G2"] > 0) {
+  if (par["MEASURE_EQUAL_TIME_G2"] != 0) {
     const std::string name("Equal_time_G2");
-    worm_names.push_back(name);
+    worm_types.push_back(Equal_time_G2);
     worm_movers.push_back(
         boost::shared_ptr<WormMoverType>(
             new WormMoverType(name, BETA, FLAVORS, 0.0, BETA)
@@ -118,7 +123,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
                 name, BETA, FLAVORS, 0.0, BETA,
-                boost::shared_ptr<Worm>(new EqualTimeGWorm<2>(name))
+                boost::shared_ptr<Worm>(new EqualTimeGWorm<2>())
             )
         )
     );
@@ -129,21 +134,21 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
 
   //Proposal probability of worm insertion is smaller than that of removal by the number of active worm spaces.
   //We correct this here.
-  for (int w = 0; w < worm_names.size(); ++w) {
-    worm_insertion_removers[w]->set_relative_insertion_proposal_rate(1.0 / worm_names.size());
+  for (int w = 0; w < worm_types.size(); ++w) {
+    worm_insertion_removers[w]->set_relative_insertion_proposal_rate(1.0 / worm_types.size());
   }
 
   //if we have active worm spaces, we activate flat histogram algorithm.
-  if (worm_names.size() > 0) {
-    p_flat_histogram_config_space.reset(new FlatHistogram(worm_names.size()));
+  if (worm_types.size() > 0) {
+    p_flat_histogram_config_space.reset(new FlatHistogram(worm_types.size()));
   }
   config_space_extra_weight.resize(0);
-  config_space_extra_weight.resize(worm_names.size() + 1, 1.0);
-  for (int w = 0; w < worm_names.size(); ++w) {
-    worm_insertion_removers[w]->set_worm_space_weight(config_space_extra_weight[w + 1] / config_space_extra_weight[0]);
+  config_space_extra_weight.resize(worm_types.size() + 1, 1.0);
+  for (int w = 0; w < worm_types.size(); ++w) {
+    worm_space_extra_weight_map[worm_types[w]] = 1.0;
   }
   num_steps_in_config_space.resize(0);
-  num_steps_in_config_space.resize(worm_names.size() + 1);
+  num_steps_in_config_space.resize(worm_types.size() + 1);
 }
 
 template<typename IMP_MODEL>

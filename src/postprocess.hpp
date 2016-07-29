@@ -35,7 +35,7 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
   const double beta(parms["BETA"]);
   const double temperature(1.0 / beta);
   const int n_matsubara(n_tau);
-  const int n_legendre(parms["N_LEGENDRE_MEASUREMENT"].template as<int>());
+  const int n_legendre(parms["N_LEGENDRE_G1"].template as<int>());
   const int n_flavors = n_site * n_spin;
 
   const double sign = results["Sign"].template mean<double>();
@@ -114,23 +114,23 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
                              const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
                              alps::hdf5::archive ar,
                              bool verbose = false) {
-  const int n_legendre(parms["N_LEGENDRE_N2_MEASUREMENT"].template as<int>());
+  const int n_legendre(parms["N_LEGENDRE_TWO_TIME_G2"].template as<int>());
   const int n_tau(parms["N_TAU_TWO_TIME_CORRELATION_FUNCTIONS"].template as<int>());
   const double beta(parms["BETA"]);
   const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
   const double temperature(1.0 / beta);
   const double coeff =
-      temperature * results["worm_space_volume_N2_correlation"].template mean<double>() /
+      temperature * results["worm_space_volume_Two_time_G2"].template mean<double>() /
           (results["Sign"].template mean<double>() * results["Z_function_space_volume"].template mean<double>());
 
   if (verbose) {
-    std::cout << "Number of steps in N2_correlation space/Z_function_space is "
-        << results["worm_space_volume_N2_correlation"].template mean<double>()
+    std::cout << "Number of steps in Two_time_G2 space/Z_function_space is "
+        << results["worm_space_volume_Two_time_G2"].template mean<double>()
         << " : " << results["Z_function_space_volume"].template mean<double>() << std::endl;
   }
 
-  const std::vector<double> data_Re = results["N2_correlation_function_Re"].template mean<std::vector<double> >();
-  const std::vector<double> data_Im = results["N2_correlation_function_Im"].template mean<std::vector<double> >();
+  const std::vector<double> data_Re = results["Two_time_G2_Re"].template mean<std::vector<double> >();
+  const std::vector<double> data_Im = results["Two_time_G2_Im"].template mean<std::vector<double> >();
   assert(data_Re.size() == n_flavors * n_flavors * n_flavors * n_flavors * n_legendre);
   boost::multi_array<std::complex<double>, 5>
       data(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_legendre]);
@@ -167,8 +167,8 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
     }
   }
 
-  ar["/N2_CORRELATION_FUNCTION_LEGENDRE"] << data;
-  ar["/N2_CORRELATION_FUNCTION"] << data_tau;
+  ar["/TWO_TIME_G2_LEGENDRE"] << data;
+  ar["/TWO_TIME_G2"] << data_tau;
 }
 
 
@@ -182,7 +182,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
-  const int n_legendre(parms["N_LEGENDRE_MEASUREMENT"].template as<int>());
+  const int n_legendre(parms["N_LEGENDRE_G1"].template as<int>());
   const int n_tau(parms["N_TAU"].template as<int>());
   const int n_matsubara(n_tau);
   const double beta(parms["BETA"]);

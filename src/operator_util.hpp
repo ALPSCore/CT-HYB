@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <utility>
 
 #include <boost/assert.hpp>
 #include <boost/multi_index_container.hpp>
@@ -146,9 +147,61 @@ int num_operators_in_range_open(const operator_container_t &operators, T t1, T t
   namespace bll = boost::lambda;
   typedef operator_container_t::iterator Iterator;
 
-  std::pair<Iterator,Iterator> ops_range
+  std::pair<Iterator, Iterator> ops_range
       = operators.range(
           std::min(t1, t2) < bll::_1, bll::_1 < std::max(t1, t2)
       );
   return std::distance(ops_range.first, ops_range.second);
 }
+
+/**
+ * Spread of a set of operators in the imaginary time (without taking into accout beta-periodicity)
+ * The spread is as the distance betwen the operator with the largest tau and the one with the smallest tau.
+*/
+double compute_spread_non_periodic(const std::vector<psi> &ops);
+
+
+/**
+ * Count the number of operators for each falvor
+ */
+template<typename InputItr>
+void count_operators(InputItr begin,
+                     InputItr end,
+                     int num_flavors,
+                     std::vector<int> &num_ops_flavors);
+
+/**
+ * Count the number of operators of a given type for each falvor
+ */
+template<typename InputItr>
+void count_operators(InputItr begin,
+                     InputItr end,
+                     int num_flavors,
+                     std::vector<int> &num_ops_flavors,
+                     OPERATOR_TYPE type);
+
+/**
+ * Count the number of operators in the interval [tau_low, tau_high]
+ */
+//template<typename InputContainer>
+//void count_operators_closed(const InputContainer &ops,
+                            //double tau_low,
+                            //double tau_high,
+                            //int num_flavors,
+                            //std::vector<int> &num_ops_flavors);
+
+/**
+ * Count some operators from the container defined by begin and end.
+ * The numbers of operators to be picked up are given by num_ops_flavors.
+ * The operators selected are stored in ops_picked_up.
+ * random01() returns a random number in [0,1).
+ */
+template<typename InputItr>
+void pick_up_operators(InputItr begin,
+                       InputItr end,
+                       std::vector<int> &num_ops_flavors,
+                       std::vector<psi>& ops_picked_up,
+                       alps::random01& random01
+);
+
+#include "operator_util.ipp"

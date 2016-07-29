@@ -91,7 +91,7 @@ class HybridizationSimulation: public alps::mcbase {
         << "This program is licensed under GPLv2.";
   }
 
-  Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> get_rotmat_Delta() {
+  Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> get_rotmat_Delta() {
     return p_model->get_rotmat_Delta();
   }
 
@@ -108,20 +108,21 @@ class HybridizationSimulation: public alps::mcbase {
   void measure_two_time_correlation_functions();
   void adjust_worm_space_weight();
 
-  int get_config_space_position(const std::string &name) const {
-    if (name == "Z_FUNCTION_SPACE") {
+  int get_config_space_position(ConfigSpace config_space) const {
+    if (config_space == Z_FUNCTION) {
       return 0;
     } else {
-      return get_worm_position(name) + 1;
+      return get_worm_position(config_space) + 1;
     }
   }
 
-  int get_worm_position(const std::string &name) const {
-    std::vector<std::string>::const_iterator it = std::find(worm_names.begin(), worm_names.end(), name);
-    if (it == worm_names.end()) {
-      throw std::runtime_error("Worm not found: " + name);
+  int get_worm_position(ConfigSpace config_space) const {
+    std::vector<ConfigSpace>::const_iterator
+        it = std::find(worm_types.begin(), worm_types.end(), config_space);
+    if (it == worm_types.end()) {
+      return -1;
     } else {
-      return std::distance(worm_names.begin(), it);
+      return std::distance(worm_types.begin(), it);
     }
   }
 
@@ -154,7 +155,14 @@ class HybridizationSimulation: public alps::mcbase {
   //Monte Calro configuration
   long sweeps;                          // sweeps done
   MonteCarloConfiguration<SCALAR> mc_config;
+
+  //for Z_function space, and active worm spaces.
+  //The active worm spaces are in the same order as they are initialized in the constructor.
+  //Use get_worm_position to find the actual position of a given worm space.
   std::vector<double> config_space_extra_weight;
+
+  //std::map version which contains the same information as config_space_extra_weight
+  std::map<ConfigSpace, double> worm_space_extra_weight_map;
 
   /* Monte Carlo updater */
   //insertion/removal updater for single pair update, double pair update, triple pair update, etc.
@@ -162,22 +170,35 @@ class HybridizationSimulation: public alps::mcbase {
       ins_rem_updater;
   std::vector<boost::shared_ptr<InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
       ins_rem_diagonal_updater;
+
   //change the flavor of a pair of operators
   OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> operator_pair_flavor_updater;
+
   //change the time of an operator (hybrized with the bath)
   SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> single_op_shift_updater;
+
   //swap-flavor update
   std::vector<std::pair<std::vector<int>, int> >
       swap_vector;        // contains the flavors f1 f2 f3 f4 ...   Flavors 1 ... N will be relabeled as f1 f2 ... fN.
 
   //N2Worm updater: worm for computing <c^\dagger_i(tau) c_j(tau) c^\dagger_k(0) c_l(0)>
+  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> LocalUpdaterType;
   typedef WormMover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormMoverType;
   typedef WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormInsertionRemoverType;
   typedef GWormInsertionRemover<SCALAR, 1, EXTENDED_SCALAR, SW_TYPE> G1WormInsertionRemoverType;
-  std::vector<std::string> worm_names;
+
+  //a list of active worm spaces
+  std::vector<ConfigSpace> worm_types;
+
+  //move of a worm by evaluating the trace (does not remove or insert a worm)
   std::vector<boost::shared_ptr<WormMoverType> > worm_movers;
+
+  //insertion and removal of a worm by evaluating the trace (worm space <=> Z function space)
   std::vector<boost::shared_ptr<WormInsertionRemoverType> > worm_insertion_removers;
-  boost::shared_ptr<G1WormInsertionRemoverType> p_g1_worm_insertion_remover;//connecting or cutting hybridization lines
+
+  //specialized version with improved efficiency
+  std::map<std::string, boost::shared_ptr<LocalUpdaterType> > specialized_updaters;
+
   boost::shared_ptr<FlatHistogram> p_flat_histogram_config_space;
 
   //sliding window for computing trace
@@ -190,10 +211,10 @@ class HybridizationSimulation: public alps::mcbase {
   boost::shared_ptr<N2CorrelationFunctionMeasurement<SCALAR> > p_N2_meas;
 
   //Measurement of single-particle Green's functions by worm sampling
-  boost::shared_ptr<GMeasurement<SCALAR,1> > p_G1_meas;
+  boost::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_meas;
 
   //Measurement of equal-time two-particle Green's function
-  boost::shared_ptr<EqualTimeGMeasurement<SCALAR,2> > p_equal_time_G2_meas;
+  boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 2> > p_equal_time_G2_meas;
 
   //For measuring equal-time two-particle Green's function by insertion
   std::vector<EqualTimeOperator<2> > eq_time_two_particle_greens_meas;

@@ -1,3 +1,4 @@
+#include <alps/mc/random01.hpp>
 #include "operator.hpp"
 #include "operator_util.hpp"
 
@@ -142,3 +143,18 @@ std::ostream &operator<<(std::ostream &os, const std::vector<psi> &operators) {
   }
   return os;
 }
+
+double compute_spread_non_periodic(const std::vector<psi> &ops) {
+  if (ops.size()) {
+    return 0.0;
+  }
+  double max_tau, min_tau;
+  max_tau = min_tau = ops[0].time().time();
+  for (std::vector<psi>::const_iterator it = ops.begin(); it != ops.end(); ++it) {
+    max_tau = std::max(max_tau, it->time().time());
+    min_tau = std::min(min_tau, it->time().time());
+  }
+  return max_tau - min_tau;
+}
+
+

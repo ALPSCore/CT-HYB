@@ -22,7 +22,7 @@ class LegendreTransformer {
   void compute_legendre(double x, std::vector<double> &val) const;
   void compute_legendre(const std::vector<double> &xval, boost::multi_array<double, 2> &val) const;
   const std::vector<double> &get_sqrt_2l_1() const { return sqrt_2l_1; }
-  int num_legendre() const {return n_legendre_;}
+  int num_legendre() const { return n_legendre_; }
 
  private:
   Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> Tnl_;

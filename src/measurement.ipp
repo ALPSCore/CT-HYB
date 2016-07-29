@@ -7,7 +7,7 @@ void N2CorrelationFunctionMeasurement<SCALAR>::measure(MonteCarloConfiguration<S
                                                        alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str) {
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
   typedef operator_container_t::iterator Iterator;
-  if (mc_config.current_config_space() != "N2_correlation") {
+  if (mc_config.current_config_space() != Two_time_G2) {
     return;
   }
 

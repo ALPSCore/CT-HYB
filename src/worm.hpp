@@ -6,6 +6,42 @@
 
 #include "operator.hpp"
 
+enum ConfigSpace {
+  Z_FUNCTION,
+  G1,
+  G2,
+  Equal_time_G1,
+  Equal_time_G2,
+  Two_time_G2,
+  Unknown
+};
+
+std::string get_config_space_name(ConfigSpace config_space) {
+  switch (config_space) {
+    case Z_FUNCTION:
+      return "Z_FUNCTION";
+
+    case G1:
+      return "G1";
+
+    case G2:
+      return "G2";
+
+    case Equal_time_G1:
+      return "Equal_time_G1";
+
+    case Equal_time_G2:
+      return "Equal_time_G2";
+
+    case Two_time_G2:
+      return "Two_time_G2";
+
+    default:
+      throw std::runtime_error("Unknown configuration space");
+  }
+}
+
+
 /**
  * < T_tau e^{-beta H} O1 (tau1) O2 (tau) ... ON(tau)>
  */
@@ -42,7 +78,12 @@ class Worm {
   virtual const std::vector<int> &get_time_index(int flavor_index) const = 0;
 
   /** Return the name of the worm instance */
-  virtual const std::string& get_name() const = 0;
+  virtual std::string get_name() const {
+    return get_config_space_name(get_config_space());
+  }
+
+  /** Return worm space */
+  virtual ConfigSpace get_config_space() const = 0;
 };
 
 inline bool is_worm_in_range(const Worm &worm, double tau_low, double tau_high) {
@@ -95,7 +136,7 @@ inline bool operator!=(const Worm &worm1, const Worm &worm2) {
 template<unsigned int NumTimes>
 class CorrelationWorm: public Worm, private boost::equality_comparable<CorrelationWorm<NumTimes> > {
  public:
-  CorrelationWorm(const std::string &name) : name_(name), time_index_(2 * NumTimes) {
+  CorrelationWorm() : time_index_(2 * NumTimes) {
     for (int f = 0; f < 2 * NumTimes; ++f) {
       time_index_[f].push_back(f / 2);
     }
@@ -142,12 +183,15 @@ class CorrelationWorm: public Worm, private boost::equality_comparable<Correlati
     return (times_ == other_worm.times_ && flavors_ == other_worm.flavors_);
   }
 
-  const std::string& get_name() const {
-    return name_;
+  ConfigSpace get_config_space() const {
+    if (NumTimes == 2) {
+      return Two_time_G2;
+    } else {
+      throw std::runtime_error("get_config_space is not implemented");
+    }
   }
 
  private:
-  std::string name_;
   boost::array<double, NumTimes> times_;
   boost::array<int, 2 * NumTimes> flavors_;
   std::vector<std::vector<int> > time_index_;
@@ -162,7 +206,7 @@ class CorrelationWorm: public Worm, private boost::equality_comparable<Correlati
 template<unsigned int Rank>
 class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
  public:
-  GWorm(const std::string &name) : name_(name), time_index_(2*Rank) {
+  GWorm() : time_index_(2 * Rank) {
     for (int f = 0; f < 2 * Rank; ++f) {
       time_index_[f].push_back(f);
     }
@@ -209,12 +253,17 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
     return (times_ == other_worm.times_ && flavors_ == other_worm.flavors_);
   }
 
-  const std::string& get_name() const {
-    return name_;
+  ConfigSpace get_config_space() const {
+    if (Rank == 1) {
+      return G1;
+    } else if (Rank == 2) {
+      return G2;
+    } else {
+      throw std::runtime_error("get_config_space is not implemented");
+    }
   }
 
  private:
-  std::string name_;
   boost::array<double, 2 * Rank> times_;
   boost::array<int, 2 * Rank> flavors_;
   std::vector<std::vector<int> > time_index_;
@@ -229,7 +278,7 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
 template<unsigned int Rank>
 class EqualTimeGWorm: public Worm, private boost::equality_comparable<EqualTimeGWorm<Rank> > {
  public:
-  EqualTimeGWorm(const std::string &name) : name_(name) {
+  EqualTimeGWorm() {
     time_index_.push_back(0);
   }
 
@@ -274,12 +323,17 @@ class EqualTimeGWorm: public Worm, private boost::equality_comparable<EqualTimeG
     return (time_ == other_worm.time_ && flavors_ == other_worm.flavors_);
   }
 
-  const std::string& get_name() const {
-    return name_;
+  ConfigSpace get_config_space() const {
+    if (Rank == 1) {
+      return Equal_time_G1;
+    } else if (Rank == 2) {
+      return Equal_time_G2;
+    } else {
+      throw std::runtime_error("get_config_space is not implemented");
+    }
   }
 
  private:
-  std::string name_;
   double time_;
   boost::array<int, 2 * Rank> flavors_;
   std::vector<int> time_index_;

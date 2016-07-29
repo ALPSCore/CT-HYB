@@ -62,11 +62,6 @@ class HybridizationFunction {
   boost::multi_array<bool, 2> connected_;
 };
 
-//enum CONFIG_SPACE {
-  //Z_FUNCTION_SPACE,
-  //N2_SPACE,
-  //CONFIG_SPACE_END
-//};
 
 template<typename SCALAR>
 struct MonteCarloConfiguration {
@@ -83,17 +78,13 @@ struct MonteCarloConfiguration {
       perm_sign(1) {
   }
 
-  std::string current_config_space() const {
+  ConfigSpace current_config_space() const {
     typedef CorrelationWorm<2> N2Worm;
     if (!p_worm) {
-      return "Z_FUNCTION_SPACE";
+      return Z_FUNCTION;
     } else {
-      return p_worm->get_name();
+      return p_worm->get_config_space();
     }
-    //if (typeid(*p_worm.get()) == typeid(N2Worm)) {
-      //return N2_SPACE;
-    //}
-    //throw std::runtime_error("Unknown worm type!");
   }
 
   //int num_config_spaces() const { return static_cast<int>(CONFIG_SPACE_END); }
@@ -228,7 +219,7 @@ int num_ops_less_than(const S &ops, const T &t) {
 //between the operators of a worm and operators hybridized with the batCount the number of exchanges between the operators of a worm and operators hybridized with the bath
 template<typename S>
 long count_worm_op_exchange(const S &ops,
-                           const std::vector<psi> &worm_ops) {
+                            const std::vector<psi> &worm_ops) {
   long count = 0;
   for (int iop = 0; iop < worm_ops.size(); ++iop) {
     count += num_ops_less_than(ops, worm_ops[iop]);

@@ -65,22 +65,26 @@ struct OperatorShift {
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class LocalUpdater {
  public:
-  LocalUpdater() : trace_is_not_updated_(false) {}
+  LocalUpdater() : trace_is_not_updated_(false) { }
   virtual ~LocalUpdater() { }
 
   /** Update the configuration */
   void update(
       alps::random01 &rng, double BETA,
       MonteCarloConfiguration<SCALAR> &mc_config,
-      SLIDING_WINDOW &sliding_window
+      SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight = std::map<ConfigSpace, double>()
   );
 
   /** To be implemented in a derived class */
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window
-  ) = 0;
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
+  ) {
+    return false;
+  };
 
   /** Will be called on the exit of update() */
   virtual void call_back() { };
@@ -117,10 +121,11 @@ class LocalUpdater {
   std::vector<psi> duplicate_check_work_;
 
   bool update_operators(MonteCarloConfiguration<SCALAR> &mc_config,
-                        const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add);
+                        const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add,
+                        std::vector<std::pair<psi, ActionType> > &update_record);
 
-  void revert_operators(MonteCarloConfiguration<SCALAR> &mc_config,
-                        const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add);
+  //void revert_operators(MonteCarloConfiguration<SCALAR> &mc_config,
+  //const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add);
 
   void finalize_update();
 
@@ -144,7 +149,8 @@ class InsertionRemovalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLID
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
   );
 
  protected:
@@ -191,7 +197,8 @@ class InsertionRemovalDiagonalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCAL
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
   );
 
   virtual void call_back();
@@ -227,13 +234,13 @@ class OperatorPairFlavorUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SL
   OperatorPairFlavorUpdater(int num_flavors)
       : num_flavors_(num_flavors),
         num_attempted_(0.0),
-        num_accepted_(0.0)
-        { }
+        num_accepted_(0.0) { }
 
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
   );
 
   virtual void call_back() {
@@ -278,7 +285,8 @@ class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, S
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
   );
 
 
@@ -333,7 +341,8 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
   ) = 0;
 
   /** Will be called on the exit of update() */
@@ -358,7 +367,7 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
   double tau_lower_limit_, tau_upper_limit_;
   scalar_histogram_flavors acc_rate_;
   double max_distance_, distance_;
-  double worm_space_weight_;
+  //double worm_space_weight_;
 };
 
 /**
@@ -370,15 +379,16 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
   typedef WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
 
   WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
-    : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) { }
+      : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) { }
 
   //virtual void set_worm_space_weight(double weight) {weight_ = weight;};
 
-private:
+ private:
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
   );
 
   //double weight_;
@@ -399,23 +409,39 @@ class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_
                        double tau_upper_limit,
                        boost::shared_ptr<Worm> p_worm_template
   ) : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit), p_worm_template_(p_worm_template),
-      insertion_proposal_rate_(0.0)
-  {
+      insertion_proposal_rate_(0.0) {
   }
 
-  virtual void set_worm_space_weight(double weight) {weight_ = weight;};
+  //virtual void set_worm_space_weight(double weight) {weight_ = weight;};
 
-  void set_relative_insertion_proposal_rate(double insertion_proposal_rate) {insertion_proposal_rate_ = insertion_proposal_rate;};
+  void set_relative_insertion_proposal_rate(double insertion_proposal_rate) {
+    insertion_proposal_rate_ = insertion_proposal_rate;
+  };
 
  private:
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
+  );
+
+  bool propose_by_trace_impl(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
+  );
+
+  bool propose_by_trace_hyb_impl(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
   );
 
   boost::shared_ptr<Worm> p_worm_template_;
-  double weight_;
+  //double weight_;
   double insertion_proposal_rate_;
 };
 
@@ -430,24 +456,24 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
 
  public:
   GWormInsertionRemover(const std::string &str,
-                       double beta,
-                       int num_flavors,
-                       boost::shared_ptr<Worm> p_worm_template
-  ) : BaseType(), p_worm_template_(p_worm_template)
-  {
+                        double beta,
+                        int num_flavors,
+                        boost::shared_ptr<Worm> p_worm_template
+  ) : BaseType(), p_worm_template_(p_worm_template) {
   }
 
-  virtual void set_worm_space_weight(double weight) {weight_ = weight;};
+  //virtual void set_worm_space_weight(double weight) {weight_ = weight;};
 
  private:
   virtual bool propose(
       alps::random01 &rng,
       MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
   );
 
   boost::shared_ptr<Worm> p_worm_template_;
-  double weight_;
+  //double weight_;
 };
 
 
@@ -470,7 +496,7 @@ struct WormExchangeFlavor {
 /**
  * @brief Shift a worm by a constant time
  */
-struct WormShift{
+struct WormShift {
   WormShift(double beta, double shift) : beta_(beta), shift_(shift) { }
   boost::shared_ptr<Worm> operator()(const Worm &worm) const {
     assert(shift_ >= 0.0);
