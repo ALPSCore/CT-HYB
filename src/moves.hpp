@@ -390,8 +390,6 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
-
-  //double weight_;
 };
 
 /**
@@ -473,7 +471,6 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
   );
 
   boost::shared_ptr<Worm> p_worm_template_;
-  //double weight_;
 };
 
 

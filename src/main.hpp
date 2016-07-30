@@ -58,7 +58,7 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
   const boost::function<bool()> cb = alps::stop_callback(size_t(parameters["timelimit"]));
 #endif
 
-  std::pair<bool,bool> r = sim.run(cb);
+  std::pair<bool, bool> r = sim.run(cb);
 
   // Saving to the output file
 #ifdef ALPS_HAVE_MPI
@@ -75,7 +75,7 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
     compute_greens_functions<SOLVER_TYPE>(results, parameters, ar);
     compute_G1<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
     if (parameters["MEASURE_TWO_TIME_G2"] > 0) {
-      N2_correlation_function<SOLVER_TYPE>(results, parameters, ar, global_mpi_rank == 0);
+      compute_two_time_G2<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
     }
     if (parameters["MEASURE_EQUAL_TIME_G2"] > 0) {
       compute_euqal_time_G2<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
@@ -89,7 +89,8 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
     if (r.second) {
       alps::collect_results(sim);
     } else {
-      throw std::runtime_error((boost::format("Warning: MPI process %1% is not thermalized yet. Increase simulation time!")%global_mpi_rank).str());
+      throw std::runtime_error((boost::format(
+          "Warning: MPI process %1% is not thermalized yet. Increase simulation time!") % global_mpi_rank).str());
     }
   }
 #endif

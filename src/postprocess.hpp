@@ -17,6 +17,7 @@ struct to_complex {
   }
 };
 
+
 /**
  * Evaluate imaginary and Matsubara Green's functions from coefficients of Legendre polynominals
  *
@@ -110,12 +111,15 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
 }
 
 template<typename SOLVER_TYPE>
-void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::type &results,
+void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
                              const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                             const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
                              alps::hdf5::archive ar,
                              bool verbose = false) {
+  typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
+  typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
+
   const int n_legendre(parms["N_LEGENDRE_TWO_TIME_G2"].template as<int>());
-  const int n_tau(parms["N_TAU_TWO_TIME_CORRELATION_FUNCTIONS"].template as<int>());
   const double beta(parms["BETA"]);
   const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
   const double temperature(1.0 / beta);
@@ -124,7 +128,7 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
           (results["Sign"].template mean<double>() * results["Z_function_space_volume"].template mean<double>());
 
   if (verbose) {
-    std::cout << "Number of steps in Two_time_G2 space/Z_function_space is "
+    std::cout << "Volumes of Two_time_G2 space/Z_function_space is "
         << results["worm_space_volume_Two_time_G2"].template mean<double>()
         << " : " << results["Z_function_space_volume"].template mean<double>() << std::endl;
   }
@@ -138,37 +142,36 @@ void N2_correlation_function(const typename alps::results_type<SOLVER_TYPE>::typ
   std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
                  std::bind1st(std::multiplies<std::complex<double> >(), coeff));
 
-  LegendreTransformer legendre_transformer(1, n_legendre);
-  std::vector<double> Pvals(n_legendre);
-  const std::vector<double> &sqrt_array = legendre_transformer.get_sqrt_2l_1();
-
-
   boost::multi_array<std::complex<double>, 5>
-      data_tau(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_tau]);
-  for (int itau = 0; itau < n_tau; ++itau) {
-    const double tau = itau * (beta / (n_tau - 1));
-    double x = 2 * tau / beta - 1.0;
-    x = std::max(-1 + 1E-8, x);
-    x = std::min(1 - 1E-8, x);
-    legendre_transformer.compute_legendre(x, Pvals); //Compute P_l[x]
+      data_org_basis(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_legendre]);
+  std::fill(data_org_basis.origin(), data_org_basis.origin() + data_org_basis.num_elements(), 0.0);
 
-    for (int flavor = 0; flavor < n_flavors; ++flavor) {
-      for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
-        for (int flavor3 = 0; flavor3 < n_flavors; ++flavor3) {
-          for (int flavor4 = 0; flavor4 < n_flavors; ++flavor4) {
-            for (int il = 0; il < n_legendre; ++il) {
-              data_tau[flavor][flavor2][flavor3][flavor4][itau]
-                  +=
-                  Pvals[il] * data[flavor][flavor2][flavor3][flavor4][il] * sqrt_array[il] * temperature * temperature;
+  //basis rotation very ugly. TO DO: replace the loops with tensordots.
+  const matrix_t inv_rotmat_Delta = rotmat_Delta.inverse();
+  for (int f0 = 0; f0 < n_flavors; ++f0) {
+    for (int f1 = 0; f1 < n_flavors; ++f1) {
+      for (int f2 = 0; f2 < n_flavors; ++f2) {
+        for (int f3 = 0; f3 < n_flavors; ++f3) {
+          for (int g0 = 0; g0 < n_flavors; ++g0) {
+            for (int g1 = 0; g1 < n_flavors; ++g1) {
+              for (int g2 = 0; g2 < n_flavors; ++g2) {
+                for (int g3 = 0; g3 < n_flavors; ++g3) {
+                  for (int il = 0; il < n_legendre; ++il) {
+                    data_org_basis[f0][f1][f2][f3][il] += data[g0][g1][g2][g3][il] *
+                        myconj(inv_rotmat_Delta(g0, f0)) *
+                        inv_rotmat_Delta(g1, f1) *
+                        myconj(inv_rotmat_Delta(g2, f2)) *
+                        inv_rotmat_Delta(g3, f3);
+                  }
+                }
+              }
             }
           }
         }
       }
     }
   }
-
-  ar["/TWO_TIME_G2_LEGENDRE"] << data;
-  ar["/TWO_TIME_G2"] << data_tau;
+  ar["/TWO_TIME_G2_LEGENDRE"] << data_org_basis;
 }
 
 
