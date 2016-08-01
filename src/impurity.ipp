@@ -234,39 +234,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 #endif
 
     if (is_thermalized()) {
-      switch (mc_config.current_config_space()) {
-        case Z_FUNCTION:
-          g_meas_legendre.measure(mc_config);//measure Green's function by removal
-          measure_scalar_observable<SCALAR>(measurements, "kLkR",
-                                            static_cast<double>(measure_kLkR(mc_config.operators, BETA,
-                                                                             0.5 * BETA * random())) * mc_config.sign);
-          measure_scalar_observable<SCALAR>(measurements,
-                                            "k",
-                                            static_cast<double>(mc_config.operators.size()) * mc_config.sign);
-          break;
-
-        case G1:
-          p_G1_meas->measure(mc_config, measurements, random, sliding_window, N_win_standard, "G1");
-          break;
-
-        case Two_time_G2:
-          p_N2_meas->measure(mc_config,
-                             measurements,
-                             random,
-                             sliding_window,
-                             N_win_standard,
-                             "Two_time_G2");
-          break;
-
-        case Equal_time_G2:
-          p_equal_time_G2_meas->measure(mc_config, measurements, "Equal_time_G2");
-          break;
-
-        default:
-          throw std::runtime_error("Used unsupported worm");
-      }
-      //measure configuration space volume
-      num_steps_in_config_space[get_config_space_position(mc_config.current_config_space())] += 1.0;
+      measure_every_step();
     }
 
 #ifdef MEASURE_TIMING
@@ -276,6 +244,49 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 
     sanity_check();
   }//loop up to N_meas
+}
+
+template<typename IMP_MODEL>
+void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
+  assert(is_thermalized());
+
+  switch (mc_config.current_config_space()) {
+    case Z_FUNCTION:
+      g_meas_legendre.measure(mc_config);//measure Green's function by removal
+      measure_scalar_observable<SCALAR>(measurements, "kLkR",
+                                        static_cast<double>(measure_kLkR(mc_config.operators, BETA,
+                                                                         0.5 * BETA * random())) * mc_config.sign);
+      measure_scalar_observable<SCALAR>(measurements,
+                                        "k",
+                                        static_cast<double>(mc_config.operators.size()) * mc_config.sign);
+      break;
+
+    case G1:
+      p_G1_meas->measure(mc_config, measurements, random, sliding_window, N_win_standard, "G1");
+      break;
+
+    case Two_time_G2:
+      p_N2_meas->measure(mc_config,
+                         measurements,
+                         random,
+                         sliding_window,
+                         N_win_standard,
+                         "Two_time_G2");
+      break;
+
+    case Equal_time_G1:
+      p_equal_time_G1_meas->measure_G1(mc_config, measurements, "Equal_time_G1");
+      break;
+
+    case Equal_time_G2:
+      p_equal_time_G2_meas->measure_G2(mc_config, measurements, "Equal_time_G2");
+      break;
+
+    default:
+      throw std::runtime_error("Used unsupported worm");
+  }
+  //measure configuration space volume
+  num_steps_in_config_space[get_config_space_position(mc_config.current_config_space())] += 1.0;
 }
 
 template<typename IMP_MODEL>
@@ -322,8 +333,8 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
     const std::vector<int> &order_creation_flavor = count_creation_operators(FLAVORS, mc_config);
     const int N_order = par["N_ORDER"].template as<int>();
     for (int flavor = 0; flavor < FLAVORS; ++flavor) {
-      std::vector<double> order_creation_meas(FLAVORS *N_order,
-      0.0);
+      std::vector<double> order_creation_meas(FLAVORS * N_order,
+                                              0.0);
       if (order_creation_flavor[flavor] < N_order) {
         order_creation_meas[flavor * N_order + order_creation_flavor[flavor]] = 1.0;
       }
@@ -499,7 +510,7 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
       const int i_worm = static_cast<int>(random() * worm_insertion_removers.size());
       worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
     } else {
-      const int i_worm = get_worm_position(mc_config.current_config_space());
+      const int i_worm = get_config_space_position(mc_config.current_config_space()) - 1;
       assert (i_worm >= 0);
       worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
     }
@@ -508,8 +519,26 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
     //G1 worm insertion and removal by changing hybridization lines
     if (mc_config.current_config_space() == Z_FUNCTION || mc_config.current_config_space() == G1) {
       specialized_updaters["G1_hyb"]->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+      adjust_worm_space_weight();
     }
-    adjust_worm_space_weight();
+
+    //EqualTimeG1 <=> TwoTimeG2
+    if (specialized_updaters.find("Connect_Equal_time_G1_and_Two_time_G2") != specialized_updaters.end() &&
+        (mc_config.current_config_space() == Equal_time_G1 || mc_config.current_config_space() == Two_time_G2)
+        ) {
+      bool accepted = specialized_updaters["Connect_Equal_time_G1_and_Two_time_G2"]->
+          update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+      adjust_worm_space_weight();
+    }
+
+
+    if (specialized_updaters.find("G1_shifter") != specialized_updaters.end()
+        && mc_config.current_config_space() == G1) {
+      bool accepted = specialized_updaters["G1_shifter"]->
+          update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+      //std::cout << "accepted " << accepted << std::endl;
+      adjust_worm_space_weight();
+    }
 
     //worm move
     const int i_config_space = get_config_space_position(mc_config.current_config_space());
@@ -734,12 +763,13 @@ void HybridizationSimulation<IMP_MODEL>::adjust_worm_space_weight() {
   if (!p_flat_histogram_config_space || is_thermalized()) return;
 
   //measure current configuration space
-  if (mc_config.current_config_space() == Z_FUNCTION) {
-    p_flat_histogram_config_space->measure(0);
-  } else {
-    const int i_worm = get_worm_position(mc_config.current_config_space());
-    p_flat_histogram_config_space->measure(i_worm + 1);
-  }
+  //if (mc_config.current_config_space() == Z_FUNCTION) {
+  //p_flat_histogram_config_space->measure(0);
+  //} else {
+  //const int i_worm = get_worm_position(mc_config.current_config_space());
+  //p_flat_histogram_config_space->measure(i_worm + 1);
+  //}
+  p_flat_histogram_config_space->measure(get_config_space_position(mc_config.current_config_space()));
 
   // If the histogram is flat enough, make the modification factor smaller
   if (p_flat_histogram_config_space->flat_enough()) {

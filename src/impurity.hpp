@@ -77,6 +77,7 @@ class HybridizationSimulation: public alps::mcbase {
   void create_worm_updaters();
 
   void update(); //the main monte carlo step
+  void measure_every_step();//measure every step, which is called in update()
   void measure(); //the top level of the measurement
   void measure_Z_function_space(); //the main monte carlo step
   void prepare_for_measurement(); //called once after thermalization is reached
@@ -112,10 +113,17 @@ class HybridizationSimulation: public alps::mcbase {
     if (config_space == Z_FUNCTION) {
       return 0;
     } else {
-      return get_worm_position(config_space) + 1;
+      std::vector<ConfigSpace>::const_iterator
+          it = std::find(worm_types.begin(), worm_types.end(), config_space);
+      if (it == worm_types.end()) {
+        return -1;
+      } else {
+        return std::distance(worm_types.begin(), it) + 1;
+      }
     }
   }
 
+  /*
   int get_worm_position(ConfigSpace config_space) const {
     std::vector<ConfigSpace>::const_iterator
         it = std::find(worm_types.begin(), worm_types.end(), config_space);
@@ -125,6 +133,7 @@ class HybridizationSimulation: public alps::mcbase {
       return std::distance(worm_types.begin(), it);
     }
   }
+  */
 
   //Definition of system parameters constant during simulation
   const parameters_type par;
@@ -215,6 +224,9 @@ class HybridizationSimulation: public alps::mcbase {
 
   //Measurement of equal-time two-particle Green's function
   boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 2> > p_equal_time_G2_meas;
+
+  //Measurement of equal-time single-particle Green's function
+  boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 1> > p_equal_time_G1_meas;
 
   //For measuring equal-time two-particle Green's function by insertion
   std::vector<EqualTimeOperator<2> > eq_time_two_particle_greens_meas;

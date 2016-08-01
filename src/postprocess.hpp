@@ -286,8 +286,51 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
     }
   }
   gomega.save(ar, "/gf");
-
 }
+
+template<typename SOLVER_TYPE>
+void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
+                           const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                           const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
+                           alps::hdf5::archive ar,
+                           bool verbose = false) {
+  typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
+  typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
+
+  const double beta(parms["BETA"]);
+  const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
+  const double temperature(1.0 / beta);
+  const double sign = results["Sign"].template mean<double>();
+  const double coeff =
+      results["worm_space_volume_Equal_time_G1"].template mean<double>() /
+          (sign * results["Z_function_space_volume"].template mean<double>());
+
+  boost::multi_array<std::complex<double>, 2> data_org_basis(boost::extents[n_flavors][n_flavors]);
+  std::fill(data_org_basis.origin(), data_org_basis.origin() + data_org_basis.num_elements(), 0.0);
+  {
+    const std::vector<double> data_Re = results["Equal_time_G1_Re"].template mean<std::vector<double> >();
+    const std::vector<double> data_Im = results["Equal_time_G1_Im"].template mean<std::vector<double> >();
+    assert(data_Re.size() == n_flavors * n_flavors);
+    boost::multi_array<std::complex<double>, 2> data(boost::extents[n_flavors][n_flavors]);
+    std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
+    std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
+                   std::bind1st(std::multiplies<std::complex<double> >(), coeff));
+    const matrix_t inv_rotmat_Delta = rotmat_Delta.inverse();
+    for (int f0 = 0; f0 < n_flavors; ++f0) {
+      for (int f1 = 0; f1 < n_flavors; ++f1) {
+        for (int g0 = 0; g0 < n_flavors; ++g0) {
+          for (int g1 = 0; g1 < n_flavors; ++g1) {
+                data_org_basis[f0][f1] += data[g0][g1] *
+                    myconj(inv_rotmat_Delta(g0, f0)) *
+                    inv_rotmat_Delta(g1, f1);
+          }
+        }
+      }
+    }
+  }
+  ar["/EQUAL_TIME_G1"] << data_org_basis;
+}
+
 template<typename SOLVER_TYPE>
 void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
                 const typename alps::parameters_type<SOLVER_TYPE>::type &parms,

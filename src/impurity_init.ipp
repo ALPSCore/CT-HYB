@@ -3,8 +3,6 @@
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_observables() {
   // create measurement objects
-  //create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_rotated");
-  //create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens");
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_legendre");
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_legendre_rotated");
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Two_time_correlation_functions");
@@ -36,6 +34,8 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Two_time_G2");
   }
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "G1");
+
+  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G1");
 
   if (par["MEASURE_EQUAL_TIME_G2"] != 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G2");
@@ -86,7 +86,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       );
 
   /*
-   * Generalized spin-spin correlations (two-time two-particle Green's function)
+   * Two-time two-particle Green's function
    */
   if (par["MEASURE_TWO_TIME_G2"] != 0) {
     worm_types.push_back(Two_time_G2);
@@ -105,6 +105,30 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     );
     p_N2_meas.reset(
         new N2CorrelationFunctionMeasurement<SCALAR>(FLAVORS, par["N_LEGENDRE_TWO_TIME_G2"], BETA)
+    );
+  }
+
+  /*
+   * Equal-time single-particle Green's function
+   */
+  {
+    const std::string name("Equal_time_G1");
+    worm_types.push_back(Equal_time_G1);
+    worm_movers.push_back(
+        boost::shared_ptr<WormMoverType>(
+            new WormMoverType(name, BETA, FLAVORS, 0.0, BETA)
+        )
+    );
+    worm_insertion_removers.push_back(
+        boost::shared_ptr<WormInsertionRemoverType>(
+            new WormInsertionRemoverType(
+                name, BETA, FLAVORS, 0.0, BETA,
+                boost::shared_ptr<Worm>(new EqualTimeGWorm<1>())
+            )
+        )
+    );
+    p_equal_time_G1_meas.reset(
+        new EqualTimeGMeasurement<SCALAR, 1>(FLAVORS)
     );
   }
 
@@ -129,6 +153,29 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     );
     p_equal_time_G2_meas.reset(
         new EqualTimeGMeasurement<SCALAR, 2>(FLAVORS)
+    );
+  }
+
+  /*
+   * Connect Equal_time_G1 and Two_time_G2 spaces
+   */
+  if (std::find(worm_types.begin(), worm_types.end(), Equal_time_G1) != worm_types.end() &&
+          std::find(worm_types.begin(), worm_types.end(), Two_time_G2) != worm_types.end() ) {
+    specialized_updaters["Connect_Equal_time_G1_and_Two_time_G2"] =
+        boost::shared_ptr<LocalUpdaterType>(
+            new EqualTimeG1_TwoTimeG2_Connector<SCALAR, EXTENDED_SCALAR, SW_TYPE>(
+                "Connect_Equal_time_G1_and_Two_time_G2", BETA, FLAVORS
+            )
+        );
+  }
+
+  if (std::find(worm_types.begin(), worm_types.end(), G1) != worm_types.end()) {
+    specialized_updaters["G1_shifter"] =
+    boost::shared_ptr<LocalUpdaterType>(
+        new GWormShifter<SCALAR , 1, EXTENDED_SCALAR , SW_TYPE>(
+            "G1_shifter", BETA, FLAVORS,
+            boost::shared_ptr<Worm>(new GWorm<1>())
+        )
     );
   }
 

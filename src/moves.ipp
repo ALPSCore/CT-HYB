@@ -33,6 +33,7 @@ std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
 inline void range_check(const std::vector<psi> &ops, double tau_low, double tau_high) {
   for (std::vector<psi>::const_iterator it = ops.begin(); it != ops.end(); ++it) {
     if (tau_low > it->time().time() || tau_high < it->time().time()) {
+      std::cout << ops << std::endl;
       throw std::runtime_error("Something went wrong: try to update operators outside the range");
     }
   }
@@ -56,42 +57,39 @@ struct OutOfRange {
   double tau_low_, tau_high_;
 };
 
-/**
- * Determine which operators to be removed and what operators to be inserted in worm update
- */
-inline void take_worm_diff(const Worm &worm_old, const Worm &worm_new, double tau_low, double tau_high,
-                           std::vector<psi> &worm_ops_rem, std::vector<psi> &worm_ops_add) {
-  const OutOfRange<psi> out_of_range = OutOfRange<psi>(tau_low, tau_high);
-  std::vector<psi> worm_ops_old = worm_old.get_operators();
-  std::vector<psi> worm_ops_new = worm_new.get_operators();
-  worm_ops_add.resize(0);
-  worm_ops_rem.resize(0);
-  std::remove_copy_if(worm_ops_new.begin(), worm_ops_new.end(), std::back_inserter(worm_ops_add), out_of_range);
-  std::remove_copy_if(worm_ops_old.begin(), worm_ops_old.end(), std::back_inserter(worm_ops_rem), out_of_range);
-  assert(worm_ops_add.size() == worm_ops_rem.size());
+inline void merge_diff_impl(
+    std::vector<psi> &op_rem,
+    std::vector<psi> &op_add,
+    const std::vector<psi> &op_add_new) {
 
-  //make sure operators out side the rage is not going to be modified.
-  for (std::vector<psi>::const_iterator it = worm_ops_old.begin(); it != worm_ops_old.end(); ++it) {
-    if (!out_of_range(*it)) {
-      continue;
-    }
-    if (std::find(worm_ops_new.begin(), worm_ops_new.end(), *it) == worm_ops_new.end()) {
-      throw std::runtime_error("Error in take_worm_diff: you are going to modify an operator outside the window");
-    }
-  }
-  for (std::vector<psi>::const_iterator it = worm_ops_new.begin(); it != worm_ops_new.end(); ++it) {
-    if (!out_of_range(*it)) {
-      continue;
-    }
-    if (std::find(worm_ops_old.begin(), worm_ops_old.end(), *it) == worm_ops_old.end()) {
-      throw std::runtime_error("Error in take_worm_diff: you are going to modify an operator outside the window");
+  for (std::vector<psi>::const_iterator it = op_add_new.begin(); it != op_add_new.end(); ++it) {
+    std::vector<psi>::iterator it2 = std::find(op_rem.begin(), op_rem.end(), *it);
+    if (it2 == op_rem.end()) {
+      op_add.push_back(*it);
+    } else {
+      std::swap(*it2, op_rem.back());
+      op_rem.pop_back();
     }
   }
 }
 
+inline void merge_diff(const std::vector<psi> &hyb_op_rem,
+                       const std::vector<psi> &hyb_op_add,
+                       const std::vector<psi> &worm_op_rem,
+                       const std::vector<psi> &worm_op_add,
+                       std::vector<psi> &op_rem,
+                       std::vector<psi> &op_add) {
+  op_rem.resize(0);
+  op_add.resize(0);
+  std::copy(hyb_op_rem.begin(), hyb_op_rem.end(), std::back_inserter(op_rem));
+  std::copy(worm_op_rem.begin(), worm_op_rem.end(), std::back_inserter(op_rem));
+  merge_diff_impl(op_rem, op_add, hyb_op_add);
+  merge_diff_impl(op_rem, op_add, worm_op_add);
+}
+
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
+bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     alps::random01 &rng, double BETA,
     MonteCarloConfiguration<SCALAR> &mc_config,
     SLIDING_WINDOW &sliding_window,
@@ -110,7 +108,7 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
 
   if (!valid_move_generated_) {
     finalize_update();
-    return;
+    return false;
   } else {
     assert(acceptance_rate_correction_);
   }
@@ -118,42 +116,39 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
   const double tau_low = sliding_window.get_tau_low();
   const double tau_high = sliding_window.get_tau_high();
 
-  std::vector<psi> worm_ops_rem, worm_ops_add;
-  if (!mc_config.p_worm && p_new_worm_) {
-    //worm insertion
-    worm_ops_add = p_new_worm_->get_operators();
-  } else if (mc_config.p_worm && !p_new_worm_) {
-    //worm removal
-  } else if (mc_config.p_worm && !p_new_worm_) {
-    worm_ops_rem = mc_config.p_worm->get_operators();
-  } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
-    //worm move
-    take_worm_diff(*mc_config.p_worm, *p_new_worm_, tau_low, tau_high, worm_ops_rem, worm_ops_add);
+  //Figure out which operators are actually removed and what operators are added into the trace
+  std::vector<psi> op_rem_tot, op_add_tot;
+  {
+    std::vector<psi> hyb_op_rem, hyb_op_add;
+    hyb_op_rem.reserve(cdagg_ops_rem_.size() + c_ops_rem_.size());
+    std::copy(cdagg_ops_rem_.begin(), cdagg_ops_rem_.end(), std::back_inserter(hyb_op_rem));
+    std::copy(c_ops_rem_.begin(), c_ops_rem_.end(), std::back_inserter(hyb_op_rem));
+
+    hyb_op_add.reserve(cdagg_ops_add_.size() + c_ops_add_.size());
+    std::copy(cdagg_ops_add_.begin(), cdagg_ops_add_.end(), std::back_inserter(hyb_op_add));
+    std::copy(c_ops_add_.begin(), c_ops_add_.end(), std::back_inserter(hyb_op_add));
+
+    const std::vector<psi> worm_ops_old = mc_config.p_worm ? mc_config.p_worm->get_operators() : std::vector<psi>();
+    const std::vector<psi> worm_ops_new = p_new_worm_ ? p_new_worm_->get_operators() : std::vector<psi>();
+
+    merge_diff(hyb_op_rem, hyb_op_add, worm_ops_old, worm_ops_new, op_rem_tot, op_add_tot);
+
+    range_check(op_rem_tot, tau_low, tau_high);
+    range_check(op_add_tot, tau_low, tau_high);
   }
 
-  //make sure all operators to be updated in the window
-  //We skip this check if trace_is_not_update_ is set to true. (default is false).
-  if (!trace_is_not_updated_) {
-    range_check(cdagg_ops_rem_, tau_low, tau_high);
-    range_check(c_ops_rem_, tau_low, tau_high);
-    range_check(cdagg_ops_add_, tau_low, tau_high);
-    range_check(c_ops_add_, tau_low, tau_high);
-    range_check(worm_ops_add, tau_low, tau_high);
-    range_check(worm_ops_rem, tau_low, tau_high);
-  }
-
-  //update operators hybirized with bath and those from worms
+  //update operators
   std::vector<std::pair<psi, ActionType> > update_record;
-  bool update_success = update_operators(mc_config, worm_ops_rem, worm_ops_add, update_record);
+  bool update_success = update_operators(mc_config.operators, op_rem_tot, op_add_tot, update_record);
   if (!update_success) {
     finalize_update();
-    return;
+    return false;
   }
 
   bool accepted = false;
   SCALAR prob;
   EXTENDED_SCALAR trace_new;
-  if (trace_is_not_updated_) {
+  if (op_rem_tot.size() == 0 && op_add_tot.size() == 0) {
     //if trace is not updated, just compute det_rat
     trace_new = mc_config.trace;
 
@@ -176,7 +171,7 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
       //revert_operators(mc_config, worm_ops_rem, worm_ops_add);
       revert_changes(mc_config.operators, update_record);
       finalize_update();
-      return;
+      return false;
     }
 
     //compute the determinant ratio
@@ -216,53 +211,38 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     accepted_ = true;
   } else { // rejected
     mc_config.M.reject_update();
-    //revert_operators(mc_config, worm_ops_rem, worm_ops_add);
     revert_changes(mc_config.operators, update_record);
   }
   mc_config.check_nan();
 
   finalize_update();
+
+  return accepted;
 };
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool LocalUpdater<SCALAR,
                   EXTENDED_SCALAR,
-                  SLIDING_WINDOW>::update_operators(MonteCarloConfiguration<SCALAR> &mc_config,
-                                                    const std::vector<psi> &worm_ops_rem,
-                                                    const std::vector<psi> &worm_ops_add,
+                  SLIDING_WINDOW>::update_operators(operator_container_t &operators,
+                                                    const std::vector<psi> &ops_rem,
+                                                    const std::vector<psi> &ops_add,
                                                     std::vector<std::pair<psi, ActionType> > &update_record) {
-  //std::vector<std::pair<psi,ActionType > > record;
   update_record.resize(0);
 
+  //First, remove operators
   try {
-    //First, remove operators
-    safe_erase_with_record(mc_config.operators, cdagg_ops_rem_.begin(), cdagg_ops_rem_.end(), update_record);
-    safe_erase_with_record(mc_config.operators, c_ops_rem_.begin(), c_ops_rem_.end(), update_record);
+    safe_erase_with_record(operators, ops_rem.begin(), ops_rem.end(), update_record);
+  } catch (const std::exception &e) {
+    throw std::runtime_error("Fatal error in LocalUpdater::update_operators");
+  }
 
-    if (mc_config.p_worm && !p_new_worm_) {
-      const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
-      safe_erase_with_record(mc_config.operators, worm_ops.begin(), worm_ops.end(), update_record);//remove a worm
-    } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
-      safe_erase_with_record(mc_config.operators,
-                             worm_ops_rem.begin(),
-                             worm_ops_rem.end(),
-                             update_record);//replace a worm with a new one
-    }
-
-    //Then, add operators
-    safe_insert_with_record(mc_config.operators, cdagg_ops_add_.begin(), cdagg_ops_add_.end(), update_record);
-    safe_insert_with_record(mc_config.operators, c_ops_add_.begin(), c_ops_add_.end(), update_record);
-
-    if (!mc_config.p_worm && p_new_worm_) {
-      const std::vector<psi> &worm_ops_new = p_new_worm_->get_operators();
-      safe_insert_with_record(mc_config.operators, worm_ops_new.begin(), worm_ops_new.end(), update_record);
-    } else if (mc_config.p_worm && p_new_worm_ && *mc_config.p_worm != *p_new_worm_) {
-      safe_insert_with_record(mc_config.operators, worm_ops_add.begin(), worm_ops_add.end(), update_record);
-    }
+  //Then, add operators
+  try {
+    safe_insert_with_record(operators, ops_add.begin(), ops_add.end(), update_record);
   } catch (const std::exception &e) {
     //In the case, we try to insert an operator at tau where there is already another operator, we reject such an update.
     std::cout << "Warning: duplicate found" << std::endl;
-    revert_changes(mc_config.operators, update_record);
+    revert_changes(operators, update_record);
     return false;
   }
 
@@ -279,7 +259,6 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::finalize_update() {
   cdagg_ops_add_.resize(0);
   c_ops_add_.resize(0);
   p_new_worm_.reset();
-  trace_is_not_updated_ = false;
   valid_move_generated_ = false;
   accepted_ = false;
 }
@@ -1043,19 +1022,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   } else {
     //Insertion is done by removing operators hybridized with the bath and adding them into the trace
     //This respects quantum number conservation
-    bool r = propose_by_trace_hyb_impl(rng, mc_config, sliding_window, config_space_weight);
-    //std::cout << "debug " << r << std::endl;
-    //std::cout << "cdagg_ops_rem " << BaseType::cdagg_ops_rem_ << std::endl;
-    //std::cout << "c_ops_rem " << BaseType::c_ops_rem_ << std::endl;
-    //std::cout << "cdagg_ops_add " << BaseType::cdagg_ops_add_ << std::endl;
-    //std::cout << "c_ops_add " << BaseType::c_ops_add_ << std::endl;
-    //if (mc_config.p_worm) {
-    //std::cout << "worm_ops_old " << mc_config.p_worm->get_operators() << std::endl;
-    //}
-    //if (BaseType::p_new_worm_) {
-    //std::cout << "worm_ops_new " << BaseType::p_new_worm_->get_operators() << std::endl;
-    //}
-    return r;
+    return propose_by_trace_hyb_impl(rng, mc_config, sliding_window, config_space_weight);
   }
 }
 
@@ -1308,6 +1275,322 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
     BaseType::acceptance_rate_correction_ =
         worm_space_weight * std::pow(boost::math::binomial_coefficient<double>(mc_config.pert_order(), RANK), 2.0);
   }
-  BaseType::trace_is_not_updated_ = true;
+  return true;
+}
+
+inline double get_tau_max(const operator_container_t &ops,
+                          const psi &op,
+                          double tau_high,
+                          const std::vector<psi> &worm_ops,
+                          boost::optional<psi> &hyb_op_lower_bound) {
+  operator_container_t::iterator it = ops.lower_bound(op);
+  if (it == ops.end()) {
+    return tau_high;
+  }
+  //find the operator that has the smallest tau and does not belongs to the worm
+  while (it != ops.end() && std::find(worm_ops.begin(), worm_ops.end(), *it) != worm_ops.end()) {
+    ++it;
+  }
+  if (it == ops.end()) {
+    return tau_high;
+  } else {
+    hyb_op_lower_bound = *it;
+    return std::min(tau_high, it->time().time());
+  }
+}
+
+inline double get_tau_min(const operator_container_t &ops,
+                          const psi &op,
+                          double tau_low,
+                          const std::vector<psi> &worm_ops,
+                          boost::optional<psi> &hyb_op_upper_bound) {
+  namespace bll = boost::lambda;
+  typedef operator_container_t::iterator it_t;
+
+  //find the operator that has the largest tau and does not belongs to the worm
+  std::pair<it_t, it_t> op_range = ops.range(0.0 <= bll::_1, bll::_1 < op.time());
+  operator_container_t::iterator it = op_range.second;
+  if (it == ops.end()) {
+    return tau_low;
+  }
+
+  operator_container_t::iterator it_up = it;
+  ++it_up;
+  while (it_up != ops.begin() && std::find(worm_ops.begin(), worm_ops.end(), *it) != worm_ops.end()) {
+    --it;
+    --it_up;
+  }
+  if (it_up == ops.begin()) {
+    return tau_low;
+  } else {
+    hyb_op_upper_bound = *it;
+    return std::max(tau_low, it->time().time());
+  }
+}
+
+//inline double get_tau_max(const operator_container_t &ops,
+//const operator_container_t &ops2,
+//const psi &op,
+//double tau_high) {
+//return std::min(get_tau_max(ops, op, tau_high), get_tau_max(ops2, op, tau_high));
+//}
+//
+//inline double get_tau_min(const operator_container &ops, const psi &op, double tau_low) {
+//operator_container_t::iterator it = mc_config.operators.upper_bound(op);
+//if (it == ops.end()) {
+//return tau_low;
+//} else {
+//return std::max(tau_low, it->time.time());
+//}
+//}
+//
+//inline double get_tau_min(const operator_container &ops,
+//const operator_container &ops2,
+//const psi &op,
+//double tau_low) {
+//return std::max(get_tau_min(ops, op, tau_low), get_tau_min(ops2, op, tau_low));
+//}
+
+/**
+ * Count the number of pairs of cdagger and c operators hybridized with the bath (appearing in this order)
+ * and return one of the pairs.
+ */
+template<typename InputItr>
+int count_hyb_cdagg_c_op_pairs(InputItr op_begin,
+                               InputItr op_end,
+                               const std::vector<psi> &worm_ops,
+                               alps::random01 &rng,
+                               std::pair<psi, psi> &pair) {
+  std::vector<std::pair<psi, psi> > pairs;
+  if (std::distance(op_begin, op_end) < 2) {
+    return 0;
+  }
+  {
+    InputItr it_up = op_begin;
+    ++it_up;
+    for (InputItr it = op_begin; it_up != op_end; ++it, ++it_up) {
+      if (it->type() == CREATION_OP && it_up->type() == ANNIHILATION_OP &&
+          std::find(worm_ops.begin(), worm_ops.end(), *it) == worm_ops.end() &&
+          std::find(worm_ops.begin(), worm_ops.end(), *it_up) == worm_ops.end()
+          ) {
+        pairs.push_back(std::make_pair(*it, *it_up));
+      }
+    }
+  }
+  if (pairs.size() > 0) {
+    const int idx = static_cast<int>(rng() * pairs.size());
+    pair = pairs[idx];
+  }
+  return pairs.size();
+}
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+bool EqualTimeG1_TwoTimeG2_Connector<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
+    alps::random01 &rng,
+    MonteCarloConfiguration<SCALAR> &mc_config,
+    const SLIDING_WINDOW &sliding_window,
+    const std::map<ConfigSpace, double> &config_space_weight
+) {
+  typedef operator_container_t::iterator it_t;
+  namespace bll = boost::lambda;
+
+  if (mc_config.current_config_space() != Equal_time_G1 && mc_config.current_config_space() != Two_time_G2) {
+    throw std::runtime_error("Error in EqualTimeG1_TwoTimeG2_Connector::propose()");
+  }
+
+  const double weight_G1 = config_space_weight.find(Equal_time_G1)->second;
+  const double weight_G2 = config_space_weight.find(Two_time_G2)->second;
+
+  const double tau_low = sliding_window.get_tau_low();
+  const double tau_high = sliding_window.get_tau_high();
+
+  const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
+
+  if (mc_config.current_config_space() == Equal_time_G1) {
+    BaseType::p_new_worm_ = boost::shared_ptr<Worm>(new CorrelationWorm<2>());
+    BaseType::p_new_worm_->set_time(0, mc_config.p_worm->get_time(0));
+    BaseType::p_new_worm_->set_time(1, open_random(rng, tau_low, tau_high));
+    for (int iop = 0; iop < 2; ++iop) {
+      BaseType::p_new_worm_->set_flavor(iop, mc_config.p_worm->get_flavor(iop));
+    }
+
+    if (rng() < 0.5) {
+      for (int iop = 2; iop < 4; ++iop) {
+        BaseType::p_new_worm_->set_flavor(iop, static_cast<int>(num_flavors_ * rng()));
+      }
+
+      BaseType::acceptance_rate_correction_ = (weight_G2 / weight_G1) *
+          num_flavors_ * num_flavors_ * (tau_high - tau_low);
+    } else {
+      return false;
+
+      //std::cout << "A " << std::endl;
+      std::pair<it_t, it_t> op_range = mc_config.operators.range(
+          tau_low <= bll::_1, bll::_1 <= tau_high
+      );
+      std::pair<psi, psi> hyb_op_pair;
+      const int num_hyb_op_pairs =
+          count_hyb_cdagg_c_op_pairs(op_range.first, op_range.second, worm_ops, rng, hyb_op_pair);
+      if (num_hyb_op_pairs == 0) {
+        return false;
+      }
+
+      //remove cdagger and c operators from the determinant
+      BaseType::cdagg_ops_rem_.push_back(hyb_op_pair.first);
+      BaseType::c_ops_rem_.push_back(hyb_op_pair.second);
+
+      BaseType::p_new_worm_->set_flavor(2, hyb_op_pair.first.flavor());
+      BaseType::p_new_worm_->set_flavor(3, hyb_op_pair.second.flavor());
+
+      boost::optional<psi> hyb_op_upper_bound, hyb_op_lower_bound;
+      double tau_max, tau_min;
+      if (hyb_op_pair.first > hyb_op_pair.second) {
+        tau_max = get_tau_max(mc_config.operators, hyb_op_pair.first, tau_high, worm_ops, hyb_op_lower_bound);
+        tau_min = get_tau_min(mc_config.operators, hyb_op_pair.second, tau_low, worm_ops, hyb_op_upper_bound);
+      } else {
+        tau_max = get_tau_max(mc_config.operators, hyb_op_pair.second, tau_high, worm_ops, hyb_op_lower_bound);
+        tau_min = get_tau_min(mc_config.operators, hyb_op_pair.first, tau_low, worm_ops, hyb_op_upper_bound);
+      }
+      BaseType::p_new_worm_->set_time(1, open_random(rng, tau_min, tau_max));
+
+      BaseType::acceptance_rate_correction_ = (weight_G2 / weight_G1) * (2. * num_hyb_op_pairs) / (tau_max - tau_min);
+
+      //BaseType::acceptance_rate_correction_ =
+          //(weight_G1 / weight_G2) * (tau_max - tau_min) / (2. * num_pairs_after_update);
+
+      //std::cout << "A0 " << BaseType::p_new_worm_->get_operators() << " : " << hyb_op_pair.first << " " << hyb_op_pair.second << std::endl;
+      //std::cout << "A1 " << tau_high << std::endl;
+      //std::cout << "A2 " << tau_low << std::endl;
+      //std::cout << "A3 " << tau_max << std::endl;
+      //std::cout << "A4 " << tau_min << std::endl;
+      //std::cout << "A5 " << mc_config.operators << std::endl;
+      assert(tau_min < tau_max);
+      assert(tau_low <= tau_min);
+      assert(tau_max <= tau_high);
+    }
+  } else {
+    if (mc_config.p_worm->get_time(1) < tau_low || mc_config.p_worm->get_time(1) > tau_high) {
+      return false;
+    }
+
+    BaseType::p_new_worm_ = boost::shared_ptr<Worm>(new EqualTimeGWorm<1>());
+    BaseType::p_new_worm_->set_time(0, mc_config.p_worm->get_time(0));
+    for (int iop = 0; iop < 2; ++iop) {
+      BaseType::p_new_worm_->set_flavor(iop, mc_config.p_worm->get_flavor(iop));
+    }
+
+    if (rng() < 0.5) {
+      BaseType::acceptance_rate_correction_ = (weight_G1 / weight_G2) / (
+          num_flavors_ * num_flavors_ * (tau_high - tau_low)
+      );
+    } else {
+      return false;
+
+      boost::optional<psi> hyb_op_upper_bound, hyb_op_lower_bound;
+      const double tau_max = get_tau_max(mc_config.operators, worm_ops[2], tau_high, worm_ops, hyb_op_lower_bound);
+      const double tau_min = get_tau_min(mc_config.operators, worm_ops[3], tau_low, worm_ops, hyb_op_upper_bound);
+      assert(tau_min < tau_max);
+      assert(tau_low <= tau_min);
+      assert(tau_max <= tau_high);
+      //std::cout << "B1 " << tau_high << std::endl;
+      //std::cout << "B2 " << tau_low << std::endl;
+      //std::cout << "B3 " << tau_max << std::endl;
+      //std::cout << "B4 " << tau_min << std::endl;
+      //std::cout << "B5 " << mc_config.p_worm->get_operators() << std::endl;
+      //std::cout << "B6 " << BaseType::p_new_worm_->get_operators() << std::endl;
+
+      double tau_cdagg_op = open_random(rng, tau_max, tau_min), tau_c_op = open_random(rng, tau_max, tau_min);
+      if (tau_cdagg_op == tau_c_op) {
+        return false;
+      } else if (tau_cdagg_op < tau_c_op) {
+        std::swap(tau_cdagg_op, tau_c_op);
+      }
+
+      //add cdagger and c operators to the determinant
+      BaseType::cdagg_ops_add_.push_back(psi(tau_cdagg_op, CREATION_OP, worm_ops[0].flavor()));
+      BaseType::c_ops_add_.push_back(psi(tau_c_op, ANNIHILATION_OP, worm_ops[1].flavor()));
+
+      //count the number of cdagger and c pairs after the update
+      //(A)  cdagger   n   cdagger   => cdagger  cdagger c  cdagger   num_pairs_after_update = num_pairs_before_update+1
+      //(B)  cdagger   n         c   => cdagger  cdagger c  c         num_pairs_after_update = num_pairs_before_update
+      //(C)  cdagger   n   cdagger   => cdagger  cdagger c  cdagger   num_pairs_after_update = num_pairs_before_update+1
+      //(D)  c         n   c         => c        cdagger c  c         num_pairs_after_update = num_pairs_before_update+1
+      //(E)  Otherwise                                                num_pairs_after_update = num_pairs_before_update+1
+      std::pair<it_t, it_t> op_range = mc_config.operators.range(
+          tau_low <= bll::_1, bll::_1 <= tau_high
+      );
+      std::pair<psi, psi> hyb_op_pair;
+      const int num_hyb_op_pairs =
+          count_hyb_cdagg_c_op_pairs(op_range.first, op_range.second, worm_ops, rng, hyb_op_pair);
+
+      int num_pairs_after_update;
+      if (hyb_op_lower_bound && hyb_op_upper_bound && hyb_op_lower_bound->type() == CREATION_OP
+          && hyb_op_upper_bound->type() == ANNIHILATION_OP) {
+        num_pairs_after_update = num_hyb_op_pairs;
+      } else {
+        num_pairs_after_update = num_hyb_op_pairs + 1;
+      }
+
+      BaseType::acceptance_rate_correction_ =
+          (weight_G1 / weight_G2) * (tau_max - tau_min) / (2. * num_pairs_after_update);
+    }
+  }
+  return true;
+}
+
+template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+bool GWormShifter<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
+    alps::random01 &rng,
+    MonteCarloConfiguration<SCALAR> &mc_config,
+    const SLIDING_WINDOW &sliding_window,
+    const std::map<ConfigSpace, double> &config_space_weight
+) {
+  namespace bll = boost::lambda;
+  typedef operator_container_t::iterator it_t;
+
+  if (typeid(mc_config.p_worm.get()) != typeid(p_worm_template_.get())) {
+    throw std::logic_error("Type is wrong in GWormShifter::update()");
+  }
+
+  const int iop_shifted = static_cast<int>(rng() * 2 * RANK);
+  double tau_range_max, tau_range_min;
+  if (rng() < 0.5) {
+    tau_range_max = beta_;
+    tau_range_min = 0.0;
+  } else {
+    double tau_old = mc_config.p_worm->get_time(iop_shifted);
+    tau_range_max = tau_old + (beta_/mc_config.pert_order()) * num_flavors_;
+    tau_range_min = tau_old - (beta_/mc_config.pert_order()) * num_flavors_;
+  }
+
+  const int block = mc_config.M.block_belonging_to(mc_config.p_worm->get_flavor(iop_shifted));
+  const operator_container_t *p_ops = iop_shifted % 2 == 0 ?
+    &mc_config.M.get_c_ops_set(block) :
+     &mc_config.M.get_cdagg_ops_set(block);
+  std::pair<it_t,it_t> ops_range = p_ops->range(
+    tau_range_min <= bll::_1, bll::_1 <= tau_range_max
+  );
+  ops_work_.resize(0);
+  std::copy(ops_range.first, ops_range.second, std::back_inserter(ops_work_));
+
+  if (ops_work_.size() == 0) {
+    return false;
+  }
+
+  BaseType::p_new_worm_ = mc_config.p_worm->clone();
+  psi new_op = ops_work_[static_cast<int>(rng() * ops_work_.size())];
+  BaseType::p_new_worm_->set_flavor(iop_shifted, new_op.flavor());
+  BaseType::p_new_worm_->set_time(iop_shifted, new_op.time().time());
+
+  const psi old_op = mc_config.p_worm->get_operators()[iop_shifted];
+  if (iop_shifted % 2 == 0) {
+    BaseType::c_ops_rem_.push_back(new_op);
+    BaseType::c_ops_add_.push_back(old_op);
+  } else {
+    BaseType::cdagg_ops_rem_.push_back(new_op);
+    BaseType::cdagg_ops_add_.push_back(old_op);
+  }
+
+  BaseType::acceptance_rate_correction_ = 1.0;
   return true;
 }

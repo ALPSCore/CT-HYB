@@ -65,11 +65,11 @@ struct OperatorShift {
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class LocalUpdater {
  public:
-  LocalUpdater() : trace_is_not_updated_(false) { }
+  LocalUpdater() { }
   virtual ~LocalUpdater() { }
 
-  /** Update the configuration */
-  void update(
+  /** Update the configuration. Return true if the update is accepted. */
+  bool update(
       alps::random01 &rng, double BETA,
       MonteCarloConfiguration<SCALAR> &mc_config,
       SLIDING_WINDOW &sliding_window,
@@ -111,7 +111,6 @@ class LocalUpdater {
   std::vector<psi> cdagg_ops_add_; //hybrized with bath
   std::vector<psi> c_ops_add_;     //hybrized with bath
   boost::shared_ptr<Worm> p_new_worm_; //New worm
-  bool trace_is_not_updated_; //set true if the trace is not updated.
 
   //some variables set on the exit of update()
   bool valid_move_generated_;
@@ -120,8 +119,8 @@ class LocalUpdater {
  private:
   std::vector<psi> duplicate_check_work_;
 
-  bool update_operators(MonteCarloConfiguration<SCALAR> &mc_config,
-                        const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add,
+  static bool update_operators(operator_container_t &operators,
+                        const std::vector<psi> &ops_rem, const std::vector<psi> &ops_add,
                         std::vector<std::pair<psi, ActionType> > &update_record);
 
   //void revert_operators(MonteCarloConfiguration<SCALAR> &mc_config,
@@ -471,6 +470,59 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
   );
 
   boost::shared_ptr<Worm> p_worm_template_;
+};
+
+/**
+ * @brief Connect equal-time G1 space and two-time G2 space
+ */
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class EqualTimeG1_TwoTimeG2_Connector: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+
+ public:
+  EqualTimeG1_TwoTimeG2_Connector(const std::string &str,
+                        double beta,
+                        int num_flavors) : BaseType(), num_flavors_(num_flavors) {
+  }
+
+ private:
+  virtual bool propose(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
+  );
+
+  int num_flavors_;
+  std::vector<std::pair<psi,psi> > pairs_;
+};
+
+/**
+ * @brief Shift updater a Green's function worm by reconnecting hybridization lines
+ */
+template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class GWormShifter: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+
+ public:
+  GWormShifter(const std::string &str,
+                        double beta,
+                        int num_flavors,
+                        boost::shared_ptr<Worm> p_worm_template
+  ) : BaseType(), beta_(beta), num_flavors_(num_flavors), p_worm_template_(p_worm_template) {}
+
+ private:
+  virtual bool propose(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
+  );
+
+  double beta_;
+  int num_flavors_;
+  boost::shared_ptr<Worm> p_worm_template_;
+  std::vector<psi> ops_work_;
 };
 
 

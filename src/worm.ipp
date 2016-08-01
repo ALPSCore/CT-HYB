@@ -7,13 +7,13 @@ std::vector<psi> CorrelationWorm<NumTimes>::get_operators() const {
     //creation operator
     ops.push_back(
         psi(
-            OperatorTime(times_[it], -100 * it + 2), CREATION_OP, flavors_[2 * it]
+            OperatorTime(times_[it], 1), CREATION_OP, flavors_[2 * it]
         )
     );
     //annihilation operator
     ops.push_back(
         psi(
-            OperatorTime(times_[it], -100 * it + 1), ANNIHILATION_OP, flavors_[2 * it + 1]
+            OperatorTime(times_[it], 0), ANNIHILATION_OP, flavors_[2 * it + 1]
         )
     );
   }
@@ -49,7 +49,7 @@ std::vector<psi> GWorm<Rank>::get_operators() const {
 template<unsigned int Rank>
 std::vector<psi> EqualTimeGWorm<Rank>::get_operators() const {
   std::vector<psi> ops;
-  int small_idx = 100;
+  int small_idx = 2 * Rank - 1;
   for (int it = 0; it < Rank; ++it) {
     //creation operator
     ops.push_back(
@@ -68,5 +68,6 @@ std::vector<psi> EqualTimeGWorm<Rank>::get_operators() const {
     -- small_idx;
 
   }
+  assert (small_idx == -1);
   return ops;
 }

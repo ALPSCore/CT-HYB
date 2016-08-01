@@ -317,11 +317,16 @@ class EqualTimeGMeasurement {
       num_flavors_(num_flavors) {};
 
   /**
-   * @brief Measure correlation functions with shifting two of the four operators on the interval [0,beta]
-   * @param average_pert_order average perturbation order per flavor, which is used for determining the number of shifts
+   * Measurement of equal-time single-particle GF
    */
-  typename boost::enable_if_c<Rank==2, SCALAR>::type
-  measure(MonteCarloConfiguration<SCALAR> &mc_config,
+  void measure_G1(MonteCarloConfiguration<SCALAR> &mc_config,
+              alps::accumulators::accumulator_set &measurements,
+              const std::string &str);
+
+  /**
+   * Measurement of equal-time two-particle GF
+   */
+  void measure_G2(MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements,
                const std::string &str);
 
