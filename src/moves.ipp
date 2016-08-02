@@ -1328,29 +1328,6 @@ inline double get_tau_min(const operator_container_t &ops,
   }
 }
 
-//inline double get_tau_max(const operator_container_t &ops,
-//const operator_container_t &ops2,
-//const psi &op,
-//double tau_high) {
-//return std::min(get_tau_max(ops, op, tau_high), get_tau_max(ops2, op, tau_high));
-//}
-//
-//inline double get_tau_min(const operator_container &ops, const psi &op, double tau_low) {
-//operator_container_t::iterator it = mc_config.operators.upper_bound(op);
-//if (it == ops.end()) {
-//return tau_low;
-//} else {
-//return std::max(tau_low, it->time.time());
-//}
-//}
-//
-//inline double get_tau_min(const operator_container &ops,
-//const operator_container &ops2,
-//const psi &op,
-//double tau_low) {
-//return std::max(get_tau_min(ops, op, tau_low), get_tau_min(ops2, op, tau_low));
-//}
-
 /**
  * Count the number of pairs of cdagger and c operators hybridized with the bath (appearing in this order)
  * and return one of the pairs.

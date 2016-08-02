@@ -262,11 +262,12 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       break;
 
     case G1:
-      p_G1_meas->measure(mc_config, measurements, random, sliding_window, N_win_standard, "G1");
+      //p_G1_meas->measure(mc_config, measurements, random, sliding_window, N_win_standard, "G1");
+      p_G1_meas->measure_via_hyb(mc_config, measurements, random, sliding_window, "G1");
       break;
 
     case Two_time_G2:
-      p_N2_meas->measure(mc_config,
+      p_two_time_G2_meas->measure(mc_config,
                          measurements,
                          random,
                          sliding_window,

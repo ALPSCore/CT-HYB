@@ -2,9 +2,12 @@
 
 template<typename SCALAR>
 template<typename SlidingWindow>
-void N2CorrelationFunctionMeasurement<SCALAR>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
-                                                       alps::accumulators::accumulator_set &measurements,
-                                                       alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str) {
+void TwoTimeG2Measurement<SCALAR>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
+                                           alps::accumulators::accumulator_set &measurements,
+                                           alps::random01 &random,
+                                           SlidingWindow &sliding_window,
+                                           int average_pert_order,
+                                           const std::string &str) {
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
   typedef operator_container_t::iterator Iterator;
   if (mc_config.current_config_space() != Two_time_G2) {
@@ -26,7 +29,7 @@ void N2CorrelationFunctionMeasurement<SCALAR>::measure(MonteCarloConfiguration<S
     for (operator_container_t::iterator it = mc_config.operators.begin(); it != mc_config.operators.end(); ++it) {
       duplicate_check.insert(it->time().time());
     }
-    while(new_times.size() < num_times) {
+    while (new_times.size() < num_times) {
       double t = open_random(random, 0.0, beta_);
       if (duplicate_check.find(t) == duplicate_check.end()) {
         new_times.insert(t);
@@ -43,7 +46,7 @@ void N2CorrelationFunctionMeasurement<SCALAR>::measure(MonteCarloConfiguration<S
   std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
 
   //configurations whose trace is smaller than this cutoff are ignored.
-  const EXTENDED_REAL trace_cutoff = EXTENDED_REAL(1.0E-30)*myabs(mc_config.trace);
+  const EXTENDED_REAL trace_cutoff = EXTENDED_REAL(1.0E-30) * myabs(mc_config.trace);
 
   double norm = 0.0;
   std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
@@ -55,7 +58,7 @@ void N2CorrelationFunctionMeasurement<SCALAR>::measure(MonteCarloConfiguration<S
     std::vector<psi> worm_ops = worm_ops_original;
     if (sweep == 1) {//change flavors of all worm operators
       for (int iop = 0; iop < worm_ops.size(); ++iop) {
-        worm_ops[iop].set_flavor(static_cast<int>(random()*num_flavors_));
+        worm_ops[iop].set_flavor(static_cast<int>(random() * num_flavors_));
       }
     }
 
@@ -76,15 +79,15 @@ void N2CorrelationFunctionMeasurement<SCALAR>::measure(MonteCarloConfiguration<S
       assert(*it >= sliding_window.get_tau_low());
 
       worm_ops[0].set_time(OperatorTime(*it, +1));
-      worm_ops[1].set_time(OperatorTime(*it,  0));
+      worm_ops[1].set_time(OperatorTime(*it, 0));
       safe_insert(ops, worm_ops[0]);
       safe_insert(ops, worm_ops[1]);
 
       sliding_window.compute_trace_bound(ops, trace_bound);
       std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(ops, EXTENDED_REAL(0.0), trace_bound);
       if (myabs(r.second) > trace_cutoff) {
-        const SCALAR weight = convert_to_scalar(r.second/mc_config.trace);
-        measure_impl(worm_ops, mc_config.sign*weight, data_);
+        const SCALAR weight = convert_to_scalar(r.second / mc_config.trace);
+        measure_impl(worm_ops, mc_config.sign * weight, data_);
         norm += std::abs(weight);
       }
 
@@ -99,7 +102,10 @@ void N2CorrelationFunctionMeasurement<SCALAR>::measure(MonteCarloConfiguration<S
   }
 
   //normalize the data
-  std::transform(data_.origin(), data_.origin() + data_.num_elements(), data_.origin(), std::bind2nd(std::divides<std::complex<double> >(), norm));
+  std::transform(data_.origin(),
+                 data_.origin() + data_.num_elements(),
+                 data_.origin(),
+                 std::bind2nd(std::divides<std::complex<double> >(), norm));
 
   //pass the data to ALPS libraries
   measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
@@ -110,8 +116,8 @@ void N2CorrelationFunctionMeasurement<SCALAR>::measure(MonteCarloConfiguration<S
 }
 
 template<typename SCALAR>
-void N2CorrelationFunctionMeasurement<SCALAR>::measure_impl(const std::vector<psi> &worm_ops, SCALAR weight,
-                                                            boost::multi_array<std::complex<double>,5> &data) {
+void TwoTimeG2Measurement<SCALAR>::measure_impl(const std::vector<psi> &worm_ops, SCALAR weight,
+                                                boost::multi_array<std::complex<double>, 5> &data) {
   boost::array<int, 4> flavors;
   if (worm_ops[0].time().time() != worm_ops[1].time().time()) {
     throw std::runtime_error("time worm_ops0 != time worm_ops1");
@@ -163,7 +169,7 @@ inline void generate_new_time_sets(double init_time, int num_times, alps::random
     for (operator_container_t::const_iterator it = operators.begin(); it != operators.end(); ++it) {
       duplicate_check.insert(it->time().time());
     }
-    while(new_times.size() < num_times) {
+    while (new_times.size() < num_times) {
       double t = open_random(random, tau_min, tau_max);
       while (t > beta) {
         t -= beta;
@@ -188,9 +194,12 @@ void init_work_space(boost::multi_array<std::complex<double>, 4 * Rank - 1> &dat
 
 template<typename SCALAR, int Rank>
 template<typename SlidingWindow>
-void GMeasurement<SCALAR,Rank>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
-                                                           alps::accumulators::accumulator_set &measurements,
-                                                           alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str) {
+void GMeasurement<SCALAR, Rank>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
+                                         alps::accumulators::accumulator_set &measurements,
+                                         alps::random01 &random,
+                                         SlidingWindow &sliding_window,
+                                         int average_pert_order,
+                                         const std::string &str) {
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
   typedef operator_container_t::iterator Iterator;
 
@@ -215,7 +224,14 @@ void GMeasurement<SCALAR,Rank>::measure(MonteCarloConfiguration<SCALAR> &mc_conf
   }
   std::set<double> new_times;
   generate_new_time_sets(
-      worm_ops_original[idx_operator_shifted].time().time(), num_times, random, beta_, tau_min, tau_max, mc_config.operators, new_times
+      worm_ops_original[idx_operator_shifted].time().time(),
+      num_times,
+      random,
+      beta_,
+      tau_min,
+      tau_max,
+      mc_config.operators,
+      new_times
   );
 
   //remember the current status of the sliding window
@@ -225,7 +241,7 @@ void GMeasurement<SCALAR,Rank>::measure(MonteCarloConfiguration<SCALAR> &mc_conf
   std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
 
   //configurations whose trace is smaller than this cutoff are ignored.
-  const EXTENDED_REAL trace_cutoff = EXTENDED_REAL(1.0E-30)*myabs(mc_config.trace);
+  const EXTENDED_REAL trace_cutoff = EXTENDED_REAL(1.0E-30) * myabs(mc_config.trace);
 
   double norm = 0.0;
   std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
@@ -281,7 +297,10 @@ void GMeasurement<SCALAR,Rank>::measure(MonteCarloConfiguration<SCALAR> &mc_conf
   }
 
   //normalize the data
-  std::transform(data_.origin(), data_.origin() + data_.num_elements(), data_.origin(), std::bind2nd(std::divides<std::complex<double> >(), norm));
+  std::transform(data_.origin(),
+                 data_.origin() + data_.num_elements(),
+                 data_.origin(),
+                 std::bind2nd(std::divides<std::complex<double> >(), norm));
 
   //pass the data to ALPS libraries
   measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
@@ -290,10 +309,186 @@ void GMeasurement<SCALAR,Rank>::measure(MonteCarloConfiguration<SCALAR> &mc_conf
   sliding_window.restore_state(mc_config.operators, state);
 }
 
+inline int compute_perm_sign(const std::vector<psi> &ops) {
+  std::vector<OperatorTime> times;
+  times.reserve(ops.size());
+  for (int i = 0; i < ops.size(); ++i) {
+    times.push_back(ops[i].time());
+  }
+  assert(times.size() == ops.size());
+  return alps::fastupdate::comb_sort(times.begin(), times.end(), OperatorTimeGreator());
+}
+
+template<typename SCALAR, int Rank>
+template<typename SlidingWindow>
+void GMeasurement<SCALAR, Rank>::measure_via_hyb(MonteCarloConfiguration<SCALAR> &mc_config,
+                                                 alps::accumulators::accumulator_set &measurements,
+                                                 alps::random01 &random,
+                                                 SlidingWindow &sliding_window,
+                                                 const std::string &str,
+                                                 double eps) {
+  typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
+  typedef operator_container_t::iterator Iterator;
+  typedef Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
+
+  const int pert_order = mc_config.pert_order();
+  boost::shared_ptr<HybridizationFunction<SCALAR> > p_gf = mc_config.M.get_greens_function();
+  const std::vector<psi> &cdagg_ops = mc_config.M.get_cdagg_ops();
+  const std::vector<psi> &c_ops = mc_config.M.get_c_ops();
+  const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
+
+  //compute the intermediate state by connecting operators in the worm by hybridization
+  alps::fastupdate::ResizableMatrix<SCALAR> M(pert_order + Rank, pert_order + Rank, 0.0);
+  M.conservative_resize(pert_order, pert_order);
+  int offset = 0;
+  for (int ib = 0; ib < mc_config.M.num_blocks(); ++ib) {
+    const int block_size = mc_config.M.block_matrix_size(ib);
+    M.block(offset, offset, block_size, block_size) = mc_config.M.compute_inverse_matrix(ib);
+    offset += block_size;
+  }
+  matrix_t B(pert_order, Rank), C(Rank, pert_order), D(Rank, Rank);
+  for (int i = 0; i < pert_order; ++i) {
+    for (int j = 0; j < Rank; ++j) {
+      B(i, j) = p_gf->operator()(c_ops[i], worm_ops[2 * j + 1]);
+    }
+  }
+  for (int i = 0; i < Rank; ++i) {
+    for (int j = 0; j < pert_order; ++j) {
+      C(i, j) = p_gf->operator()(worm_ops[2 * i], cdagg_ops[j]);
+    }
+  }
+  for (int i = 0; i < Rank; ++i) {
+    for (int j = 0; j < Rank; ++j) {
+      D(i, j) = p_gf->operator()(worm_ops[2 * i], worm_ops[2 * j + 1]);
+    }
+  }
+  //check quantum number conservation
+  std::valarray<int> block_size_diff(0, mc_config.M.num_blocks());
+  for (int i = 0; i < Rank; ++i) {
+    ++block_size_diff[mc_config.M.block_belonging_to(worm_ops[2 * i].flavor())];//annihilation operator
+    --block_size_diff[mc_config.M.block_belonging_to(worm_ops[2 * i + 1].flavor())];//creation operator
+  }
+
+  //add aux field to avoid a singular matrix when quantum number is not conserved for the intermediate state
+  if (block_size_diff.max() != 0 || block_size_diff.min() != 0) {
+    for (int i = 0; i < Rank; ++i) {
+      D(i, i) += random() < 0.5 ? eps : -eps;
+    }
+  }
+
+  const SCALAR det_rat = alps::fastupdate::compute_det_ratio_up(B, C, D, M);
+  alps::fastupdate::compute_inverse_matrix_up(B, C, D, M);
+  assert(det_rat != 0.0);
+  assert(M.size1() == pert_order + 1);
+
+  /*
+   * At this point, it should be noted that the weight of a Monte Carlo configuration is given by
+   *   w = determinant * trace * permutation_sign,
+   *  where the permutation_sign is from time ordering of operators in the trace.
+   *  And, the determinant is computed assumed that its row and cols are time-ordered.
+   *  But, there are not always time ordered in memory for performance reasons.
+   *  So, the weight may be recast into the form
+   *   w = determinant_actual_ordering * permutation_sign_row_col * trace * permutation_sign.
+   *
+   *  Here, we perform a brute-force evaluation of permutation_sign_row_col and permutation_sign.
+   */
+  std::vector<psi> cdagg_ops_new(cdagg_ops);
+  std::vector<psi> c_ops_new(c_ops);
+  for (int i = 0; i < Rank; ++i) {
+    cdagg_ops_new.push_back(worm_ops[2 * i + 1]);
+  }
+  for (int i = 0; i < Rank; ++i) {
+    c_ops_new.push_back(worm_ops[2 * i]);
+  }
+  const int perm_sign_trace_rat =
+      compute_permutation_sign_impl(cdagg_ops_new, c_ops_new, std::vector<psi>())
+          / compute_permutation_sign_impl(cdagg_ops, c_ops, worm_ops);
+  const int perm_sign_det_rat = compute_perm_sign(cdagg_ops) *
+      compute_perm_sign(c_ops) *
+      compute_perm_sign(cdagg_ops_new) *
+      compute_perm_sign(c_ops_new);
+
+  //weight_intermediate_state/weigh_current_state
+  //We'are ready for measuring Green's function using M and weight_rat here.
+  const SCALAR weight_rat = (1. * perm_sign_det_rat * perm_sign_trace_rat) * det_rat;
+
+  //measure by removal as we would do for the partition function expansion
+  MeasureGHelper<SCALAR, Rank>::perform(beta_,
+                                        legendre_trans_,
+                                        mc_config.sign,
+                                        weight_rat,
+                                        cdagg_ops_new,
+                                        c_ops_new,
+                                        M,
+                                        data_);
+
+  //pass the data to ALPS libraries
+  measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
+}
+
+//Measure G1 by removal in G1 space
+template<typename SCALAR>
+void MeasureGHelper<SCALAR, 1>::perform(double beta,
+                                        LegendreTransformer &legendre_trans,
+                                        SCALAR sign,
+                                        SCALAR weight_rat_intermediate_state,
+                                        const std::vector<psi> &creation_ops,
+                                        const std::vector<psi> &annihilation_ops,
+                                        const alps::fastupdate::ResizableMatrix<SCALAR> &M,
+                                        boost::multi_array<std::complex<double>, 3> &result) {
+  const double temperature = 1. / beta;
+  const int num_flavors = result.shape()[0];
+  const int num_legendre = legendre_trans.num_legendre();
+
+  std::vector<double> Pl_vals(num_legendre);
+  std::fill(result.origin(), result.origin() + result.num_elements(), 0.0);
+
+  const double cutoff = 1.0e-15 * M.block().cwiseAbs().maxCoeff();
+
+  double norm = 0.0;
+  std::vector<psi>::const_iterator it1, it2;
+  for (int k = 0; k < M.size1(); k++) {
+    (k == 0 ? it1 = annihilation_ops.begin() : it1++);
+    for (int l = 0; l < M.size2(); l++) {
+      (l == 0 ? it2 = creation_ops.begin() : it2++);
+      if (std::abs(M(l, k)) < cutoff) {
+        continue;
+      }
+      double argument = it1->time() - it2->time();
+      double bubble_sign = 1;
+      if (argument > 0) {
+        bubble_sign = 1;
+      } else {
+        bubble_sign = -1;
+        argument += beta;
+      }
+      assert(-0.01 < argument && argument < beta + 0.01);
+
+      const int flavor_a = it1->flavor();
+      const int flavor_c = it2->flavor();
+      const double x = 2 * argument * temperature - 1.0;
+      legendre_trans.compute_legendre(x, Pl_vals);
+      norm += std::abs(weight_rat_intermediate_state * M(l, k));
+      //std::cout << "norm " << k << " " << l << " " << std::abs(weight_rat_intermediate_state * M(l,k)) << std::endl;
+      const SCALAR coeff = M(l, k) * bubble_sign * sign * weight_rat_intermediate_state * temperature;
+      for (int il = 0; il < num_legendre; ++il) {
+        result[flavor_a][flavor_c][il] += coeff * legendre_trans.get_sqrt_2l_1()[il] * Pl_vals[il];
+      }
+    }
+  }
+
+  //normalization
+  std::transform(result.origin(), result.origin() + result.num_elements(), result.origin(),
+                 std::bind2nd(std::divides<std::complex<double> >(), norm));
+};
+
 //Measure single-particle Green's function using Legendre polynomials
 template<typename SCALAR, int Rank>
-typename boost::enable_if_c<Rank==1, SCALAR>::type
-GMeasurement<SCALAR,Rank>::measure_impl(const std::vector<psi> &worm_ops, int idx_operator_shifted, SCALAR sign, std::vector<SCALAR> &weight_flavors) {
+typename boost::enable_if_c<Rank == 1, SCALAR>::type
+GMeasurement<SCALAR, Rank>::measure_impl(const std::vector<psi> &worm_ops,
+                                         int idx_operator_shifted,
+                                         SCALAR sign,
+                                         std::vector<SCALAR> &weight_flavors) {
   double tdiff = worm_ops[0].time().time() - worm_ops[1].time().time();
   double coeff = 1.0;
   if (tdiff < 0.0) {
@@ -305,11 +500,11 @@ GMeasurement<SCALAR,Rank>::measure_impl(const std::vector<psi> &worm_ops, int id
   std::vector<double> Pl_vals(num_legendre);
   legendre_trans_.compute_legendre(2 * tdiff / beta_ - 1.0, Pl_vals);
 
-  boost::array<int,2> flavors;
-  for (int iop = 0; iop < 2; ++ iop) {
+  boost::array<int, 2> flavors;
+  for (int iop = 0; iop < 2; ++iop) {
     flavors[iop] = worm_ops[iop].flavor();
   }
-  for (int flavor = 0; flavor < num_flavors_; ++ flavor) {
+  for (int flavor = 0; flavor < num_flavors_; ++flavor) {
     flavors[idx_operator_shifted] = flavor;
     const SCALAR coeff2 = sign * weight_flavors[flavor] * coeff;
     for (int il = 0; il < num_legendre; ++il) {
@@ -322,10 +517,10 @@ GMeasurement<SCALAR,Rank>::measure_impl(const std::vector<psi> &worm_ops, int id
 
 template<typename SCALAR, int Rank>
 void
-EqualTimeGMeasurement<SCALAR,Rank>::measure_G1(MonteCarloConfiguration<SCALAR> &mc_config,
-                                            alps::accumulators::accumulator_set &measurements,
-                                            const std::string &str) {
-  boost::multi_array<std::complex<double>,2> data;
+EqualTimeGMeasurement<SCALAR, Rank>::measure_G1(MonteCarloConfiguration<SCALAR> &mc_config,
+                                                alps::accumulators::accumulator_set &measurements,
+                                                const std::string &str) {
+  boost::multi_array<std::complex<double>, 2> data;
   data.resize(boost::extents[num_flavors_][num_flavors_]);
   std::fill(data.origin(), data.origin() + data.num_elements(), 0.0);
 
@@ -336,15 +531,15 @@ EqualTimeGMeasurement<SCALAR,Rank>::measure_G1(MonteCarloConfiguration<SCALAR> &
 
 template<typename SCALAR, int Rank>
 void
-EqualTimeGMeasurement<SCALAR,Rank>::measure_G2(MonteCarloConfiguration<SCALAR> &mc_config,
-            alps::accumulators::accumulator_set &measurements,
-            const std::string &str) {
-  boost::multi_array<std::complex<double>,4> data;
+EqualTimeGMeasurement<SCALAR, Rank>::measure_G2(MonteCarloConfiguration<SCALAR> &mc_config,
+                                                alps::accumulators::accumulator_set &measurements,
+                                                const std::string &str) {
+  boost::multi_array<std::complex<double>, 4> data;
   data.resize(boost::extents[num_flavors_][num_flavors_][num_flavors_][num_flavors_]);
   std::fill(data.origin(), data.origin() + data.num_elements(), 0.0);
 
   data[mc_config.p_worm->get_flavor(0)][mc_config.p_worm->get_flavor(1)]
-    [mc_config.p_worm->get_flavor(2)][ mc_config.p_worm->get_flavor(3)] = mc_config.sign;
+  [mc_config.p_worm->get_flavor(2)][mc_config.p_worm->get_flavor(3)] = mc_config.sign;
 
   measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data));
 };

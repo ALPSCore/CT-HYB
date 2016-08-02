@@ -222,7 +222,7 @@ class AcceptanceRateMeasurement {
  * @brief Class for measurement of two-time correlation function using Legendre basis
  */
 template<typename SCALAR>
-class N2CorrelationFunctionMeasurement {
+class TwoTimeG2Measurement {
  public:
   /**
    * Constructor
@@ -231,7 +231,7 @@ class N2CorrelationFunctionMeasurement {
    * @param num_legendre   the number of legendre coefficients
    * @param beta           inverse temperature
    */
-  N2CorrelationFunctionMeasurement(int num_flavors, int num_legendre, double beta) :
+  TwoTimeG2Measurement(int num_flavors, int num_legendre, double beta) :
       num_flavors_(num_flavors),
       beta_(beta),
       legendre_trans_(1, num_legendre),
@@ -262,6 +262,32 @@ template<int Rank>
 void init_work_space(boost::multi_array<std::complex<double>, 4 * Rank - 1> &data, int num_flavors, int num_legendre);
 
 /**
+ * @brief Helper struct for measurement of Green's function using Legendre basis in G space
+ */
+template<typename SCALAR, int RANK>
+struct MeasureGHelper {
+  static void perform(double beta,
+                      LegendreTransformer &legendre_trans,
+                      SCALAR sign, SCALAR weight_rat_intermediate_state,
+                      const std::vector<psi> &creation_ops,
+                      const std::vector<psi> &annihilation_ops,
+                      const alps::fastupdate::ResizableMatrix<SCALAR> &M, boost::multi_array<std::complex<double>, 4 * RANK -1> &data);
+};
+
+/**
+ * @brief Specialization for measureing G1
+ */
+template<typename SCALAR>
+struct MeasureGHelper<SCALAR, 1> {
+  static void perform(double beta,
+                      LegendreTransformer &legendre_trans,
+                      SCALAR sign, SCALAR weight_rat_intermediate_state,
+                      const std::vector<psi> &creation_ops,
+                      const std::vector<psi> &annihilation_ops,
+                      const alps::fastupdate::ResizableMatrix<SCALAR> &M, boost::multi_array<std::complex<double>, 3> &data);
+};
+
+/**
  * @brief Class for measurement of Green's function using Legendre basis
  */
 template<typename SCALAR, int Rank>
@@ -282,13 +308,21 @@ class GMeasurement {
   };
 
   /**
-   * @brief Measure correlation functions with shifting two of the four operators on the interval [0,beta]
+   * @brief Measure G1 with shifting two of the four operators on the interval [0,beta]
    * @param average_pert_order average perturbation order per flavor, which is used for determining the number of shifts
    */
   template<typename SlidingWindow>
   void measure(MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements,
                alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str);
+
+  /**
+   * @brief Measure G1 via hybridization function
+   */
+  template<typename SlidingWindow>
+  void measure_via_hyb(MonteCarloConfiguration<SCALAR> &mc_config,
+               alps::accumulators::accumulator_set &measurements,
+               alps::random01 &random, SlidingWindow &sliding_window, const std::string &str, double eps = 1E-5);
 
  private:
   /** Measure single-particle Green's function */

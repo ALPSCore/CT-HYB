@@ -217,7 +217,7 @@ class HybridizationSimulation: public alps::mcbase {
   GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
 
   //Measurement of two-time correlation functions by worm sampling
-  boost::shared_ptr<N2CorrelationFunctionMeasurement<SCALAR> > p_N2_meas;
+  boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
 
   //Measurement of single-particle Green's functions by worm sampling
   boost::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_meas;

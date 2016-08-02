@@ -57,7 +57,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   /*
-   * Single-particle Green's function
+   * G1
    */
   worm_types.push_back(G1);
   worm_movers.push_back(
@@ -86,7 +86,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       );
 
   /*
-   * Two-time two-particle Green's function
+   * Two-time G2
    */
   if (par["MEASURE_TWO_TIME_G2"] != 0) {
     worm_types.push_back(Two_time_G2);
@@ -103,13 +103,13 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         )
     );
-    p_N2_meas.reset(
-        new N2CorrelationFunctionMeasurement<SCALAR>(FLAVORS, par["N_LEGENDRE_TWO_TIME_G2"], BETA)
+    p_two_time_G2_meas.reset(
+        new TwoTimeG2Measurement<SCALAR>(FLAVORS, par["N_LEGENDRE_TWO_TIME_G2"], BETA)
     );
   }
 
   /*
-   * Equal-time single-particle Green's function
+   * Equal-time G1
    */
   {
     const std::string name("Equal_time_G1");
@@ -133,7 +133,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   }
 
   /*
-   * Equal-time two-particle Green's function
+   * Equal-time G2
    */
   if (par["MEASURE_EQUAL_TIME_G2"] != 0) {
     const std::string name("Equal_time_G2");

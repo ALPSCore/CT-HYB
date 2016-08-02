@@ -179,29 +179,38 @@ template<typename SCALAR>
 int compute_permutation_sign(
     const MonteCarloConfiguration<SCALAR> &mc_config
 ) {
-  typedef operator_container_t::const_iterator IteratorType;
 
+  const std::vector<psi> &worm_ops = mc_config.p_worm ? mc_config.p_worm->get_operators() : std::vector<psi>();
+  return compute_permutation_sign_impl(mc_config.M.get_cdagg_ops(),
+                                       mc_config.M.get_c_ops(),
+                                       worm_ops
+  );
+}
+
+inline int compute_permutation_sign_impl(
+    const std::vector<psi>& cdagg_ops,
+    const std::vector<psi>& c_ops,
+    const std::vector<psi>& worm_ops
+) {
   std::vector<OperatorTime> times_work, work1, work2;
+  const int pert_order = cdagg_ops.size();
 
   //Check the ordering of Cdagg, C
-  work1.resize(mc_config.pert_order());
-  work2.resize(mc_config.pert_order());
-  for (int iop = 0; iop < mc_config.pert_order(); ++iop) {
-    work1[iop] = mc_config.M.get_cdagg_ops()[iop].time();
-    work2[iop] = mc_config.M.get_c_ops()[iop].time();
+  work1.resize(pert_order);
+  work2.resize(pert_order);
+  for (int iop = 0; iop < pert_order; ++iop) {
+    work1[iop] = cdagg_ops[iop].time();
+    work2[iop] = c_ops[iop].time();
   }
   std::sort(work1.begin(), work1.end(), OperatorTimeGreator());
   std::sort(work2.begin(), work2.end(), OperatorTimeGreator());
   times_work.resize(0);
-  for (int pert_order = 0; pert_order < mc_config.pert_order(); ++pert_order) {
-    times_work.push_back(work2[pert_order]);
-    times_work.push_back(work1[pert_order]);
+  for (int p = 0; p < pert_order; ++p) {
+    times_work.push_back(work2[p]);
+    times_work.push_back(work1[p]);
   }
-  if (mc_config.p_worm) {
-    const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
-    for (std::vector<psi>::const_iterator it = worm_ops.begin(); it != worm_ops.end(); ++it) {
-      times_work.push_back(it->time());
-    }
+  for (std::vector<psi>::const_iterator it = worm_ops.begin(); it != worm_ops.end(); ++it) {
+    times_work.push_back(it->time());
   }
   const int perm_sign = alps::fastupdate::comb_sort(
       times_work.begin(), times_work.end(),
