@@ -157,7 +157,6 @@ class HybridizationSimulation: public alps::mcbase {
   const int SPINS;
   const int FLAVORS;
   const int N;
-  const int Np1;
   const int N_meas;
   double thermalization_time;
   const time_t start_time;

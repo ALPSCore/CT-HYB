@@ -4,7 +4,7 @@ template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &parameters) {
   Base::define_parameters(parameters);
 
-  alps::define_convenience_parameters(parameters);
+  //alps::define_convenience_parameters(parameters);
   parameters
       .description("Continous-time hybridization expansion impurity solver")
       .define<double>("TIME_LIMIT", "Total simulation time (in units of second)")
@@ -24,7 +24,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("UPDATE.N_GLOBAL_UPDATES", 10, "Global updates are performed every N_GLOBAL_UPDATES updates.")
       .define<std::string>("UPDATE.SWAP_VECTOR", "", "Definition of global flavor-exchange updates.")
       //Measurement
-      .define<int>("MEASUREMENT.N_MEAS", 10, "Expensive measurements are performed every N_MEAS updates.")
+      .define<int>("MEASUREMENT.N_NON_WORM_MEAS", 10, "Non-worm measurements are performed every N_MEAS updates.")
       //
       //Single-particle GF
       .define<int>("MEASUREMENT.G1.N_LEGENDRE", 100, "Number of legendre coefficients for measuring G(tau)")
@@ -55,8 +55,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       SITES(parameters["MODEL.SITES"]),          //number of sites
       SPINS(parameters["MODEL.SPINS"]),          //number of spins
       FLAVORS(SPINS * SITES),                             //flavors, i.e. #spins * #sites
-      N(static_cast<int>(parameters["MODEL.N_TAU_HYB"])),                  //time slices
-      Np1(N + 1),
+      N(parameters["MODEL.N_TAU_HYB"]),                  //time slices
       N_meas(parameters["MEASUREMENT.N_MEAS"]),
       thermalization_time(parameters["THERMALIZATION_TIME"]),
       start_time(time(NULL)),
