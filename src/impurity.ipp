@@ -533,7 +533,7 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
 
     //G1 worm insertion and removal by changing hybridization lines
     if (mc_config.current_config_space() == Z_FUNCTION || mc_config.current_config_space() == G1) {
-      specialized_updaters["G1_hyb"]->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+      specialized_updaters["G1_ins_rem_hyb"]->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
       adjust_worm_space_weight();
     }
 
@@ -547,9 +547,9 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
     }
 
 
-    if (specialized_updaters.find("G1_shifter") != specialized_updaters.end()
+    if (specialized_updaters.find("G1_shifter_hyb") != specialized_updaters.end()
         && mc_config.current_config_space() == G1) {
-      bool accepted = specialized_updaters["G1_shifter"]->
+      bool accepted = specialized_updaters["G1_shifter_hyb"]->
           update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
       //std::cout << "accepted " << accepted << std::endl;
       adjust_worm_space_weight();

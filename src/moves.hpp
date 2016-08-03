@@ -98,17 +98,24 @@ class LocalUpdater {
   /** create measurement */
   virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
     measurements <<
-                 alps::accumulators::NoBinningAccumulator<double>(boost::lexical_cast<std::string>(name_)+"_attempted_scalar");
+                 alps::accumulators::NoBinningAccumulator<double>(get_name()+"_attempted_scalar");
     measurements <<
-                 alps::accumulators::NoBinningAccumulator<double>(boost::lexical_cast<std::string>(name_)+"_accepted_scalar");
+                 alps::accumulators::NoBinningAccumulator<double>(get_name()+"_accepted_scalar");
   }
 
   /** measure acceptance rate */
   virtual void measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
-    measurements[boost::lexical_cast<std::string>(name_)+"_attempted_scalar"] << num_attempted_;
-    measurements[boost::lexical_cast<std::string>(name_)+"_accepted_scalar"] << num_accepted_;
+    measurements[get_name()+"_attempted_scalar"] << num_attempted_;
+    measurements[get_name()+"_accepted_scalar"] << num_accepted_;
     num_attempted_ = 0;
     num_accepted_ = 0;
+  }
+
+  virtual void print_acc_rate(const alps::accumulators::result_set &results, std::ostream &os) {
+    os << " " << get_name() + " : "
+              << results[get_name() + "_accepted_scalar"].template mean<double>()
+                  / results[get_name() + "_attempted_scalar"].template mean<double>()
+              << std::endl;
   }
 
   virtual std::string get_name() const {
@@ -261,6 +268,7 @@ class OperatorPairFlavorUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SL
       const std::map<ConfigSpace, double> &config_space_weight
   );
 
+  /*
   virtual void call_back() {
     if (BaseType::valid_move_generated_) {
       num_attempted_ += 1.0;
@@ -276,11 +284,13 @@ class OperatorPairFlavorUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SL
   }
 
   virtual void measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
+    BaseType::measure_acc_rate(measurements);
     measurements["Operator_pair_flavor_update_attempted"] << num_attempted_;
     measurements["Operator_pair_flavor_update_accepted"] << num_accepted_;
     num_attempted_ = 0;
     num_accepted_ = 0;
   }
+  */
 
  private:
   const int num_flavors_;

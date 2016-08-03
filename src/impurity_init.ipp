@@ -41,7 +41,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G2");
   }
 
-  //fidelity susceptibility
+  //Fidelity susceptibility
   create_observable<SCALAR, SimpleRealObservable>(measurements, "kLkR");
   create_observable<SCALAR, SimpleRealObservable>(measurements, "k");
 
@@ -90,10 +90,10 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   );
 
   //Via connecting or cutting hybridization lines
-  specialized_updaters["G1_hyb"] =
+  specialized_updaters["G1_ins_rem_hyb"] =
       boost::shared_ptr<LocalUpdaterType>(
           new G1WormInsertionRemoverType(
-              "G1_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>())
+              "G1_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>())
           )
       );
 
@@ -182,10 +182,10 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   }
 
   if (std::find(worm_types.begin(), worm_types.end(), G1) != worm_types.end()) {
-    specialized_updaters["G1_shifter"] =
+    specialized_updaters["G1_shifter_hyb"] =
     boost::shared_ptr<LocalUpdaterType>(
         new GWormShifter<SCALAR , 1, EXTENDED_SCALAR , SW_TYPE>(
-            "G1_shifter", BETA, FLAVORS,
+            "G1_shifter_hyb", BETA, FLAVORS,
             boost::shared_ptr<Worm>(new GWorm<1>())
         )
     );

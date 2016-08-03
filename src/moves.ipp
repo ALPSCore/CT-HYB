@@ -527,6 +527,7 @@ void InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::c
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
 create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
+  BaseType::create_measurement_acc_rate(measurements);
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >(
       "InsertionRemovalDiagonalRank"
           + boost::lexical_cast<std::string>(update_rank_)
@@ -541,6 +542,7 @@ create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
 measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
+  BaseType::measure_acc_rate(measurements);
   measurements[
       "InsertionRemovalDiagonalRank"
           + boost::lexical_cast<std::string>(update_rank_)
@@ -675,6 +677,7 @@ void SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
 create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
+  BaseType::create_measurement_acc_rate(measurements);
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_attempted");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("Shift_accepted");
 }
@@ -682,6 +685,7 @@ create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
 measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
+  BaseType::measure_acc_rate(measurements);
   measurements["Shift_attempted"] << to_std_vector(acc_rate_.get_counter());
   measurements["Shift_accepted"] << to_std_vector(acc_rate_.get_sumval());
   acc_rate_.reset();
@@ -929,6 +933,7 @@ void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::call_back() {
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
 create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
+  BaseType::create_measurement_acc_rate(measurements);
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >(str_ + "_attempted");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >(str_ + "_accepted");
 }
@@ -936,6 +941,7 @@ create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
 measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
+  BaseType::measure_acc_rate(measurements);
   measurements[str_ + "_attempted"] << to_std_vector(acc_rate_.get_counter());
   measurements[str_ + "_accepted"] << to_std_vector(acc_rate_.get_sumval());
   acc_rate_.reset();
