@@ -111,7 +111,6 @@ void TwoTimeG2Measurement<SCALAR>::measure(MonteCarloConfiguration<SCALAR> &mc_c
   measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
 
   //restore the status of the sliding window
-  //sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);//reset brakets
   sliding_window.restore_state(mc_config.operators, state);
 }
 
@@ -316,12 +315,12 @@ inline int compute_perm_sign(const std::vector<psi> &ops) {
     times.push_back(ops[i].time());
   }
   assert(times.size() == ops.size());
-  return alps::fastupdate::comb_sort(times.begin(), times.end(), OperatorTimeGreator());
+  return alps::fastupdate::comb_sort(times.begin(), times.end(), std::greater<OperatorTime>());
 }
 
 template<typename SCALAR, int Rank>
 template<typename SlidingWindow>
-void GMeasurement<SCALAR, Rank>::measure_via_hyb(MonteCarloConfiguration<SCALAR> &mc_config,
+void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                                                  alps::accumulators::accumulator_set &measurements,
                                                  alps::random01 &random,
                                                  SlidingWindow &sliding_window,
@@ -333,9 +332,9 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(MonteCarloConfiguration<SCALAR>
 
   const int pert_order = mc_config.pert_order();
   boost::shared_ptr<HybridizationFunction<SCALAR> > p_gf = mc_config.M.get_greens_function();
-  const std::vector<psi> &cdagg_ops = mc_config.M.get_cdagg_ops();
-  const std::vector<psi> &c_ops = mc_config.M.get_c_ops();
-  const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
+  const std::vector<psi> cdagg_ops = mc_config.M.get_cdagg_ops();
+  const std::vector<psi> c_ops = mc_config.M.get_c_ops();
+  const std::vector<psi> worm_ops = mc_config.p_worm->get_operators();
 
   //compute the intermediate state by connecting operators in the worm by hybridization
   alps::fastupdate::ResizableMatrix<SCALAR> M(pert_order + Rank, pert_order + Rank, 0.0);
@@ -369,7 +368,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(MonteCarloConfiguration<SCALAR>
     --block_size_diff[mc_config.M.block_belonging_to(worm_ops[2 * i + 1].flavor())];//creation operator
   }
 
-  //add aux field to avoid a singular matrix when quantum number is not conserved for the intermediate state
+  //add aux field to avoid a singular matrix in the case quantum number is not conserved for the intermediate state
   if (block_size_diff.max() != 0 || block_size_diff.min() != 0) {
     for (int i = 0; i < Rank; ++i) {
       D(i, i) += random() < 0.5 ? eps : -eps;
@@ -395,21 +394,20 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(MonteCarloConfiguration<SCALAR>
   std::vector<psi> cdagg_ops_new(cdagg_ops);
   std::vector<psi> c_ops_new(c_ops);
   for (int i = 0; i < Rank; ++i) {
-    cdagg_ops_new.push_back(worm_ops[2 * i + 1]);
-  }
-  for (int i = 0; i < Rank; ++i) {
     c_ops_new.push_back(worm_ops[2 * i]);
+    cdagg_ops_new.push_back(worm_ops[2 * i + 1]);
   }
   const int perm_sign_trace_rat =
       compute_permutation_sign_impl(cdagg_ops_new, c_ops_new, std::vector<psi>())
           / compute_permutation_sign_impl(cdagg_ops, c_ops, worm_ops);
-  const int perm_sign_det_rat = compute_perm_sign(cdagg_ops) *
-      compute_perm_sign(c_ops) *
-      compute_perm_sign(cdagg_ops_new) *
-      compute_perm_sign(c_ops_new);
+
+  const int perm_sign_det_rat =
+      (std::count_if(cdagg_ops.begin(), cdagg_ops.end(), std::bind2nd(std::less<psi>(), worm_ops[1])) +
+          std::count_if(c_ops.begin(), c_ops.end(), std::bind2nd(std::less<psi>(), worm_ops[0]))) % 2 == 0 ? 1 : -1;
 
   //weight_intermediate_state/weigh_current_state
   //We'are ready for measuring Green's function using M and weight_rat here.
+  //Note: sign of the intermediate state is sign(weight_rat * sign)
   const SCALAR weight_rat = (1. * perm_sign_det_rat * perm_sign_trace_rat) * det_rat;
 
   //measure by removal as we would do for the partition function expansion
@@ -469,8 +467,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
       const double x = 2 * argument * temperature - 1.0;
       legendre_trans.compute_legendre(x, Pl_vals);
       norm += std::abs(weight_rat_intermediate_state * M(l, k));
-      //std::cout << "norm " << k << " " << l << " " << std::abs(weight_rat_intermediate_state * M(l,k)) << std::endl;
-      const SCALAR coeff = M(l, k) * bubble_sign * sign * weight_rat_intermediate_state * temperature;
+      const SCALAR coeff = M(l, k) * bubble_sign * sign * weight_rat_intermediate_state;
       for (int il = 0; il < num_legendre; ++il) {
         result[flavor_a][flavor_c][il] += coeff * legendre_trans.get_sqrt_2l_1()[il] * Pl_vals[il];
       }

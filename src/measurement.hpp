@@ -320,7 +320,7 @@ class GMeasurement {
    * @brief Measure G1 via hybridization function
    */
   template<typename SlidingWindow>
-  void measure_via_hyb(MonteCarloConfiguration<SCALAR> &mc_config,
+  void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements,
                alps::random01 &random, SlidingWindow &sliding_window, const std::string &str, double eps = 1E-5);
 

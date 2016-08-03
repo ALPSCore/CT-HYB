@@ -251,6 +251,11 @@ bool LocalUpdater<SCALAR,
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::finalize_update() {
+  ++ num_attempted_;
+  if (accepted_) {
+    ++ num_accepted_;
+  }
+
   call_back();
 
   acceptance_rate_correction_ = boost::none;
@@ -782,8 +787,8 @@ SCALAR compute_det_rat(const std::vector<psi> &creation_operators,
   const SCALAR det_rat = compute_det_rat(det_vec_new, det_vec_old);
 
   //compute permulation sign from exchange of row and col
-  const int perm_sign_block = alps::fastupdate::comb_sort(cdagg_times.begin(), cdagg_times.end(), OperatorTimeLessor())
-      * alps::fastupdate::comb_sort(c_times.begin(), c_times.end(), OperatorTimeLessor());
+  const int perm_sign_block = alps::fastupdate::comb_sort(cdagg_times.begin(), cdagg_times.end(), std::less<OperatorTime>())
+      * alps::fastupdate::comb_sort(c_times.begin(), c_times.end(), std::less<OperatorTime>());
 
   det_vec_new[0] *= 1. * perm_sign_block;
   return (1. * perm_sign_block) * det_rat;
@@ -896,6 +901,7 @@ global_update(R &rng,
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::WormUpdater(
     const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit) :
+    BaseType(str),
     str_(str),
     beta_(beta),
     num_flavors_(num_flavors),

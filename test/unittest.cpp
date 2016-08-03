@@ -422,3 +422,40 @@ TEST(SpectralNorm, SVDvsDiagonalization) {
   //std::cout << spectral_norm_diag<Scalar>(mat) << std::endl;
   ASSERT_TRUE(std::abs(spectral_norm_SVD<Scalar>(mat)-spectral_norm_diag<Scalar>(mat))<1E-8);
 }
+
+TEST(FastUpdate, CombSort) {
+  const int N = 1000;
+  std::vector<double> data(N);
+
+  boost::random::mt19937 gen(100);
+  boost::uniform_real<> uni_dist(0,1);
+
+  for (int i = 0; i < N; ++i) {
+    data[i] = uni_dist(gen);
+  }
+  std::vector<double> data2 = data;
+  const int perm_sign = alps::fastupdate::detail::comb_sort(data.begin(), data.end(), std::less<double>()) ;
+  for (int i = 0; i < N - 1; ++i) {
+    ASSERT_TRUE(data[i] <= data[i + 1]);
+  }
+
+  {
+    int count = 0;
+    while(true) {
+      bool exchanged = false;
+      for (int i = 0; i < N - 1; ++i) {
+        if (data2[i] > data2[i + 1]) {
+          std::swap(data2[i], data2[i + 1]);
+          exchanged = true;
+          ++ count;
+        }
+      }
+      if (!exchanged) {
+        break;
+      }
+    }
+    int perm_sign2 = count % 2 == 0 ? 1 : -1;
+    ASSERT_TRUE(perm_sign == perm_sign2);
+  }
+
+}

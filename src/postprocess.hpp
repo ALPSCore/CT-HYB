@@ -112,10 +112,12 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
 
 template<typename SOLVER_TYPE>
 void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                             const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
-                             const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
-                             alps::hdf5::archive ar,
-                             bool verbose = false) {
+                         const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                         const Eigen::Matrix<typename SOLVER_TYPE::SCALAR,
+                                             Eigen::Dynamic,
+                                             Eigen::Dynamic> &rotmat_Delta,
+                         alps::hdf5::archive ar,
+                         bool verbose = false) {
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
@@ -129,8 +131,8 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
 
   if (verbose) {
     std::cout << "Volumes of Two_time_G2 space/Z_function_space is "
-        << results["worm_space_volume_Two_time_G2"].template mean<double>()
-        << " : " << results["Z_function_space_volume"].template mean<double>() << std::endl;
+              << results["worm_space_volume_Two_time_G2"].template mean<double>()
+              << " : " << results["Z_function_space_volume"].template mean<double>() << std::endl;
   }
 
   const std::vector<double> data_Re = results["Two_time_G2_Re"].template mean<std::vector<double> >();
@@ -194,7 +196,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   const double sign = results["Sign"].template mean<double>();
   //The factor of temperature below comes from the extra degree of freedom for beta in the worm
   const double coeff =
-      - temperature * results["worm_space_volume_G1"].template mean<double>() /
+      -temperature * results["worm_space_volume_G1"].template mean<double>() /
           (sign * results["Z_function_space_volume"].template mean<double>());
 
   boost::multi_array<std::complex<double>, 3>
@@ -291,7 +293,9 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
 template<typename SOLVER_TYPE>
 void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
                            const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
-                           const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
+                           const Eigen::Matrix<typename SOLVER_TYPE::SCALAR,
+                                               Eigen::Dynamic,
+                                               Eigen::Dynamic> &rotmat_Delta,
                            alps::hdf5::archive ar,
                            bool verbose = false) {
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
@@ -320,9 +324,9 @@ void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type 
       for (int f1 = 0; f1 < n_flavors; ++f1) {
         for (int g0 = 0; g0 < n_flavors; ++g0) {
           for (int g1 = 0; g1 < n_flavors; ++g1) {
-                data_org_basis[f0][f1] += data[g0][g1] *
-                    myconj(inv_rotmat_Delta(g0, f0)) *
-                    inv_rotmat_Delta(g1, f1);
+            data_org_basis[f0][f1] += data[g0][g1] *
+                myconj(inv_rotmat_Delta(g0, f0)) *
+                inv_rotmat_Delta(g1, f1);
           }
         }
       }
@@ -333,10 +337,12 @@ void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type 
 
 template<typename SOLVER_TYPE>
 void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
-                const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
-                alps::hdf5::archive ar,
-                bool verbose = false) {
+                           const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                           const Eigen::Matrix<typename SOLVER_TYPE::SCALAR,
+                                               Eigen::Dynamic,
+                                               Eigen::Dynamic> &rotmat_Delta,
+                           alps::hdf5::archive ar,
+                           bool verbose = false) {
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
@@ -399,7 +405,8 @@ void compute_fidelity_susceptibility(const typename alps::results_type<SOLVER_TY
 
 template<typename SOLVER_TYPE>
 void show_statistics(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                     const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
+                     const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                     const std::vector<std::string> &active_worm_updaters, alps::hdf5::archive ar) {
 #ifdef MEASURE_TIMING
   const std::vector<double> timings = results["TimingsSecPerNMEAS"].template mean<std::vector<double> >();
   std::cout << std::endl << "==== Timings analysis ====" << std::endl;
@@ -417,4 +424,12 @@ void show_statistics(const typename alps::results_type<SOLVER_TYPE>::type &resul
   std::cout << boost::format("Perturbation orders just before and after measurement steps are %1% and %2%.") %
       results["Pert_order_start"].template mean<double>() %
       results["Pert_order_end"].template mean<double>() << std::endl;
+
+  std::cout << std::endl << "==== Acceptance rates of worm updates ====" << std::endl;
+  for (int iu = 0; iu < active_worm_updaters.size(); ++iu) {
+    std::cout << " " << active_worm_updaters[iu] + " : "
+              << results[active_worm_updaters[iu] + "_accepted_scalar"].template mean<double>()
+                  / results[active_worm_updaters[iu] + "_attempted_scalar"].template mean<double>()
+              << std::endl;
+  }
 }

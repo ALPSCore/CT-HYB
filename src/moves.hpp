@@ -65,7 +65,7 @@ struct OperatorShift {
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class LocalUpdater {
  public:
-  LocalUpdater() { }
+  LocalUpdater(const std::string &name) : name_(name), num_attempted_(0), num_accepted_(0) {}
   virtual ~LocalUpdater() { }
 
   /** Update the configuration. Return true if the update is accepted. */
@@ -96,10 +96,24 @@ class LocalUpdater {
   virtual void finalize_learning() { }
 
   /** create measurement */
-  virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) { }
+  virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
+    measurements <<
+                 alps::accumulators::NoBinningAccumulator<double>(boost::lexical_cast<std::string>(name_)+"_attempted_scalar");
+    measurements <<
+                 alps::accumulators::NoBinningAccumulator<double>(boost::lexical_cast<std::string>(name_)+"_accepted_scalar");
+  }
 
   /** measure acceptance rate */
-  virtual void measure_acc_rate(alps::accumulators::accumulator_set &measurements) { }
+  virtual void measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
+    measurements[boost::lexical_cast<std::string>(name_)+"_attempted_scalar"] << num_attempted_;
+    measurements[boost::lexical_cast<std::string>(name_)+"_accepted_scalar"] << num_accepted_;
+    num_attempted_ = 0;
+    num_accepted_ = 0;
+  }
+
+  virtual std::string get_name() const {
+    return name_;
+  }
 
  protected:
   std::string name_;//name of this updator
@@ -129,6 +143,8 @@ class LocalUpdater {
   void finalize_update();
 
   std::vector<EXTENDED_REAL> trace_bound;//must be resized
+
+  int num_attempted_, num_accepted_;
 };
 
 /**
@@ -140,7 +156,8 @@ class InsertionRemovalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLID
  public:
   typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
   InsertionRemovalUpdater(int update_rank, int num_flavors)
-      : update_rank_(update_rank),
+      : BaseType("Pair_insertion_remover"),
+        update_rank_(update_rank),
         num_flavors_(num_flavors),
         tau_low_(-1.0),
         tau_high_(-1.0) { }
@@ -186,7 +203,8 @@ class InsertionRemovalDiagonalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCAL
  public:
   typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
   InsertionRemovalDiagonalUpdater(int update_rank, int num_flavors, double beta, int num_bins)
-      : update_rank_(update_rank),
+      : BaseType("Pair_insertion_remover_flavor_diagonal"),
+        update_rank_(update_rank),
         num_flavors_(num_flavors),
         beta_(beta),
         tau_low_(-1.0),
@@ -231,7 +249,8 @@ class OperatorPairFlavorUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SL
  public:
   typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
   OperatorPairFlavorUpdater(int num_flavors)
-      : num_flavors_(num_flavors),
+      : BaseType("Operator_pair_flavor_updater"),
+        num_flavors_(num_flavors),
         num_attempted_(0.0),
         num_accepted_(0.0) { }
 
@@ -277,6 +296,7 @@ class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, S
  public:
   typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
   SingleOperatorShiftUpdater(double beta, int num_flavors, int num_bins) :
+      BaseType("Single_operator_shift_updater"),
       num_flavors_(num_flavors),
       max_distance_(num_flavors, 0.5 * beta),
       acc_rate_(num_bins, 0.5 * beta, num_flavors, 0.5 * beta) { }
@@ -456,7 +476,7 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
                         double beta,
                         int num_flavors,
                         boost::shared_ptr<Worm> p_worm_template
-  ) : BaseType(), p_worm_template_(p_worm_template) {
+  ) : BaseType(str), p_worm_template_(p_worm_template) {
   }
 
   //virtual void set_worm_space_weight(double weight) {weight_ = weight;};
@@ -482,7 +502,7 @@ class EqualTimeG1_TwoTimeG2_Connector: public LocalUpdater<SCALAR, EXTENDED_SCAL
  public:
   EqualTimeG1_TwoTimeG2_Connector(const std::string &str,
                         double beta,
-                        int num_flavors) : BaseType(), num_flavors_(num_flavors) {
+                        int num_flavors) : BaseType(str), num_flavors_(num_flavors) {
   }
 
  private:
@@ -509,7 +529,7 @@ class GWormShifter: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>
                         double beta,
                         int num_flavors,
                         boost::shared_ptr<Worm> p_worm_template
-  ) : BaseType(), beta_(beta), num_flavors_(num_flavors), p_worm_template_(p_worm_template) {}
+  ) : BaseType(str), beta_(beta), num_flavors_(num_flavors), p_worm_template_(p_worm_template) {}
 
  private:
   virtual bool propose(

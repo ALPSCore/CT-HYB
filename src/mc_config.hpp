@@ -202,8 +202,8 @@ inline int compute_permutation_sign_impl(
     work1[iop] = cdagg_ops[iop].time();
     work2[iop] = c_ops[iop].time();
   }
-  std::sort(work1.begin(), work1.end(), OperatorTimeGreator());
-  std::sort(work2.begin(), work2.end(), OperatorTimeGreator());
+  std::sort(work1.begin(), work1.end(), std::greater<OperatorTime>());
+  std::sort(work2.begin(), work2.end(), std::greater<OperatorTime>());
   times_work.resize(0);
   for (int p = 0; p < pert_order; ++p) {
     times_work.push_back(work2[p]);
@@ -214,7 +214,7 @@ inline int compute_permutation_sign_impl(
   }
   const int perm_sign = alps::fastupdate::comb_sort(
       times_work.begin(), times_work.end(),
-      OperatorTimeGreator());
+      std::greater<OperatorTime>());
   return perm_sign;
 }
 

@@ -92,8 +92,23 @@ class HybridizationSimulation: public alps::mcbase {
         << "This program is licensed under GPLv2.";
   }
 
-  Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> get_rotmat_Delta() {
+  Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> get_rotmat_Delta() const {
     return p_model->get_rotmat_Delta();
+  }
+
+  std::vector<std::string> get_active_worm_updaters() const {
+    std::vector<std::string> names;
+    for (int i = 0; i < worm_insertion_removers.size(); ++i) {
+      names.push_back(worm_insertion_removers[i]->get_name());
+    }
+    for (int i = 0; i < worm_movers.size(); ++i) {
+      names.push_back(worm_movers[i]->get_name());
+    }
+    for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::const_iterator
+             it = specialized_updaters.begin(); it != specialized_updaters.end(); ++ it) {
+      names.push_back(it->second->get_name());
+    }
+    return names;
   }
 
  private:

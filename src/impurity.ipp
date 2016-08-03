@@ -313,6 +313,20 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
     std::fill(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
   }
 
+  //Acceptance rate
+  {
+    for (int i = 0; i < worm_insertion_removers.size(); ++i) {
+      worm_insertion_removers[i]->measure_acc_rate(measurements);
+    }
+    for (int i = 0; i < worm_movers.size(); ++i) {
+      worm_movers[i]->measure_acc_rate(measurements);
+    }
+    for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::iterator
+             it = specialized_updaters.begin(); it != specialized_updaters.end(); ++ it) {
+      it->second->measure_acc_rate(measurements);
+    }
+  }
+
   if (mc_config.current_config_space() == Z_FUNCTION) {
     assert(!mc_config.p_worm);
     measure_Z_function_space();

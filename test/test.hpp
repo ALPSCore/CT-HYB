@@ -7,6 +7,7 @@
 
 #include "gtest.h"
 
+#include <alps/fastupdate/detail/util.hpp>
 #include "../src/model.hpp"
 
 /*

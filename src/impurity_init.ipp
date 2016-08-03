@@ -48,6 +48,18 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<double>("Pert_order_start");
   measurements << alps::accumulators::NoBinningAccumulator<double>("Pert_order_end");
 
+  //Acceptance rate
+  for (int i = 0; i < worm_insertion_removers.size(); ++i) {
+    worm_insertion_removers[i]->create_measurement_acc_rate(measurements);
+  }
+  for (int i = 0; i < worm_movers.size(); ++i) {
+    worm_movers[i]->create_measurement_acc_rate(measurements);
+  }
+  for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::iterator
+           it = specialized_updaters.begin(); it != specialized_updaters.end(); ++ it) {
+    it->second->create_measurement_acc_rate(measurements);
+  }
+
 #ifdef MEASURE_TIMING
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("TimingsSecPerNMEAS");
 #endif
@@ -62,13 +74,13 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   worm_types.push_back(G1);
   worm_movers.push_back(
       boost::shared_ptr<WormMoverType>(
-          new WormMoverType("G1", BETA, FLAVORS, 0.0, BETA)
+          new WormMoverType("G1_mover", BETA, FLAVORS, 0.0, BETA)
       )
   );
   worm_insertion_removers.push_back(
       boost::shared_ptr<WormInsertionRemoverType>(
           new WormInsertionRemoverType(
-              "G1", BETA, FLAVORS, 0.0, BETA,
+              "G1_ins_rem", BETA, FLAVORS, 0.0, BETA,
               boost::shared_ptr<Worm>(new GWorm<1>())
           )
       )
@@ -92,13 +104,13 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     worm_types.push_back(Two_time_G2);
     worm_movers.push_back(
         boost::shared_ptr<WormMoverType>(
-            new WormMoverType("Two_time_G2", BETA, FLAVORS, 0.0, BETA)
+            new WormMoverType("Two_time_G2_mover", BETA, FLAVORS, 0.0, BETA)
         )
     );
     worm_insertion_removers.push_back(
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
-                "Two_time_G2", BETA, FLAVORS, 0.0, BETA,
+                "Two_time_G2_ins_rem", BETA, FLAVORS, 0.0, BETA,
                 boost::shared_ptr<Worm>(new CorrelationWorm<2>())
             )
         )
@@ -116,13 +128,13 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     worm_types.push_back(Equal_time_G1);
     worm_movers.push_back(
         boost::shared_ptr<WormMoverType>(
-            new WormMoverType(name, BETA, FLAVORS, 0.0, BETA)
+            new WormMoverType(name + "_mover", BETA, FLAVORS, 0.0, BETA)
         )
     );
     worm_insertion_removers.push_back(
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
-                name, BETA, FLAVORS, 0.0, BETA,
+                name + "_ins_rem", BETA, FLAVORS, 0.0, BETA,
                 boost::shared_ptr<Worm>(new EqualTimeGWorm<1>())
             )
         )
@@ -140,13 +152,13 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     worm_types.push_back(Equal_time_G2);
     worm_movers.push_back(
         boost::shared_ptr<WormMoverType>(
-            new WormMoverType(name, BETA, FLAVORS, 0.0, BETA)
+            new WormMoverType(name + "_mover", BETA, FLAVORS, 0.0, BETA)
         )
     );
     worm_insertion_removers.push_back(
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
-                name, BETA, FLAVORS, 0.0, BETA,
+                name + "_ins_rem", BETA, FLAVORS, 0.0, BETA,
                 boost::shared_ptr<Worm>(new EqualTimeGWorm<2>())
             )
         )

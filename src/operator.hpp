@@ -148,18 +148,6 @@ inline int operator_flavor(const psi &op) {
   return op.flavor();
 }
 
-struct OperatorTimeLessor {
-  bool operator()(const OperatorTime &t1, const OperatorTime &t2) const {
-    return t1 < t2;
-  }
-};
-
-struct OperatorTimeGreator {
-  bool operator()(const OperatorTime &t1, const OperatorTime &t2) const {
-    return t1 > t2;
-  }
-};
-
 struct OperatorEqualTime {
   bool operator()(const psi &op1, const psi &op2) const {
     return op1.time() == op2.time();
