@@ -30,13 +30,13 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
                               const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
   namespace g=alps::gf;
 
-  const int n_tau(parms["N_TAU"]);
-  const int n_site(parms["SITES"]);
-  const int n_spin(parms["SPINS"]);
-  const double beta(parms["BETA"]);
+  const int n_tau(parms["MEASUREMENT.G1.N_TAU"]);
+  const int n_site(parms["MODEL.SITES"]);
+  const int n_spin(parms["MODEL.SPINS"]);
+  const double beta(parms["MODEL.BETA"]);
   const double temperature(1.0 / beta);
-  const int n_matsubara(n_tau);
-  const int n_legendre(parms["N_LEGENDRE_G1"].template as<int>());
+  const int n_matsubara(parms["MEASUREMENT.G1.N_MATSUBARA"]);
+  const int n_legendre(parms["MEASUREMENT.G1.N_LEGENDRE"].template as<int>());
   const int n_flavors = n_site * n_spin;
 
   const double sign = results["Sign"].template mean<double>();
@@ -92,8 +92,8 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
   > GOMEGA;
 
   const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> &Tnl(legendre_transformer.Tnl());
-  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> tmp_mat(n_legendre, 1), tmp_mat2(n_tau, 1);
-  GOMEGA gomega(alps::gf::matsubara_positive_mesh(beta, n_tau),
+  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> tmp_mat(n_legendre, 1), tmp_mat2(n_matsubara, 1);
+  GOMEGA gomega(alps::gf::matsubara_positive_mesh(beta, n_matsubara),
                 alps::gf::index_mesh(n_flavors),
                 alps::gf::index_mesh(n_flavors));
   for (int flavor = 0; flavor < n_flavors; ++flavor) {
@@ -102,7 +102,7 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
         tmp_mat(il, 0) = Gl[flavor][flavor2][il];
       }
       tmp_mat2 = Tnl * tmp_mat;
-      for (int im = 0; im < n_tau; ++im) {
+      for (int im = 0; im < n_matsubara; ++im) {
         gomega(g::matsubara_index(im), g::index(flavor), g::index(flavor2)) = tmp_mat2(im, 0) / sign;
       }
     }
@@ -121,9 +121,9 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
-  const int n_legendre(parms["N_LEGENDRE_TWO_TIME_G2"].template as<int>());
-  const double beta(parms["BETA"]);
-  const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
+  const int n_legendre(parms["MEASUREMENT.TWO_TIME_G2.N_LEGENDRE"].template as<int>());
+  const double beta(parms["MODEL.BETA"]);
+  const int n_flavors = parms["MODEL.SITES"].template as<int>() * parms["MODEL.SPINS"].template as<int>();
   const double temperature(1.0 / beta);
   const double coeff =
       temperature * results["worm_space_volume_Two_time_G2"].template mean<double>() /
@@ -187,11 +187,11 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
-  const int n_legendre(parms["N_LEGENDRE_G1"].template as<int>());
-  const int n_tau(parms["N_TAU"].template as<int>());
-  const int n_matsubara(n_tau);
-  const double beta(parms["BETA"]);
-  const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
+  const int n_legendre(parms["MEASUREMENT.G1.N_LEGENDRE"].template as<int>());
+  const int n_tau(parms["MEASUREMENT.G1.N_TAU"]);
+  const int n_matsubara(parms["MEASUREMENT.G1.N_OMEGA"]);
+  const double beta(parms["MODEL.BETA"]);
+  const int n_flavors = parms["MODEL.SITES"].template as<int>() * parms["MODEL.SPINS"].template as<int>();
   const double temperature(1.0 / beta);
   const double sign = results["Sign"].template mean<double>();
   //The factor of temperature below comes from the extra degree of freedom for beta in the worm
@@ -272,8 +272,8 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   > GOMEGA;
 
   const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> &Tnl(legendre_transformer.Tnl());
-  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> tmp_mat(n_legendre, 1), tmp_mat2(n_tau, 1);
-  GOMEGA gomega(alps::gf::matsubara_positive_mesh(beta, n_tau),
+  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> tmp_mat(n_legendre, 1), tmp_mat2(n_matsubara, 1);
+  GOMEGA gomega(alps::gf::matsubara_positive_mesh(beta, n_matsubara),
                 alps::gf::index_mesh(n_flavors),
                 alps::gf::index_mesh(n_flavors));
   for (int flavor = 0; flavor < n_flavors; ++flavor) {
@@ -282,7 +282,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
         tmp_mat(il, 0) = Gl_org_basis[flavor][flavor2][il];
       }
       tmp_mat2 = Tnl * tmp_mat;
-      for (int im = 0; im < n_tau; ++im) {
+      for (int im = 0; im < n_matsubara; ++im) {
         gomega(g::matsubara_index(im), g::index(flavor), g::index(flavor2)) = tmp_mat2(im, 0);
       }
     }
@@ -301,8 +301,8 @@ void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type 
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
-  const double beta(parms["BETA"]);
-  const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
+  const double beta(parms["MODEL.BETA"]);
+  const int n_flavors = parms["MODEL.SITES"].template as<int>() * parms["MODEL.SPINS"].template as<int>();
   const double temperature(1.0 / beta);
   const double sign = results["Sign"].template mean<double>();
   const double coeff =
@@ -346,8 +346,8 @@ void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type 
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
-  const double beta(parms["BETA"]);
-  const int n_flavors = parms["SITES"].template as<int>() * parms["SPINS"].template as<int>();
+  const double beta(parms["MODEL.BETA"]);
+  const int n_flavors = parms["MODEL.SITES"].template as<int>() * parms["MODEL.SPINS"].template as<int>();
   const double temperature(1.0 / beta);
   const double sign = results["Sign"].template mean<double>();
   const double coeff =

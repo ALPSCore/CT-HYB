@@ -51,11 +51,11 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
     std::cout << "Creating simulation..." << std::endl;
   }
   sim_type sim(parameters, c);
-  const boost::function<bool()> cb = alps::stop_callback(c, size_t(parameters["timelimit"]));
+  const boost::function<bool()> cb = alps::stop_callback(c, size_t(parameters["TIME_LIMIT"]));
 #else
   global_mpi_rank = 0;
   sim_type sim(parameters);
-  const boost::function<bool()> cb = alps::stop_callback(size_t(parameters["timelimit"]));
+  const boost::function<bool()> cb = alps::stop_callback(size_t(parameters["TIME_LIMIT"]));
 #endif
 
   std::pair<bool, bool> r = sim.run(cb);
@@ -76,11 +76,11 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
     {
       compute_greens_functions<SOLVER_TYPE>(results, parameters, ar);
       compute_G1<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
-      if (parameters["MEASURE_TWO_TIME_G2"] != 0) {
+      if (parameters["MEASUREMENT.TWO_TIME_G2.ON"] != 0) {
         compute_two_time_G2<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
       }
       compute_euqal_time_G1<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
-      if (parameters["MEASURE_EQUAL_TIME_G2"] != 0) {
+      if (parameters["MEASUREMENT.EQUAL_TIME_G2.ON"] != 0) {
         compute_euqal_time_G2<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
       }
       compute_fidelity_susceptibility<SOLVER_TYPE>(results, parameters, ar);
