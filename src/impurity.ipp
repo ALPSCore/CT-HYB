@@ -7,29 +7,32 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
   //alps::define_convenience_parameters(parameters);
   parameters
       .description("Continous-time hybridization expansion impurity solver")
-      .define<double>("TIME_LIMIT", "Total simulation time (in units of second)")
+      .define<unsigned long>("TIME_LIMIT", "Total simulation time (in units of second)")
       .define<double>("THERMALIZATION_TIME",
                       -1,
-                      "Thermalization time (in units of second). The default value is 25 % of the total simulation time.")
+                      "Thermalization time (in units of second). The default value is 25 % of TIME_LIMIT.")
       .define<int>("Tmin", 1, "The scheduler checks longer than every Tmin seconds if the simulation is finished.")
       .define<int>("Tmax", 60, "The scheduler checks shorter than every Tmax seconds if the simulation is finished.")
-      .define<int>("VERBOSE", 0, "If VERBOSE is not zero, more messages are generated.")
+      .define<std::string>("outputfile", alps::remove_extensions(parameters.get_origin_name())+".out.h5", "name of the output file")
+      .define<int>("VERBOSE", 0, "Verbose output for a non-zero value")
+      .define<int>("SLIDING_WINDOW.MAX", 1000, "Max number of windows")
+      .define<int>("SLIDING_WINDOW.MIN", 1, "Min number of windows")
       //Model definition
       .define<int>("MODEL.SITES", "Number of sites/orbitals")
       .define<int>("MODEL.SPINS", "Number of spins")
       .define<double>("MODEL.BETA", "Inverse temperature")
       .define<int>("MODEL.N_TAU_HYB", "Hybridization function is defined on a uniform mesh of N_TAU + 1 imaginary points.")
       //Updates
-      .define<int>("UPDATE.MULTI_PAIR_INS_REM", 1, "1 for only single-pair update. k for up to k-pair update.")
+      .define<int>("UPDATE.MULTI_PAIR_INS_REM", 2, "Perform 1, 2, ..., k-pair updates.")
       .define<int>("UPDATE.N_GLOBAL_UPDATES", 10, "Global updates are performed every N_GLOBAL_UPDATES updates.")
       .define<std::string>("UPDATE.SWAP_VECTOR", "", "Definition of global flavor-exchange updates.")
       //Measurement
-      .define<int>("MEASUREMENT.N_NON_WORM_MEAS", 10, "Non-worm measurements are performed every N_MEAS updates.")
+      .define<int>("MEASUREMENT.N_NON_WORM_MEAS", 10, "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
       //
       //Single-particle GF
       .define<int>("MEASUREMENT.G1.N_LEGENDRE", 100, "Number of legendre coefficients for measuring G(tau)")
       .define<int>("MEASUREMENT.G1.N_TAU", 2000, "G(tau) is computed on a uniform mesh of MEASUREMENT.G1.N_TAU + 1 points.")
-      .define<int>("MEASUREMENT.G1.N_MATSUBARA", 2000, "G(i omega_n) is computed on a uniform mesh of MEASUREMENT.G1.N_OMEGA Matsubara frequencies.")
+      .define<int>("MEASUREMENT.G1.N_MATSUBARA", 2000, "G(i omega_n) is computed on a uniform mesh of MEASUREMENT.G1.N_Matsubara frequencies.")
       //
       //Two-time two-particle GF
       .define<int>("MEASUREMENT.TWO_TIME_G2.ON", 0, "Set a non-zero value to activate measurement.")
@@ -56,7 +59,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       SPINS(parameters["MODEL.SPINS"]),          //number of spins
       FLAVORS(SPINS * SITES),                             //flavors, i.e. #spins * #sites
       N(parameters["MODEL.N_TAU_HYB"]),                  //time slices
-      N_meas(parameters["MEASUREMENT.N_MEAS"]),
+      N_meas(parameters["MEASUREMENT.N_NON_WORM_MEAS"]),
       thermalization_time(parameters["THERMALIZATION_TIME"]),
       start_time(time(NULL)),
       p_model(new IMP_MODEL(p, rank == 0)),//impurity model
@@ -87,7 +90,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       pert_order_recorder() {
 
   if (thermalization_time < 0) {
-    thermalization_time = static_cast<double>(0.25 * parameters["TIME_LIMIT"].template as<long>());
+    thermalization_time = static_cast<double>(0.25 * parameters["TIME_LIMIT"].template as<double>());
   }
   if (thermalization_time > 0.9 * parameters["TIME_LIMIT"].template as<double>()) {
     throw std::runtime_error("TIME_LIMIT is too short in comparison with THERMALIZATION_TIME.");
@@ -103,14 +106,13 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   /////////////////////////////////////////////////////////////////////
   ////Initialize Monte Carlo configuration  ///////////////////////////
   /////////////////////////////////////////////////////////////////////
-  //if (p["SLIDING_WINDOW.MAX"].template as<int>() < 1) {
-    //throw std::runtime_error("SLIDING_WINDOW.MAX cannot be smaller than 1.");
-  //}
-  //if (p["SLIDING_WINDOW.MAX"].template as<int>() < p["SLIDING_WINDOW.MAX"].template as<int>()) {
-    //throw std::runtime_error("SLIDING_WINDOW.MAX cannot be smaller than SLIDING_WINDOW.MAX.");
-  //}
-  //sliding_window.init_stacks(p["SLIDING_WINDOW.MAX"], mc_config.operators);
-  sliding_window.init_stacks(10000, mc_config.operators);
+  if (p["SLIDING_WINDOW.MAX"].template as<int>() < 1) {
+    throw std::runtime_error("SLIDING_WINDOW.MAX cannot be smaller than 1.");
+  }
+  if (p["SLIDING_WINDOW.MAX"].template as<int>() < p["SLIDING_WINDOW.MAX"].template as<int>()) {
+    throw std::runtime_error("SLIDING_WINDOW.MAX cannot be smaller than SLIDING_WINDOW.MAX.");
+  }
+  sliding_window.init_stacks(p["SLIDING_WINDOW.MIN"], mc_config.operators);
   mc_config.trace = sliding_window.compute_trace(mc_config.operators);
   if (global_mpi_rank == 0 && verbose) {
     std::cout << "initial trace = " << mc_config.trace << " with N_SLIDING_WINDOW = " << sliding_window.get_n_window()
@@ -300,6 +302,14 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
 
   //Acceptance rate
   {
+    for (int k = 1; k < par["UPDATE.MULTI_PAIR_INS_REM"].template as<int>() + 1; ++k) {
+      ins_rem_updater[k - 1]->measure_acc_rate(measurements);
+      ins_rem_diagonal_updater[k - 1]->measure_acc_rate(measurements);
+    }
+    single_op_shift_updater.measure_acc_rate(measurements);
+    operator_pair_flavor_updater.measure_acc_rate(measurements);
+
+    //worm updates
     for (int i = 0; i < worm_insertion_removers.size(); ++i) {
       worm_insertion_removers[i]->measure_acc_rate(measurements);
     }
@@ -477,9 +487,7 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
     //insertion and removal of operators hybridized with the bath
     for (int update = 0; update < FLAVORS; ++update) {
       ins_rem_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
-      sanity_check();//for debug
       ins_rem_diagonal_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
-      sanity_check();//for debug
       operator_pair_flavor_updater.update(random, BETA, mc_config, sliding_window);
       pert_order_sum += mc_config.pert_order();
     }
@@ -628,7 +636,7 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   //record expansion order
   static std::list<double> min_pert_order_hist;
   min_pert_order_hist.push_back(mc_config.pert_order());
-  if (min_pert_order_hist.size() > 20) {
+  if (min_pert_order_hist.size() > 100) {
     min_pert_order_hist.pop_front();
   }
   const double min_expansion_order_ave =
@@ -637,7 +645,7 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   //new window size for single-pair insertion and removal update
   N_win_standard = static_cast<std::size_t>(
       std::max(
-          par["SLIDING_WINDOW.MAX"].template as<int>(),
+          par["SLIDING_WINDOW.MIN"].template as<int>(),
           std::min(
               static_cast<int>(std::ceil(min_expansion_order_ave / FLAVORS)),
               par["SLIDING_WINDOW.MAX"].template as<int>()

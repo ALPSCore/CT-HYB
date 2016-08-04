@@ -85,7 +85,7 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
       }
       compute_fidelity_susceptibility<SOLVER_TYPE>(results, parameters, ar);
       if (global_mpi_rank == 0) {
-        show_statistics<SOLVER_TYPE>(results, parameters, sim.get_active_worm_updaters(), ar);
+        sim.show_statistics(results);
       }
     }
 #ifdef ALPS_HAVE_MPI

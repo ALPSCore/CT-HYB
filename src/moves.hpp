@@ -111,12 +111,12 @@ class LocalUpdater {
     num_accepted_ = 0;
   }
 
-  virtual void print_acc_rate(const alps::accumulators::result_set &results, std::ostream &os) {
-    os << " " << get_name() + " : "
-              << results[get_name() + "_accepted_scalar"].template mean<double>()
-                  / results[get_name() + "_attempted_scalar"].template mean<double>()
-              << std::endl;
-  }
+  //virtual void print_acc_rate(const alps::accumulators::result_set &results, std::ostream &os) {
+    //os << " " << get_name() + " : "
+              //<< results[get_name() + "_accepted_scalar"].template mean<double>()
+                  /// results[get_name() + "_attempted_scalar"].template mean<double>()
+              //<< std::endl;
+  //}
 
   virtual std::string get_name() const {
     return name_;
@@ -163,7 +163,7 @@ class InsertionRemovalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLID
  public:
   typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
   InsertionRemovalUpdater(int update_rank, int num_flavors)
-      : BaseType("Pair_insertion_remover"),
+      : BaseType(boost::lexical_cast<std::string>(update_rank)+std::string("-pair_insertion_remover")),
         update_rank_(update_rank),
         num_flavors_(num_flavors),
         tau_low_(-1.0),
@@ -210,7 +210,7 @@ class InsertionRemovalDiagonalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCAL
  public:
   typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
   InsertionRemovalDiagonalUpdater(int update_rank, int num_flavors, double beta, int num_bins)
-      : BaseType("Pair_insertion_remover_flavor_diagonal"),
+      : BaseType(boost::lexical_cast<std::string>(update_rank)+std::string("-pair_insertion_remover_flavor_diagonal")),
         update_rank_(update_rank),
         num_flavors_(num_flavors),
         beta_(beta),

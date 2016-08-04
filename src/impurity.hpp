@@ -111,6 +111,9 @@ class HybridizationSimulation: public alps::mcbase {
     return names;
   }
 
+  //for postprocess
+  void show_statistics(const alps::accumulators::result_set &results);
+
  private:
   //for set up
   void read_eq_time_two_particle_greens_meas();
@@ -268,6 +271,7 @@ class HybridizationSimulation: public alps::mcbase {
   PertOrderRecorder pert_order_recorder;
 
   void sanity_check();
+
 };
 
 template<typename MAT, typename MAT_COMPLEX, typename COMPLEX>
@@ -282,3 +286,4 @@ void
 
 #include "./impurity.ipp"
 #include "./impurity_init.ipp"
+#include "./impurity_postprocess.ipp"

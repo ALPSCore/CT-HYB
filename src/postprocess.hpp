@@ -27,7 +27,7 @@ struct to_complex {
  */
 template<typename SOLVER_TYPE>
 void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                              const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive ar) {
+                              const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive &ar) {
   namespace g=alps::gf;
 
   const int n_tau(parms["MEASUREMENT.G1.N_TAU"]);
@@ -116,7 +116,7 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
                          const Eigen::Matrix<typename SOLVER_TYPE::SCALAR,
                                              Eigen::Dynamic,
                                              Eigen::Dynamic> &rotmat_Delta,
-                         alps::hdf5::archive ar,
+                         alps::hdf5::archive &ar,
                          bool verbose = false) {
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
@@ -181,7 +181,7 @@ template<typename SOLVER_TYPE>
 void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
                 const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
                 const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
-                alps::hdf5::archive ar,
+                alps::hdf5::archive &ar,
                 bool verbose = false) {
   namespace g=alps::gf;
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
@@ -189,7 +189,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
 
   const int n_legendre(parms["MEASUREMENT.G1.N_LEGENDRE"].template as<int>());
   const int n_tau(parms["MEASUREMENT.G1.N_TAU"]);
-  const int n_matsubara(parms["MEASUREMENT.G1.N_OMEGA"]);
+  const int n_matsubara(parms["MEASUREMENT.G1.N_MATSUBARA"]);
   const double beta(parms["MODEL.BETA"]);
   const int n_flavors = parms["MODEL.SITES"].template as<int>() * parms["MODEL.SPINS"].template as<int>();
   const double temperature(1.0 / beta);
@@ -296,7 +296,7 @@ void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type 
                            const Eigen::Matrix<typename SOLVER_TYPE::SCALAR,
                                                Eigen::Dynamic,
                                                Eigen::Dynamic> &rotmat_Delta,
-                           alps::hdf5::archive ar,
+                           alps::hdf5::archive &ar,
                            bool verbose = false) {
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
@@ -341,7 +341,7 @@ void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type 
                            const Eigen::Matrix<typename SOLVER_TYPE::SCALAR,
                                                Eigen::Dynamic,
                                                Eigen::Dynamic> &rotmat_Delta,
-                           alps::hdf5::archive ar,
+                           alps::hdf5::archive &ar,
                            bool verbose = false) {
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
@@ -395,7 +395,7 @@ void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type 
 template<typename SOLVER_TYPE>
 void compute_fidelity_susceptibility(const typename alps::results_type<SOLVER_TYPE>::type &results,
                                      const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
-                                     alps::hdf5::archive ar) {
+                                     alps::hdf5::archive &ar) {
   std::complex<double> kLkR =
       std::complex<double>(results["kLkR_Re"].template mean<double>(), results["kLkR_Im"].template mean<double>());
   std::complex<double>
@@ -403,21 +403,20 @@ void compute_fidelity_susceptibility(const typename alps::results_type<SOLVER_TY
   ar["FIDELITY_SUSCEPTIBILITY"] << 0.5 * (kLkR - 0.25 * k * k);
 }
 
+
+/*
 template<typename SOLVER_TYPE>
 void show_statistics(const typename alps::results_type<SOLVER_TYPE>::type &results,
                      const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
-                     const std::vector<std::string> &active_worm_updaters, alps::hdf5::archive ar) {
+                     const std::vector<std::string> &active_worm_updaters, alps::hdf5::archive &ar) {
 #ifdef MEASURE_TIMING
   const std::vector<double> timings = results["TimingsSecPerNMEAS"].template mean<std::vector<double> >();
   std::cout << std::endl << "==== Timings analysis ====" << std::endl;
-  std::cout
-      << " Green's function and correlation function (worm) are measured every window sweep. But, the data are passed to ALPS libraries once per N_MEAS sweeps."
-      << std::endl;
   std::cout << " The following are the timings per window sweep (in units of second): " << std::endl;
   std::cout << " Local updates (insertion/removal/shift of operators/worm: " << timings[0] << std::endl;
   std::cout << " Global updates (global shift etc.): " << timings[1] << std::endl;
   std::cout << " Worm measurement: " << timings[2] << std::endl;
-  std::cout << " Rest of measurement: " << timings[3] << std::endl;
+  std::cout << " Non worm measurement: " << timings[3] << std::endl;
 #endif
 
   std::cout << std::endl << "==== Thermalization analysis ====" << std::endl;
@@ -425,11 +424,18 @@ void show_statistics(const typename alps::results_type<SOLVER_TYPE>::type &resul
       results["Pert_order_start"].template mean<double>() %
       results["Pert_order_end"].template mean<double>() << std::endl;
 
+  std::cout << std::endl << "==== Acceptance hybridized operator updates ====" << std::endl;
+  for (int k = 1; k < parms["UPDATE.MULTI_PAIR_INS_REM"].template as<int>() + 1; ++k) {
+    //FIX ME: we should automatically extract the name
+    print_acc_rate(results, (boost::format("%d%-pair_insertion_remover")%k).str(), std::cout);
+    print_acc_rate(results, (boost::format("%d%-pair_insertion_remover_flavor_diagonal")%k).str(), std::cout);
+  }
+  print_acc_rate(results, "Single_operator_shift_updater", std::cout);
+  print_acc_rate(results, "Operator_pair_flavor_updater", std::cout);
+
   std::cout << std::endl << "==== Acceptance rates of worm updates ====" << std::endl;
   for (int iu = 0; iu < active_worm_updaters.size(); ++iu) {
-    std::cout << " " << active_worm_updaters[iu] + " : "
-              << results[active_worm_updaters[iu] + "_accepted_scalar"].template mean<double>()
-                  / results[active_worm_updaters[iu] + "_attempted_scalar"].template mean<double>()
-              << std::endl;
+    print_acc_rate(results, active_worm_updaters[iu], std::cout);
   }
 }
+ */

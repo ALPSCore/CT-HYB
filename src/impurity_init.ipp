@@ -12,7 +12,8 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("order");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("PerturbationOrderFlavors");
 
-  for (int k = 1; k < par["RANK_INSERTION_REMOVAL_UPDATE"].template as<int>() + 1; ++k) {
+  for (int k = 1; k < par["UPDATE.MULTI_PAIR_INS_REM"].template as<int>() + 1; ++k) {
+    ins_rem_updater[k - 1]->create_measurement_acc_rate(measurements);
     ins_rem_diagonal_updater[k - 1]->create_measurement_acc_rate(measurements);
   }
   single_op_shift_updater.create_measurement_acc_rate(measurements);
@@ -48,7 +49,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<double>("Pert_order_start");
   measurements << alps::accumulators::NoBinningAccumulator<double>("Pert_order_end");
 
-  //Acceptance rate
+  //Acceptance rate of worm updates
   for (int i = 0; i < worm_insertion_removers.size(); ++i) {
     worm_insertion_removers[i]->create_measurement_acc_rate(measurements);
   }

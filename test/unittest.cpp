@@ -364,15 +364,15 @@ TEST(Clustering, 2D_percolation) {
 TEST(ModelLibrary, AutoPartioning) {
   alps::params par;
   const int sites = 3;
-  par["SITES"] = sites;
-  par["SPINS"] = 2;
-  par["N_TAU"] = 1000;
+  par["MODEL.SITES"] = sites;
+  par["MODEL.SPINS"] = 2;
+  par["MODEL.N_TAU_HYB"] = 1000;
   typedef std::complex<double> SCALAR;
   const SCALAR tval = 0.0;
   const double onsite_U = 2.0;
   const double JH = 0.1;
-  par["ONSITE_U"] = onsite_U;
-  par["BETA"] = 1.0;
+  par["MODEL.ONSITE_U"] = onsite_U;
+  par["MODEL.BETA"] = 1.0;
   //par["CUTOFF_HAM"] = 1.0e-10;
   //par["ROTATE_F"] = "";
 
