@@ -192,7 +192,7 @@ double spectral_norm_diag(const M &mat) {
     }
     Eigen::SelfAdjointEigenSolver<matrix_t> esolv(mat_tmp, false);
     const double norm = std::sqrt(esolv.eigenvalues().cwiseAbs().maxCoeff()) / coeff;
-    if (isnan(norm)) {
+    if (std::isnan(norm)) {
       std::cout << "Warning: spectral_norm_diag is NaN. max_abs = " << max_abs << " max_abs2 = " << max_abs2 << std::endl;
       return 0.0;
     }
