@@ -1066,8 +1066,8 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
       //diagonal & off-diagonal in flavor
       BaseType::acceptance_rate_correction_ =
           1. / (weight_scaled *
-              std::pow(tau_high - tau_low, num_time_indices) *
-              std::pow(1. * BaseType::num_flavors_, num_flavor_indices));
+              std::pow(tau_high - tau_low, 1. * num_time_indices) *
+              std::pow(1. * BaseType::num_flavors_, 1. * num_flavor_indices));
     } else {
       //diagonal in flavor
       if (!is_worm_diagonal_in_flavor(*mc_config.p_worm)) {
@@ -1075,7 +1075,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
       }
       BaseType::acceptance_rate_correction_ =
           1. / (weight_scaled *
-              std::pow(tau_high - tau_low, num_time_indices) *
+              std::pow(tau_high - tau_low, 1. * num_time_indices) *
               BaseType::num_flavors_);
     }
     BaseType::p_new_worm_.reset();
@@ -1092,8 +1092,8 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
         BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
       }
       BaseType::acceptance_rate_correction_ = weight_scaled *
-          std::pow(tau_high - tau_low, num_time_indices) *
-          std::pow(1. * BaseType::num_flavors_, num_flavor_indices);
+          std::pow(tau_high - tau_low, 1. * num_time_indices) *
+          std::pow(1. * BaseType::num_flavors_, 1. * num_flavor_indices);
     } else {
       //diagonal in flavor
       int diagonal_flavor = static_cast<int>(rng() * BaseType::num_flavors_);
@@ -1101,7 +1101,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
         BaseType::p_new_worm_->set_flavor(f, diagonal_flavor);
       }
       BaseType::acceptance_rate_correction_ = weight_scaled *
-          std::pow(tau_high - tau_low, num_time_indices) * BaseType::num_flavors_;
+          std::pow(tau_high - tau_low, 1. * num_time_indices) * BaseType::num_flavors_;
     }
   }
   return true;
@@ -1160,7 +1160,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
     }
 
     //come from degrees of freedom in which we assign a random number to each operator from the worm.
-    const double p_prop_worm_rem = 1.0 / std::pow(tau_high - tau_low, worm_ops.size());
+    const double p_prop_worm_rem = 1.0 / std::pow(tau_high - tau_low, 1.*worm_ops.size());
 
     double p_prop_worm_ins;
     {
@@ -1177,8 +1177,8 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
 
     BaseType::acceptance_rate_correction_ =
         (p_prop_worm_ins / p_prop_worm_rem) * (1. / (weight_scaled *
-            std::pow(tau_high - tau_low, num_time_indices) *
-            std::pow(1. * BaseType::num_flavors_, num_flavor_indices)));
+            std::pow(tau_high - tau_low, 1. * num_time_indices) *
+            std::pow(1. * BaseType::num_flavors_, 1. * num_flavor_indices)));
 
     BaseType::p_new_worm_.reset();
   } else {
@@ -1223,11 +1223,11 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
     }
 
     //come from degrees of freedom in which we assign a random number to each operator from the worm.
-    const double p_prop_worm_rem = 1.0 / std::pow(tau_high - tau_low, worm_ops.size());
+    const double p_prop_worm_rem = 1.0 / std::pow(tau_high - tau_low, 1. * worm_ops.size());
 
     BaseType::acceptance_rate_correction_ = (p_prop_worm_rem / p_prop_worm_ins) * weight_scaled *
-        std::pow(tau_high - tau_low, num_time_indices) *
-        std::pow(1. * BaseType::num_flavors_, num_flavor_indices);
+        std::pow(tau_high - tau_low, 1. * num_time_indices) *
+        std::pow(1. * BaseType::num_flavors_, 1. * num_flavor_indices);
   }
   return true;
 }

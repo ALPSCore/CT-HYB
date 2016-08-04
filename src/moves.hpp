@@ -64,6 +64,7 @@ struct OperatorShift {
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class LocalUpdater {
+  typedef std::map<ConfigSpace, double> weight_map_t;
  public:
   LocalUpdater(const std::string &name) : name_(name), num_attempted_(0), num_accepted_(0) {}
   virtual ~LocalUpdater() { }
@@ -73,7 +74,7 @@ class LocalUpdater {
       alps::random01 &rng, double BETA,
       MonteCarloConfiguration<SCALAR> &mc_config,
       SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight = std::map<ConfigSpace, double>()
+      const weight_map_t &config_space_weight = weight_map_t()
   );
 
   /** To be implemented in a derived class */
