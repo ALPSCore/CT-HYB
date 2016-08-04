@@ -17,10 +17,10 @@
 
 #include <Eigen/Dense>
 
-#include "./model_detail/hybfermion.hpp"
-#include "./model_detail/clustering.hpp"
-#include "util.hpp"
-#include "operator.hpp"
+#include "hybfermion.hpp"
+#include "clustering.hpp"
+#include "../util.hpp"
+#include "../operator.hpp"
 
 //forward declaration for alps::params
 namespace alps {

@@ -16,7 +16,7 @@ enum ConfigSpace {
   Unknown
 };
 
-std::string get_config_space_name(ConfigSpace config_space) {
+inline std::string get_config_space_name(ConfigSpace config_space) {
   switch (config_space) {
     case Z_FUNCTION:
       return "Z_FUNCTION";

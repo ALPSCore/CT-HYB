@@ -1,4 +1,4 @@
-#include "../sliding_window.hpp"
+#include "sliding_window.hpp"
 
 template<typename SCALAR>
 SCALAR mycast(std::complex<double>);

@@ -11,12 +11,13 @@
 #include <boost/math/special_functions/binomial.hpp>
 #include <boost/range/algorithm.hpp>
 
-#include "operator.hpp"
-#include "operator_util.hpp"
-#include "wide_scalar.hpp"
-#include "update_histogram.hpp"
-#include "accumulator.hpp"
-#include "sliding_window.hpp"
+#include "../operator.hpp"
+#include "../operator_util.hpp"
+#include "../wide_scalar.hpp"
+#include "../update_histogram.hpp"
+#include "../accumulator.hpp"
+#include "../sliding_window/sliding_window.hpp"
+#include "../mc_config.hpp"
 
 /**
  * @brief Change flavors of operators
@@ -595,4 +596,3 @@ struct WormShift {
   double beta_, shift_;
 };
 
-#include "moves.ipp"

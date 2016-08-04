@@ -4,9 +4,9 @@
 #include <boost/multi_array.hpp>
 #include <boost/static_assert.hpp>
 
-#include "wide_scalar.hpp"
-#include "operator.hpp"
-#include "model.hpp"
+#include "../wide_scalar.hpp"
+#include "../operator.hpp"
+#include "../model/model.hpp"
 
 enum ITIME_AXIS_LEFT_OR_RIGHT {
   ITIME_LEFT = 0,

@@ -5,9 +5,9 @@
 #include <alps/fastupdate/determinant_matrix_partitioned.hpp>
 
 #include "operator.hpp"
-#include "model.hpp"
+#include "./model/model.hpp"
 #include "wide_scalar.hpp"
-#include "sliding_window.hpp"
+#include "./sliding_window/sliding_window.hpp"
 #include "worm.hpp"
 
 template<typename SCALAR>

@@ -1,4 +1,4 @@
-#include "../sliding_window.hpp"
+#include "sliding_window.hpp"
 
 template<typename MODEL>
 SlidingWindowManager<MODEL>::SlidingWindowManager(MODEL *p_model_, double beta)

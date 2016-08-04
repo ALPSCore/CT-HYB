@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <valarray>
 
 #ifdef ALPS_HAVE_MPI
 #include <alps/utilities/mpi.hpp>

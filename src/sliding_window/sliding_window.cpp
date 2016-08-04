@@ -1,7 +1,7 @@
 #include "sliding_window.hpp"
-#include "./sliding_window_detail/sliding_window.ipp"
-#include "./sliding_window_detail/meas_static_obs.ipp"
-#include "./sliding_window_detail/meas_correlation.ipp"
+#include "sliding_window.ipp"
+#include "meas_static_obs.ipp"
+#include "meas_correlation.ipp"
 
 /**
  * Real-number version

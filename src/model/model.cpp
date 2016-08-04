@@ -1,9 +1,9 @@
 #include <alps/params.hpp>
 
-#include "operator.hpp"
+#include "../operator.hpp"
 #include "model.hpp"
-#include "./model_detail/model.ipp"
-#include "./model_detail/eigenbasis.ipp"
+#include "model.ipp"
+#include "eigenbasis.ipp"
 
 /**
  * Real-number version
