@@ -182,13 +182,20 @@ double spectral_norm_diag(const M &mat) {
     } else {
       mat_tmp = mat_tmp * mat_tmp.adjoint();
     }
+    const double max_abs2 = mat_tmp.cwiseAbs().maxCoeff();
+    for (int j = 0; j < mat_tmp.cols(); ++j) {
+      for (int i = 0; i < mat_tmp.rows(); ++i) {
+        if (std::abs(mat_tmp(i, j)) < cutoff) {
+          mat_tmp(i, j) = 0.0;
+        }
+      }
+    }
     Eigen::SelfAdjointEigenSolver<matrix_t> esolv(mat_tmp, false);
-    //Eigen::Matrix<double,Eigen::Dynamic,1> abs_evals = esolv.eigenvalues().cwiseAbs();
     const double norm = std::sqrt(esolv.eigenvalues().cwiseAbs().maxCoeff()) / coeff;
-    //if (isnan(norm)) {
-    //std::cout << "debug " << max_abs << std::endl;
-    //std::cout << mat_tmp;
-    //}
+    if (isnan(norm)) {
+      std::cout << "Warning: spectral_norm_diag is NaN. max_abs = " << max_abs << " max_abs2 = " << max_abs2 << std::endl;
+      return 0.0;
+    }
     //assert(!isnan(norm));
     return norm;
   }

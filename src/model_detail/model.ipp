@@ -9,11 +9,11 @@ struct PruneHelper {
 
 template<typename SCALAR, typename DERIVED>
 ImpurityModel<SCALAR, DERIVED>::ImpurityModel(const alps::params &par, bool verbose)
-    : sites_(par["MODEL.SITES"]),
-      spins_(par["MODEL.SPINS"]),
+    : sites_(par["model.sites"]),
+      spins_(par["model.spins"]),
       flavors_(sites_ * spins_),
       dim_(1 << flavors_),
-      ntau_(static_cast<int>(par["MODEL.N_TAU_HYB"])),
+      ntau_(static_cast<int>(par["model.n_tau_hyb"])),
       Np1_(ntau_ + 1),
       reference_energy_(-1E+100),//this should be set in a derived class,
       verbose_(verbose),
@@ -28,15 +28,15 @@ ImpurityModel<SCALAR, DERIVED>::ImpurityModel(const alps::params &par, bool verb
 template<typename SCALAR, typename DERIVED>
 void ImpurityModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters) {
   parameters
-      .define<std::string>("MODEL.U_TENSOR_INPUT_FILE", "Input file containing nonzero elements of U tensor")
-      .define<std::string>("MODEL.HOPPING_MATRIX_INPUT_FILE", "Input file for hopping matrix")
-      .define<std::string>("MODEL.DELTA_INPUT_FILE", "", "Input file for hybridization function Delta(tau)")
-      .define<std::string>("MODEL.BASIS_INPUT_FILE", "", "Input file for single-particle basis for expansion")
-      .define<double>("MODEL.INNER_CUTOFF_ENERGY", 0.1 * std::numeric_limits<double>::max(),
+      .define<std::string>("model.coulomb_tensor_input_file", "Input file containing nonzero elements of U tensor")
+      .define<std::string>("model.hopping_matrix_input_file", "Input file for hopping matrix")
+      .define<std::string>("model.delta_input_file", "", "Input file for hybridization function Delta(tau)")
+      .define<std::string>("model.basis_input_file", "", "Input file for single-particle basis for expansion")
+      .define<double>("model.inner_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
                       "Cutoff energy for inner states for computing trace (measured from the lowest eigenvalue)")
-      .define<double>("MODEL.OUTER_CUTOFF_ENERGY", 0.1 * std::numeric_limits<double>::max(),
+      .define<double>("model.outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
                       "Cutoff energy for outer states for computing trace (measured from the lowest eigenvalue)")
-      .define<double>("MODEL.CUTOFF_HAM", 1E-12,
+      .define<double>("model.cutoff_ham", 1E-12,
                       "Cutoff for entries in the local Hamiltonian matrix");
 }
 
@@ -51,11 +51,11 @@ ImpurityModel<SCALAR, DERIVED>::ImpurityModel(const alps::params &par,
                                                                              int,
                                                                              SCALAR> > &nonzero_U_vals_list,
                                               bool verbose)
-    : sites_(par["MODEL.SITES"]),
-      spins_(par["MODEL.SPINS"]),
+    : sites_(par["model.sites"]),
+      spins_(par["model.spins"]),
       flavors_(sites_ * spins_),
       dim_(1 << flavors_),
-      ntau_(static_cast<int>(par["MODEL.N_TAU_HYB"])),
+      ntau_(static_cast<int>(par["model.n_tau_hyb"])),
       Np1_(ntau_ + 1),
       verbose_(verbose),
       nonzero_U_vals(nonzero_U_vals_list),
@@ -88,14 +88,14 @@ int ImpurityModel<SCALAR, DERIVED>::get_dst_sector_bra(OPERATOR_TYPE op, int fla
 
 template<typename SCALAR, typename DERIVED>
 void ImpurityModel<SCALAR, DERIVED>::read_U_tensor(const alps::params &par) {
-  if (par.defined("MODEL.U_TENSOR_INPUT_FILE")) {
-    std::ifstream infile_f(boost::lexical_cast<std::string>(par["MODEL.U_TENSOR_INPUT_FILE"]).c_str());
+  if (par.defined("model.coulomb_tensor_input_file")) {
+    std::ifstream infile_f(boost::lexical_cast<std::string>(par["model.coulomb_tensor_input_file"]).c_str());
     if (!infile_f.is_open()) {
-      std::cerr << "We cannot open " << par["MODEL.U_TENSOR_INPUT_FILE"] << "!" << std::endl;
+      std::cerr << "We cannot open " << par["model.coulomb_tensor_input_file"] << "!" << std::endl;
       exit(1);
     }
     if (verbose_) {
-      std::cout << "Reading " << par["MODEL.U_TENSOR_INPUT_FILE"] << "..." << std::endl;
+      std::cout << "Reading " << par["model.coulomb_tensor_input_file"] << "..." << std::endl;
     }
 
     int num_elem;
@@ -127,16 +127,16 @@ void ImpurityModel<SCALAR, DERIVED>::read_U_tensor(const alps::params &par) {
       if (f3 < 0 || f3 >= flavors_) {
         throw std::runtime_error(boost::str(boost::format("Fifth column of line %1% is incorrect.") % i_elem));
       }
-      const SCALAR uval = mycast<SCALAR>(std::complex<double>(re, im));
+      const SCALAR uval = 0.5 * mycast<SCALAR>(std::complex<double>(re, im));
       nonzero_U_vals.push_back(boost::make_tuple(f0, f1, f2, f3, uval));
     }
 
     infile_f.close();
-  } else if (par.defined("MODEL.ONSITE_U")) {
+  } else if (par.defined("model.onsite_U")) {
     if (spins_ == 2) {
-      const double uval = par["MODEL.ONSITE_U"];
+      const double uval = par["model.onsite_U"];
       for (int site = 0; site < sites_; ++site) {
-        nonzero_U_vals.push_back(boost::make_tuple(2 * site, 2 * site + 1, 2 * site + 1, 2 * site, uval));
+        nonzero_U_vals.push_back(boost::make_tuple(2 * site, 2 * site + 1, 2 * site + 1, 2 * site, 0.5 * uval));
       }
     }
   }
@@ -144,10 +144,10 @@ void ImpurityModel<SCALAR, DERIVED>::read_U_tensor(const alps::params &par) {
 
 template<typename SCALAR, typename DERIVED>
 void ImpurityModel<SCALAR, DERIVED>::read_hopping(const alps::params &par) {
-  if (par.defined("MODEL.HOPPING_MATRIX_INPUT_FILE")) {
-    std::ifstream infile_f(boost::lexical_cast<std::string>(par["MODEL.HOPPING_MATRIX_INPUT_FILE"]).c_str());
+  if (par.defined("model.hopping_matrix_input_file")) {
+    std::ifstream infile_f(boost::lexical_cast<std::string>(par["model.hopping_matrix_input_file"]).c_str());
     if (!infile_f.is_open()) {
-      std::cerr << "We cannot open " << par["MODEL.HOPPING_MATRIX_INPUT_FILE"] << "!" << std::endl;
+      std::cerr << "We cannot open " << par["model.hopping_matrix_input_file"] << "!" << std::endl;
       exit(1);
     }
 
@@ -187,7 +187,7 @@ template<typename SCALAR, typename DERIVED>
 void ImpurityModel<SCALAR, DERIVED>::read_hybridization_function(const alps::params &par) {
   F.resize(boost::extents[flavors_][flavors_][Np1_]);
 
-  if (par["MODEL.DELTA_INPUT_FILE"].template as<std::string>() == "") {
+  if (par["model.delta_input_file"].template as<std::string>() == "") {
     std::fill(F.origin(), F.origin() + F.num_elements(), 0.0);
     for (int i = 0; i < flavors_; i++) {
       for (int time = 0; time < Np1_; time++) {
@@ -197,7 +197,7 @@ void ImpurityModel<SCALAR, DERIVED>::read_hybridization_function(const alps::par
     }
   } else {
     // read hybridization function from input file with FLAVORS+1 colums \tau, G_1_up, G_1_down, G_2_up ..., G_SITES_down)
-    std::ifstream infile_f(par["MODEL.DELTA_INPUT_FILE"].template as<std::string>().c_str());
+    std::ifstream infile_f(par["model.delta_input_file"].template as<std::string>().c_str());
     if (!infile_f.is_open()) {
       std::cerr << "Input file for F cannot be opened!" << std::endl;
       exit(1);
@@ -211,19 +211,19 @@ void ImpurityModel<SCALAR, DERIVED>::read_hybridization_function(const alps::par
         for (int j = 0; j < flavors_; j++) {
           infile_f >> dummy_it >> dummy_i >> dummy_j >> real >> imag;
           if (dummy_it != time) {
-            throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["MODEL.DELTA_INPUT_FILE"]) +
+            throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["model.delta_input_file"]) +
                 " is wrong. The value at the first colum should be " +
                 boost::lexical_cast<std::string>(time) + "Error at line " +
                 boost::lexical_cast<std::string>(time + 1) + ".");
           }
           if (dummy_i != i) {
-            throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["MODEL.DELTA_INPUT_FILE"]) +
+            throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["model.delta_input_file"]) +
                 " is wrong. The value at the second colum should be " +
                 boost::lexical_cast<std::string>(i) + "Error at line " +
                 boost::lexical_cast<std::string>(time + 1) + ".");
           }
           if (dummy_j != j) {
-            throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["MODEL.DELTA_INPUT_FILE"]) +
+            throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["model.delta_input_file"]) +
                 " is wrong. The value at the third colum should be " +
                 boost::lexical_cast<std::string>(j) + "Error at line " +
                 boost::lexical_cast<std::string>(time + 1) + ".");
@@ -242,23 +242,23 @@ void ImpurityModel<SCALAR, DERIVED>::read_rotation_hybridization_function(const 
   inv_rotmat_F.resize(flavors_, flavors_);
   rotmat_Delta.resize(flavors_, flavors_);
   inv_rotmat_Delta.resize(flavors_, flavors_);
-  if (!par.defined("MODEL.BASIS_INPUT_FILE") || par["MODEL.BASIS_INPUT_FILE"] == std::string("")) {
+  if (!par.defined("model.basis_input_file") || par["model.basis_input_file"] == std::string("")) {
     rotmat_F.setIdentity();
     inv_rotmat_F.setIdentity();
     rotmat_Delta.setIdentity();
     inv_rotmat_Delta.setIdentity();
   } else {
     if (verbose_) {
-      std::cout << "Opening " << par["MODEL.BASIS_INPUT_FILE"].template as<std::string>() << "..." << std::endl;
+      std::cout << "Opening " << par["model.basis_input_file"].template as<std::string>() << "..." << std::endl;
     }
-    std::ifstream infile_f(par["MODEL.BASIS_INPUT_FILE"].template as<std::string>().c_str());
+    std::ifstream infile_f(par["model.basis_input_file"].template as<std::string>().c_str());
     if (!infile_f.is_open()) {
       std::cerr << "in file for BASIS_INPUT_FILE not open! " << std::endl;
       exit(1);
     }
 
 #ifndef NDEBUG
-    std::cout << "Reading " << boost::lexical_cast<std::string>(par["MODEL.BASIS_INPUT_FILE"]) << "..." << std::endl;
+    std::cout << "Reading " << boost::lexical_cast<std::string>(par["model.basis_input_file"]) << "..." << std::endl;
 #endif
     for (int i = 0; i < flavors_; ++i) {
       for (int j = 0; j < flavors_; j++) {
@@ -441,7 +441,7 @@ split_op_into_sectors(int num_sectors,
 template<typename SCALAR, typename DERIVED>
 void ImpurityModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params &par) {
   const double eps_numerics = 1E-12;
-  const double eps = par["MODEL.CUTOFF_HAM"];
+  const double eps = par["model.cutoff_ham"];
 
   //Compute U tensor in the rotated basis
   //very naive implementation. One might vectorize the code and use the cache...

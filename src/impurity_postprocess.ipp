@@ -24,8 +24,8 @@ void HybridizationSimulation<IMP_MODEL>::show_statistics(const alps::accumulator
       results["Pert_order_start"].template mean<double>() %
       results["Pert_order_end"].template mean<double>() << std::endl;
 
-  std::cout << std::endl << "==== Acceptance hybridized operator updates ====" << std::endl;
-  for (int k = 1; k < par["UPDATE.MULTI_PAIR_INS_REM"].template as<int>() + 1; ++k) {
+  std::cout << std::endl << "==== Acceptance updates of operators hybridized with bath ====" << std::endl;
+  for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
     //FIX ME: we should automatically extract the name
     print_acc_rate(results, ins_rem_updater[k-1]->get_name(), std::cout);
     print_acc_rate(results, ins_rem_diagonal_updater[k-1]->get_name(), std::cout);

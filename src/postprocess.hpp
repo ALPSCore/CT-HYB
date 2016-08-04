@@ -30,13 +30,13 @@ void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::ty
                               const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive &ar) {
   namespace g=alps::gf;
 
-  const int n_tau(parms["MEASUREMENT.G1.N_TAU"]);
-  const int n_site(parms["MODEL.SITES"]);
-  const int n_spin(parms["MODEL.SPINS"]);
-  const double beta(parms["MODEL.BETA"]);
+  const int n_tau(parms["measurement.G1.n_tau"]);
+  const int n_site(parms["model.sites"]);
+  const int n_spin(parms["model.spins"]);
+  const double beta(parms["model.beta"]);
   const double temperature(1.0 / beta);
-  const int n_matsubara(parms["MEASUREMENT.G1.N_MATSUBARA"]);
-  const int n_legendre(parms["MEASUREMENT.G1.N_LEGENDRE"].template as<int>());
+  const int n_matsubara(parms["measurement.G1.n_matsubara"]);
+  const int n_legendre(parms["measurement.G1.n_legendre"].template as<int>());
   const int n_flavors = n_site * n_spin;
 
   const double sign = results["Sign"].template mean<double>();
@@ -118,12 +118,9 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
                                              Eigen::Dynamic> &rotmat_Delta,
                          alps::hdf5::archive &ar,
                          bool verbose = false) {
-  typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
-  typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
-
-  const int n_legendre(parms["MEASUREMENT.TWO_TIME_G2.N_LEGENDRE"].template as<int>());
-  const double beta(parms["MODEL.BETA"]);
-  const int n_flavors = parms["MODEL.SITES"].template as<int>() * parms["MODEL.SPINS"].template as<int>();
+  const int n_legendre(parms["measurement.two_time_G2.n_legendre"].template as<int>());
+  const double beta(parms["model.beta"]);
+  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   const double temperature(1.0 / beta);
   const double coeff =
       temperature * results["worm_space_volume_Two_time_G2"].template mean<double>() /
@@ -149,7 +146,6 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
   std::fill(data_org_basis.origin(), data_org_basis.origin() + data_org_basis.num_elements(), 0.0);
 
   //basis rotation very ugly. TO DO: replace the loops with tensordots.
-  const matrix_t inv_rotmat_Delta = rotmat_Delta.inverse();
   for (int f0 = 0; f0 < n_flavors; ++f0) {
     for (int f1 = 0; f1 < n_flavors; ++f1) {
       for (int f2 = 0; f2 < n_flavors; ++f2) {
@@ -160,10 +156,10 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
                 for (int g3 = 0; g3 < n_flavors; ++g3) {
                   for (int il = 0; il < n_legendre; ++il) {
                     data_org_basis[f0][f1][f2][f3][il] += data[g0][g1][g2][g3][il] *
-                        myconj(inv_rotmat_Delta(g0, f0)) *
-                        inv_rotmat_Delta(g1, f1) *
-                        myconj(inv_rotmat_Delta(g2, f2)) *
-                        inv_rotmat_Delta(g3, f3);
+                        myconj(rotmat_Delta(f0, g0)) *
+                        rotmat_Delta(f1, g1) *
+                        myconj(rotmat_Delta(f2, g2)) *
+                        rotmat_Delta(f3, g3);
                   }
                 }
               }
@@ -187,11 +183,11 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
-  const int n_legendre(parms["MEASUREMENT.G1.N_LEGENDRE"].template as<int>());
-  const int n_tau(parms["MEASUREMENT.G1.N_TAU"]);
-  const int n_matsubara(parms["MEASUREMENT.G1.N_MATSUBARA"]);
-  const double beta(parms["MODEL.BETA"]);
-  const int n_flavors = parms["MODEL.SITES"].template as<int>() * parms["MODEL.SPINS"].template as<int>();
+  const int n_legendre(parms["measurement.G1.n_legendre"].template as<int>());
+  const int n_tau(parms["measurement.G1.n_tau"]);
+  const int n_matsubara(parms["measurement.G1.n_matsubara"]);
+  const double beta(parms["model.beta"]);
+  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   const double temperature(1.0 / beta);
   const double sign = results["Sign"].template mean<double>();
   //The factor of temperature below comes from the extra degree of freedom for beta in the worm
@@ -298,15 +294,12 @@ void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type 
                                                Eigen::Dynamic> &rotmat_Delta,
                            alps::hdf5::archive &ar,
                            bool verbose = false) {
-  typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
-  typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
-
-  const double beta(parms["MODEL.BETA"]);
-  const int n_flavors = parms["MODEL.SITES"].template as<int>() * parms["MODEL.SPINS"].template as<int>();
+  const double beta(parms["model.beta"]);
+  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   const double temperature(1.0 / beta);
   const double sign = results["Sign"].template mean<double>();
   const double coeff =
-      results["worm_space_volume_Equal_time_G1"].template mean<double>() /
+      temperature * results["worm_space_volume_Equal_time_G1"].template mean<double>() /
           (sign * results["Z_function_space_volume"].template mean<double>());
 
   boost::multi_array<std::complex<double>, 2> data_org_basis(boost::extents[n_flavors][n_flavors]);
@@ -319,14 +312,12 @@ void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type 
     std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
     std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
                    std::bind1st(std::multiplies<std::complex<double> >(), coeff));
-    const matrix_t inv_rotmat_Delta = rotmat_Delta.inverse();
     for (int f0 = 0; f0 < n_flavors; ++f0) {
       for (int f1 = 0; f1 < n_flavors; ++f1) {
         for (int g0 = 0; g0 < n_flavors; ++g0) {
           for (int g1 = 0; g1 < n_flavors; ++g1) {
-            data_org_basis[f0][f1] += data[g0][g1] *
-                myconj(inv_rotmat_Delta(g0, f0)) *
-                inv_rotmat_Delta(g1, f1);
+            data_org_basis[f0][f1] += data[g0][g1]
+                * myconj(rotmat_Delta(f0,g0)) * rotmat_Delta(f1,g1);
           }
         }
       }
@@ -343,11 +334,10 @@ void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type 
                                                Eigen::Dynamic> &rotmat_Delta,
                            alps::hdf5::archive &ar,
                            bool verbose = false) {
-  typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
-  typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
-
-  const double beta(parms["MODEL.BETA"]);
-  const int n_flavors = parms["MODEL.SITES"].template as<int>() * parms["MODEL.SPINS"].template as<int>();
+  //typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
+  //typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
+  const double beta(parms["model.beta"]);
+  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   const double temperature(1.0 / beta);
   const double sign = results["Sign"].template mean<double>();
   const double coeff =
@@ -366,7 +356,7 @@ void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type 
     std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
     std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
                    std::bind1st(std::multiplies<std::complex<double> >(), coeff));
-    const matrix_t inv_rotmat_Delta = rotmat_Delta.inverse();
+    //const matrix_t inv_rotmat_Delta = rotmat_Delta.inverse();
     for (int f0 = 0; f0 < n_flavors; ++f0) {
       for (int f1 = 0; f1 < n_flavors; ++f1) {
         for (int f2 = 0; f2 < n_flavors; ++f2) {
@@ -376,10 +366,10 @@ void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type 
                 for (int g2 = 0; g2 < n_flavors; ++g2) {
                   for (int g3 = 0; g3 < n_flavors; ++g3) {
                     data_org_basis[f0][f1][f2][f3] += data[g0][g1][g2][g3] *
-                        myconj(inv_rotmat_Delta(g0, f0)) *
-                        inv_rotmat_Delta(g1, f1) *
-                        myconj(inv_rotmat_Delta(g2, f2)) *
-                        inv_rotmat_Delta(g3, f3);
+                        myconj(rotmat_Delta(f0, g0)) *
+                        rotmat_Delta(f1, g1) *
+                        myconj(rotmat_Delta(f2, g2)) *
+                        rotmat_Delta(f3, g3);
                   }
                 }
               }
@@ -402,40 +392,3 @@ void compute_fidelity_susceptibility(const typename alps::results_type<SOLVER_TY
       k = std::complex<double>(results["k_Re"].template mean<double>(), results["k_Im"].template mean<double>());
   ar["FIDELITY_SUSCEPTIBILITY"] << 0.5 * (kLkR - 0.25 * k * k);
 }
-
-
-/*
-template<typename SOLVER_TYPE>
-void show_statistics(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                     const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
-                     const std::vector<std::string> &active_worm_updaters, alps::hdf5::archive &ar) {
-#ifdef MEASURE_TIMING
-  const std::vector<double> timings = results["TimingsSecPerNMEAS"].template mean<std::vector<double> >();
-  std::cout << std::endl << "==== Timings analysis ====" << std::endl;
-  std::cout << " The following are the timings per window sweep (in units of second): " << std::endl;
-  std::cout << " Local updates (insertion/removal/shift of operators/worm: " << timings[0] << std::endl;
-  std::cout << " Global updates (global shift etc.): " << timings[1] << std::endl;
-  std::cout << " Worm measurement: " << timings[2] << std::endl;
-  std::cout << " Non worm measurement: " << timings[3] << std::endl;
-#endif
-
-  std::cout << std::endl << "==== Thermalization analysis ====" << std::endl;
-  std::cout << boost::format("Perturbation orders just before and after measurement steps are %1% and %2%.") %
-      results["Pert_order_start"].template mean<double>() %
-      results["Pert_order_end"].template mean<double>() << std::endl;
-
-  std::cout << std::endl << "==== Acceptance hybridized operator updates ====" << std::endl;
-  for (int k = 1; k < parms["UPDATE.MULTI_PAIR_INS_REM"].template as<int>() + 1; ++k) {
-    //FIX ME: we should automatically extract the name
-    print_acc_rate(results, (boost::format("%d%-pair_insertion_remover")%k).str(), std::cout);
-    print_acc_rate(results, (boost::format("%d%-pair_insertion_remover_flavor_diagonal")%k).str(), std::cout);
-  }
-  print_acc_rate(results, "Single_operator_shift_updater", std::cout);
-  print_acc_rate(results, "Operator_pair_flavor_updater", std::cout);
-
-  std::cout << std::endl << "==== Acceptance rates of worm updates ====" << std::endl;
-  for (int iu = 0; iu < active_worm_updaters.size(); ++iu) {
-    print_acc_rate(results, active_worm_updaters[iu], std::cout);
-  }
-}
- */

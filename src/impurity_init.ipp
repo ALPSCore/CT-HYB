@@ -12,7 +12,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("order");
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("PerturbationOrderFlavors");
 
-  for (int k = 1; k < par["UPDATE.MULTI_PAIR_INS_REM"].template as<int>() + 1; ++k) {
+  for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
     ins_rem_updater[k - 1]->create_measurement_acc_rate(measurements);
     ins_rem_diagonal_updater[k - 1]->create_measurement_acc_rate(measurements);
   }
@@ -31,14 +31,14 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
         "worm_space_num_steps_" + get_config_space_name(worm_types[w]));
   }
 
-  if (par["MEASUREMENT.TWO_TIME_G2.ON"] != 0) {
+  if (par["measurement.two_time_G2.on"] != 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Two_time_G2");
   }
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "G1");
 
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G1");
 
-  if (par["MEASUREMENT.EQUAL_TIME_G2.ON"] != 0) {
+  if (par["measurement.equal_time_G2.on"] != 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G2");
   }
 
@@ -87,7 +87,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       )
   );
   p_G1_meas.reset(
-      new GMeasurement<SCALAR, 1>(FLAVORS, par["MEASUREMENT.G1.N_LEGENDRE"], BETA)
+      new GMeasurement<SCALAR, 1>(FLAVORS, par["measurement.G1.n_legendre"], BETA)
   );
 
   //Via connecting or cutting hybridization lines
@@ -101,7 +101,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   /*
    * Two-time G2
    */
-  if (par["MEASUREMENT.TWO_TIME_G2.ON"] != 0) {
+  if (par["measurement.two_time_G2.on"] != 0) {
     worm_types.push_back(Two_time_G2);
     worm_movers.push_back(
         boost::shared_ptr<WormMoverType>(
@@ -117,7 +117,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         )
     );
     p_two_time_G2_meas.reset(
-        new TwoTimeG2Measurement<SCALAR>(FLAVORS, par["MEASUREMENT.TWO_TIME_G2.N_LEGENDRE"], BETA)
+        new TwoTimeG2Measurement<SCALAR>(FLAVORS, par["measurement.two_time_G2.n_legendre"], BETA)
     );
   }
 
@@ -148,7 +148,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   /*
    * Equal-time G2
    */
-  if (par["MEASUREMENT.EQUAL_TIME_G2.ON"] != 0) {
+  if (par["measurement.equal_time_G2.on"] != 0) {
     const std::string name("Equal_time_G2");
     worm_types.push_back(Equal_time_G2);
     worm_movers.push_back(
@@ -215,7 +215,7 @@ template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
   {
     swap_vector.resize(0);
-    std::string input_str(par["UPDATE.SWAP_VECTOR"].template as<std::string>());
+    std::string input_str(par["update.swap_vector"].template as<std::string>());
     //When SPINS==2, a global spin flip is pre-defined
     if (SPINS == 2) {
       for (int site = 0; site < SITES; ++site) {
@@ -339,13 +339,13 @@ void HybridizationSimulation<IMP_MODEL>::read_eq_time_two_particle_greens_meas()
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
-  const std::string fname_key = "MEASUREMENT.NN_CORR.DEF";
+  const std::string fname_key = "measurement.nn_corr.def";
   const bool verbose = (global_mpi_rank == 0);
 
-  if (!par.defined("MEASUREMENT.NN_CORR.N_TAU")) {
+  if (!par.defined("measurement.nn_corr.n_tau")) {
     return;
   }
-  const int num_tau_points = par["MEASUREMENT.NN_CORR.N_TAU"];
+  const int num_tau_points = par["measurement.nn_corr.n_tau"];
   if (num_tau_points < 2 || !par.defined(fname_key)) {
     return;
   }

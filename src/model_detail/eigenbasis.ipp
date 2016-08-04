@@ -166,7 +166,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
   }
   remove_high_energy_states(eigenvals_sector,
                             evecs_sector,
-                            eigenvalue_min + par["MODEL.INNER_CUTOFF_ENERGY"].template as<double>());
+                            eigenvalue_min + par["model.inner_cutoff_energy"].template as<double>());
   boost::tie(eigenvalue_max, eigenvalue_min) = min_max_energy_sectors(eigenvals_sector, min_eigenval_sector);
   if (Base::verbose_) {
     print_sectors(eigenvals_sector);
@@ -194,7 +194,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
 
   //overflow prevention
   double overflow_prevention;
-  const double BETA = par["MODEL.BETA"].template as<double>();
+  const double BETA = par["model.beta"].template as<double>();
   if (0.5 * (eigenvalue_max - eigenvalue_min) > 200 / BETA) {
     overflow_prevention = 0.5 * (eigenvalue_max - eigenvalue_min) - 200 / BETA;
   } else {
@@ -244,7 +244,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
 template<typename SCALAR>
 void ImpurityModelEigenBasis<SCALAR>::build_outer_braket(const alps::params &par) {
   namespace bll = boost::lambda;
-  const double cutoff_outer = par["MODEL.OUTER_CUTOFF_ENERGY"].template as<double>()
+  const double cutoff_outer = par["model.outer_cutoff_energy"].template as<double>()
       + *std::min_element(min_eigenval_sector.begin(), min_eigenval_sector.end());
   int active_sector = 0;
   bra_list.resize(0);
