@@ -8,7 +8,7 @@
 #include "gtest.h"
 
 #include <alps/fastupdate/detail/util.hpp>
-#include "../src/model.hpp"
+#include "../src/model/model.hpp"
 
 /*
 template<class S>
