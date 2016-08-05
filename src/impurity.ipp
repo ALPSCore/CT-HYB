@@ -30,9 +30,13 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.n_non_worm_meas", 10, "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
       //
       //Single-particle GF
-      .define<int>("measurement.G1.n_legendre", 100, "Number of legendre coefficients for measuring G(tau)")
+      .define<int>("measurement.G1.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
       .define<int>("measurement.G1.n_tau", 2000, "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
       .define<int>("measurement.G1.n_matsubara", 2000, "G(i omega_n) is computed on a uniform mesh of MEASUREMENT.G1.N_Matsubara frequencies.")
+      //Two-particle GF
+      .define<int>("measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
+      .define<int>("measurement.G2.n_legendre", 50, "Number of legendre polynomials for measurement")
+      .define<int>("measurement.G2.n_bosonic_freq", 50, "Number of bosonic frequencies for measurement")
       //
       //Two-time two-particle GF
       .define<int>("measurement.two_time_G2.on", 0, "Set a non-zero value to activate measurement.")
@@ -250,7 +254,11 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
 
     case G1:
       //p_G1_meas->measure(mc_config, measurements, random, sliding_window, N_win_standard, "G1");
-      p_G1_meas->measure_via_hyb(mc_config, measurements, random, sliding_window, "G1");
+      p_G1_meas->measure_via_hyb(mc_config, measurements, random, "G1");
+      break;
+
+    case G2:
+      p_G2_meas->measure_via_hyb(mc_config, measurements, random, "G2");
       break;
 
     case Two_time_G2:

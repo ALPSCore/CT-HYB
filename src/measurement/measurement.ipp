@@ -185,12 +185,13 @@ inline void generate_new_time_sets(double init_time, int num_times, alps::random
   }
 }
 
-template<int Rank>
-void init_work_space(boost::multi_array<std::complex<double>, 4 * Rank - 1> &data, int num_flavors, int num_legendre) {
-  data.resize(boost::extents[num_flavors][num_flavors][num_legendre]);
-};
+//template<int Rank>
+//void init_work_space(boost::multi_array<std::complex<double>, 4 * Rank - 1> &data, int num_flavors, int num_legendre) {
+//data.resize(boost::extents[num_flavors][num_flavors][num_legendre]);
+//};
 
 
+/*
 template<typename SCALAR, int Rank>
 template<typename SlidingWindow>
 void GMeasurement<SCALAR, Rank>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
@@ -307,6 +308,7 @@ void GMeasurement<SCALAR, Rank>::measure(MonteCarloConfiguration<SCALAR> &mc_con
   //restore the status of the sliding window
   sliding_window.restore_state(mc_config.operators, state);
 }
+*/
 
 inline int compute_perm_sign(const std::vector<psi> &ops) {
   std::vector<OperatorTime> times;
@@ -319,11 +321,9 @@ inline int compute_perm_sign(const std::vector<psi> &ops) {
 }
 
 template<typename SCALAR, int Rank>
-template<typename SlidingWindow>
 void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                                                  alps::accumulators::accumulator_set &measurements,
                                                  alps::random01 &random,
-                                                 SlidingWindow &sliding_window,
                                                  const std::string &str,
                                                  double eps) {
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
@@ -410,9 +410,20 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   //Note: sign of the intermediate state is sign(weight_rat * sign)
   const SCALAR weight_rat = (1. * perm_sign_det_rat * perm_sign_trace_rat) * det_rat;
 
+  //drop small values
+  const double cutoff = 1.0e-15 * M.block().cwiseAbs().maxCoeff();
+  for (int j = 0; j < M.size2(); ++j) {
+    for (int i = 0; i < M.size1(); ++i) {
+      if (std::abs(M(i, j)) < cutoff) {
+        M(i, j) = 0.0;
+      }
+    }
+  }
+
   //measure by removal as we would do for the partition function expansion
   MeasureGHelper<SCALAR, Rank>::perform(beta_,
                                         legendre_trans_,
+                                        num_freq_,
                                         mc_config.sign,
                                         weight_rat,
                                         cdagg_ops_new,
@@ -428,6 +439,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
 template<typename SCALAR>
 void MeasureGHelper<SCALAR, 1>::perform(double beta,
                                         LegendreTransformer &legendre_trans,
+                                        int n_freq,
                                         SCALAR sign,
                                         SCALAR weight_rat_intermediate_state,
                                         const std::vector<psi> &creation_ops,
@@ -441,15 +453,13 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
   std::vector<double> Pl_vals(num_legendre);
   std::fill(result.origin(), result.origin() + result.num_elements(), 0.0);
 
-  const double cutoff = 1.0e-15 * M.block().cwiseAbs().maxCoeff();
-
   double norm = 0.0;
   std::vector<psi>::const_iterator it1, it2;
   for (int k = 0; k < M.size1(); k++) {
     (k == 0 ? it1 = annihilation_ops.begin() : it1++);
     for (int l = 0; l < M.size2(); l++) {
       (l == 0 ? it2 = creation_ops.begin() : it2++);
-      if (std::abs(M(l, k)) < cutoff) {
+      if (M(l, k) == 0.0) {
         continue;
       }
       double argument = it1->time() - it2->time();
@@ -476,10 +486,103 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 
   //normalization
   std::transform(result.origin(), result.origin() + result.num_elements(), result.origin(),
-                 std::bind2nd(std::divides<std::complex<double> >(), norm));
+                 std::bind2nd(std::divides<std::complex<double> >(), -1.0 * norm * beta));
+};
+
+//Measure G2 by removal in G2 space
+template<typename SCALAR>
+void MeasureGHelper<SCALAR, 2>::perform(double beta,
+                                        LegendreTransformer &legendre_trans,
+                                        int n_freq,
+                                        SCALAR sign,
+                                        SCALAR weight_rat_intermediate_state,
+                                        const std::vector<psi> &creation_ops,
+                                        const std::vector<psi> &annihilation_ops,
+                                        const alps::fastupdate::ResizableMatrix<SCALAR> &M,
+                                        boost::multi_array<std::complex<double>, 7> &result) {
+  const double temperature = 1. / beta;
+  const int num_flavors = result.shape()[0];
+  const int num_legendre = legendre_trans.num_legendre();
+  const int pert_order = creation_ops.size();
+
+  //Compute values of P
+  std::vector<double> sqrt_2l_1 = legendre_trans.get_sqrt_2l_1();
+  std::vector<double> sqrt_2l_1_p(sqrt_2l_1);
+  for (int il = 0; il < num_legendre; il += 2) {
+    sqrt_2l_1_p[il] *= -1;
+  }
+
+  boost::multi_array<double, 3>
+      Pl(boost::extents[pert_order][pert_order][num_legendre]);//annihilator, creator, legendre
+  {
+    std::vector<double> Pl_tmp(num_legendre);
+    for (int k = 0; k < M.size1(); k++) {
+      for (int l = 0; l < M.size2(); l++) {
+        double argument = annihilation_ops[k].time() - creation_ops[l].time();
+        double arg_sign = 1.0;
+        if (argument < 0) {
+          argument += beta;
+          arg_sign = -1.0;
+        }
+        const double x = 2 * argument * temperature - 1.0;
+        legendre_trans.compute_legendre(x, Pl_tmp);
+        for (int il = 0; il < num_legendre; ++il) {
+          Pl[k][l][il] = arg_sign * Pl_tmp[il];
+        }
+      }
+    }
+  }
+
+  boost::multi_array<std::complex<double>, 3>
+      expiomega(boost::extents[pert_order][pert_order][n_freq]);//annihilator, creator, legendre
+  {
+    for (int k = 0; k < M.size1(); k++) {
+      for (int l = 0; l < M.size2(); l++) {
+        const double tau_diff = annihilation_ops[k].time() - creation_ops[l].time();
+        expiomega[k][l][0] = std::exp(std::complex<double>(0.0, 2 * M_PI * tau_diff * temperature));
+        std::complex<double> rat = expiomega[k][l][0];
+        for (int freq = 1; freq < n_freq; ++freq) {
+          expiomega[k][l][freq] = rat * expiomega[k][l][freq - 1];
+        }
+      }
+    }
+  }
+
+  //naive way to evaluate
+  //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
+  std::fill(result.origin(), result.origin() + result.num_elements(), 0.0);
+  double norm = 0.0;
+  for (int a = 0; a < pert_order; ++a) {
+    const int flavor_a = annihilation_ops[a].flavor();
+    for (int b = 0; b < pert_order; ++b) {
+      const int flavor_b = creation_ops[b].flavor();
+      for (int c = 0; c < pert_order; ++c) {
+        const int flavor_c = annihilation_ops[c].flavor();
+        for (int d = 0; d < pert_order; ++d) {
+          const int flavor_d = creation_ops[d].flavor();
+
+          const SCALAR coeff = sign * weight_rat_intermediate_state * (M(b, a) * M(d, c) - M(d, a) * M(c, b));
+          norm += std::abs(coeff);
+          for (int il = 0; il < num_legendre; ++il) {
+            for (int il_p = 0; il_p < num_legendre; ++il_p) {
+              for (int im = 0; im < n_freq; ++im) {
+                result[flavor_a][flavor_b][flavor_c][flavor_d][il][il_p][im] +=
+                    coeff * sqrt_2l_1[il] * sqrt_2l_1_p[il_p] * Pl[a][b][il] * Pl[c][d][il_p] * expiomega[a][d][im];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  //normalization
+  std::transform(result.origin(), result.origin() + result.num_elements(), result.origin(),
+                 std::bind2nd(std::divides<std::complex<double> >(), norm * beta));
 };
 
 //Measure single-particle Green's function using Legendre polynomials
+/*
 template<typename SCALAR, int Rank>
 typename boost::enable_if_c<Rank == 1, SCALAR>::type
 GMeasurement<SCALAR, Rank>::measure_impl(const std::vector<psi> &worm_ops,
@@ -511,6 +614,7 @@ GMeasurement<SCALAR, Rank>::measure_impl(const std::vector<psi> &worm_ops,
 
   return 0.0; //dummy
 }
+*/
 
 template<typename SCALAR, int Rank>
 void

@@ -56,7 +56,7 @@
 #include "sliding_window/sliding_window.hpp"
 #include "update_histogram.hpp"
 #include "accumulator.hpp"
-#include "measurement.hpp"
+#include "measurement/measurement.hpp"
 #include "wang_landau.hpp"
 
 
@@ -211,6 +211,7 @@ class HybridizationSimulation: public alps::mcbase {
   typedef WormMover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormMoverType;
   typedef WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormInsertionRemoverType;
   typedef GWormInsertionRemover<SCALAR, 1, EXTENDED_SCALAR, SW_TYPE> G1WormInsertionRemoverType;
+  typedef GWormInsertionRemover<SCALAR, 2, EXTENDED_SCALAR, SW_TYPE> G2WormInsertionRemoverType;
 
   //a list of active worm spaces
   std::vector<ConfigSpace> worm_types;
@@ -237,6 +238,9 @@ class HybridizationSimulation: public alps::mcbase {
 
   //Measurement of single-particle Green's functions by worm sampling
   boost::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_meas;
+
+  //Measurement of two-particle Green's functions by worm sampling
+  boost::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_meas;
 
   //Measurement of equal-time two-particle Green's function
   boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 2> > p_equal_time_G2_meas;

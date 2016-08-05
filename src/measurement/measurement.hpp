@@ -8,9 +8,14 @@
 #include <Eigen/Dense>
 
 #include <alps/fastupdate/resizable_matrix.hpp>
+#include <alps/mc/random01.hpp>
+#include <alps/accumulators.hpp>
 
-#include "legendre.hpp"
-#include "operator.hpp"
+#include "../accumulator.hpp"
+#include "../mc_config.hpp"
+#include "../sliding_window/sliding_window.hpp"
+#include "../legendre.hpp"
+#include "../operator.hpp"
 
 
 /**
@@ -258,8 +263,8 @@ class TwoTimeG2Measurement {
   boost::multi_array<std::complex<double>, 5> data_;
 };
 
-template<int Rank>
-void init_work_space(boost::multi_array<std::complex<double>, 4 * Rank - 1> &data, int num_flavors, int num_legendre);
+void init_work_space(boost::multi_array<std::complex<double>, 3> &data, int num_flavors, int num_legendre, int num_freq);
+void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_flavors, int num_legendre, int num_freq);
 
 /**
  * @brief Helper struct for measurement of Green's function using Legendre basis in G space
@@ -268,6 +273,7 @@ template<typename SCALAR, int RANK>
 struct MeasureGHelper {
   static void perform(double beta,
                       LegendreTransformer &legendre_trans,
+                      int n_freq,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
@@ -281,10 +287,25 @@ template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 1> {
   static void perform(double beta,
                       LegendreTransformer &legendre_trans,
+                      int n_freq,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
                       const alps::fastupdate::ResizableMatrix<SCALAR> &M, boost::multi_array<std::complex<double>, 3> &data);
+};
+
+/**
+ * @brief Specialization for measureing G2
+ */
+template<typename SCALAR>
+struct MeasureGHelper<SCALAR, 2> {
+  static void perform(double beta,
+                      LegendreTransformer &legendre_trans,
+                      int n_freq,
+                      SCALAR sign, SCALAR weight_rat_intermediate_state,
+                      const std::vector<psi> &creation_ops,
+                      const std::vector<psi> &annihilation_ops,
+                      const alps::fastupdate::ResizableMatrix<SCALAR> &M, boost::multi_array<std::complex<double>, 7> &data);
 };
 
 /**
@@ -298,38 +319,42 @@ class GMeasurement {
    *
    * @param num_flavors    the number of flavors
    * @param num_legendre   the number of legendre coefficients
+   * @param num_freq       the number of bosonic frequencies
    * @param beta           inverse temperature
    */
-  GMeasurement(int num_flavors, int num_legendre, double beta) :
+  GMeasurement(int num_flavors, int num_legendre, int num_freq, double beta) :
       num_flavors_(num_flavors),
+      num_freq_(num_freq),
       beta_(beta),
       legendre_trans_(1, num_legendre) {
-    init_work_space<Rank>(data_, num_flavors, num_legendre);
+    init_work_space(data_, num_flavors, num_legendre, num_freq);
   };
 
   /**
    * @brief Measure G1 with shifting two of the four operators on the interval [0,beta]
    * @param average_pert_order average perturbation order per flavor, which is used for determining the number of shifts
    */
-  template<typename SlidingWindow>
-  void measure(MonteCarloConfiguration<SCALAR> &mc_config,
-               alps::accumulators::accumulator_set &measurements,
-               alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str);
+  //template<typename SlidingWindow>
+  //void measure(MonteCarloConfiguration<SCALAR> &mc_config,
+               //alps::accumulators::accumulator_set &measurements,
+               //alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str);
 
   /**
-   * @brief Measure G1 via hybridization function
+   * @brief Measure Green's function via hybridization function
    */
-  template<typename SlidingWindow>
   void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements,
-               alps::random01 &random, SlidingWindow &sliding_window, const std::string &str, double eps = 1E-5);
+               alps::random01 &random, const std::string &str, double eps = 1E-5);
 
  private:
   /** Measure single-particle Green's function */
-  typename boost::enable_if_c<Rank==1, SCALAR>::type
-  measure_impl(const std::vector<psi> &worm_ops, int idx_operator_shifted, SCALAR sign, std::vector<SCALAR> &weight_flavors);
+  //typename boost::enable_if_c<Rank==1, SCALAR>::type
+  //measure_impl(const std::vector<psi> &worm_ops, int idx_operator_shifted, SCALAR sign, std::vector<SCALAR> &weight_flavors);
 
-  int num_flavors_;
+  //typename boost::enable_if_c<Rank==2, SCALAR>::type
+  //measure_impl(const std::vector<psi> &worm_ops, int idx_operator_shifted, SCALAR sign, std::vector<SCALAR> &weight_flavors) {};
+
+  int num_flavors_, num_freq_;
   double beta_;
   LegendreTransformer legendre_trans_;
   //flavor, ..., flavor, legendre, legendre, ..., legendre
@@ -368,4 +393,4 @@ class EqualTimeGMeasurement {
   int num_flavors_;
 };
 
-#include "measurement.ipp"
+//#include "measurement.ipp"

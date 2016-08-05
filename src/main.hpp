@@ -76,6 +76,9 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
     {
       compute_greens_functions<SOLVER_TYPE>(results, parameters, ar);
       compute_G1<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
+      if (parameters["measurement.G1.on"] != 0) {
+        compute_G2<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
+      }
       if (parameters["measurement.two_time_G2.on"] != 0) {
         compute_two_time_G2<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
       }

@@ -192,7 +192,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   const double sign = results["Sign"].template mean<double>();
   //The factor of temperature below comes from the extra degree of freedom for beta in the worm
   const double coeff =
-      -temperature * results["worm_space_volume_G1"].template mean<double>() /
+      results["worm_space_volume_G1"].template mean<double>() /
           (sign * results["Z_function_space_volume"].template mean<double>());
 
   boost::multi_array<std::complex<double>, 3>
@@ -286,6 +286,139 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   gomega.save(ar, "/gf");
 }
 
+//very crapy way to implement ...
+template<typename SCALAR>
+void rotate_back_G2(int n_flavors, boost::multi_array<std::complex<double>, 4> &G2,
+                    const Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta) {
+
+  boost::multi_array<std::complex<double>, 4>
+      work(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors]);
+
+  //transform the first index
+  std::fill(work.origin(), work.origin() + work.num_elements(), 0.0);
+  for (int f1 = 0; f1 < n_flavors; ++f1) {
+    for (int f2 = 0; f2 < n_flavors; ++f2) {
+      for (int f3 = 0; f3 < n_flavors; ++f3) {
+        for (int f4 = 0; f4 < n_flavors; ++f4) {
+          for (int g1 = 0; g1 < n_flavors; ++g1) {
+            work[f1][f2][f3][f4] = rotmat_Delta(f1, g1) * G2[g1][f2][f3][f4];
+          }
+        }
+      }
+    }
+  }
+  G2 = work;
+
+  //transform the second index
+  std::fill(work.origin(), work.origin() + work.num_elements(), 0.0);
+  for (int f1 = 0; f1 < n_flavors; ++f1) {
+    for (int f2 = 0; f2 < n_flavors; ++f2) {
+      for (int f3 = 0; f3 < n_flavors; ++f3) {
+        for (int f4 = 0; f4 < n_flavors; ++f4) {
+          for (int g2 = 0; g2 < n_flavors; ++g2) {
+            work[f1][f2][f3][f4] = myconj(rotmat_Delta(f2, g2)) * G2[f1][g2][f3][f4];
+          }
+        }
+      }
+    }
+  }
+  G2 = work;
+
+  //transform the third index
+  std::fill(work.origin(), work.origin() + work.num_elements(), 0.0);
+  for (int f1 = 0; f1 < n_flavors; ++f1) {
+    for (int f2 = 0; f2 < n_flavors; ++f2) {
+      for (int f3 = 0; f3 < n_flavors; ++f3) {
+        for (int f4 = 0; f4 < n_flavors; ++f4) {
+          for (int g3 = 0; g3 < n_flavors; ++g3) {
+            work[f1][f2][f3][f4] = rotmat_Delta(f3, g3) * G2[f1][f2][g3][f4];
+          }
+        }
+      }
+    }
+  }
+  G2 = work;
+
+  //transform the fourth index
+  std::fill(work.origin(), work.origin() + work.num_elements(), 0.0);
+  for (int f1 = 0; f1 < n_flavors; ++f1) {
+    for (int f2 = 0; f2 < n_flavors; ++f2) {
+      for (int f3 = 0; f3 < n_flavors; ++f3) {
+        for (int f4 = 0; f4 < n_flavors; ++f4) {
+          for (int g4 = 0; g4 < n_flavors; ++g4) {
+            work[f1][f2][f3][f4] = myconj(rotmat_Delta(f4, g4)) * G2[f1][f2][f3][g4];
+          }
+        }
+      }
+    }
+  }
+  G2 = work;
+}
+
+template<typename SOLVER_TYPE>
+void compute_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
+                const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
+                alps::hdf5::archive &ar,
+                bool verbose = false) {
+  const int n_legendre(parms["measurement.G2.n_legendre"]);
+  const int n_freq(parms["measurement.G2.n_bosonic_freq"]);
+  const double beta(parms["model.beta"]);
+  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
+  const double temperature(1.0 / beta);
+  const double sign = results["Sign"].template mean<double>();
+
+  //The factor of temperature below comes from the extra degree of freedom for beta in the worm
+  const double coeff =
+      - results["worm_space_volume_G2"].template mean<double>() /
+          (sign * results["Z_function_space_volume"].template mean<double>());
+
+  const std::vector<double> Gl_Re = results["G2_Re"].template mean<std::vector<double> >();
+  const std::vector<double> Gl_Im = results["G2_Im"].template mean<std::vector<double> >();
+  boost::multi_array<std::complex<double>, 7>
+      Gl(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_legendre][n_legendre][n_freq]);
+  std::transform(Gl_Re.begin(), Gl_Re.end(), Gl_Im.begin(), Gl.origin(), to_complex<double>());
+  std::transform(Gl.origin(), Gl.origin() + Gl.num_elements(), Gl.origin(),
+                 std::bind1st(std::multiplies<std::complex<double> >(), coeff));
+
+  //rotate back to the original basis (using not-cache-friendly approach...)
+  for (int il = 0; il < n_legendre; ++il) {
+    for (int il2 = 0; il2 < n_legendre; ++il2) {
+      for (int ifreq = 0; ifreq < n_freq; ++ifreq) {
+
+        //copy data to work1
+        boost::multi_array<std::complex<double>, 4>
+            work(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors]);
+        for (int f1 = 0; f1 < n_flavors; ++f1) {
+          for (int f2 = 0; f2 < n_flavors; ++f2) {
+            for (int f3 = 0; f3 < n_flavors; ++f3) {
+              for (int f4 = 0; f4 < n_flavors; ++f4) {
+                work[f1][f2][f3][f4] = Gl[f1][f2][f3][f4][il][il2][ifreq];
+              }
+            }
+          }
+        }
+
+        rotate_back_G2(n_flavors, work, rotmat_Delta);
+
+        //copy result to Gl
+        for (int f1 = 0; f1 < n_flavors; ++f1) {
+          for (int f2 = 0; f2 < n_flavors; ++f2) {
+            for (int f3 = 0; f3 < n_flavors; ++f3) {
+              for (int f4 = 0; f4 < n_flavors; ++f4) {
+                Gl[f1][f2][f3][f4][il][il2][ifreq] = work[f1][f2][f3][f4];
+              }
+            }
+          }
+        }
+
+      }
+    }
+  }
+
+  ar["/G2_LEGENDRE"] << Gl;
+}
+
 template<typename SOLVER_TYPE>
 void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
                            const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
@@ -317,7 +450,7 @@ void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type 
         for (int g0 = 0; g0 < n_flavors; ++g0) {
           for (int g1 = 0; g1 < n_flavors; ++g1) {
             data_org_basis[f0][f1] += data[g0][g1]
-                * myconj(rotmat_Delta(f0,g0)) * rotmat_Delta(f1,g1);
+                * myconj(rotmat_Delta(f0, g0)) * rotmat_Delta(f1, g1);
           }
         }
       }
