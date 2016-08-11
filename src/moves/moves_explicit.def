@@ -12,6 +12,8 @@ template class WormUpdater<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 
 template class WormMover<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 
+template class WormFlavorChanger<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
+
 template class WormInsertionRemover<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 
 template class GWormInsertionRemover<PP_REAL, 1, PP_EXTENDED_SCALAR, PP_SW>;

@@ -7,48 +7,70 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
   //alps::define_convenience_parameters(parameters);
   parameters
       .description("Continous-time hybridization expansion impurity solver")
-      .define<unsigned long>("timelimit", "Total simulation time (in units of second)")
+      .define < unsigned
+  long > ("timelimit", "Total simulation time (in units of second)")
       .define<double>("thermalization_time",
                       -1,
                       "Thermalization time (in units of second). The default value is 25 % of timelimit.")
       .define<int>("Tmin", 1, "The scheduler checks longer than every Tmin seconds if the simulation is finished.")
       .define<int>("Tmax", 60, "The scheduler checks shorter than every Tmax seconds if the simulation is finished.")
-      .define<std::string>("outputfile", alps::remove_extensions(parameters.get_origin_name())+".out.h5", "name of the output file")
+      .define<std::string>("outputfile",
+                           alps::remove_extensions(parameters.get_origin_name()) + ".out.h5",
+                           "name of the output file")
       .define<int>("verbose", 0, "Verbose output for a non-zero value")
       .define<int>("sliding_window.max", 1000, "Max number of windows")
       .define<int>("sliding_window.min", 1, "Min number of windows")
-      //Model definition
+          //Model definition
       .define<int>("model.sites", "Number of sites/orbitals")
       .define<int>("model.spins", "Number of spins")
       .define<double>("model.beta", "Inverse temperature")
-      .define<int>("model.n_tau_hyb", "Hybridization function is defined on a uniform mesh of N_TAU + 1 imaginary points.")
-      //Updates
+      .define<int>("model.n_tau_hyb",
+                   "Hybridization function is defined on a uniform mesh of N_TAU + 1 imaginary points.")
+          //Updates
       .define<int>("update.multi_pair_ins_rem", 2, "Perform 1, 2, ..., k-pair updates.")
       .define<int>("update.n_global_updates", 10, "Global updates are performed every N_GLOBAL_UPDATES updates.")
       .define<std::string>("update.swap_vector", "", "Definition of global flavor-exchange updates.")
-      //Measurement
-      .define<int>("measurement.n_non_worm_meas", 10, "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
-      //
-      //Single-particle GF
+          //Measurement
+      .define<int>("measurement.n_non_worm_meas",
+                   10,
+                   "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
+          //
+          //Single-particle GF
       .define<int>("measurement.G1.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
-      .define<int>("measurement.G1.n_tau", 2000, "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
-      .define<int>("measurement.G1.n_matsubara", 2000, "G(i omega_n) is computed on a uniform mesh of MEASUREMENT.G1.N_Matsubara frequencies.")
-      //Two-particle GF
+      .define<int>("measurement.G1.n_tau",
+                   2000,
+                   "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
+      .define<int>("measurement.G1.n_matsubara",
+                   2000,
+                   "G(i omega_n) is computed on a uniform mesh of MEASUREMENT.G1.N_Matsubara frequencies.")
+      .define<int>("measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
+      .define<double>("measurement.G1.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
+          //Two-particle GF
       .define<int>("measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
-      .define<int>("measurement.G2.n_legendre", 50, "Number of legendre polynomials for measurement")
-      .define<int>("measurement.G2.n_bosonic_freq", 50, "Number of bosonic frequencies for measurement")
-      //
-      //Two-time two-particle GF
+      .define<int>("measurement.G2.n_legendre", 20, "Number of legendre polynomials for measurement")
+      .define<int>("measurement.G2.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
+      .define<int>("measurement.G2.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
+      .define<double>("measurement.G2.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
+          //
+          //Two-time two-particle GF
       .define<int>("measurement.two_time_G2.on", 0, "Set a non-zero value to activate measurement.")
-      .define<int>("measurement.two_time_G2.n_legendre", 50, "Number of legendre coefficients for measuring two-time two-particle Green's function.")
-      //
-      //Equal-time two-particle GF
+      .define<int>("measurement.two_time_G2.n_legendre",
+                   50,
+                   "Number of legendre coefficients for measuring two-time two-particle Green's function.")
+          //
+          //Equal-time two-particle GF
       .define<int>("measurement.equal_time_G2.on", 0, "Set a non-zero value to activate measurement.")
-      //
-      //Density-density correlations
-      .define<std::string>("measurement.nn_corr.def", "", "Input file for definition of density-density correlation functions")
-      .define<int>("measurement.nn_corr.n_tau", 0, "Number of imaginary time points for measurement (tau=0, ...., beta/2)")
-      .define<int>("measurement.max_order_histogram", 1000, "Expansion order (per flavor) up to which histogram is measured.");
+          //
+          //Density-density correlations
+      .define<std::string>("measurement.nn_corr.def",
+                           "",
+                           "Input file for definition of density-density correlation functions")
+      .define<int>("measurement.nn_corr.n_tau",
+                   0,
+                   "Number of imaginary time points for measurement (tau=0, ...., beta/2)")
+      .define<int>("measurement.max_order_histogram",
+                   1000,
+                   "Expansion order (per flavor) up to which histogram is measured.");
 
   IMP_MODEL::define_parameters(parameters);
 }
@@ -81,7 +103,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       worm_space_extra_weight_map(),
       operator_pair_flavor_updater(FLAVORS),
       single_op_shift_updater(BETA, FLAVORS, N),
-      worm_movers(0),
+    //worm_movers(0),
       worm_insertion_removers(0),
       sliding_window(p_model.get(), BETA),
       g_meas_legendre(FLAVORS, p["measurement.G1.n_legendre"], N, BETA),
@@ -120,7 +142,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   mc_config.trace = sliding_window.compute_trace(mc_config.operators);
   if (global_mpi_rank == 0 && verbose) {
     std::cout << "initial trace = " << mc_config.trace << " with N_SLIDING_WINDOW = " << sliding_window.get_n_window()
-        << std::endl;
+              << std::endl;
   }
 
   //Equal-time two-particle Green's function
@@ -254,20 +276,24 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
 
     case G1:
       //p_G1_meas->measure(mc_config, measurements, random, sliding_window, N_win_standard, "G1");
-      p_G1_meas->measure_via_hyb(mc_config, measurements, random, "G1");
+      p_G1_meas->measure_via_hyb(mc_config, measurements, random, "G1", par["measurement.G1.max_matrix_size"],
+                                 par["measurement.G1.aux_field"]
+      );
       break;
 
     case G2:
-      p_G2_meas->measure_via_hyb(mc_config, measurements, random, "G2");
+      p_G2_meas->measure_via_hyb(mc_config, measurements, random, "G2", par["measurement.G2.max_matrix_size"],
+                                 par["measurement.G2.aux_field"]
+      );
       break;
 
     case Two_time_G2:
       p_two_time_G2_meas->measure(mc_config,
-                         measurements,
-                         random,
-                         sliding_window,
-                         N_win_standard,
-                         "Two_time_G2");
+                                  measurements,
+                                  random,
+                                  sliding_window,
+                                  N_win_standard,
+                                  "Two_time_G2");
       break;
 
     case Equal_time_G1:
@@ -321,11 +347,12 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
     for (int i = 0; i < worm_insertion_removers.size(); ++i) {
       worm_insertion_removers[i]->measure_acc_rate(measurements);
     }
-    for (int i = 0; i < worm_movers.size(); ++i) {
-      worm_movers[i]->measure_acc_rate(measurements);
+    for (typename worm_updater_map_t::iterator it = worm_movers.begin(); it != worm_movers.end();
+         ++it) {
+      it->second->measure_acc_rate(measurements);
     }
     for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::iterator
-             it = specialized_updaters.begin(); it != specialized_updaters.end(); ++ it) {
+             it = specialized_updaters.begin(); it != specialized_updaters.end(); ++it) {
       it->second->measure_acc_rate(measurements);
     }
   }
@@ -351,8 +378,8 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
     const std::vector<int> &order_creation_flavor = count_creation_operators(FLAVORS, mc_config);
     const int N_order = par["measurement.max_order_histogram"].template as<int>();
     for (int flavor = 0; flavor < FLAVORS; ++flavor) {
-      std::vector<double> order_creation_meas(FLAVORS * N_order,
-                                              0.0);
+      std::vector<double> order_creation_meas(FLAVORS *N_order,
+      0.0);
       if (order_creation_flavor[flavor] < N_order) {
         order_creation_meas[flavor * N_order + order_creation_flavor[flavor]] = 1.0;
       }
@@ -465,17 +492,6 @@ void HybridizationSimulation<IMP_MODEL>::measure_two_time_correlation_functions(
                                             to_complex_double_std_vector(result));
 }
 
-//for std::random_shuffle
-class MyRandomNumberGenerator: public std::unary_function<unsigned int, unsigned int> {
- public:
-  MyRandomNumberGenerator(alps::random01 &random) : random_(random) { };
-  unsigned int operator()(unsigned int N) {
-    return static_cast<unsigned int>(N * random_());
-  }
-
- private:
-  alps::random01 &random_;
-};
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
@@ -534,7 +550,11 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
 
     //G1 worm insertion and removal by changing hybridization lines
     if (mc_config.current_config_space() == Z_FUNCTION || mc_config.current_config_space() == G1) {
-      specialized_updaters["G1_ins_rem_hyb"]->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+      specialized_updaters["G1_ins_rem_hyb"]->update(random,
+                                                     BETA,
+                                                     mc_config,
+                                                     sliding_window,
+                                                     worm_space_extra_weight_map);
       adjust_worm_space_weight();
     }
 
@@ -552,15 +572,20 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
         && mc_config.current_config_space() == G1) {
       bool accepted = specialized_updaters["G1_shifter_hyb"]->
           update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
-      //std::cout << "accepted " << accepted << std::endl;
       adjust_worm_space_weight();
     }
 
     //worm move
-    const int i_config_space = get_config_space_position(mc_config.current_config_space());
-    if (i_config_space > 0) {
-      worm_movers[i_config_space - 1]->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+    for (typename worm_updater_map_t::iterator it = worm_movers.begin(); it != worm_movers.end();
+         ++it) {
+      if (it->first == mc_config.current_config_space()) {
+        it->second->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+      }
     }
+    //const int i_config_space = get_config_space_position(mc_config.current_config_space());
+    //if (i_config_space > 0) {
+      //worm_movers[i_config_space - 1]->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+    //}
   }
 }
 
@@ -663,7 +688,7 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   );
   if (verbose && global_mpi_rank == 0 && sweeps % 10 == 0) {
     std::cout << " new window size = " << N_win_standard << " sweep = " << sweeps << " pert_order = "
-        << mc_config.pert_order() << std::endl;
+              << mc_config.pert_order() << std::endl;
   }
 
   //Update parameters for single-operator shift updates
@@ -697,7 +722,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   if (global_mpi_rank == 0) {
     std::cout << "Thermalization process done after " << sweeps << " steps." << std::endl;
     std::cout << "The number of segments for sliding window update is " << N_win_standard << "."
-        << std::endl;
+              << std::endl;
     std::cout << "Perturbation orders (averaged over processes) are the following:" << std::endl;
   }
   const std::vector<int> &order_creation_flavor = count_creation_operators(FLAVORS, mc_config);
@@ -710,9 +735,9 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   if (p_flat_histogram_config_space) {
     if (!p_flat_histogram_config_space->converged()) {
       std::cout <<
-          boost::format(
-              "Warning: flat histogram is not yet obtained for MPI rank %1%. Increase thermalization time!"
-          ) % global_mpi_rank << std::endl;
+                boost::format(
+                    "Warning: flat histogram is not yet obtained for MPI rank %1%. Increase thermalization time!"
+                ) % global_mpi_rank << std::endl;
     }
     p_flat_histogram_config_space->finish_learning(false);
   }

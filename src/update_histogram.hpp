@@ -184,9 +184,9 @@ class scalar_histogram {
   std::valarray<double> counter;
 };
 
-class scalar_histogram_flavors {
+class StepSizeOptimizer {
  public:
-  scalar_histogram_flavors(int num_bins, double max_val, int flavors, double initial_cutoff) :
+  StepSizeOptimizer(int num_bins, double max_val, int flavors, double initial_cutoff) :
       flavors_(flavors),
       num_bins_(num_bins),
       max_val_(max_val),

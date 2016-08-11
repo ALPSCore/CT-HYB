@@ -113,13 +113,6 @@ class LocalUpdater {
     num_accepted_ = 0;
   }
 
-  //virtual void print_acc_rate(const alps::accumulators::result_set &results, std::ostream &os) {
-    //os << " " << get_name() + " : "
-              //<< results[get_name() + "_accepted_scalar"].template mean<double>()
-                  /// results[get_name() + "_attempted_scalar"].template mean<double>()
-              //<< std::endl;
-  //}
-
   virtual std::string get_name() const {
     return name_;
   }
@@ -140,7 +133,7 @@ class LocalUpdater {
   bool accepted_;
 
  private:
-  std::vector<psi> duplicate_check_work_;
+  //std::vector<psi> duplicate_check_work_;
 
   static bool update_operators(operator_container_t &operators,
                         const std::vector<psi> &ops_rem, const std::vector<psi> &ops_add,
@@ -246,7 +239,7 @@ class InsertionRemovalDiagonalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCAL
   /** 1 for two-operator update, 2 for four-operator update, ..., N for 2N-operator update*/
   const int update_rank_;
 
-  scalar_histogram_flavors acc_rate_;
+  StepSizeOptimizer acc_rate_;
   double distance_;
 };
 
@@ -269,30 +262,6 @@ class OperatorPairFlavorUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SL
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
-
-  /*
-  virtual void call_back() {
-    if (BaseType::valid_move_generated_) {
-      num_attempted_ += 1.0;
-      if (BaseType::accepted_) {
-        num_accepted_ += 1.0;
-      }
-    }
-  };
-
-  virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
-    measurements << alps::accumulators::NoBinningAccumulator<double>("Operator_pair_flavor_update_attempted");
-    measurements << alps::accumulators::NoBinningAccumulator<double>("Operator_pair_flavor_update_accepted");
-  }
-
-  virtual void measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
-    BaseType::measure_acc_rate(measurements);
-    measurements["Operator_pair_flavor_update_attempted"] << num_attempted_;
-    measurements["Operator_pair_flavor_update_accepted"] << num_accepted_;
-    num_attempted_ = 0;
-    num_accepted_ = 0;
-  }
-  */
 
  private:
   const int num_flavors_;
@@ -333,7 +302,7 @@ class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, S
 
  private:
   int num_flavors_;
-  scalar_histogram_flavors acc_rate_;
+  StepSizeOptimizer acc_rate_;
 
   std::vector<double> max_distance_;
   double distance_;
@@ -396,9 +365,8 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
   double beta_;
   int num_flavors_;
   double tau_lower_limit_, tau_upper_limit_;
-  scalar_histogram_flavors acc_rate_;
+  StepSizeOptimizer acc_rate_;
   double max_distance_, distance_;
-  //double worm_space_weight_;
 };
 
 /**
@@ -410,9 +378,27 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
   typedef WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
 
   WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
-      : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) { }
+      : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) {}
 
-  //virtual void set_worm_space_weight(double weight) {weight_ = weight;};
+ private:
+  virtual bool propose(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
+  );
+};
+
+/**
+ * Change flavor of worm
+ */
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class WormFlavorChanger: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+ public:
+  typedef WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+
+  WormFlavorChanger(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
+      : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) {}
 
  private:
   virtual bool propose(
@@ -440,8 +426,6 @@ class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_
   ) : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit), p_worm_template_(p_worm_template),
       insertion_proposal_rate_(0.0) {
   }
-
-  //virtual void set_worm_space_weight(double weight) {weight_ = weight;};
 
   void set_relative_insertion_proposal_rate(double insertion_proposal_rate) {
     insertion_proposal_rate_ = insertion_proposal_rate;

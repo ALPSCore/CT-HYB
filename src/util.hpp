@@ -6,6 +6,8 @@
 #include <Eigen/Sparse>
 #include <Eigen/Eigenvalues>
 
+#include <alps/mc/random01.hpp>
+
 #include <iostream>
 #include <math.h>
 #include <vector>
@@ -287,3 +289,60 @@ struct AbsGreater {
     return (myabs(t1) > myabs(t2));
   }
 };
+
+//for std::random_shuffle
+class MyRandomNumberGenerator: public std::unary_function<unsigned int, unsigned int> {
+ public:
+  MyRandomNumberGenerator(alps::random01 &random) : random_(random) {};
+  unsigned int operator()(unsigned int N) {
+    return static_cast<unsigned int>(N * random_());
+  }
+
+ private:
+  alps::random01 &random_;
+};
+
+/**
+ * @brief pick a n elements randombly from 0, 1, ..., N-1
+ */
+/*
+template<class R>
+std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
+  std::vector<int> flag(N, 0), list(n);
+
+  for (int i = 0; i < n; ++i) {
+    int itmp = 0;
+    while (true) {
+      itmp = static_cast<int>(random01() * N);
+      if (flag[itmp] == 0) {
+        break;
+      }
+    }
+    list[i] = itmp;
+    flag[itmp] = 1;
+  }
+  return list;
+}
+*/
+
+/**
+ * @brief pick a n elements randombly from 0, 1, ..., N-1
+ */
+template<class R>
+std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
+  std::vector<bool> flag(N, false);
+  std::vector<int> list;
+  list.reserve(n);
+
+  std::fill(flag.begin(), flag.begin() + n, true);
+  MyRandomNumberGenerator rnd(random01);
+  std::random_shuffle(flag.begin(), flag.end(), rnd);
+
+  for (int i = 0; i < N; ++i) {
+    if (flag[i]) {
+      list.push_back(i);
+    }
+  }
+  assert(list.size() == n);
+  return list;
+}

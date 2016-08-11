@@ -73,8 +73,6 @@ class HybridizationSimulation: public alps::mcbase {
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
 
   static void define_parameters(parameters_type &parameters);
-  void create_observables(); //build ALPS observables
-  void create_worm_updaters();
 
   void update(); //the main monte carlo step
   void measure_every_step();//measure every step, which is called in update()
@@ -101,8 +99,8 @@ class HybridizationSimulation: public alps::mcbase {
     for (int i = 0; i < worm_insertion_removers.size(); ++i) {
       names.push_back(worm_insertion_removers[i]->get_name());
     }
-    for (int i = 0; i < worm_movers.size(); ++i) {
-      names.push_back(worm_movers[i]->get_name());
+    for (typename worm_updater_map_t::const_iterator it = worm_movers.begin(); it != worm_movers.end(); ++it) {
+      names.push_back(it->second->get_name());
     }
     for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::const_iterator
              it = specialized_updaters.begin(); it != specialized_updaters.end(); ++ it) {
@@ -116,6 +114,12 @@ class HybridizationSimulation: public alps::mcbase {
 
  private:
   //for set up
+  void create_observables(); //build ALPS observables
+  void create_worm_updaters();
+  template<typename W>
+  void add_worm_mover(ConfigSpace config_space,
+                      const std::string &updater_name);
+
   void read_eq_time_two_particle_greens_meas();
   void read_two_time_correlation_functions();
 
@@ -208,7 +212,9 @@ class HybridizationSimulation: public alps::mcbase {
 
   //N2Worm updater: worm for computing <c^\dagger_i(tau) c_j(tau) c^\dagger_k(0) c_l(0)>
   typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> LocalUpdaterType;
+  typedef WormUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormUpdaterType;
   typedef WormMover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormMoverType;
+  typedef WormFlavorChanger<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormFlavorChangerType;
   typedef WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SW_TYPE> WormInsertionRemoverType;
   typedef GWormInsertionRemover<SCALAR, 1, EXTENDED_SCALAR, SW_TYPE> G1WormInsertionRemoverType;
   typedef GWormInsertionRemover<SCALAR, 2, EXTENDED_SCALAR, SW_TYPE> G2WormInsertionRemoverType;
@@ -216,8 +222,9 @@ class HybridizationSimulation: public alps::mcbase {
   //a list of active worm spaces
   std::vector<ConfigSpace> worm_types;
 
-  //move of a worm by evaluating the trace (does not remove or insert a worm)
-  std::vector<boost::shared_ptr<WormMoverType> > worm_movers;
+  //update the status of the worm (time, flavor), move head and tail
+  typedef std::multimap<ConfigSpace, boost::shared_ptr<WormUpdaterType> > worm_updater_map_t;
+  worm_updater_map_t worm_movers;
 
   //insertion and removal of a worm by evaluating the trace (worm space <=> Z function space)
   std::vector<boost::shared_ptr<WormInsertionRemoverType> > worm_insertion_removers;

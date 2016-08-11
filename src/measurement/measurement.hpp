@@ -4,6 +4,7 @@
 #include <functional>
 
 #include <boost/multi_array.hpp>
+#include <boost/range/algorithm.hpp>
 
 #include <Eigen/Dense>
 
@@ -344,7 +345,7 @@ class GMeasurement {
    */
   void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements,
-               alps::random01 &random, const std::string &str, double eps = 1E-5);
+               alps::random01 &random, const std::string &str, int max_matrix_size, double eps = 1E-5);
 
  private:
   /** Measure single-particle Green's function */

@@ -53,11 +53,12 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   for (int i = 0; i < worm_insertion_removers.size(); ++i) {
     worm_insertion_removers[i]->create_measurement_acc_rate(measurements);
   }
-  for (int i = 0; i < worm_movers.size(); ++i) {
-    worm_movers[i]->create_measurement_acc_rate(measurements);
+  for (typename worm_updater_map_t::iterator it = worm_movers.begin(); it != worm_movers.end();
+       ++it) {
+    it->second->create_measurement_acc_rate(measurements);
   }
   for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::iterator
-           it = specialized_updaters.begin(); it != specialized_updaters.end(); ++ it) {
+           it = specialized_updaters.begin(); it != specialized_updaters.end(); ++it) {
     it->second->create_measurement_acc_rate(measurements);
   }
 
@@ -66,6 +67,20 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 #endif
 }
 
+template<typename IMP_MODEL>
+template<typename W>
+void HybridizationSimulation<IMP_MODEL>::add_worm_mover(ConfigSpace config_space,
+                    const std::string &updater_name
+) {
+  worm_movers.insert(
+      std::make_pair(
+          config_space,
+          boost::shared_ptr<WormUpdaterType>(
+              new W(updater_name, BETA, FLAVORS, 0.0, BETA)
+          )
+      )
+  );
+}
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
@@ -73,11 +88,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
    * G1
    */
   worm_types.push_back(G1);
-  worm_movers.push_back(
-      boost::shared_ptr<WormMoverType>(
-          new WormMoverType("G1_mover", BETA, FLAVORS, 0.0, BETA)
-      )
-  );
+  add_worm_mover<WormMoverType>(G1, "G1_mover");
+  add_worm_mover<WormFlavorChangerType>(G1, "G1_flavor_changer");
   worm_insertion_removers.push_back(
       boost::shared_ptr<WormInsertionRemoverType>(
           new WormInsertionRemoverType(
@@ -102,11 +114,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
    */
   if (par["measurement.G2.on"] != 0) {
     worm_types.push_back(G2);
-    worm_movers.push_back(
-        boost::shared_ptr<WormMoverType>(
-            new WormMoverType("G2_mover", BETA, FLAVORS, 0.0, BETA)
-        )
-    );
+    add_worm_mover<WormMoverType>(G2, "G2_mover");
+    add_worm_mover<WormFlavorChangerType>(G2, "G2_flavor_changer");
     worm_insertion_removers.push_back(
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
@@ -132,11 +141,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
    */
   if (par["measurement.two_time_G2.on"] != 0) {
     worm_types.push_back(Two_time_G2);
-    worm_movers.push_back(
-        boost::shared_ptr<WormMoverType>(
-            new WormMoverType("Two_time_G2_mover", BETA, FLAVORS, 0.0, BETA)
-        )
-    );
+    add_worm_mover<WormMoverType>(Two_time_G2, "Two_time_G2_mover");
+    add_worm_mover<WormFlavorChangerType>(Two_time_G2, "Two_time_G2_flavor_changer");
     worm_insertion_removers.push_back(
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
@@ -156,11 +162,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   {
     const std::string name("Equal_time_G1");
     worm_types.push_back(Equal_time_G1);
-    worm_movers.push_back(
-        boost::shared_ptr<WormMoverType>(
-            new WormMoverType(name + "_mover", BETA, FLAVORS, 0.0, BETA)
-        )
-    );
+    add_worm_mover<WormMoverType>(Equal_time_G1, name + "_mover");
+    add_worm_mover<WormFlavorChangerType>(Equal_time_G1, name + "_flavor_changer");
     worm_insertion_removers.push_back(
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
@@ -180,11 +183,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   if (par["measurement.equal_time_G2.on"] != 0) {
     const std::string name("Equal_time_G2");
     worm_types.push_back(Equal_time_G2);
-    worm_movers.push_back(
-        boost::shared_ptr<WormMoverType>(
-            new WormMoverType(name + "_mover", BETA, FLAVORS, 0.0, BETA)
-        )
-    );
+    add_worm_mover<WormMoverType>(Equal_time_G2, name + "_mover");
+    add_worm_mover<WormFlavorChangerType>(Equal_time_G2, name + "_flavor_changer");
     worm_insertion_removers.push_back(
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
@@ -202,7 +202,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
    * Connect Equal_time_G1 and Two_time_G2 spaces
    */
   if (std::find(worm_types.begin(), worm_types.end(), Equal_time_G1) != worm_types.end() &&
-          std::find(worm_types.begin(), worm_types.end(), Two_time_G2) != worm_types.end() ) {
+      std::find(worm_types.begin(), worm_types.end(), Two_time_G2) != worm_types.end()) {
     specialized_updaters["Connect_Equal_time_G1_and_Two_time_G2"] =
         boost::shared_ptr<LocalUpdaterType>(
             new EqualTimeG1_TwoTimeG2_Connector<SCALAR, EXTENDED_SCALAR, SW_TYPE>(
@@ -213,12 +213,12 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
 
   if (std::find(worm_types.begin(), worm_types.end(), G1) != worm_types.end()) {
     specialized_updaters["G1_shifter_hyb"] =
-    boost::shared_ptr<LocalUpdaterType>(
-        new GWormShifter<SCALAR , 1, EXTENDED_SCALAR , SW_TYPE>(
-            "G1_shifter_hyb", BETA, FLAVORS,
-            boost::shared_ptr<Worm>(new GWorm<1>())
-        )
-    );
+        boost::shared_ptr<LocalUpdaterType>(
+            new GWormShifter<SCALAR, 1, EXTENDED_SCALAR, SW_TYPE>(
+                "G1_shifter_hyb", BETA, FLAVORS,
+                boost::shared_ptr<Worm>(new GWorm<1>())
+            )
+        );
   }
 
   //Proposal probability of worm insertion is smaller than that of removal by the number of active worm spaces.
@@ -275,7 +275,7 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
     for (int itemplate = 0; itemplate < num_templates; ++itemplate) {
       if (std::set<int>(it, it + FLAVORS).size() < FLAVORS) {
         std::cerr << "Duplicate elements in the definition of the " << itemplate + 1 << "-th update in SWAP_VECTOR! "
-            << std::endl;
+                  << std::endl;
         exit(1);
       }
 

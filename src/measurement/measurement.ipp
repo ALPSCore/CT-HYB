@@ -325,6 +325,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
                                                  alps::accumulators::accumulator_set &measurements,
                                                  alps::random01 &random,
                                                  const std::string &str,
+                                                 int max_num_ops,
                                                  double eps) {
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
   typedef operator_container_t::iterator Iterator;
@@ -337,7 +338,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   const std::vector<psi> worm_ops = mc_config.p_worm->get_operators();
 
   //compute the intermediate state by connecting operators in the worm by hybridization
-  alps::fastupdate::ResizableMatrix<SCALAR> M(pert_order + Rank, pert_order + Rank, 0.0);
+  alps::fastupdate::ResizableMatrix<SCALAR> M(pert_order + Rank + 1, pert_order + Rank + 1, 0.0);
   M.conservative_resize(pert_order, pert_order);
   int offset = 0;
   for (int ib = 0; ib < mc_config.M.num_blocks(); ++ib) {
@@ -345,7 +346,10 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
     M.block(offset, offset, block_size, block_size) = mc_config.M.compute_inverse_matrix(ib);
     offset += block_size;
   }
-  matrix_t B(pert_order, Rank), C(Rank, pert_order), D(Rank, Rank);
+  matrix_t B(pert_order, Rank + 1), C(Rank + 1, pert_order), D(Rank + 1, Rank + 1);
+  B.setZero();
+  C.setZero();
+  D.setZero();
   for (int i = 0; i < pert_order; ++i) {
     for (int j = 0; j < Rank; ++j) {
       B(i, j) = p_gf->operator()(c_ops[i], worm_ops[2 * j + 1]);
@@ -356,59 +360,93 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
       C(i, j) = p_gf->operator()(worm_ops[2 * i], cdagg_ops[j]);
     }
   }
-  for (int i = 0; i < Rank; ++i) {
-    for (int j = 0; j < Rank; ++j) {
-      D(i, j) = p_gf->operator()(worm_ops[2 * i], worm_ops[2 * j + 1]);
-    }
-  }
-  //check quantum number conservation
-  std::valarray<int> block_size_diff(0, mc_config.M.num_blocks());
-  for (int i = 0; i < Rank; ++i) {
-    ++block_size_diff[mc_config.M.block_belonging_to(worm_ops[2 * i].flavor())];//annihilation operator
-    --block_size_diff[mc_config.M.block_belonging_to(worm_ops[2 * i + 1].flavor())];//creation operator
-  }
-
-  //add aux field to avoid a singular matrix in the case quantum number is not conserved for the intermediate state
-  if (block_size_diff.max() != 0 || block_size_diff.min() != 0) {
-    for (int i = 0; i < Rank; ++i) {
-      D(i, i) += random() < 0.5 ? eps : -eps;
+  for (int i = 0; i < Rank + 1; ++i) {
+    for (int j = 0; j < Rank + 1; ++j) {
+      if (i < Rank && j < Rank) {
+        D(i, j) = p_gf->operator()(worm_ops[2 * i], worm_ops[2 * j + 1]);
+      } else {
+        //avoid a singular matrix
+        D(i, j) = eps * random();
+      }
     }
   }
 
   const SCALAR det_rat = alps::fastupdate::compute_det_ratio_up(B, C, D, M);
+  if (det_rat == 0.0) {
+    std::cerr << "Warning intermediate state has a vanishing weight in measurement of G" << Rank << "!" << std::endl;
+    return;
+  }
   alps::fastupdate::compute_inverse_matrix_up(B, C, D, M);
-  assert(det_rat != 0.0);
-  assert(M.size1() == pert_order + 1);
+  assert(M.size1() == pert_order + Rank + 1);
 
-  /*
-   * At this point, it should be noted that the weight of a Monte Carlo configuration is given by
-   *   w = determinant * trace * permutation_sign,
-   *  where the permutation_sign is from time ordering of operators in the trace.
-   *  And, the determinant is computed assumed that its row and cols are time-ordered.
-   *  But, there are not always time ordered in memory for performance reasons.
-   *  So, the weight may be recast into the form
-   *   w = determinant_actual_ordering * permutation_sign_row_col * trace * permutation_sign.
-   *
-   *  Here, we perform a brute-force evaluation of permutation_sign_row_col and permutation_sign.
-   */
   std::vector<psi> cdagg_ops_new(cdagg_ops);
   std::vector<psi> c_ops_new(c_ops);
   for (int i = 0; i < Rank; ++i) {
     c_ops_new.push_back(worm_ops[2 * i]);
     cdagg_ops_new.push_back(worm_ops[2 * i + 1]);
   }
-  const int perm_sign_trace_rat =
-      compute_permutation_sign_impl(cdagg_ops_new, c_ops_new, std::vector<psi>())
-          / compute_permutation_sign_impl(cdagg_ops, c_ops, worm_ops);
+  const SCALAR weight_rat = det_rat;
 
-  const int perm_sign_det_rat =
-      (std::count_if(cdagg_ops.begin(), cdagg_ops.end(), std::bind2nd(std::less<psi>(), worm_ops[1])) +
-          std::count_if(c_ops.begin(), c_ops.end(), std::bind2nd(std::less<psi>(), worm_ops[0]))) % 2 == 0 ? 1 : -1;
+  //TO DO: move this to a separated function
+  if (pert_order + Rank > max_num_ops) {
+    const int num_ops = pert_order + Rank;
+    std::vector<bool> is_row_active(num_ops + 1, false), is_col_active(num_ops + 1, false);
+    //always choose the original worm position for detailed balance condition
+    for (int i = 0; i < Rank + 1; ++i) {
+      is_row_active[num_ops - i] = true;
+      is_col_active[num_ops - i] = true;
+    }
+    for (int i = 0; i < max_num_ops - Rank; ++i) {
+      is_row_active[i] = true;
+      is_col_active[i] = true;
+    }
+    MyRandomNumberGenerator rnd(random);
+    std::random_shuffle(is_row_active.begin(), is_row_active.begin() + pert_order, rnd);
+    std::random_shuffle(is_col_active.begin(), is_col_active.begin() + pert_order, rnd);
+    assert(boost::count(is_col_active, true) == max_num_ops + 1);
+    assert(boost::count(is_row_active, true) == max_num_ops + 1);
 
-  //weight_intermediate_state/weigh_current_state
-  //We'are ready for measuring Green's function using M and weight_rat here.
-  //Note: sign of the intermediate state is sign(weight_rat * sign)
-  const SCALAR weight_rat = (1. * perm_sign_det_rat * perm_sign_trace_rat) * det_rat;
+    {
+      std::vector<psi> cdagg_ops_reduced, c_ops_reduced;
+      for (int i = 0; i < num_ops; ++i) {
+        if (is_col_active[i]) {
+          c_ops_reduced.push_back(c_ops_new[i]);
+        }
+        if (is_row_active[i]) {
+          cdagg_ops_reduced.push_back(cdagg_ops_new[i]);
+        }
+      }
+      std::swap(cdagg_ops_reduced, cdagg_ops_new);
+      std::swap(c_ops_reduced, c_ops_new);
+      assert(cdagg_ops_new.size() == max_num_ops);
+      assert(c_ops_new.size() == max_num_ops);
+    }
+
+    {
+      const int mat_size = M.size1();
+      alps::fastupdate::ResizableMatrix<SCALAR> M_reduced(max_num_ops + 1, max_num_ops + 1, 0.0);
+      int j_reduced = 0;
+      for (int j = 0; j < mat_size; ++j) {
+        if (!is_col_active[j]) {
+          continue;
+        }
+        int i_reduced = 0;
+        for (int i = 0; i < mat_size; ++i) {
+          if (!is_row_active[i]) {
+            continue;
+          }
+          M_reduced(i_reduced, j_reduced) = M(i, j);
+          ++ i_reduced;
+        }
+        ++ j_reduced;
+        assert(i_reduced == max_num_ops + 1);
+      }
+      assert(j_reduced == max_num_ops + 1);
+      std::swap(M, M_reduced);
+      assert(M.size1() == max_num_ops + 1);
+      assert(M.size2() == max_num_ops + 1);
+    }
+  }
 
   //drop small values
   const double cutoff = 1.0e-15 * M.block().cwiseAbs().maxCoeff();
@@ -455,9 +493,10 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 
   double norm = 0.0;
   std::vector<psi>::const_iterator it1, it2;
-  for (int k = 0; k < M.size1(); k++) {
+  const int mat_size = M.size1();
+  for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
     (k == 0 ? it1 = annihilation_ops.begin() : it1++);
-    for (int l = 0; l < M.size2(); l++) {
+    for (int l = 0; l < mat_size - 1; l++) {
       (l == 0 ? it2 = creation_ops.begin() : it2++);
       if (M(l, k) == 0.0) {
         continue;
@@ -476,8 +515,9 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
       const int flavor_c = it2->flavor();
       const double x = 2 * argument * temperature - 1.0;
       legendre_trans.compute_legendre(x, Pl_vals);
-      norm += std::abs(weight_rat_intermediate_state * M(l, k));
-      const SCALAR coeff = M(l, k) * bubble_sign * sign * weight_rat_intermediate_state;
+      const SCALAR coeff = (M(l, k) * M(mat_size - 1, mat_size - 1) - M(l, mat_size - 1) * M(mat_size - 1, k))
+          * bubble_sign * sign * weight_rat_intermediate_state;
+      norm += std::abs(coeff);
       for (int il = 0; il < num_legendre; ++il) {
         result[flavor_a][flavor_c][il] += coeff * legendre_trans.get_sqrt_2l_1()[il] * Pl_vals[il];
       }
@@ -513,7 +553,9 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
 
   boost::multi_array<double, 3>
-      Pl(boost::extents[pert_order][pert_order][num_legendre]);//annihilator, creator, legendre
+      sqrt_2l_1_Pl(boost::extents[pert_order][pert_order][num_legendre]);//annihilator, creator, legendre
+  boost::multi_array<double, 3>
+      sqrt_2l_1_Pl_p(boost::extents[pert_order][pert_order][num_legendre]);//annihilator, creator, legendre
   {
     std::vector<double> Pl_tmp(num_legendre);
     for (int k = 0; k < M.size1(); k++) {
@@ -527,7 +569,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
         const double x = 2 * argument * temperature - 1.0;
         legendre_trans.compute_legendre(x, Pl_tmp);
         for (int il = 0; il < num_legendre; ++il) {
-          Pl[k][l][il] = arg_sign * Pl_tmp[il];
+          sqrt_2l_1_Pl[k][l][il] = arg_sign * Pl_tmp[il] * sqrt_2l_1[il];
+          sqrt_2l_1_Pl_p[k][l][il] = arg_sign * Pl_tmp[il] * sqrt_2l_1_p[il];
         }
       }
     }
@@ -551,23 +594,49 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   //naive way to evaluate
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
   std::fill(result.origin(), result.origin() + result.num_elements(), 0.0);
+  Eigen::Matrix<SCALAR,3,3> tmp_mat;
+  boost::array<int,3> rows3, cols3;
+  const int last = pert_order - 1;
+  rows3[2] = last;
+  cols3[2] = last;
   double norm = 0.0;
   for (int a = 0; a < pert_order; ++a) {
     const int flavor_a = annihilation_ops[a].flavor();
     for (int b = 0; b < pert_order; ++b) {
       const int flavor_b = creation_ops[b].flavor();
-      for (int c = 0; c < pert_order; ++c) {
+      for (int c = 0; c < a; ++c) {
         const int flavor_c = annihilation_ops[c].flavor();
-        for (int d = 0; d < pert_order; ++d) {
+        for (int d = 0; d < b; ++d) {
           const int flavor_d = creation_ops[d].flavor();
 
-          const SCALAR coeff = sign * weight_rat_intermediate_state * (M(b, a) * M(d, c) - M(d, a) * M(c, b));
+          /*
+           * Delta convention
+           * M_ab  M_ad  M_a*
+           * M_cb  M_cd  M_c*
+           * M_*b  M_*d  M_**
+           */
+          rows3[0] = b;
+          rows3[1] = d;
+          cols3[0] = a;
+          cols3[1] = c;
+          for (int j = 0; j < 3; ++j) {
+            for (int i = 0; i < 3; ++i) {
+              tmp_mat(i,j) = M(rows3[i], cols3[j]);
+            }
+          }
+          const SCALAR coeff_M = tmp_mat.determinant();
+
+          if (coeff_M == 0.0) {
+            continue;
+          }
+
+          const SCALAR coeff = sign * weight_rat_intermediate_state * coeff_M;
           norm += std::abs(coeff);
           for (int il = 0; il < num_legendre; ++il) {
             for (int il_p = 0; il_p < num_legendre; ++il_p) {
+              const SCALAR coeff2 = coeff * sqrt_2l_1_Pl[a][b][il] * sqrt_2l_1_Pl_p[c][d][il_p];
               for (int im = 0; im < n_freq; ++im) {
-                result[flavor_a][flavor_b][flavor_c][flavor_d][il][il_p][im] +=
-                    coeff * sqrt_2l_1[il] * sqrt_2l_1_p[il_p] * Pl[a][b][il] * Pl[c][d][il_p] * expiomega[a][d][im];
+                result[flavor_a][flavor_b][flavor_c][flavor_d][il][il_p][im] += coeff2 * expiomega[a][d][im];
               }
             }
           }

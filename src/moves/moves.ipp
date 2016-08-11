@@ -9,26 +9,6 @@ const T &pick(const std::vector<T> &array, alps::random01 &rng) {
   return array[static_cast<int>(rng() * array.size())];
 }
 
-/**
- * @brief pick a n elements randombly from 0, 1, ..., N-1
- */
-template<class R>
-std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
-  std::vector<int> flag(N, 0), list(n);
-
-  for (int i = 0; i < n; ++i) {
-    int itmp = 0;
-    while (true) {
-      itmp = static_cast<int>(random01() * N);
-      if (flag[itmp] == 0) {
-        break;
-      }
-    }
-    list[i] = itmp;
-    flag[itmp] = 1;
-  }
-  return list;
-}
 
 inline void range_check(const std::vector<psi> &ops, double tau_low, double tau_high) {
   for (std::vector<psi>::const_iterator it = ops.begin(); it != ops.end(); ++it) {
@@ -914,6 +894,10 @@ WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::WormUpdater(
     acc_rate_(1000, 0.5 * beta, 1, 0.5 * beta),
     max_distance_(0.5 * beta),
     distance_(-1.0) {
+  //these options may be deleted.
+  if (tau_lower_limit != 0.0 || tau_upper_limit != beta) {
+    throw std::runtime_error("Error in constructor of WormUpdater");
+  }
 }
 
 
@@ -967,47 +951,69 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   const double tau_low = std::max(sliding_window.get_tau_low(), BaseType::tau_lower_limit_);
   const double tau_high = std::min(sliding_window.get_tau_high(), BaseType::tau_upper_limit_);
   const int num_times = mc_config.p_worm->num_independent_times();
-  BaseType::p_new_worm_ = mc_config.p_worm->clone();
   BaseType::distance_ = 0.0;
-  bool is_movable = false;
-  for (int t = 0; t < num_times; ++t) {
-    if (InRange<OperatorTime>(tau_low, tau_high)(mc_config.p_worm->get_time(t))) {
-      const double new_time = (2 * rng() - 1.0) * BaseType::max_distance_ + BaseType::p_new_worm_->get_time(t);
-      if (new_time < tau_low || new_time > tau_high) {
-          //num_operators_in_range_open(mc_config.operators,
-                                      //OperatorTime(new_time, -10000),
-                                      //OperatorTime(new_time, +10000)) != 0) {
-        return false;
-      }
-      BaseType::distance_ = std::max(
-          BaseType::distance_,
-          std::abs(new_time - BaseType::p_new_worm_->get_time(t))
-      );
-      BaseType::p_new_worm_->set_time(t, new_time);
-      is_movable = true;
+  for (int itry = 0; itry < mc_config.p_worm->num_independent_times(); ++ itry) {
+    const int t = static_cast<int>(rng() * mc_config.p_worm->num_independent_times());
+    if (!InRange<OperatorTime>(tau_low, tau_high)(mc_config.p_worm->get_time(t))) {
+      continue;
     }
+    const double new_time = rng() < 0.9 ?
+                            (2 * rng() - 1.0) * BaseType::max_distance_ + BaseType::p_new_worm_->get_time(t) :
+                            open_random(rng, tau_low, tau_high);
+    if (new_time < tau_low || new_time > tau_high) {
+      continue;
+    }
+    BaseType::p_new_worm_ = mc_config.p_worm->clone();
+    const double dist_tmp = std::abs(new_time - BaseType::p_new_worm_->get_time(t));
+    BaseType::distance_ = std::min(dist_tmp, BaseType::beta_ - dist_tmp);
+    BaseType::p_new_worm_->set_time(t, new_time);
   }
-  if (!is_movable) {
-    BaseType::p_new_worm_.reset();
+
+  if (BaseType::p_new_worm_) {
+    BaseType::acceptance_rate_correction_ = 1.0;
+    return true;
+  } else {
     return false;
   }
-  //update flavor indices
-  if (rng() < 0.5) {
-    for (int f = 0; f < BaseType::p_new_worm_->num_independent_flavors(); ++f) {
-      bool updatable = true;
-      const std::vector<int> &time_index = BaseType::p_new_worm_->get_time_index(f);
-      for (int t = 0; t < time_index.size(); ++t) {
-        updatable = updatable
-            && InRange<double>(tau_low, tau_high)(BaseType::p_new_worm_->get_time(time_index[t]));
-      }
-      if (updatable) {
-        BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
-      }
+}
+
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+bool WormFlavorChanger<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
+    alps::random01 &rng,
+    MonteCarloConfiguration<SCALAR> &mc_config,
+    const SLIDING_WINDOW &sliding_window,
+    const std::map<ConfigSpace, double> &config_space_weight
+) {
+  if (!mc_config.p_worm) {
+    return false;
+  }
+
+  //count independent times in the time window
+  const double tau_low = std::max(sliding_window.get_tau_low(), BaseType::tau_lower_limit_);
+  const double tau_high = std::min(sliding_window.get_tau_high(), BaseType::tau_upper_limit_);
+
+  BaseType::p_new_worm_ = mc_config.p_worm->clone();
+
+  for (int f = 0; f < BaseType::p_new_worm_->num_independent_flavors(); ++f) {
+    bool updatable = true;
+    const std::vector<int> &time_index = BaseType::p_new_worm_->get_time_index(f);
+    for (int t = 0; t < time_index.size(); ++t) {
+      updatable = updatable
+          && InRange<double>(tau_low, tau_high)(BaseType::p_new_worm_->get_time(time_index[t]));
+    }
+    if (updatable) {
+      BaseType::p_new_worm_->set_flavor(f, static_cast<int>(rng() * BaseType::num_flavors_));
     }
   }
 
-  BaseType::acceptance_rate_correction_ = 1.0;
-  return true;
+  if (*mc_config.p_worm != *BaseType::p_new_worm_) {
+    BaseType::distance_ = 0.0;
+    BaseType::acceptance_rate_correction_ = 1.0;
+    return true;
+  } else {
+    BaseType::p_new_worm_.reset();
+    return false;
+  }
 }
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
