@@ -28,7 +28,7 @@ def generate_U_tensor_SK(n_orb, U, JH):
 
                     for isp in xrange(2):
                         for isp2 in xrange(2):
-                            U_tensor[iorb1,isp,    iorb2,isp2,    iorb3,isp2,  iorb4,isp] += 0.5*coeff
+                            U_tensor[iorb1,isp,    iorb2,isp2,    iorb3,isp2,  iorb4,isp] += coeff
                             if coeff != 0.0:
                                 num_elem += 1
 
