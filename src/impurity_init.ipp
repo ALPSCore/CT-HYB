@@ -392,10 +392,10 @@ void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
   int num_elem;
   infile_f >> num_elem;
   if (num_elem < 0) {
-    std::runtime_error("The number of two-time correlation functions in " + fname_key + " cannot be negative!");
+    std::runtime_error("The number of density-density correlation functions in " + fname_key + " cannot be negative!");
   }
   if (verbose) {
-    std::cout << "The number of two-time correlation functions is " << num_elem << std::endl;
+    std::cout << "The number of density-density correlation functions is " << num_elem << std::endl;
   }
 
   std::vector<std::pair<EqualTimeOperator<1>, EqualTimeOperator<1> > > corr_meas;
@@ -408,14 +408,14 @@ void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
     }
 
     boost::array<int, 4> flavors_array;
-    for (int iflavor = 0; iflavor < 4; ++iflavor) {
+    for (int iflavor = 0; iflavor < 2; ++iflavor) {
       int flavor_tmp;
       infile_f >> flavor_tmp;
       if (flavor_tmp < 0 || flavor_tmp >= FLAVORS) {
         throw std::runtime_error(boost::str(
             boost::format("Column %1% of line %2% is incorrect.") % (iflavor + 2) % i_elem));
       }
-      flavors_array[iflavor] = flavor_tmp;
+      flavors_array[2 * iflavor] = flavors_array[2 * iflavor + 1] = flavor_tmp;
     }
     corr_meas.push_back(
         std::make_pair(

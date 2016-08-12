@@ -42,7 +42,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
                    "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
       .define<int>("measurement.G1.n_matsubara",
                    2000,
-                   "G(i omega_n) is computed on a uniform mesh of MEASUREMENT.G1.N_Matsubara frequencies.")
+                   "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
       .define<int>("measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
       .define<double>("measurement.G1.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
           //Two-particle GF
