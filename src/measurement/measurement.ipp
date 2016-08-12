@@ -604,9 +604,9 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     const int flavor_a = annihilation_ops[a].flavor();
     for (int b = 0; b < pert_order; ++b) {
       const int flavor_b = creation_ops[b].flavor();
-      for (int c = 0; c < a; ++c) {
+      for (int c = 0; c < pert_order; ++c) {
         const int flavor_c = annihilation_ops[c].flavor();
-        for (int d = 0; d < b; ++d) {
+        for (int d = 0; d < pert_order; ++d) {
           const int flavor_d = creation_ops[d].flavor();
 
           /*
@@ -649,41 +649,6 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   std::transform(result.origin(), result.origin() + result.num_elements(), result.origin(),
                  std::bind2nd(std::divides<std::complex<double> >(), norm * beta));
 };
-
-//Measure single-particle Green's function using Legendre polynomials
-/*
-template<typename SCALAR, int Rank>
-typename boost::enable_if_c<Rank == 1, SCALAR>::type
-GMeasurement<SCALAR, Rank>::measure_impl(const std::vector<psi> &worm_ops,
-                                         int idx_operator_shifted,
-                                         SCALAR sign,
-                                         std::vector<SCALAR> &weight_flavors) {
-  double tdiff = worm_ops[0].time().time() - worm_ops[1].time().time();
-  double coeff = 1.0;
-  if (tdiff < 0.0) {
-    tdiff += beta_;
-    coeff *= -1;
-  }
-
-  const int num_legendre = legendre_trans_.num_legendre();
-  std::vector<double> Pl_vals(num_legendre);
-  legendre_trans_.compute_legendre(2 * tdiff / beta_ - 1.0, Pl_vals);
-
-  boost::array<int, 2> flavors;
-  for (int iop = 0; iop < 2; ++iop) {
-    flavors[iop] = worm_ops[iop].flavor();
-  }
-  for (int flavor = 0; flavor < num_flavors_; ++flavor) {
-    flavors[idx_operator_shifted] = flavor;
-    const SCALAR coeff2 = sign * weight_flavors[flavor] * coeff;
-    for (int il = 0; il < num_legendre; ++il) {
-      data_[flavors[0]][flavors[1]][il] += coeff2 * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
-    }
-  }
-
-  return 0.0; //dummy
-}
-*/
 
 template<typename SCALAR, int Rank>
 void
