@@ -3,7 +3,7 @@
 inline void print_acc_rate(const alps::accumulators::result_set &results, const std::string &name, std::ostream &os) {
   os << " " << name + " : "
      << results[name + "_accepted_scalar"].mean<double>()
-         / results[name + "_attempted_scalar"].mean<double>()
+         / results[name + "_valid_move_scalar"].mean<double>()
      << std::endl;
 }
 

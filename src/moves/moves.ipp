@@ -232,8 +232,11 @@ bool LocalUpdater<SCALAR,
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::finalize_update() {
   ++ num_attempted_;
-  if (accepted_) {
-    ++ num_accepted_;
+  if (valid_move_generated_) {
+    ++ num_valid_move_;
+    if (accepted_) {
+      ++ num_accepted_;
+    }
   }
 
   call_back();
@@ -363,6 +366,8 @@ bool InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_r
       {
         it_t it = cdagg_ops_range_[ib].first;
         std::advance(it, idx_c[iop]);
+        assert(tau_low_ <= it->time().time());
+        assert(tau_high_ >= it->time().time());
         BaseType::cdagg_ops_rem_.push_back(*it);
       }
       {
@@ -890,11 +895,7 @@ WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::WormUpdater(
     beta_(beta),
     num_flavors_(num_flavors),
     tau_lower_limit_(tau_lower_limit),
-    tau_upper_limit_(tau_upper_limit),
-    acc_rate_(1000, 0.5 * beta, 1, 0.5 * beta),
-    max_distance_(0.5 * beta),
-    distance_(-1.0) {
-  //these options may be deleted.
+    tau_upper_limit_(tau_upper_limit) {
   if (tau_lower_limit != 0.0 || tau_upper_limit != beta) {
     throw std::runtime_error("Error in constructor of WormUpdater");
   }
@@ -902,7 +903,7 @@ WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::WormUpdater(
 
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::call_back() {
+void WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::call_back() {
   if (!BaseType::valid_move_generated_) {
     return;
   }
@@ -915,25 +916,8 @@ void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::call_back() {
 }
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
-create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
-  BaseType::create_measurement_acc_rate(measurements);
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >(str_ + "_attempted");
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >(str_ + "_accepted");
-}
-
-template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
-measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
-  BaseType::measure_acc_rate(measurements);
-  measurements[str_ + "_attempted"] << to_std_vector(acc_rate_.get_counter());
-  measurements[str_ + "_accepted"] << to_std_vector(acc_rate_.get_sumval());
-  acc_rate_.reset();
-}
-
-template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-void WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update_parameters() {
-  max_distance_ = acc_rate_.update_cutoff(1E-2, 1.05);
+void WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update_parameters() {
+  max_distance_ = acc_rate_.update_cutoff(0.1, 1.05);
 }
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
@@ -947,26 +931,29 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     return false;
   }
 
+  BaseType::p_new_worm_.reset();
+
   //count independent times in the time window
   const double tau_low = std::max(sliding_window.get_tau_low(), BaseType::tau_lower_limit_);
   const double tau_high = std::min(sliding_window.get_tau_high(), BaseType::tau_upper_limit_);
   const int num_times = mc_config.p_worm->num_independent_times();
-  BaseType::distance_ = 0.0;
+  distance_ = 0.0;
   for (int itry = 0; itry < mc_config.p_worm->num_independent_times(); ++ itry) {
     const int t = static_cast<int>(rng() * mc_config.p_worm->num_independent_times());
     if (!InRange<OperatorTime>(tau_low, tau_high)(mc_config.p_worm->get_time(t))) {
       continue;
     }
     const double new_time = rng() < 0.9 ?
-                            (2 * rng() - 1.0) * BaseType::max_distance_ + BaseType::p_new_worm_->get_time(t) :
+                            (2 * rng() - 1.0) * max_distance_ + mc_config.p_worm->get_time(t) :
                             open_random(rng, tau_low, tau_high);
     if (new_time < tau_low || new_time > tau_high) {
       continue;
     }
     BaseType::p_new_worm_ = mc_config.p_worm->clone();
     const double dist_tmp = std::abs(new_time - BaseType::p_new_worm_->get_time(t));
-    BaseType::distance_ = std::min(dist_tmp, BaseType::beta_ - dist_tmp);
+    distance_ = std::min(dist_tmp, beta_ - dist_tmp);
     BaseType::p_new_worm_->set_time(t, new_time);
+    break;
   }
 
   if (BaseType::p_new_worm_) {
@@ -1007,7 +994,6 @@ bool WormFlavorChanger<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   }
 
   if (*mc_config.p_worm != *BaseType::p_new_worm_) {
-    BaseType::distance_ = 0.0;
     BaseType::acceptance_rate_correction_ = 1.0;
     return true;
   } else {

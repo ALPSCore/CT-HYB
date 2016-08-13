@@ -23,7 +23,7 @@
  * @brief Change flavors of operators
  */
 struct ExchangeFlavor {
-  ExchangeFlavor(int *first) : first_(first) { }
+  ExchangeFlavor(int *first) : first_(first) {}
   psi operator()(const psi &op) const {
     psi op_new = op;
     op_new.set_flavor(
@@ -43,7 +43,7 @@ struct ExchangeFlavor {
  * This update will prevent Monte Carlo dynamics from getting stuck in a local minimum in such cases.
  */
 struct OperatorShift {
-  OperatorShift(double beta, double shift) : beta_(beta), shift_(shift) { }
+  OperatorShift(double beta, double shift) : beta_(beta), shift_(shift) {}
   psi operator()(const psi &op) const {
     assert(shift_ >= 0.0);
     psi op_new = op;
@@ -67,8 +67,8 @@ template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class LocalUpdater {
   typedef std::map<ConfigSpace, double> weight_map_t;
  public:
-  LocalUpdater(const std::string &name) : name_(name), num_attempted_(0), num_accepted_(0) {}
-  virtual ~LocalUpdater() { }
+  LocalUpdater(const std::string &name) : name_(name), num_attempted_(0), num_valid_move_(0), num_accepted_(0) {}
+  virtual ~LocalUpdater() {}
 
   /** Update the configuration. Return true if the update is accepted. */
   bool update(
@@ -89,27 +89,31 @@ class LocalUpdater {
   };
 
   /** Will be called on the exit of update() */
-  virtual void call_back() { };
+  virtual void call_back() {};
 
   /** updates parameters for Monte Carlo updates */
-  virtual void update_parameters() { };
+  virtual void update_parameters() {};
 
   /** fix parameters for Monte Carlo updates before measurement steps */
-  virtual void finalize_learning() { }
+  virtual void finalize_learning() {}
 
   /** create measurement */
   virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
     measurements <<
-                 alps::accumulators::NoBinningAccumulator<double>(get_name()+"_attempted_scalar");
+                 alps::accumulators::NoBinningAccumulator<double>(get_name() + "_attempted_scalar");
     measurements <<
-                 alps::accumulators::NoBinningAccumulator<double>(get_name()+"_accepted_scalar");
+                 alps::accumulators::NoBinningAccumulator<double>(get_name() + "_valid_move_scalar");
+    measurements <<
+                 alps::accumulators::NoBinningAccumulator<double>(get_name() + "_accepted_scalar");
   }
 
   /** measure acceptance rate */
   virtual void measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
-    measurements[get_name()+"_attempted_scalar"] << num_attempted_;
-    measurements[get_name()+"_accepted_scalar"] << num_accepted_;
+    measurements[get_name() + "_attempted_scalar"] << num_attempted_;
+    measurements[get_name() + "_valid_move_scalar"] << num_valid_move_;
+    measurements[get_name() + "_accepted_scalar"] << num_accepted_;
     num_attempted_ = 0;
+    num_valid_move_ = 0;
     num_accepted_ = 0;
   }
 
@@ -136,8 +140,8 @@ class LocalUpdater {
   //std::vector<psi> duplicate_check_work_;
 
   static bool update_operators(operator_container_t &operators,
-                        const std::vector<psi> &ops_rem, const std::vector<psi> &ops_add,
-                        std::vector<std::pair<psi, ActionType> > &update_record);
+                               const std::vector<psi> &ops_rem, const std::vector<psi> &ops_add,
+                               std::vector<std::pair<psi, ActionType> > &update_record);
 
   //void revert_operators(MonteCarloConfiguration<SCALAR> &mc_config,
   //const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add);
@@ -146,7 +150,7 @@ class LocalUpdater {
 
   std::vector<EXTENDED_REAL> trace_bound;//must be resized
 
-  int num_attempted_, num_accepted_;
+  int num_attempted_, num_valid_move_, num_accepted_;
 };
 
 /**
@@ -158,11 +162,11 @@ class InsertionRemovalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLID
  public:
   typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
   InsertionRemovalUpdater(int update_rank, int num_flavors)
-      : BaseType(boost::lexical_cast<std::string>(update_rank)+std::string("-pair_insertion_remover")),
+      : BaseType(boost::lexical_cast<std::string>(update_rank) + std::string("-pair_insertion_remover")),
         update_rank_(update_rank),
         num_flavors_(num_flavors),
         tau_low_(-1.0),
-        tau_high_(-1.0) { }
+        tau_high_(-1.0) {}
 
   virtual bool propose(
       alps::random01 &rng,
@@ -205,13 +209,14 @@ class InsertionRemovalDiagonalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCAL
  public:
   typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
   InsertionRemovalDiagonalUpdater(int update_rank, int num_flavors, double beta, int num_bins)
-      : BaseType(boost::lexical_cast<std::string>(update_rank)+std::string("-pair_insertion_remover_flavor_diagonal")),
+      : BaseType(
+      boost::lexical_cast<std::string>(update_rank) + std::string("-pair_insertion_remover_flavor_diagonal")),
         update_rank_(update_rank),
         num_flavors_(num_flavors),
         beta_(beta),
         tau_low_(-1.0),
         tau_high_(-1.0),
-        acc_rate_(num_bins, 0.5 * beta, num_flavors, 0.5 * beta) { }
+        acc_rate_(num_bins, 0.5 * beta, num_flavors, 0.5 * beta) {}
 
   virtual bool propose(
       alps::random01 &rng,
@@ -254,7 +259,7 @@ class OperatorPairFlavorUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SL
       : BaseType("Operator_pair_flavor_updater"),
         num_flavors_(num_flavors),
         num_attempted_(0.0),
-        num_accepted_(0.0) { }
+        num_accepted_(0.0) {}
 
   virtual bool propose(
       alps::random01 &rng,
@@ -280,7 +285,7 @@ class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, S
       BaseType("Single_operator_shift_updater"),
       num_flavors_(num_flavors),
       max_distance_(num_flavors, 0.5 * beta),
-      acc_rate_(num_bins, 0.5 * beta, num_flavors, 0.5 * beta) { }
+      acc_rate_(num_bins, 0.5 * beta, num_flavors, 0.5 * beta) {}
 
   virtual bool propose(
       alps::random01 &rng,
@@ -314,15 +319,15 @@ class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, S
 template<typename SCALAR, typename EXTENDED_SCALAR, typename R, typename SLIDING_WINDOW,
     typename HybridizedOperatorTransformer, typename WormTransformer>
 bool
-    global_update(R &rng,
-                  double BETA,
-                  MonteCarloConfiguration<SCALAR> &mc_config,
-                  std::vector<SCALAR> &det_vec,
-                  SLIDING_WINDOW &sliding_window,
-                  int num_flavors,
-                  const HybridizedOperatorTransformer &hyb_op_transformer,
-                  const WormTransformer &worm_transformer,
-                  int Nwin
+global_update(R &rng,
+              double BETA,
+              MonteCarloConfiguration<SCALAR> &mc_config,
+              std::vector<SCALAR> &det_vec,
+              SLIDING_WINDOW &sliding_window,
+              int num_flavors,
+              const HybridizedOperatorTransformer &hyb_op_transformer,
+              const WormTransformer &worm_transformer,
+              int Nwin
 );
 
 /**
@@ -336,7 +341,7 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
 
  public:
   WormUpdater(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit);
-  virtual ~WormUpdater() { }
+  virtual ~WormUpdater() {}
 
   virtual bool propose(
       alps::random01 &rng,
@@ -345,28 +350,11 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
       const std::map<ConfigSpace, double> &config_space_weight
   ) = 0;
 
-  /** Will be called on the exit of update() */
-  virtual void call_back();
-
-  /** updates parameters for Monte Carlo updates */
-  virtual void update_parameters();
-
-  /** fix parameters for Monte Carlo updates before measurement steps */
-  virtual void finalize_learning() { acc_rate_.reset(); }
-
-  /** create measurement */
-  virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements);
-
-  /** measure acceptance rate */
-  virtual void measure_acc_rate(alps::accumulators::accumulator_set &measurements);
-
  protected:
   std::string str_;
   double beta_;
   int num_flavors_;
   double tau_lower_limit_, tau_upper_limit_;
-  StepSizeOptimizer acc_rate_;
-  double max_distance_, distance_;
 };
 
 /**
@@ -378,7 +366,17 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
   typedef WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
 
   WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
-      : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) {}
+      : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit),
+        acc_rate_(100, 0.5 * beta, 1, 0.5 * beta),
+        beta_(beta),
+        max_distance_(0.5 * beta),
+        distance_(-1.0) {}
+
+  virtual void call_back();
+
+  virtual void update_parameters();
+
+  virtual void finalize_learning() { acc_rate_.reset(); }
 
  private:
   virtual bool propose(
@@ -387,6 +385,9 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
+
+  StepSizeOptimizer acc_rate_;
+  double beta_, max_distance_, distance_;
 };
 
 /**
@@ -397,7 +398,11 @@ class WormFlavorChanger: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WIN
  public:
   typedef WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
 
-  WormFlavorChanger(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
+  WormFlavorChanger(const std::string &str,
+                    double beta,
+                    int num_flavors,
+                    double tau_lower_limit,
+                    double tau_upper_limit)
       : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit) {}
 
  private:
@@ -497,8 +502,8 @@ class EqualTimeG1_TwoTimeG2_Connector: public LocalUpdater<SCALAR, EXTENDED_SCAL
 
  public:
   EqualTimeG1_TwoTimeG2_Connector(const std::string &str,
-                        double beta,
-                        int num_flavors) : BaseType(str), num_flavors_(num_flavors) {
+                                  double beta,
+                                  int num_flavors) : BaseType(str), num_flavors_(num_flavors) {
   }
 
  private:
@@ -510,7 +515,7 @@ class EqualTimeG1_TwoTimeG2_Connector: public LocalUpdater<SCALAR, EXTENDED_SCAL
   );
 
   int num_flavors_;
-  std::vector<std::pair<psi,psi> > pairs_;
+  std::vector<std::pair<psi, psi> > pairs_;
 };
 
 /**
@@ -522,9 +527,9 @@ class GWormShifter: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>
 
  public:
   GWormShifter(const std::string &str,
-                        double beta,
-                        int num_flavors,
-                        boost::shared_ptr<Worm> p_worm_template
+               double beta,
+               int num_flavors,
+               boost::shared_ptr<Worm> p_worm_template
   ) : BaseType(str), beta_(beta), num_flavors_(num_flavors), p_worm_template_(p_worm_template) {}
 
  private:
@@ -546,7 +551,7 @@ class GWormShifter: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>
  * @brief Exchange flavors of a worm
  */
 struct WormExchangeFlavor {
-  WormExchangeFlavor(int *first) : first_(first) { }
+  WormExchangeFlavor(int *first) : first_(first) {}
   boost::shared_ptr<Worm> operator()(const Worm &worm) const {
     boost::shared_ptr<Worm> new_worm = worm.clone();
     for (int findx = 0; findx < worm.num_independent_flavors(); ++findx) {
@@ -562,7 +567,7 @@ struct WormExchangeFlavor {
  * @brief Shift a worm by a constant time
  */
 struct WormShift {
-  WormShift(double beta, double shift) : beta_(beta), shift_(shift) { }
+  WormShift(double beta, double shift) : beta_(beta), shift_(shift) {}
   boost::shared_ptr<Worm> operator()(const Worm &worm) const {
     assert(shift_ >= 0.0);
 

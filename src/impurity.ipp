@@ -103,7 +103,6 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       worm_space_extra_weight_map(),
       operator_pair_flavor_updater(FLAVORS),
       single_op_shift_updater(BETA, FLAVORS, N),
-    //worm_movers(0),
       worm_insertion_removers(0),
       sliding_window(p_model.get(), BETA),
       g_meas_legendre(FLAVORS, p["measurement.G1.n_legendre"], N, BETA),
@@ -693,6 +692,20 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
 
   //Update parameters for single-operator shift updates
   single_op_shift_updater.update_parameters();
+  for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
+    ins_rem_diagonal_updater[k - 1]->update_parameters();
+  }
+  for (int i = 0; i < worm_insertion_removers.size(); ++i) {
+    worm_insertion_removers[i]->update_parameters();
+  }
+  for (typename worm_updater_map_t::iterator it = worm_movers.begin(); it != worm_movers.end();
+       ++it) {
+    it->second->update_parameters();
+  }
+  for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::iterator
+           it = specialized_updaters.begin(); it != specialized_updaters.end(); ++it) {
+    it->second->update_parameters();
+  }
 
   //check if thermalization is checked
   if (time(NULL) - start_time > thermalization_time) {
@@ -713,6 +726,10 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
 
   for (int w = 0; w < worm_types.size(); ++w) {
     worm_insertion_removers[w]->finalize_learning();
+  }
+  for (typename worm_updater_map_t::iterator it = worm_movers.begin(); it != worm_movers.end();
+       ++it) {
+    it->second->finalize_learning();
   }
   for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::iterator it = specialized_updaters.begin();
        it != specialized_updaters.end(); ++it) {
