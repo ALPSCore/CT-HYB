@@ -745,7 +745,9 @@ SCALAR compute_det_rat(const std::vector<psi> &creation_operators,
   det_vec_new.reserve(creation_operators.size());
   for (int ib = 0; ib < M.num_blocks(); ++ib) {
     const int mat_size = cdagg_ops[ib].size();
-    assert(cdagg_ops[ib].size() == c_ops[ib].size());
+    if (cdagg_ops[ib].size() != c_ops[ib].size()) {
+      return 0.0;
+    }
     if (mat_size == 0) {
       continue;
     }
