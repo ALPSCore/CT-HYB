@@ -9,66 +9,88 @@
 
 extern int global_mpi_rank;//for debug
 
-template<typename Base, typename ScheduleChecker = alps::check_schedule>
-class mymcmpiadapter: public alps::mcmpiadapter<Base, ScheduleChecker> {
+class my_check_schedule
+{
  public:
-  typedef typename Base::parameters_type parameters_type;
-  typedef typename alps::mcmpiadapter<Base> ABase;
-  //typedef boost::posix_time::ptime ptime;
+  typedef boost::chrono::high_resolution_clock clock;
+  typedef clock::time_point time_point;
+  typedef boost::chrono::duration<double> duration;
 
-  /// Construct mcmpiadapter with alps::check_schedule with the relevant parameters Tmin and Tmax taken from the provided parameters
-  mymcmpiadapter(parameters_type const &parameters, alps::mpi::communicator const &comm) : alps::mcmpiadapter<Base>(
-      parameters,
-      comm) { }
+  /// Constructor
+  my_check_schedule(double tcheck = 10)
+      :   tcheck_(tcheck)
+  {
+  }
 
-  std::pair<bool,bool> run(boost::function<bool()> const &stop_callback) {
+  bool pending() const
+  {
+    time_point now = clock::now();
+    return now > (last_check_time_ + next_check_);
+  }
+
+  void update(double fraction)
+  {
+    time_point now = clock::now();
+    next_check_ = tcheck_;
+    last_check_time_ = now;
+  }
+
+ private:
+  duration tcheck_;
+
+  time_point start_time_;
+  time_point last_check_time_;
+  duration next_check_;
+};
+
+/// mycustum MPI adapter for a MC simulation class
+/// For use, a MC simulation class implement several additional member functions:
+///   update_thermalized_status()
+///   prepare_for_measurement()
+///   finish_measurement()
+template<typename Base> class mymcmpiadapter : public alps::detail::mcmpiadapter_base<Base,my_check_schedule> {
+ private:
+  typedef alps::detail::mcmpiadapter_base<Base,my_check_schedule> base_type_;
+
+ public:
+  typedef typename base_type_::parameters_type parameters_type;
+
+  /// Construct mcmpiadapter with a custom scheduler
+  // Just forwards to the base class constructor
+  mymcmpiadapter(
+      parameters_type const & parameters,
+      alps::mpi::communicator const & comm
+  ) : base_type_(parameters, comm, my_check_schedule())
+  {}
+
+  std::pair<bool,bool> run(boost::function<bool ()> const & stop_callback) {
     bool done = false, stopped = false;
-    bool was_thermalized_before = false;
     const time_t start_time = time(NULL);
-    time_t last_output_time = start_time;
-    const time_t output_interval = 10;//10 sec
     do {
-      const bool is_thermalized = this->is_thermalized();
-      if (is_thermalized && !was_thermalized_before) {
-        //MPI communication is NOT allowed in prepare_for_measurements()
-        this->prepare_for_measurement();
-      }
-
-      //MPI communication is NOT allowed in update()
-      this->update();
-
-      if (is_thermalized) {
-        //MPI communication is NOT allowed in measure()
-        this->measure();
-      }
-
-      was_thermalized_before = is_thermalized;
-      const time_t current_time = time(NULL);
-      stopped = stop_callback();
-      if (stopped || ABase::schedule_checker.pending()) {
-        //const double local_fraction = stopped ? 1.1 : Base::fraction_completed();
-        //ABase::schedule_checker.update(
-            //ABase::fraction = alps::alps_mpi::all_reduce(ABase::communicator, local_fraction, std::plus<double>()));
-        //done = ABase::fraction >= 1.;
-        const int local_data = is_thermalized ? 1 : 0;
-        const int num_thermalized = alps::alps_mpi::all_reduce(ABase::communicator, local_data, std::plus<int>());
-        done = stopped;
-        if (ABase::communicator.rank() == 0) {
-          if (current_time - last_output_time > output_interval) {
-            last_output_time = current_time;
-            if (num_thermalized == ABase::communicator.size()) {
-              std::cout << "Checking if the simulation is finished: "
-                  <<  current_time - start_time << " sec passed." << std::endl;
-            } else {
-              //std::cout
-                  //<< boost::format("%1% processes are not thermalized yet. : %2% sec passed.") % (ABase::communicator.size() - num_thermalized) % static_cast<int>((current_time - start_time))
-                  //<< std::endl;
-            }
-          }
+      if (!this->is_thermalized()) {
+        this->update_thermalization_status();
+        if (this->is_thermalized()) {
+          this->prepare_for_measurement();
         }
       }
-    } while (!done);
+      this->update();
+      if (this->is_thermalized()) {
+        this->measure();
+      }
+      if (stopped || base_type_::schedule_checker.pending()) {
+        stopped = stop_callback();
+        done = stopped;
+        base_type_::schedule_checker.update(0.0);
+        std::cout << "Checking if the simulation is finished: "
+                  <<  time(NULL) - start_time << " sec passed." << std::endl;
+      }
+    } while(!done);
     this->finish_measurement();
     return std::make_pair(!stopped, this->is_thermalized());
+  }
+
+  static parameters_type& define_parameters(parameters_type & parameters) {
+    base_type_::define_parameters(parameters);
+    return parameters;
   }
 };

@@ -23,7 +23,6 @@
 #include <alps/utilities/mpi.hpp>
 #include "mc/mympiadapter.hpp"
 #endif
-#include "mc/mymcadapter.hpp"
 #include "postprocess.hpp"
 
 int global_mpi_rank;
@@ -33,7 +32,7 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
 #ifdef ALPS_HAVE_MPI
   typedef mymcmpiadapter<SOLVER_TYPE> sim_type;
 #else
-  typedef mymcadapter<SOLVER_TYPE> sim_type;
+  non-MPI environment is not supported!
 #endif
 
   SOLVER_TYPE::define_parameters(parameters);

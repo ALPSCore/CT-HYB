@@ -12,8 +12,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<double>("thermalization_time",
                       -1,
                       "Thermalization time (in units of second). The default value is 25 % of timelimit.")
-      .define<int>("Tmin", 1, "The scheduler checks longer than every Tmin seconds if the simulation is finished.")
-      .define<int>("Tmax", 60, "The scheduler checks shorter than every Tmax seconds if the simulation is finished.")
+      //.define<int>("Tmin", 1, "The scheduler checks longer than every Tmin seconds if the simulation is finished.")
+      //.define<int>("Tmax", 60, "The scheduler checks shorter than every Tmax seconds if the simulation is finished.")
       .define<std::string>("outputfile",
                            alps::remove_extensions(parameters.get_origin_name()) + ".out.h5",
                            "name of the output file")
@@ -112,7 +112,9 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       timings(4, 0.0),
       verbose(p["verbose"].template as<int>() != 0),
       thermalized(false),
-      pert_order_recorder() {
+      pert_order_recorder(),
+      config_spaces_visited_in_measurement_steps(0)
+{
 
   if (thermalization_time < 0) {
     thermalization_time = static_cast<double>(0.25 * parameters["timelimit"].template as<double>());
@@ -193,13 +195,6 @@ bool HybridizationSimulation<IMP_MODEL>::is_thermalized() const {
 
 template<typename IMP_MODEL>
 double HybridizationSimulation<IMP_MODEL>::fraction_completed() const {
-  //double work =
-  //(is_thermalized() ? (sweeps - thermalization_checker.get_actual_thermalization_steps()) / double(total_sweeps)
-  //: 0.);
-  //if (work > 1.0) {
-  //work = 1.0;
-  //}
-  //return work;
   return 0.0;
 }
 
@@ -520,6 +515,10 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
       single_op_shift_updater.update(random, BETA, mc_config, sliding_window);
     }
 
+    if (is_thermalized()) {
+      config_spaces_visited_in_measurement_steps[get_config_space_position(mc_config.current_config_space())] = true;
+    }
+
     transition_between_config_spaces();
 
     sliding_window.move_window_to_next_position(mc_config.operators);
@@ -707,10 +706,6 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
     it->second->update_parameters();
   }
 
-  //check if thermalization is checked
-  if (time(NULL) - start_time > thermalization_time) {
-    thermalized = true;
-  }
 }
 
 /////////////////////////////////////////////////
@@ -773,6 +768,14 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
   measurements["Pert_order_end"] << pert_order_recorder.mean();
+  if (!is_thermalized()) {
+    throw std::runtime_error("Thermalization process is not done.");
+  }
+  for (int i = 0; i < config_spaces_visited_in_measurement_steps.size(); ++i) {
+    if (!config_spaces_visited_in_measurement_steps[i]) {
+      throw std::runtime_error("Some configuration space was not visited in measurement steps. Thermalization time may be too short.");
+    }
+  }
 }
 
 /**

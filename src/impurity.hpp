@@ -84,6 +84,13 @@ class HybridizationSimulation: public alps::mcbase {
 
   void resize_vectors(); //early initialization stuff
 
+  //update thermalization status
+  void update_thermalization_status() {
+    if (time(NULL) - start_time > thermalization_time) {
+      thermalized = true;
+    }
+  }
+
   bool is_thermalized() const;
   static void print_copyright(std::ostream &os) {
     os << "Matrix code based on the hybridization expansion method of PRB 74, 155107 (2006)" << std::endl
@@ -144,18 +151,6 @@ class HybridizationSimulation: public alps::mcbase {
       }
     }
   }
-
-  /*
-  int get_worm_position(ConfigSpace config_space) const {
-    std::vector<ConfigSpace>::const_iterator
-        it = std::find(worm_types.begin(), worm_types.end(), config_space);
-    if (it == worm_types.end()) {
-      return -1;
-    } else {
-      return std::distance(worm_types.begin(), it);
-    }
-  }
-  */
 
   //Definition of system parameters constant during simulation
   const parameters_type par;
@@ -280,6 +275,8 @@ class HybridizationSimulation: public alps::mcbase {
   bool thermalized;
 
   PertOrderRecorder pert_order_recorder;
+
+  std::vector<bool> config_spaces_visited_in_measurement_steps;
 
   void sanity_check();
 

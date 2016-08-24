@@ -195,7 +195,8 @@ double spectral_norm_diag(const M &mat) {
     Eigen::SelfAdjointEigenSolver<matrix_t> esolv(mat_tmp, false);
     const double norm = std::sqrt(esolv.eigenvalues().cwiseAbs().maxCoeff()) / coeff;
     if (std::isnan(norm)) {
-      std::cout << "Warning: spectral_norm_diag is NaN. max_abs = " << max_abs << " max_abs2 = " << max_abs2 << std::endl;
+      std::cout << "Warning: spectral_norm_diag is NaN. max_abs = " << max_abs << " max_abs2 = " << max_abs2
+                << std::endl;
       return 0.0;
     }
     //assert(!isnan(norm));
@@ -305,29 +306,6 @@ class MyRandomNumberGenerator: public std::unary_function<unsigned int, unsigned
 /**
  * @brief pick a n elements randombly from 0, 1, ..., N-1
  */
-/*
-template<class R>
-std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
-  std::vector<int> flag(N, 0), list(n);
-
-  for (int i = 0; i < n; ++i) {
-    int itmp = 0;
-    while (true) {
-      itmp = static_cast<int>(random01() * N);
-      if (flag[itmp] == 0) {
-        break;
-      }
-    }
-    list[i] = itmp;
-    flag[itmp] = 1;
-  }
-  return list;
-}
-*/
-
-/**
- * @brief pick a n elements randombly from 0, 1, ..., N-1
- */
 template<class R>
 std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
   std::vector<bool> flag(N, false);
@@ -346,3 +324,152 @@ std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
   assert(list.size() == n);
   return list;
 }
+
+/*
+ * Iterator over two sets
+ */
+template<class Set>
+class TwoSetViewConstIterator;
+
+template<class Set>
+class TwoSetView {
+ public:
+  typedef TwoSetViewConstIterator<Set> const_iterator;
+  TwoSetView(const Set &set1, const Set &set2) : set1_(set1), set2_(set2) {
+    typename Set::const_iterator it_begin, it_end;
+    if (set1_.empty() && set2_.empty()) {
+      throw std::runtime_error("TwoSetView:proceed(): both sets are empty!");
+    } else if (set1_.empty()) {
+      it_begin = set2_.begin();
+      it_end = set2_.end();
+    } else if (set2_.empty()) {
+      it_begin = set1_.begin();
+      it_end = set1_.end();
+    } else {
+      if (*set1.begin() < *set2.begin()) {
+        it_begin = set1.begin();
+      } else if (*set1.begin() > *set2.begin()) {
+        it_begin = set2.begin();
+      } else {
+        throw std::runtime_error("TwoSetView: found duplicate elements!");
+      }
+      if (*set1.end() < *set2.end()) {
+        it_end = set2.end();
+      } else if (*set1.end() > *set2.end()) {
+        it_end = set1.end();
+      } else {
+        throw std::runtime_error("TwoSetView: found duplicate elements!");
+      }
+    }
+
+    typename Set::const_iterator it1_next(set1.begin()), it2_next(set2.begin());
+    if (it_begin == set1.begin()) {
+      ++ it1_next;
+    }
+    if (it_begin == set2.begin()) {
+      ++ it2_next;
+    }
+    const_it_begin_ = const_iterator(0, it_begin, it1_next, it2_next, set1.end(), set2.end());
+    const_it_end_ = const_iterator(set1.size() + set2.size(), it_end, set1.end(), set2.end(), set1.end(), set2.end());
+  };
+
+  const const_iterator& begin() const {
+    return const_it_begin_;
+  }
+
+  const const_iterator& end() const {
+    return const_it_end_;
+  }
+
+ private:
+  const Set &set1_, set2_;
+  const_iterator const_it_begin_, const_it_end_;
+};
+
+template<class Set>
+class TwoSetViewConstIterator {
+  friend class TwoSetView<Set>;
+ public:
+  typedef typename Set::value_type value_type;
+  TwoSetViewConstIterator<Set> &operator++() {
+    this->proceed();
+    return *this;
+  }
+
+  TwoSetViewConstIterator<Set> operator++(int num) {
+    TwoSetViewConstIterator<Set> copy(*this);
+    copy.proceed();
+    return copy;
+  }
+
+  bool operator==(const TwoSetViewConstIterator<Set> &it_r) const {
+    return this->index_ == it_r.index_;
+  }
+
+  bool operator!=(const TwoSetViewConstIterator<Set> &it_r) const {
+    return !(*this == it_r);
+  }
+
+  const value_type &operator*() const {
+    return *it_;
+  }
+
+  value_type operator*() {
+    return *it_;
+  }
+
+  const value_type &operator->() const {
+    return it_.operator->();
+  }
+
+  value_type &operator->() {
+    return it_.operator->();
+  }
+
+ private:
+  TwoSetViewConstIterator() : index_(0) {}
+
+  TwoSetViewConstIterator(
+      int index,
+      typename Set::const_iterator it,
+      typename Set::const_iterator it1_next,
+      typename Set::const_iterator it2_next,
+      typename Set::const_iterator it1_end,
+      typename Set::const_iterator it2_end
+  )
+      : index_(index),
+        it_(it),
+        it1_next_(it1_next),
+        it2_next_(it2_next),
+        it1_end_(it1_end),
+        it2_end_(it2_end) {}
+
+  void proceed() {
+    if (it1_next_ == it1_end_ && it2_next_ == it2_end_) {
+      throw std::runtime_error("TwoSetViewConstIterator:proceed(): We've already reached the end point!");
+    } else if (it1_next_ == it1_end_) {
+      it_ = it2_next_;
+      ++it2_next_;
+    } else if (it2_next_ == it2_end_) {
+      it_ = it1_next_;
+      ++it1_next_;
+    }
+
+    if (*it1_next_ < *it2_next_) {
+      it_ = it1_next_;
+      ++it1_next_;
+    } else if (*it1_next_ > *it2_next_) {
+      it_ = it2_next_;
+      ++it2_next_;
+    } else {
+      throw std::runtime_error("TwoSetViewConstIterator:proceed(): found duplicate elements!");
+    }
+
+    ++index_;
+  }
+
+  int index_;
+  typename Set::const_iterator it_, it1_next_, it2_next_;
+  typename Set::const_iterator it1_end_, it2_end_;
+};
+

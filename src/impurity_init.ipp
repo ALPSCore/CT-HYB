@@ -238,6 +238,9 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   }
   num_steps_in_config_space.resize(0);
   num_steps_in_config_space.resize(worm_types.size() + 1);
+
+  config_spaces_visited_in_measurement_steps.resize(0);
+  config_spaces_visited_in_measurement_steps.resize(worm_types.size() + 1, false);
 }
 
 template<typename IMP_MODEL>

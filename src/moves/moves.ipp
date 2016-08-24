@@ -1244,7 +1244,7 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
   const double worm_space_weight = it->second;
 
   if (mc_config.p_worm) {
-    //propose removal by connecting worm operators
+    //propose removal by attaching worm operators to the bath
     const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
     for (int rank = 0; rank < RANK; ++rank) {
       BaseType::c_ops_add_.push_back(worm_ops[2 * rank]);
