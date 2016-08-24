@@ -353,9 +353,9 @@ class TwoSetView {
       } else {
         throw std::runtime_error("TwoSetView: found duplicate elements!");
       }
-      if (*set1.end() < *set2.end()) {
+      if (*set1.rbegin() < *set2.rbegin()) {
         it_end = set2.end();
-      } else if (*set1.end() > *set2.end()) {
+      } else if (*set1.rbegin() > *set2.rbegin()) {
         it_end = set1.end();
       } else {
         throw std::runtime_error("TwoSetView: found duplicate elements!");
@@ -446,26 +446,25 @@ class TwoSetViewConstIterator {
 
   void proceed() {
     if (it1_next_ == it1_end_ && it2_next_ == it2_end_) {
-      throw std::runtime_error("TwoSetViewConstIterator:proceed(): We've already reached the end point!");
+      //do nothing
     } else if (it1_next_ == it1_end_) {
       it_ = it2_next_;
       ++it2_next_;
     } else if (it2_next_ == it2_end_) {
       it_ = it1_next_;
-      ++it1_next_;
-    }
-
-    if (*it1_next_ < *it2_next_) {
+      ++ it1_next_;
+    } else if (*it1_next_ < *it2_next_) {
       it_ = it1_next_;
-      ++it1_next_;
+      ++ it1_next_;
     } else if (*it1_next_ > *it2_next_) {
       it_ = it2_next_;
-      ++it2_next_;
+      ++ it2_next_;
     } else {
       throw std::runtime_error("TwoSetViewConstIterator:proceed(): found duplicate elements!");
     }
 
     ++index_;
+    std::cout << "index " << index_ << std::endl;
   }
 
   int index_;
