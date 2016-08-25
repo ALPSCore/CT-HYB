@@ -177,11 +177,6 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
             new TypeOffDiag(k, FLAVORS)
         )
     );
-    ins_rem_diagonal_updater.push_back(
-        boost::shared_ptr<TypeDiag>(
-            new TypeDiag(k, FLAVORS, BETA, N / 2)
-        )
-    );
   }
 
   create_worm_updaters();
@@ -333,7 +328,6 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   {
     for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
       ins_rem_updater[k - 1]->measure_acc_rate(measurements);
-      ins_rem_diagonal_updater[k - 1]->measure_acc_rate(measurements);
     }
     single_op_shift_updater.measure_acc_rate(measurements);
     operator_pair_flavor_updater.measure_acc_rate(measurements);
@@ -389,7 +383,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
 
   single_op_shift_updater.measure_acc_rate(measurements);
   for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
-    ins_rem_diagonal_updater[k - 1]->measure_acc_rate(measurements);
+    ins_rem_updater[k - 1]->measure_acc_rate(measurements);
   }
 
   operator_pair_flavor_updater.measure_acc_rate(measurements);
@@ -506,7 +500,6 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
     //insertion and removal of operators hybridized with the bath
     for (int update = 0; update < FLAVORS; ++update) {
       ins_rem_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
-      ins_rem_diagonal_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
       operator_pair_flavor_updater.update(random, BETA, mc_config, sliding_window);
       pert_order_sum += mc_config.pert_order();
     }
@@ -557,6 +550,17 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
       adjust_worm_space_weight();
     }
 
+    //G2 worm insertion and removal by changing hybridization lines
+    if (specialized_updaters.find("G2_ins_rem_hyb") != specialized_updaters.end() &&
+        (mc_config.current_config_space() == Z_FUNCTION || mc_config.current_config_space() == G2)) {
+      specialized_updaters["G2_ins_rem_hyb"]->update(random,
+                                                     BETA,
+                                                     mc_config,
+                                                     sliding_window,
+                                                     worm_space_extra_weight_map);
+      adjust_worm_space_weight();
+    }
+
     //EqualTimeG1 <=> TwoTimeG2
     if (specialized_updaters.find("Connect_Equal_time_G1_and_Two_time_G2") != specialized_updaters.end() &&
         (mc_config.current_config_space() == Equal_time_G1 || mc_config.current_config_space() == Two_time_G2)
@@ -574,6 +578,13 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
       adjust_worm_space_weight();
     }
 
+    if (specialized_updaters.find("G2_shifter_hyb") != specialized_updaters.end()
+        && mc_config.current_config_space() == G2) {
+      bool accepted = specialized_updaters["G2_shifter_hyb"]->
+          update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+      adjust_worm_space_weight();
+    }
+
     //worm move
     for (typename worm_updater_map_t::iterator it = worm_movers.begin(); it != worm_movers.end();
          ++it) {
@@ -581,10 +592,6 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
         it->second->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
       }
     }
-    //const int i_config_space = get_config_space_position(mc_config.current_config_space());
-    //if (i_config_space > 0) {
-      //worm_movers[i_config_space - 1]->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
-    //}
   }
 }
 
@@ -693,7 +700,7 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
   //Update parameters for single-operator shift updates
   single_op_shift_updater.update_parameters();
   for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
-    ins_rem_diagonal_updater[k - 1]->update_parameters();
+    ins_rem_updater[k - 1]->update_parameters();
   }
   for (int i = 0; i < worm_insertion_removers.size(); ++i) {
     worm_insertion_removers[i]->update_parameters();
@@ -717,7 +724,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   g_meas_legendre.reset();
   single_op_shift_updater.finalize_learning();
   for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
-    ins_rem_diagonal_updater[k - 1]->finalize_learning();
+    ins_rem_updater[k - 1]->finalize_learning();
   }
 
   for (int w = 0; w < worm_types.size(); ++w) {

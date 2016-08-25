@@ -304,24 +304,18 @@ class MyRandomNumberGenerator: public std::unary_function<unsigned int, unsigned
 };
 
 /**
- * @brief pick a n elements randombly from 0, 1, ..., N-1
+ * @brief pick n elements randombly from 0, 1, ..., N-1.
+ * The results are given in a random order.
  */
 template<class R>
 std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
-  std::vector<bool> flag(N, false);
-  std::vector<int> list;
-  list.reserve(n);
-
-  std::fill(flag.begin(), flag.begin() + n, true);
-  MyRandomNumberGenerator rnd(random01);
-  std::random_shuffle(flag.begin(), flag.end(), rnd);
-
+  std::vector<int> list(N);
   for (int i = 0; i < N; ++i) {
-    if (flag[i]) {
-      list.push_back(i);
-    }
+    list[i] = i;
   }
-  assert(list.size() == n);
+  MyRandomNumberGenerator rnd(random01);
+  std::random_shuffle(list.begin(), list.end(), rnd);
+  list.resize(n);
   return list;
 }
 

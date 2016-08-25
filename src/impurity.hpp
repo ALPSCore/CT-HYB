@@ -192,8 +192,6 @@ class HybridizationSimulation: public alps::mcbase {
   //insertion/removal updater for single pair update, double pair update, triple pair update, etc.
   std::vector<boost::shared_ptr<InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
       ins_rem_updater;
-  std::vector<boost::shared_ptr<InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
-      ins_rem_diagonal_updater;
 
   //change the flavor of a pair of operators
   OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> operator_pair_flavor_updater;

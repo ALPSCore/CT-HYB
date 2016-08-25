@@ -301,7 +301,7 @@ void rotate_back_G2(int n_flavors, boost::multi_array<std::complex<double>, 4> &
       for (int f3 = 0; f3 < n_flavors; ++f3) {
         for (int f4 = 0; f4 < n_flavors; ++f4) {
           for (int g1 = 0; g1 < n_flavors; ++g1) {
-            work[f1][f2][f3][f4] = rotmat_Delta(f1, g1) * G2[g1][f2][f3][f4];
+            work[f1][f2][f3][f4] += rotmat_Delta(f1, g1) * G2[g1][f2][f3][f4];
           }
         }
       }
@@ -316,7 +316,7 @@ void rotate_back_G2(int n_flavors, boost::multi_array<std::complex<double>, 4> &
       for (int f3 = 0; f3 < n_flavors; ++f3) {
         for (int f4 = 0; f4 < n_flavors; ++f4) {
           for (int g2 = 0; g2 < n_flavors; ++g2) {
-            work[f1][f2][f3][f4] = myconj(rotmat_Delta(f2, g2)) * G2[f1][g2][f3][f4];
+            work[f1][f2][f3][f4] += myconj(rotmat_Delta(f2, g2)) * G2[f1][g2][f3][f4];
           }
         }
       }
@@ -331,7 +331,7 @@ void rotate_back_G2(int n_flavors, boost::multi_array<std::complex<double>, 4> &
       for (int f3 = 0; f3 < n_flavors; ++f3) {
         for (int f4 = 0; f4 < n_flavors; ++f4) {
           for (int g3 = 0; g3 < n_flavors; ++g3) {
-            work[f1][f2][f3][f4] = rotmat_Delta(f3, g3) * G2[f1][f2][g3][f4];
+            work[f1][f2][f3][f4] += rotmat_Delta(f3, g3) * G2[f1][f2][g3][f4];
           }
         }
       }
@@ -346,7 +346,7 @@ void rotate_back_G2(int n_flavors, boost::multi_array<std::complex<double>, 4> &
       for (int f3 = 0; f3 < n_flavors; ++f3) {
         for (int f4 = 0; f4 < n_flavors; ++f4) {
           for (int g4 = 0; g4 < n_flavors; ++g4) {
-            work[f1][f2][f3][f4] = myconj(rotmat_Delta(f4, g4)) * G2[f1][f2][f3][g4];
+            work[f1][f2][f3][f4] += myconj(rotmat_Delta(f4, g4)) * G2[f1][f2][f3][g4];
           }
         }
       }
@@ -363,14 +363,12 @@ void compute_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
                 bool verbose = false) {
   const int n_legendre(parms["measurement.G2.n_legendre"]);
   const int n_freq(parms["measurement.G2.n_bosonic_freq"]);
-  const double beta(parms["model.beta"]);
   const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
-  const double temperature(1.0 / beta);
   const double sign = results["Sign"].template mean<double>();
 
   //The factor of temperature below comes from the extra degree of freedom for beta in the worm
   const double coeff =
-      - results["worm_space_volume_G2"].template mean<double>() /
+      results["worm_space_volume_G2"].template mean<double>() /
           (sign * results["Z_function_space_volume"].template mean<double>());
 
   const std::vector<double> Gl_Re = results["G2_Re"].template mean<std::vector<double> >();

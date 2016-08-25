@@ -278,7 +278,9 @@ struct MeasureGHelper {
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
-                      const alps::fastupdate::ResizableMatrix<SCALAR> &M, boost::multi_array<std::complex<double>, 4 * RANK -1> &data);
+                      const alps::fastupdate::ResizableMatrix<SCALAR> &M,
+                      boost::multi_array<std::complex<double>, 4 * RANK -1> &data
+  );
 };
 
 /**
@@ -292,7 +294,9 @@ struct MeasureGHelper<SCALAR, 1> {
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
-                      const alps::fastupdate::ResizableMatrix<SCALAR> &M, boost::multi_array<std::complex<double>, 3> &data);
+                      const alps::fastupdate::ResizableMatrix<SCALAR> &M,
+                      boost::multi_array<std::complex<double>, 3> &data
+  );
 };
 
 /**
@@ -306,7 +310,9 @@ struct MeasureGHelper<SCALAR, 2> {
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
-                      const alps::fastupdate::ResizableMatrix<SCALAR> &M, boost::multi_array<std::complex<double>, 7> &data);
+                      const alps::fastupdate::ResizableMatrix<SCALAR> &M,
+                      boost::multi_array<std::complex<double>, 7> &data
+  );
 };
 
 /**

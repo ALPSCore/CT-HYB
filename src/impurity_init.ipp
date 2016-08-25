@@ -14,7 +14,6 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
   for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
     ins_rem_updater[k - 1]->create_measurement_acc_rate(measurements);
-    ins_rem_diagonal_updater[k - 1]->create_measurement_acc_rate(measurements);
   }
   single_op_shift_updater.create_measurement_acc_rate(measurements);
   operator_pair_flavor_updater.create_measurement_acc_rate(measurements);
@@ -225,6 +224,16 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             new GWormShifter<SCALAR, 1, EXTENDED_SCALAR, SW_TYPE>(
                 "G1_shifter_hyb", BETA, FLAVORS,
                 boost::shared_ptr<Worm>(new GWorm<1>())
+            )
+        );
+  }
+
+  if (std::find(worm_types.begin(), worm_types.end(), G2) != worm_types.end()) {
+    specialized_updaters["G2_shifter_hyb"] =
+        boost::shared_ptr<LocalUpdaterType>(
+            new GWormShifter<SCALAR, 2, EXTENDED_SCALAR, SW_TYPE>(
+                "G2_shifter_hyb", BETA, FLAVORS,
+                boost::shared_ptr<Worm>(new GWorm<2>())
             )
         );
   }

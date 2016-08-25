@@ -48,9 +48,9 @@ class my_check_schedule
 ///   update_thermalized_status()
 ///   prepare_for_measurement()
 ///   finish_measurement()
-template<typename Base> class mymcmpiadapter : public alps::detail::mcmpiadapter_base<Base,my_check_schedule> {
+template<typename Base> class mymcmpiadapter : public alps::mcmpiadapter<Base,my_check_schedule> {
  private:
-  typedef alps::detail::mcmpiadapter_base<Base,my_check_schedule> base_type_;
+  typedef alps::mcmpiadapter<Base,my_check_schedule> base_type_;
 
  public:
   typedef typename base_type_::parameters_type parameters_type;
@@ -81,8 +81,10 @@ template<typename Base> class mymcmpiadapter : public alps::detail::mcmpiadapter
         stopped = stop_callback();
         done = stopped;
         base_type_::schedule_checker.update(0.0);
-        std::cout << "Checking if the simulation is finished: "
+        if (base_type_::communicator.rank() == 0) {
+          std::cout << "Checking if the simulation is finished: "
                   <<  time(NULL) - start_time << " sec passed." << std::endl;
+        }
       }
     } while(!done);
     this->finish_measurement();

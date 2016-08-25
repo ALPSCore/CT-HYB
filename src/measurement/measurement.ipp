@@ -299,8 +299,20 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
     std::transform(data_.origin(), data_.origin() + data_.num_elements(), data_.origin(),
                    std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
     measure_simple_vector_observable<std::complex<double> >(measurements, str_.c_str(), to_std_vector(data_));
+
+    num_data_ = 0;
+    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
   }
 }
+
+//template<typename SCALAR>
+//struct RescaleAdd {
+  //RescaleAdd(SCALAR a) : a_(a) {}
+  //SCALAR operator()(const SCALAR &x, const SCALAR &y) {
+    //return a_ * x + y;
+  //}
+  //SCALAR a_;
+//};
 
 //Measure G1 by removal in G1 space
 template<typename SCALAR>
@@ -319,9 +331,30 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 
   std::vector<double> Pl_vals(num_legendre);
 
-  double norm = 0.0;
   std::vector<psi>::const_iterator it1, it2;
   const int mat_size = M.size1();
+
+  //First, we compute relative weights
+  boost::multi_array<SCALAR,2> coeffs(boost::extents[mat_size-1][mat_size-1]);
+  double norm = 0.0;
+  for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
+    (k == 0 ? it1 = annihilation_ops.begin() : it1++);
+    for (int l = 0; l < mat_size - 1; l++) {
+      (l == 0 ? it2 = creation_ops.begin() : it2++);
+      if (M(l, k) == 0.0) {
+        coeffs[k][l] = 0.0;
+        continue;
+      }
+
+      const double bubble_sign = it1->time() - it2->time() > 0.0 ? 1.0 : -1.0;
+
+      coeffs[k][l] = (M(l, k) * M(mat_size - 1, mat_size - 1) - M(l, mat_size - 1) * M(mat_size - 1, k))
+          * bubble_sign * sign * weight_rat_intermediate_state;
+      norm += std::abs(coeffs[k][l]);
+    }
+  }
+
+  double scale_fact = -1.0/(norm * beta);
   for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
     (k == 0 ? it1 = annihilation_ops.begin() : it1++);
     for (int l = 0; l < mat_size - 1; l++) {
@@ -330,11 +363,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
         continue;
       }
       double argument = it1->time() - it2->time();
-      double bubble_sign = 1;
-      if (argument > 0) {
-        bubble_sign = 1;
-      } else {
-        bubble_sign = -1;
+      if (argument < 0) {
         argument += beta;
       }
       assert(-0.01 < argument && argument < beta + 0.01);
@@ -343,18 +372,11 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
       const int flavor_c = it2->flavor();
       const double x = 2 * argument * temperature - 1.0;
       legendre_trans.compute_legendre(x, Pl_vals);
-      const SCALAR coeff = (M(l, k) * M(mat_size - 1, mat_size - 1) - M(l, mat_size - 1) * M(mat_size - 1, k))
-          * bubble_sign * sign * weight_rat_intermediate_state;
-      norm += std::abs(coeff);
       for (int il = 0; il < num_legendre; ++il) {
-        result[flavor_a][flavor_c][il] += coeff * legendre_trans.get_sqrt_2l_1()[il] * Pl_vals[il];
+        result[flavor_a][flavor_c][il] += scale_fact * coeffs[k][l] * legendre_trans.get_sqrt_2l_1()[il] * Pl_vals[il];
       }
     }
   }
-
-  //normalization
-  std::transform(result.origin(), result.origin() + result.num_elements(), result.origin(),
-                 std::bind2nd(std::divides<std::complex<double> >(), -1.0 * norm * beta));
 };
 
 //Measure G2 by removal in G2 space
@@ -414,8 +436,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     for (int k = 0; k < num_phys_rows; k++) {
       for (int l = 0; l < num_phys_rows; l++) {
         const double tau_diff = annihilation_ops[k].time() - creation_ops[l].time();
-        expiomega[k][l][0] = std::exp(std::complex<double>(0.0, 2 * M_PI * tau_diff * temperature));
-        std::complex<double> rat = expiomega[k][l][0];
+        const std::complex<double> rat = std::exp(std::complex<double>(0.0, 2 * M_PI * tau_diff * temperature));
+        expiomega[k][l][0] = 1.0;
         for (int freq = 1; freq < n_freq; ++freq) {
           expiomega[k][l][freq] = rat * expiomega[k][l][freq - 1];
         }
@@ -425,21 +447,25 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
 
   //naive way to evaluate
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
+
+  //First, compute relative weights
   Eigen::Matrix<SCALAR,3,3> tmp_mat;
   boost::array<int,3> rows3, cols3;
   const int last = M.size1() - 1;
   rows3[2] = last;
   cols3[2] = last;
+  boost::multi_array<SCALAR,4> coeffs(boost::extents[num_phys_rows][num_phys_rows][num_phys_rows][num_phys_rows]);
   double norm = 0.0;
   for (int a = 0; a < num_phys_rows; ++a) {
-    const int flavor_a = annihilation_ops[a].flavor();
     for (int b = 0; b < num_phys_rows; ++b) {
-      const int flavor_b = creation_ops[b].flavor();
       for (int c = 0; c < num_phys_rows; ++c) {
-        const int flavor_c = annihilation_ops[c].flavor();
+        if (a==c) {
+          continue;
+        }
         for (int d = 0; d < num_phys_rows; ++d) {
-          const int flavor_d = creation_ops[d].flavor();
-
+          if (b==d) {
+            continue;
+          }
           /*
            * Delta convention
            * M_ab  M_ad  M_a*
@@ -455,14 +481,34 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
               tmp_mat(i,j) = M(rows3[i], cols3[j]);
             }
           }
-          const SCALAR coeff_M = tmp_mat.determinant();
+          coeffs[a][b][c][d] = sign * weight_rat_intermediate_state * tmp_mat.determinant();
+          norm += std::abs(coeffs[a][b][c][d]);
+        }
+      }
+    }
+  }
 
-          if (coeff_M == 0.0) {
+  //Then, accumulate data
+  const double scale_fact = 1.0/(norm * beta);
+  for (int a = 0; a < num_phys_rows; ++a) {
+    const int flavor_a = annihilation_ops[a].flavor();
+    for (int b = 0; b < num_phys_rows; ++b) {
+      const int flavor_b = creation_ops[b].flavor();
+      for (int c = 0; c < num_phys_rows; ++c) {
+        if (a==c) {
+          continue;
+        }
+        const int flavor_c = annihilation_ops[c].flavor();
+        for (int d = 0; d < num_phys_rows; ++d) {
+          if (b==d) {
             continue;
           }
+          const int flavor_d = creation_ops[d].flavor();
 
-          const SCALAR coeff = sign * weight_rat_intermediate_state * coeff_M;
-          norm += std::abs(coeff);
+          if (coeffs[a][b][c][d] == 0.0) {
+            continue;
+          }
+          const SCALAR coeff = coeffs[a][b][c][d] * scale_fact;
           for (int il = 0; il < num_legendre; ++il) {
             for (int il_p = 0; il_p < num_legendre; ++il_p) {
               const SCALAR coeff2 = coeff * sqrt_2l_1_Pl[a][b][il] * sqrt_2l_1_Pl_p[c][d][il_p];
@@ -475,10 +521,6 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
-
-  //normalization
-  std::transform(result.origin(), result.origin() + result.num_elements(), result.origin(),
-                 std::bind2nd(std::divides<std::complex<double> >(), norm * beta));
 };
 
 template<typename SCALAR, int Rank>

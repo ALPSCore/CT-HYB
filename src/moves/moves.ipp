@@ -9,6 +9,18 @@ const T &pick(const std::vector<T> &array, alps::random01 &rng) {
   return array[static_cast<int>(rng() * array.size())];
 }
 
+/**
+ * Returns the falling factorial of x and i.
+ * Returns 1 if i == 0.
+ */
+template<typename T>
+T safe_falling_factorial(T x, unsigned i) {
+  if (i > 0) {
+    return boost::math::falling_factorial(x, i);
+  } else {
+    return 1.0;
+  }
+}
 
 inline void range_check(const std::vector<psi> &ops, double tau_low, double tau_high) {
   for (std::vector<psi>::const_iterator it = ops.begin(); it != ops.end(); ++it) {
@@ -320,18 +332,16 @@ bool InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_i
     }
     BaseType::acceptance_rate_correction_ =
         (*BaseType::acceptance_rate_correction_) *
-            boost::math::factorial<double>(1. * num_new_pairs[ib])
-            * (1. * mc_config.M.num_flavors(ib))
-            * (1. * mc_config.M.num_flavors(ib));
+            std::pow(1. * mc_config.M.num_flavors(ib), 2. * num_new_pairs[ib]);
     BaseType::acceptance_rate_correction_ =
         (*BaseType::acceptance_rate_correction_) /
-            boost::math::binomial_coefficient<double>(
+            safe_falling_factorial<double>(
                 num_cdagg_ops_in_range_[ib] + num_new_pairs[ib],
                 num_new_pairs[ib]
             );
     BaseType::acceptance_rate_correction_ =
         (*BaseType::acceptance_rate_correction_) /
-            boost::math::binomial_coefficient<double>(
+            safe_falling_factorial<double>(
                 num_c_ops_in_range_[ib] + num_new_pairs[ib],
                 num_new_pairs[ib]
             );
@@ -384,18 +394,11 @@ bool InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_r
       continue;
     }
     BaseType::acceptance_rate_correction_ =
-        (*BaseType::acceptance_rate_correction_) /
-            (
-                boost::math::factorial<double>(1. * num_pairs_rem[ib])
-                    * (1. * mc_config.M.num_flavors(ib))
-                    * (1. * mc_config.M.num_flavors(ib))
-            );
+        (*BaseType::acceptance_rate_correction_) / std::pow(1. * mc_config.M.num_flavors(ib), 2. * num_pairs_rem[ib]);
     BaseType::acceptance_rate_correction_ =
         (*BaseType::acceptance_rate_correction_) *
-            boost::math::binomial_coefficient<double>(num_cdagg_ops_in_range_[ib], num_pairs_rem[ib]);
-    BaseType::acceptance_rate_correction_ =
-        (*BaseType::acceptance_rate_correction_) *
-            boost::math::binomial_coefficient<double>(num_c_ops_in_range_[ib], num_pairs_rem[ib]);
+            safe_falling_factorial<double>(num_cdagg_ops_in_range_[ib], num_pairs_rem[ib]) *
+            safe_falling_factorial<double>(num_c_ops_in_range_[ib], num_pairs_rem[ib]);
   }
 
   return true;
@@ -1160,11 +1163,15 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
     {
       p_prop_worm_ins = 1.0;
       for (int flavor = 0; flavor < num_flavors; ++flavor) {
-        p_prop_worm_ins *=
-            boost::math::binomial_coefficient<double>(num_cdagg_ops_in_range[flavor] + num_cdagg_ops_new[flavor],
-                                                      num_cdagg_ops_new[flavor]);
-        p_prop_worm_ins *= boost::math::binomial_coefficient<double>(num_c_ops_in_range[flavor] + num_c_ops_new[flavor],
-                                                                     num_c_ops_new[flavor]);
+        if (num_cdagg_ops_new[flavor] > 0) {
+          p_prop_worm_ins *=
+              safe_falling_factorial<double>(num_cdagg_ops_in_range[flavor] + num_cdagg_ops_new[flavor],
+                                             num_cdagg_ops_new[flavor]);
+        }
+        if (num_c_ops_new[flavor] > 0) {
+          p_prop_worm_ins *= safe_falling_factorial<double>(num_c_ops_in_range[flavor] + num_c_ops_new[flavor],
+                                                            num_c_ops_new[flavor]);
+        }
       }
       p_prop_worm_ins = 1.0 / p_prop_worm_ins;
     }
@@ -1209,9 +1216,13 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
     {
       p_prop_worm_ins = 1.0;
       for (int flavor = 0; flavor < num_flavors; ++flavor) {
-        p_prop_worm_ins *=
-            boost::math::binomial_coefficient<double>(num_cdagg_ops_in_range[flavor], num_cdagg_ops_rem[flavor]);
-        p_prop_worm_ins *= boost::math::binomial_coefficient<double>(num_c_ops_in_range[flavor], num_c_ops_rem[flavor]);
+        if (num_cdagg_ops_rem[flavor] > 0) {
+          p_prop_worm_ins *=
+              safe_falling_factorial<double>(num_cdagg_ops_in_range[flavor], num_cdagg_ops_rem[flavor]);
+        }
+        if (num_c_ops_rem[flavor] > 0) {
+          p_prop_worm_ins *= safe_falling_factorial<double>(num_c_ops_in_range[flavor], num_c_ops_rem[flavor]);
+        }
       }
       p_prop_worm_ins = 1.0 / p_prop_worm_ins;
     }
@@ -1252,7 +1263,7 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
     }
     BaseType::acceptance_rate_correction_ = 1.0 /
         (worm_space_weight
-            * std::pow(boost::math::binomial_coefficient<double>(mc_config.pert_order() + RANK, RANK), 2.0));
+            * std::pow(safe_falling_factorial<double>(mc_config.pert_order() + RANK, RANK), 2.0));
     BaseType::p_new_worm_.reset();
   } else {
     //propose insertion by cutting hybridization lines
@@ -1279,7 +1290,7 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
     }
 
     BaseType::acceptance_rate_correction_ =
-        worm_space_weight * std::pow(boost::math::binomial_coefficient<double>(mc_config.pert_order(), RANK), 2.0);
+        worm_space_weight * std::pow(safe_falling_factorial<double>(mc_config.pert_order(), RANK), 2.0);
   }
   return true;
 }
