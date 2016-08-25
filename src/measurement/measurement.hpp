@@ -323,43 +323,40 @@ class GMeasurement {
    * @param num_freq       the number of bosonic frequencies
    * @param beta           inverse temperature
    */
-  GMeasurement(int num_flavors, int num_legendre, int num_freq, double beta) :
+  GMeasurement(int num_flavors, int num_legendre, int num_freq, double beta, int max_num_data = 1) :
+      str_("G"+boost::lexical_cast<std::string>(Rank)),
       num_flavors_(num_flavors),
       num_freq_(num_freq),
       beta_(beta),
-      legendre_trans_(1, num_legendre) {
+      legendre_trans_(1, num_legendre),
+      num_data_(0),
+      max_num_data_(max_num_data) {
     init_work_space(data_, num_flavors, num_legendre, num_freq);
   };
 
   /**
-   * @brief Measure G1 with shifting two of the four operators on the interval [0,beta]
-   * @param average_pert_order average perturbation order per flavor, which is used for determining the number of shifts
+   * @brief Create ALPS observable
    */
-  //template<typename SlidingWindow>
-  //void measure(MonteCarloConfiguration<SCALAR> &mc_config,
-               //alps::accumulators::accumulator_set &measurements,
-               //alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str);
+  void create_alps_observable(alps::accumulators::accumulator_set &measurements) const {
+    create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, str_.c_str());
+  }
 
   /**
    * @brief Measure Green's function via hybridization function
    */
   void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements,
-               alps::random01 &random, const std::string &str, int max_matrix_size, double eps = 1E-5);
+               alps::random01 &random, int max_matrix_size, double eps = 1E-5);
 
  private:
-  /** Measure single-particle Green's function */
-  //typename boost::enable_if_c<Rank==1, SCALAR>::type
-  //measure_impl(const std::vector<psi> &worm_ops, int idx_operator_shifted, SCALAR sign, std::vector<SCALAR> &weight_flavors);
-
-  //typename boost::enable_if_c<Rank==2, SCALAR>::type
-  //measure_impl(const std::vector<psi> &worm_ops, int idx_operator_shifted, SCALAR sign, std::vector<SCALAR> &weight_flavors) {};
-
+  std::string str_;
   int num_flavors_, num_freq_;
   double beta_;
   LegendreTransformer legendre_trans_;
   //flavor, ..., flavor, legendre, legendre, ..., legendre
   boost::multi_array<std::complex<double>, 4 * Rank - 1> data_;
+  int num_data_;
+  int max_num_data_;//max number of data accumlated before passing data to ALPS
 };
 
 /**

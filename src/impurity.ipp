@@ -44,12 +44,14 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
                    2000,
                    "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
       .define<int>("measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
+      .define<int>("measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>("measurement.G1.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
           //Two-particle GF
       .define<int>("measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
       .define<int>("measurement.G2.n_legendre", 20, "Number of legendre polynomials for measurement")
       .define<int>("measurement.G2.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
       .define<int>("measurement.G2.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
+      .define<int>("measurement.G2.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>("measurement.G2.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
           //
           //Two-time two-particle GF
@@ -269,14 +271,13 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       break;
 
     case G1:
-      //p_G1_meas->measure(mc_config, measurements, random, sliding_window, N_win_standard, "G1");
-      p_G1_meas->measure_via_hyb(mc_config, measurements, random, "G1", par["measurement.G1.max_matrix_size"],
+      p_G1_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G1.max_matrix_size"],
                                  par["measurement.G1.aux_field"]
       );
       break;
 
     case G2:
-      p_G2_meas->measure_via_hyb(mc_config, measurements, random, "G2", par["measurement.G2.max_matrix_size"],
+      p_G2_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G2.max_matrix_size"],
                                  par["measurement.G2.aux_field"]
       );
       break;

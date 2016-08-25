@@ -145,186 +145,10 @@ void TwoTimeG2Measurement<SCALAR>::measure_impl(const std::vector<psi> &worm_ops
   }
 }
 
-/**
- * @brief Generate a set of times for a given size num_times.
- * @param init_time the first element in the set
- * @param num_times the number of times to be generated (including init_time)
- * @param random alps::random
- * @param beta inverse temperature
- * @param tau_min lower bound
- * @param tau_max upper bound
- * @param operators make sure none of the entries in new_times share its position with any entry in operators.
- * @param a set of times generated
- */
-inline void generate_new_time_sets(double init_time, int num_times, alps::random01 &random,
-                                   double beta,
-                                   double tau_min,
-                                   double tau_max,
-                                   const operator_container_t &operators, std::set<double> &new_times) {
-  new_times.clear();
-  new_times.insert(init_time);
-  if (new_times.size() < num_times) {
-    std::set<double> duplicate_check;
-    for (operator_container_t::const_iterator it = operators.begin(); it != operators.end(); ++it) {
-      duplicate_check.insert(it->time().time());
-    }
-    while (new_times.size() < num_times) {
-      double t = open_random(random, tau_min, tau_max);
-      while (t > beta) {
-        t -= beta;
-      }
-      while (t < 0) {
-        t += beta;
-      }
-      if (duplicate_check.find(t) == duplicate_check.end()) {
-        new_times.insert(t);
-        duplicate_check.insert(t);
-      }
-    }
-    assert(new_times.size() == num_times);
-  }
-}
-
-//template<int Rank>
-//void init_work_space(boost::multi_array<std::complex<double>, 4 * Rank - 1> &data, int num_flavors, int num_legendre) {
-//data.resize(boost::extents[num_flavors][num_flavors][num_legendre]);
-//};
-
-
-/*
-template<typename SCALAR, int Rank>
-template<typename SlidingWindow>
-void GMeasurement<SCALAR, Rank>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
-                                         alps::accumulators::accumulator_set &measurements,
-                                         alps::random01 &random,
-                                         SlidingWindow &sliding_window,
-                                         int average_pert_order,
-                                         const std::string &str) {
-  typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
-  typedef operator_container_t::iterator Iterator;
-
-  //Remove the left-hand-side operators
-  operator_container_t ops(mc_config.operators);
-  const std::vector<psi> worm_ops_original = mc_config.p_worm->get_operators();
-  safe_erase(ops, worm_ops_original);
-
-  //Determine which operator we shift
-  const int idx_operator_shifted = static_cast<int>(random() * 2 * Rank);
-  const double original_time = worm_ops_original[idx_operator_shifted].time().time();
-
-  //Generate times of the left hand operator pair c^dagger c
-  const int num_times = std::max(50, average_pert_order * num_flavors_);
-  double tau_min, tau_max;
-  if (random() < 0.5) {
-    tau_min = 0.0;
-    tau_max = beta_;
-  } else {
-    tau_min = original_time - beta_ / average_pert_order;
-    tau_max = original_time + beta_ / average_pert_order;
-  }
-  std::set<double> new_times;
-  generate_new_time_sets(
-      worm_ops_original[idx_operator_shifted].time().time(),
-      num_times,
-      random,
-      beta_,
-      tau_min,
-      tau_max,
-      mc_config.operators,
-      new_times
-  );
-
-  //remember the current status of the sliding window
-  const typename SlidingWindow::state_t state = sliding_window.get_state();
-  const int n_win = sliding_window.get_n_window();
-
-  std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
-
-  //configurations whose trace is smaller than this cutoff are ignored.
-  const EXTENDED_REAL trace_cutoff = EXTENDED_REAL(1.0E-30) * myabs(mc_config.trace);
-
-  double norm = 0.0;
-  std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
-
-  //insert worm operators which are not shifted in time
-  std::vector<psi> worm_ops = worm_ops_original;
-  for (int iop = 0; iop < worm_ops.size(); ++iop) {
-    if (iop != idx_operator_shifted) {
-      safe_insert(ops, worm_ops[iop]);
-    }
-  }
-
-  //reset the window and move to the right most position
-  sliding_window.set_window_size(
-      std::max(4 * num_times, 4 * mc_config.pert_order()),
-      ops, 0, ITIME_LEFT
-  );
-
-  std::vector<SCALAR> weight_flavors(num_flavors_, 0.0);
-
-  int counter = 0;
-  for (std::set<double>::iterator it = new_times.begin(); it != new_times.end(); ++it, ++counter) {
-    //move the window if needed
-    while (*it > sliding_window.get_tau_high()) {
-      sliding_window.move_window_to_next_position(ops);
-    }
-    assert(*it <= sliding_window.get_tau_high());
-    assert(*it >= sliding_window.get_tau_low());
-
-    //count permutation
-    const double perm_sign_change = num_operators_in_range_open(ops, *it, original_time) % 2 == 0 ? 1 : -1;
-
-    //compute weights of samples with different flavors
-    worm_ops[idx_operator_shifted].set_time(OperatorTime(*it, +1));
-    std::fill(weight_flavors.begin(), weight_flavors.end(), 0.0);
-    for (int flavor = 0; flavor < num_flavors_; ++flavor) {
-      worm_ops[idx_operator_shifted].set_flavor(flavor);
-      safe_insert(ops, worm_ops[idx_operator_shifted]);
-
-      sliding_window.compute_trace_bound(ops, trace_bound);
-      std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(ops, EXTENDED_REAL(0.0), trace_bound);
-      if (myabs(r.second) > trace_cutoff) {
-        weight_flavors[flavor] = perm_sign_change * convert_to_scalar(r.second / mc_config.trace);
-        norm += std::abs(weight_flavors[flavor]);
-      }
-
-      safe_erase(ops, worm_ops[idx_operator_shifted]);
-    }
-
-    //measure Green's fuction for all the samples at once
-    //We have to compute Legendre coefficients and exponents only once.
-    measure_impl(worm_ops, idx_operator_shifted, mc_config.sign, weight_flavors);
-  }
-
-  //normalize the data
-  std::transform(data_.origin(),
-                 data_.origin() + data_.num_elements(),
-                 data_.origin(),
-                 std::bind2nd(std::divides<std::complex<double> >(), norm));
-
-  //pass the data to ALPS libraries
-  measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
-
-  //restore the status of the sliding window
-  sliding_window.restore_state(mc_config.operators, state);
-}
-*/
-
-inline int compute_perm_sign(const std::vector<psi> &ops) {
-  std::vector<OperatorTime> times;
-  times.reserve(ops.size());
-  for (int i = 0; i < ops.size(); ++i) {
-    times.push_back(ops[i].time());
-  }
-  assert(times.size() == ops.size());
-  return alps::fastupdate::comb_sort(times.begin(), times.end(), std::greater<OperatorTime>());
-}
-
 template<typename SCALAR, int Rank>
 void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                                                  alps::accumulators::accumulator_set &measurements,
                                                  alps::random01 &random,
-                                                 const std::string &str,
                                                  int max_num_ops,
                                                  double eps) {
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
@@ -468,9 +292,14 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
                                         c_ops_new,
                                         M,
                                         data_);
+  ++ num_data_;
 
-  //pass the data to ALPS libraries
-  measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data_));
+  if (num_data_ == max_num_data_) {
+    //pass the data to ALPS libraries
+    std::transform(data_.origin(), data_.origin() + data_.num_elements(), data_.origin(),
+                   std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
+    measure_simple_vector_observable<std::complex<double> >(measurements, str_.c_str(), to_std_vector(data_));
+  }
 }
 
 //Measure G1 by removal in G1 space
@@ -489,7 +318,6 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
   const int num_legendre = legendre_trans.num_legendre();
 
   std::vector<double> Pl_vals(num_legendre);
-  std::fill(result.origin(), result.origin() + result.num_elements(), 0.0);
 
   double norm = 0.0;
   std::vector<psi>::const_iterator it1, it2;
@@ -543,7 +371,11 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
   const int num_legendre = legendre_trans.num_legendre();
-  const int pert_order = creation_ops.size();
+  const int num_phys_rows = creation_ops.size();
+  //std::cout << "num_phys_rows " << num_phys_rows << " " << annihilation_ops.size() << " " << M.size1() << std::endl;
+  if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.size1() - 1) {
+    throw std::runtime_error("Fatal error in MeasureGHelper<SCALAR, 2>::perform()");
+  }
 
   //Compute values of P
   std::vector<double> sqrt_2l_1 = legendre_trans.get_sqrt_2l_1();
@@ -553,13 +385,13 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
 
   boost::multi_array<double, 3>
-      sqrt_2l_1_Pl(boost::extents[pert_order][pert_order][num_legendre]);//annihilator, creator, legendre
+      sqrt_2l_1_Pl(boost::extents[num_phys_rows][num_phys_rows][num_legendre]);//annihilator, creator, legendre
   boost::multi_array<double, 3>
-      sqrt_2l_1_Pl_p(boost::extents[pert_order][pert_order][num_legendre]);//annihilator, creator, legendre
+      sqrt_2l_1_Pl_p(boost::extents[num_phys_rows][num_phys_rows][num_legendre]);//annihilator, creator, legendre
   {
     std::vector<double> Pl_tmp(num_legendre);
-    for (int k = 0; k < M.size1(); k++) {
-      for (int l = 0; l < M.size2(); l++) {
+    for (int k = 0; k < num_phys_rows; k++) {
+      for (int l = 0; l < num_phys_rows; l++) {
         double argument = annihilation_ops[k].time() - creation_ops[l].time();
         double arg_sign = 1.0;
         if (argument < 0) {
@@ -577,10 +409,10 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
 
   boost::multi_array<std::complex<double>, 3>
-      expiomega(boost::extents[pert_order][pert_order][n_freq]);//annihilator, creator, legendre
+      expiomega(boost::extents[num_phys_rows][num_phys_rows][n_freq]);//annihilator, creator, legendre
   {
-    for (int k = 0; k < M.size1(); k++) {
-      for (int l = 0; l < M.size2(); l++) {
+    for (int k = 0; k < num_phys_rows; k++) {
+      for (int l = 0; l < num_phys_rows; l++) {
         const double tau_diff = annihilation_ops[k].time() - creation_ops[l].time();
         expiomega[k][l][0] = std::exp(std::complex<double>(0.0, 2 * M_PI * tau_diff * temperature));
         std::complex<double> rat = expiomega[k][l][0];
@@ -593,20 +425,19 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
 
   //naive way to evaluate
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
-  std::fill(result.origin(), result.origin() + result.num_elements(), 0.0);
   Eigen::Matrix<SCALAR,3,3> tmp_mat;
   boost::array<int,3> rows3, cols3;
-  const int last = pert_order - 1;
+  const int last = M.size1() - 1;
   rows3[2] = last;
   cols3[2] = last;
   double norm = 0.0;
-  for (int a = 0; a < pert_order; ++a) {
+  for (int a = 0; a < num_phys_rows; ++a) {
     const int flavor_a = annihilation_ops[a].flavor();
-    for (int b = 0; b < pert_order; ++b) {
+    for (int b = 0; b < num_phys_rows; ++b) {
       const int flavor_b = creation_ops[b].flavor();
-      for (int c = 0; c < pert_order; ++c) {
+      for (int c = 0; c < num_phys_rows; ++c) {
         const int flavor_c = annihilation_ops[c].flavor();
-        for (int d = 0; d < pert_order; ++d) {
+        for (int d = 0; d < num_phys_rows; ++d) {
           const int flavor_d = creation_ops[d].flavor();
 
           /*
