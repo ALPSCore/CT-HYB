@@ -27,7 +27,12 @@ int main(int argc, const char *argv[]) {
     return run_simulation<REAL_MATRIX_SOLVER>(argc, argv, par);
   } else if (par["algorithm"].as<std::string>() == "complex-matrix") {
     std::cout << "Calling complex-matrix solver..." << std::endl;
-    return run_simulation<COMPLEX_MATRIX_SOLVER>(argc, argv, par);
+    try {
+      return run_simulation<COMPLEX_MATRIX_SOLVER>(argc, argv, par);
+    } catch (const std::exception &e) {
+      std::cerr << e.what() << std::endl;
+      exit(-1);
+    }
   } else {
     throw std::runtime_error("Unknown algorithm: " + par["algorithm"].as<std::string>());
   }
