@@ -209,9 +209,10 @@ inline bool operator!=(const psi &op1, const psi &op2) {
 typedef boost::multi_index::multi_index_container<psi>
     operator_container_t; //one can use range() with multi_index_container.
 
-inline void print_list(const operator_container_t &operators) {
+template<typename V>
+void print_list(const V &operators) {
   std::cout << "list: " << std::endl;
-  for (operator_container_t::const_iterator it = operators.begin(); it != operators.end(); ++it) {
+  for (typename V::const_iterator it = operators.begin(); it != operators.end(); ++it) {
     std::cout << it->time() << "[" << it->flavor() << "]" << " ";
   }
   std::cout << std::endl;
