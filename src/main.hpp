@@ -85,6 +85,9 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
       if (parameters["measurement.equal_time_G2.on"] != 0) {
         compute_euqal_time_G2<SOLVER_TYPE>(results, parameters, sim.get_rotmat_Delta(), ar, global_mpi_rank == 0);
       }
+      if (parameters["measurement.nn_corr.n_def"] != 0) {
+        compute_nn_corr<SOLVER_TYPE>(results, parameters, ar);
+      }
       compute_fidelity_susceptibility<SOLVER_TYPE>(results, parameters, ar);
       if (global_mpi_rank == 0) {
         sim.show_statistics(results);

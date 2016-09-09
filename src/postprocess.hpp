@@ -513,6 +513,37 @@ void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type 
   ar["/EQUAL_TIME_G2"] << data_org_basis;
 }
 
+template<unsigned long N>
+void load_signed_multi_dimension_data(const alps::accumulators::result_set &results,
+                          const std::string &name,
+                          boost::multi_array<std::complex<double>, N>& data) {
+  std::fill(data.origin(), data.origin() + data.num_elements(), 0.0);
+  const std::vector<double> data_Re = results[name + "_Re"].template mean<std::vector<double> >();
+  const std::vector<double> data_Im = results[name + "_Im"].template mean<std::vector<double> >();
+  if (data_Re.size() != data.num_elements() || data_Im.size() != data.num_elements()) {
+    throw std::runtime_error("data size inconsistency in loading observable " + name + "!");
+  }
+  const std::complex<double> coeff = 1.0 / results["Sign"].template mean<double>();
+  std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
+  std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
+                 std::bind1st(std::multiplies<std::complex<double> >(), coeff));
+}
+
+template<typename SOLVER_TYPE>
+void compute_nn_corr(const typename alps::results_type<SOLVER_TYPE>::type &results,
+                const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                alps::hdf5::archive &ar) {
+  const int n_tau(parms["measurement.nn_corr.n_tau"]);
+  const int n_def(parms["measurement.nn_corr.n_def"]);
+  const double sign = results["Sign"].template mean<double>();
+
+  boost::multi_array<std::complex<double>, 2> data(boost::extents[n_def][n_tau]);
+  load_signed_multi_dimension_data(results, std::string("Two_time_correlation_functions"), data);
+
+  ar["/DENSITY_DENSITY_CORRELATION_FUNCTIONS"] << data;
+}
+
+
 template<typename SOLVER_TYPE>
 void compute_fidelity_susceptibility(const typename alps::results_type<SOLVER_TYPE>::type &results,
                                      const typename alps::parameters_type<SOLVER_TYPE>::type &parms,

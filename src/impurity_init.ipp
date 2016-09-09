@@ -395,6 +395,8 @@ void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
     return;
   }
   const int num_tau_points = par["measurement.nn_corr.n_tau"];
+  const int num_def = par["measurement.nn_corr.n_def"];
+  std::cout << "debug " << num_def << std::endl;
   if (num_tau_points < 2 || !par.defined(fname_key)) {
     return;
   }
@@ -412,7 +414,10 @@ void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
   int num_elem;
   infile_f >> num_elem;
   if (num_elem < 0) {
-    std::runtime_error("The number of density-density correlation functions in " + fname_key + " cannot be negative!");
+    throw std::runtime_error("The number of density-density correlation functions in " + fname_key + " cannot be negative!");
+  }
+  if (num_elem != num_def) {
+    throw std::runtime_error("Inconsistent numbers of density-density correlation functions between the input file and the parameter");
   }
   if (verbose) {
     std::cout << "The number of density-density correlation functions is " << num_elem << std::endl;

@@ -70,6 +70,9 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.nn_corr.n_tau",
                    0,
                    "Number of imaginary time points for measurement (tau=0, ...., beta/2)")
+      .define<int>("measurement.nn_corr.n_def",
+                   0,
+                   "Number of density-density correlation functions")
       .define<int>("measurement.max_order_histogram",
                    1000,
                    "Expansion order (per flavor) up to which histogram is measured.");
