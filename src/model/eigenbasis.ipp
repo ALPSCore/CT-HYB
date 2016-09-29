@@ -166,7 +166,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
   }
   remove_high_energy_states(eigenvals_sector,
                             evecs_sector,
-                            eigenvalue_min + par["model.inner_cutoff_energy"].template as<double>());
+                            eigenvalue_min + par["model.inner_outer_cutoff_energy"].template as<double>());
   boost::tie(eigenvalue_max, eigenvalue_min) = min_max_energy_sectors(eigenvals_sector, min_eigenval_sector);
   if (Base::verbose_) {
     print_sectors(eigenvals_sector);

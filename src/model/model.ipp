@@ -32,7 +32,7 @@ void ImpurityModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters)
       .define<std::string>("model.hopping_matrix_input_file", "Input file for hopping matrix")
       .define<std::string>("model.delta_input_file", "", "Input file for hybridization function Delta(tau)")
       .define<std::string>("model.basis_input_file", "", "Input file for single-particle basis for expansion")
-      .define<double>("model.inner_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
+      .define<double>("model.inner_outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
                       "Cutoff energy for inner states for computing trace (measured from the lowest eigenvalue)")
       .define<double>("model.outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
                       "Cutoff energy for outer states for computing trace (measured from the lowest eigenvalue)")
