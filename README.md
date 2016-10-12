@@ -65,7 +65,11 @@ If cmake does not find boost, please tell cmake the installation directory of bo
 Upon installation there will be a binary `hybmat`.
 It uses [ALPSCore parameters](https://github.com/ALPSCore/ALPSCore/wiki/Tutorial%3A-parameters).
 The program takes a param file as input or command line arguments of the form `--PARAMETER=value`.
-Examples of the former case is given in our tutorials included in the directory `tutorials`.
+Refer to the section tutorials for more details.
+
+## Tutorials
+Tutorials are in the directory `tutorials`.
+The tutorials include input param files and corresponding output data.
 
 ## Trouble shooting
 * Some libraries are not found at runtime.<br>
