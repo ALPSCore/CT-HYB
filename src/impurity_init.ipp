@@ -396,7 +396,6 @@ void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
   }
   const int num_tau_points = par["measurement.nn_corr.n_tau"];
   const int num_def = par["measurement.nn_corr.n_def"];
-  std::cout << "debug " << num_def << std::endl;
   if (num_tau_points < 2 || !par.defined(fname_key)) {
     return;
   }
