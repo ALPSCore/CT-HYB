@@ -13,7 +13,7 @@ https://github.com/ALPSCore/CT-HYB/wiki)!
 - [Requirements](#requirements)
 - [From package managers](#from-package-managers)
 - [Manual source installation](#manual-source-installation)
-- [Usage](#usage)
+- [Usage and tutorials](#usage_tutorials)
 - [Trouble shooting](#trouble-shooting)
 
 ## Requirements
@@ -61,15 +61,13 @@ If you want to enable parallelization, please use a MPI C++ compiler.
 Note that if you enable MPI for the CT-HYB package, MPI must be enabled also in the installation of ALPSCore.
 If cmake does not find boost, please tell cmake the installation directory of boost by using the option "-DBOOST_ROOT=***".
 
-## Usage
+## Usage and tutorials
 Upon installation there will be a binary `hybmat`.
 It uses [ALPSCore parameters](https://github.com/ALPSCore/ALPSCore/wiki/Tutorial%3A-parameters).
 The program takes a param file as input or command line arguments of the form `--PARAMETER=value`.
-Refer to the section tutorials for more details.
 
-## Tutorials
 Tutorials are in the directory `tutorials`.
-The tutorials include input param files and corresponding output data.
+The directory includes input param files and corresponding output data and some plots.
 
 ## Trouble shooting
 * Some libraries are not found at runtime.<br>
