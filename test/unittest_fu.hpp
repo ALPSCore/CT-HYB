@@ -9,6 +9,9 @@
 #include <boost/multi_array.hpp>
 #include <boost/range/irange.hpp>
 
+//To avoid compiler errors for intel compiler on a cray machine
+#define GTEST_USE_OWN_TR1_TUPLE
+
 #include <gtest.h>
 
 #include <alps/fastupdate/determinant_matrix.hpp>

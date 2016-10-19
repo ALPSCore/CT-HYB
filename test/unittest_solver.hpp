@@ -5,6 +5,9 @@
 #include<Eigen/Dense>
 #include<Eigen/LU>
 
+//To avoid compiler errors for intel compiler on a cray machine
+#define GTEST_USE_OWN_TR1_TUPLE
+
 #include "gtest.h"
 
 #include <alps/fastupdate/detail/util.hpp>
