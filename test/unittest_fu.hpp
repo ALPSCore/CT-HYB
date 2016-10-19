@@ -10,7 +10,7 @@
 #include <boost/range/irange.hpp>
 
 //To avoid compiler errors for intel compiler on a cray machine
-#define GTEST_USE_OWN_TR1_TUPLE
+#define GTEST_USE_OWN_TR1_TUPLE 1
 
 #include <gtest.h>
 
