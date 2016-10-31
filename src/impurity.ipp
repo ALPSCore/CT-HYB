@@ -11,7 +11,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
   long > ("timelimit", "Total simulation time (in units of second)")
       .define<double>("thermalization_time",
                       -1,
-                      "Thermalization time (in units of second). The default value is 25 % of timelimit.")
+                      "Thermalization time (in units of second). The default value is 10 % of timelimit.")
       //.define<int>("Tmin", 1, "The scheduler checks longer than every Tmin seconds if the simulation is finished.")
       //.define<int>("Tmax", 60, "The scheduler checks shorter than every Tmax seconds if the simulation is finished.")
       .define<std::string>("outputfile",
@@ -122,7 +122,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
 {
 
   if (thermalization_time < 0) {
-    thermalization_time = static_cast<double>(0.25 * parameters["timelimit"].template as<double>());
+    thermalization_time = static_cast<double>(0.1 * parameters["timelimit"].template as<double>());
   }
   if (thermalization_time > 0.9 * parameters["timelimit"].template as<double>()) {
     throw std::runtime_error("timelimit is too short in comparison with thermalization_time.");
@@ -761,6 +761,13 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
                 boost::format(
                     "Warning: flat histogram is not yet obtained for MPI rank %1%. Increase thermalization time!"
                 ) % global_mpi_rank << std::endl;
+    }
+    p_flat_histogram_config_space->synchronize(comm);
+    // Apply the new worm space weights
+    config_space_extra_weight[0] = 1.0;
+    for (int w = 0; w < worm_types.size(); ++w) {
+      config_space_extra_weight[w + 1] = p_flat_histogram_config_space->weight_ratio(w + 1, 0);
+      worm_space_extra_weight_map[worm_types[w]] = p_flat_histogram_config_space->weight_ratio(w + 1, 0);
     }
     p_flat_histogram_config_space->finish_learning(false);
   }

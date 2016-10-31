@@ -137,6 +137,26 @@ class FlatHistogram {
   }
 
   /**
+   * Synchronize log_f over MPI processes
+   */
+  void synchronize(const alps::mpi::communicator & comm) {
+    if (is_learning_done()) {
+      throw std::runtime_error("synchronize() is called after learning is done.");
+    }
+
+    std::vector<double> log_f_out(log_f_.size());
+    MPI_Allreduce((void *) &log_f_[0],
+                  (void *) &log_f_out[0],
+                  log_f_.size(),
+                  MPI_DOUBLE,
+                  MPI_SUM,
+                  comm);
+    std::transform(log_f_out.begin(), log_f_out.end(), log_f_.begin(),
+                   std::bind2nd(std::divides<double>(), 1.*comm.size())
+    );
+  }
+
+  /**
    * Finish the estimate of histogram
    */
   void finish_learning(bool verbose) {
