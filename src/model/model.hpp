@@ -21,6 +21,7 @@
 #include "clustering.hpp"
 #include "../util.hpp"
 #include "../operator.hpp"
+#include "../wide_scalar.hpp"
 
 //forward declaration for alps::params
 namespace alps {
