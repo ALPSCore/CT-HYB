@@ -373,7 +373,7 @@ ImpurityModelEigenBasis<SCALAR>::product(const BRAKET_T &bra, const BRAKET_T &ke
   }
   assert(size2(bra.obj()) == size1(ket.obj()));
   assert(size1(bra.obj()) == size2(ket.obj()));
-  return static_cast<EXTENDED_SCALAR>(bra.coeff() * ket.coeff()) * (bra.obj() * ket.obj()).trace();
+  return static_cast<typename ExtendedScalar<SCALAR>::value_type>(bra.coeff() * ket.coeff()) * (bra.obj() * ket.obj()).trace();
 }
 
 template<typename SCALAR>
