@@ -16,11 +16,9 @@ set(CMAKE_INCLUDE_CURRENT_DIR on)
 # automatically, specify its location using:
 # export ALPSCore_DIR=/location/to/ALPSCORE/
 find_package(ALPSCore REQUIRED)
-if (ALPSCore_HAS_MPI)
-    find_package(MPI REQUIRED)
-else()
-    message(FATAL_ERROR "Error: ALPSCore must support MPI!")
-endif()
+
+#Find MPI
+include(EnableMPI)
 
 if (MEASURE_TIMING)
     message("measurement of timing enabled")
