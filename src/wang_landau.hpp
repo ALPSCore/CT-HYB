@@ -20,7 +20,26 @@ class FlatHistogram {
         criterion(0.8),
         min_count(std::max(10.0, 1 / ((1.0 - criterion) * (1.0 - criterion)))),
         init_log_lambda_(0.993251773010283), //std::log(2.7);
-      //min_log_lambda_(0.000999500333083), //std::log(1.001);
+        min_log_lambda_(0.000099995000334), //std::log(1.0001);
+        log_lambda_(init_log_lambda_), log_f_(num_bin_, 0),
+        counter_(num_bin_, 0),
+        done_(false),
+        top_index_(0),
+        max_index_(0),
+        has_guess_(true),
+        num_updates_lambda_(0),
+        target_fractions_(max_val + 1, 1.0){
+    max_index_ = max_val;
+  }
+
+  /**
+   * @param max_val The value takes 0 - max_val.
+   */
+  FlatHistogram(unsigned int max_val, const std::vector<double> &target_fractions)
+      : max_val_(max_val), num_bin_(max_val + 1),
+        criterion(0.8),
+        min_count(std::max(10.0, 1 / ((1.0 - criterion) * (1.0 - criterion)))),
+        init_log_lambda_(0.993251773010283), //std::log(2.7);
         min_log_lambda_(0.000099995000334), //std::log(1.0001);
         log_lambda_(init_log_lambda_), log_f_(num_bin_, 0),
         counter_(num_bin_, 0),
@@ -30,6 +49,11 @@ class FlatHistogram {
         has_guess_(true),
         num_updates_lambda_(0) {
     max_index_ = max_val;
+
+    if (target_fractions.size() != max_val + 1) {
+      throw std::runtime_error("size of target fractions is wrong");
+    }
+    target_fractions_ = target_fractions;
   }
 
   /**
@@ -77,8 +101,8 @@ class FlatHistogram {
     if (value > max_index_)
       return;
 
-    log_f_[value] += log_lambda_;
-    ++counter_[value];
+    log_f_[value] += log_lambda_/target_fractions_[value];
+    counter_[value] += 1.0/target_fractions_[value];
   }
 
   /**
@@ -173,6 +197,7 @@ class FlatHistogram {
 
  private:
   const uint max_val_, num_bin_;
+  std::vector<double> target_fractions_;
   double criterion;
   double min_count;
   double init_log_lambda_;

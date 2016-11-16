@@ -246,7 +246,15 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
 
   //if we have active worm spaces, we activate flat histogram algorithm.
   if (worm_types.size() > 0) {
-    p_flat_histogram_config_space.reset(new FlatHistogram(worm_types.size()));
+    std::vector<double> target_fractions;
+    target_fractions.push_back(1.0);//partition function space
+    for (int w = 0; w < worm_types.size(); ++w) {
+      //we should not spend too many Monte Carlo steps for measuring equal-time observables
+      target_fractions.push_back(
+          (worm_types[w] == Equal_time_G1 || worm_types[w] == Equal_time_G2) ? 0.1 : 1.0
+      );
+    }
+    p_flat_histogram_config_space.reset(new FlatHistogram(worm_types.size(), target_fractions));
   }
   config_space_extra_weight.resize(0);
   config_space_extra_weight.resize(worm_types.size() + 1, 1.0);

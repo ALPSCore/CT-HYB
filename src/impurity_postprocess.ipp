@@ -24,6 +24,14 @@ void HybridizationSimulation<IMP_MODEL>::show_statistics(const alps::accumulator
       results["Pert_order_start"].template mean<double>() %
       results["Pert_order_end"].template mean<double>() << std::endl;
 
+  std::cout << std::endl << "==== Number of Monte Carlo steps spent in configuration spaces ====" << std::endl;
+  std::cout << "Z function" << " : " << results["Z_function_space_num_steps"].template mean<double>() << std::endl;
+  for (int w = 0; w < worm_types.size(); ++w) {
+    std::cout << get_config_space_name(worm_types[w]) << " : "
+              << results["worm_space_num_steps_" + get_config_space_name(worm_types[w])].template mean<double>()
+              << std::endl;
+  }
+
   std::cout << std::endl << "==== Acceptance updates of operators hybridized with bath ====" << std::endl;
   for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
     print_acc_rate(results, ins_rem_updater[k-1]->get_name(), std::cout);
