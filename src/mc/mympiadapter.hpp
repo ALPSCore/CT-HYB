@@ -7,8 +7,6 @@
 
 #include <time.h>
 
-extern int global_mpi_rank;//for debug
-
 class my_check_schedule
 {
  public:

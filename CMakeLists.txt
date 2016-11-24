@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+cmake_policy(SET CMP0022 NEW)
 
 if(NOT CMAKE_BUILD_TYPE)
     message("Using default build type: Release")
@@ -11,6 +12,8 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_SOURCE_DIR})
 
 #To include alps/fastupdate
 set(CMAKE_INCLUDE_CURRENT_DIR on)
+
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # The project relies on the ALPSCore package. If ALPSCore is not found
 # automatically, specify its location using:
@@ -44,8 +47,9 @@ set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH} ${CM
 include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
 #source files
-set(LIB_FILES ./src/sliding_window/sliding_window.cpp ./src/legendre.cpp ./src/util.cpp ./src/model/model.cpp ./src/model/clustering.cpp src/operator_util.cpp src/moves/moves.cpp src/measurement/measurement.cpp)
-ADD_LIBRARY(hyb ${LIB_FILES})
+set(LIB_FILES ./src/solver.cpp ./src/sliding_window/sliding_window.cpp ./src/legendre.cpp ./src/util.cpp ./src/model/model.cpp ./src/model/clustering.cpp src/operator_util.cpp src/moves/moves.cpp src/measurement/measurement.cpp)
+add_library(alpscore_cthyb SHARED ${LIB_FILES})
+set_target_properties(alpscore_cthyb PROPERTIES PUBLIC_HEADER src/solver.hpp)
 
 #Compiler dependent libraries
 set(EXTRA_LIBS "")
@@ -59,17 +63,17 @@ if (USE_QUAD_PRECISION)
 endif()
 
 #Set link libraries
-target_link_libraries(hyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+target_link_libraries(alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 #executable
 ADD_EXECUTABLE(hybmat ./src/main.cpp)
-target_link_libraries(hybmat hyb)
+target_link_libraries(hybmat alpscore_cthyb)
 
 #testing setup
 option(Testing "Enable testing" ON)
 include(EnableGtests) #defined in ./cmake
 include_directories("test")
-list(APPEND LINK_ALL hyb)
+list(APPEND LINK_ALL alpscore_cthyb)
 
 #testing source files
 set(unittest_src
@@ -82,5 +86,28 @@ foreach(test ${unittest_src})
     add_gtest(${test} test)
 endforeach(test)
 
+### Configuration file
+#configure_file("./cmake/ALPSCoreCTHYBConfig.cmake.in" "./ALPSCoreCTHYBConfig.cmake" @ONLY)
+#configure_file("./cmake/ALPSCoreCTHYBConfig.cmake.in" "./ALPSCoreCTHYBConfig.cmake")
+
 #installation
-install (TARGETS hybmat DESTINATION bin)
+install (TARGETS hybmat RUNTIME DESTINATION bin)
+
+install (TARGETS alpscore_cthyb
+        EXPORT ALPSCoreCTHYB-export
+        LIBRARY        DESTINATION lib
+        INCLUDES       DESTINATION include
+        PUBLIC_HEADER  DESTINATION include/alps/cthyb
+        )
+
+install(EXPORT ALPSCoreCTHYB-export
+        FILE ALPSCoreCTHYB-config.cmake
+        DESTINATION share/cmake/ALPSCoreCTHYB/
+        EXPORT_LINK_INTERFACE_LIBRARIES)
+
+#install (TARGETS hybmat alpscore_cthyb
+#RUNTIME DESTINATION bin
+#LIBRARY DESTINATION lib
+#)
+#install (FILES "./src/solver.hpp" DESTINATION "include/alps/cthyb")
+#install (FILES "${CMAKE_BINARY_DIR}/ALPSCoreCTHYBConfig.cmake" DESTINATION "./share/ALPSCoreCTHYB/")

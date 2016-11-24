@@ -17,106 +17,13 @@ struct to_complex {
   }
 };
 
-
-/**
- * Evaluate imaginary and Matsubara Green's functions from coefficients of Legendre polynominals
- *
- * @param result ALPS Monte Carlo result
- * @param parms ALPS parameters (input)
- * @param ar ALPS HDF5 archive (output)
- */
-template<typename SOLVER_TYPE>
-void compute_greens_functions(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                              const typename alps::parameters_type<SOLVER_TYPE>::type &parms, alps::hdf5::archive &ar) {
-  namespace g=alps::gf;
-
-  const int n_tau(parms["measurement.G1.n_tau"]);
-  const int n_site(parms["model.sites"]);
-  const int n_spin(parms["model.spins"]);
-  const double beta(parms["model.beta"]);
-  const double temperature(1.0 / beta);
-  const int n_matsubara(parms["measurement.G1.n_matsubara"]);
-  const int n_legendre(parms["measurement.G1.n_legendre"].template as<int>());
-  const int n_flavors = n_site * n_spin;
-
-  const double sign = results["Sign"].template mean<double>();
-
-  /*
-   * Compute legendre coefficients in the original basis.
-   */
-  const std::vector<double> Gl_Re = results["Greens_legendre_Re"].template mean<std::vector<double> >();
-  const std::vector<double> Gl_Im = results["Greens_legendre_Im"].template mean<std::vector<double> >();
-  assert(Gl_Re.size() == n_flavors * n_flavors * n_legendre);
-  boost::multi_array<std::complex<double>, 3> Gl(boost::extents[n_flavors][n_flavors][n_legendre]);
-  std::transform(Gl_Re.begin(), Gl_Re.end(), Gl_Im.begin(), Gl.origin(), to_complex<double>());
-
-  /*
-   * Initialize LegendreTransformer
-   */
-  LegendreTransformer legendre_transformer(n_matsubara, n_legendre);
-
-  /*
-   * Compute G(tau) from Legendre coefficients
-   */
-  typedef alps::gf::three_index_gf<std::complex<double>, alps::gf::itime_mesh,
-                                   alps::gf::index_mesh,
-                                   alps::gf::index_mesh
-  > ITIME_GF;
-
-  ITIME_GF
-      itime_gf(alps::gf::itime_mesh(beta, n_tau + 1), alps::gf::index_mesh(n_flavors), alps::gf::index_mesh(n_flavors));
-  std::vector<double> Pvals(n_legendre);
-  const std::vector<double> &sqrt_array = legendre_transformer.get_sqrt_2l_1();
-  for (int itau = 0; itau < n_tau + 1; ++itau) {
-    const double tau = itau * (beta / n_tau);
-    const double x = 2 * tau / beta - 1.0;
-    legendre_transformer.compute_legendre(x, Pvals); //Compute P_l[x]
-
-    for (int flavor = 0; flavor < n_flavors; ++flavor) {
-      for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
-        for (int il = 0; il < n_legendre; ++il) {
-          itime_gf(g::itime_index(itau), g::index(flavor), g::index(flavor2)) +=
-              Pvals[il] * Gl[flavor][flavor2][il] * sqrt_array[il] * temperature / sign;
-        }
-      }
-    }
-  }
-  itime_gf.save(ar, "/gtau_removal");
-
-  /*
-   * Compute Gomega from Legendre coefficients
-   */
-  typedef alps::gf::three_index_gf<std::complex<double>, alps::gf::matsubara_positive_mesh,
-                                   alps::gf::index_mesh,
-                                   alps::gf::index_mesh
-  > GOMEGA;
-
-  const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> &Tnl(legendre_transformer.Tnl());
-  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> tmp_mat(n_legendre, 1), tmp_mat2(n_matsubara, 1);
-  GOMEGA gomega(alps::gf::matsubara_positive_mesh(beta, n_matsubara),
-                alps::gf::index_mesh(n_flavors),
-                alps::gf::index_mesh(n_flavors));
-  for (int flavor = 0; flavor < n_flavors; ++flavor) {
-    for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
-      for (int il = 0; il < n_legendre; ++il) {
-        tmp_mat(il, 0) = Gl[flavor][flavor2][il];
-      }
-      tmp_mat2 = Tnl * tmp_mat;
-      for (int im = 0; im < n_matsubara; ++im) {
-        gomega(g::matsubara_index(im), g::index(flavor), g::index(flavor2)) = tmp_mat2(im, 0) / sign;
-      }
-    }
-  }
-  gomega.save(ar, "/gf_removal");
-}
-
 template<typename SOLVER_TYPE>
 void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
                          const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
                          const Eigen::Matrix<typename SOLVER_TYPE::SCALAR,
                                              Eigen::Dynamic,
                                              Eigen::Dynamic> &rotmat_Delta,
-                         alps::hdf5::archive &ar,
+                         std::map<std::string,boost::any> &ar,
                          bool verbose = false) {
   const int n_legendre(parms["measurement.two_time_G2.n_legendre"].template as<int>());
   const double beta(parms["model.beta"]);
@@ -169,7 +76,7 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
       }
     }
   }
-  ar["/TWO_TIME_G2_LEGENDRE"] << data_org_basis;
+  ar["TWO_TIME_G2_LEGENDRE"] = data_org_basis;
 }
 
 
@@ -177,7 +84,7 @@ template<typename SOLVER_TYPE>
 void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
                 const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
                 const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
-                alps::hdf5::archive &ar,
+                std::map<std::string,boost::any> &ar,
                 bool verbose = false) {
   namespace g=alps::gf;
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
@@ -224,7 +131,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
       }
     }
   }
-  ar["/G1_LEGENDRE"] << Gl_org_basis;
+  ar["G1_LEGENDRE"] = Gl_org_basis;
 
   /*
    * Initialize LegendreTransformer
@@ -257,7 +164,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
       }
     }
   }
-  itime_gf.save(ar, "/gtau");
+  ar["gtau"] = itime_gf;
 
   /*
    * Compute Gomega from Legendre coefficients
@@ -283,7 +190,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
       }
     }
   }
-  gomega.save(ar, "/gf");
+  ar["gf"] = gomega;
 }
 
 //very crapy way to implement ...
@@ -359,7 +266,7 @@ template<typename SOLVER_TYPE>
 void compute_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
                 const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
                 const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
-                alps::hdf5::archive &ar,
+                std::map<std::string,boost::any> &ar,
                 bool verbose = false) {
   const int n_legendre(parms["measurement.G2.n_legendre"]);
   const int n_freq(parms["measurement.G2.n_bosonic_freq"]);
@@ -414,7 +321,7 @@ void compute_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
     }
   }
 
-  ar["/G2_LEGENDRE"] << Gl;
+  ar["G2_LEGENDRE"] = Gl;
 }
 
 template<typename SOLVER_TYPE>
@@ -423,7 +330,7 @@ void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type 
                            const Eigen::Matrix<typename SOLVER_TYPE::SCALAR,
                                                Eigen::Dynamic,
                                                Eigen::Dynamic> &rotmat_Delta,
-                           alps::hdf5::archive &ar,
+                           std::map<std::string,boost::any> &ar,
                            bool verbose = false) {
   const double beta(parms["model.beta"]);
   const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
@@ -454,7 +361,7 @@ void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type 
       }
     }
   }
-  ar["/EQUAL_TIME_G1"] << data_org_basis;
+  ar["EQUAL_TIME_G1"] = data_org_basis;
 }
 
 template<typename SOLVER_TYPE>
@@ -463,7 +370,7 @@ void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type 
                            const Eigen::Matrix<typename SOLVER_TYPE::SCALAR,
                                                Eigen::Dynamic,
                                                Eigen::Dynamic> &rotmat_Delta,
-                           alps::hdf5::archive &ar,
+                           std::map<std::string,boost::any> &ar,
                            bool verbose = false) {
   //typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   //typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
@@ -510,7 +417,7 @@ void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type 
       }
     }
   }
-  ar["/EQUAL_TIME_G2"] << data_org_basis;
+  ar["EQUAL_TIME_G2"] = data_org_basis;
 }
 
 template<unsigned long N>
@@ -532,7 +439,7 @@ void load_signed_multi_dimension_data(const alps::accumulators::result_set &resu
 template<typename SOLVER_TYPE>
 void compute_nn_corr(const typename alps::results_type<SOLVER_TYPE>::type &results,
                 const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
-                alps::hdf5::archive &ar) {
+                std::map<std::string,boost::any> &ar) {
   const int n_tau(parms["measurement.nn_corr.n_tau"]);
   const int n_def(parms["measurement.nn_corr.n_def"]);
   const double sign = results["Sign"].template mean<double>();
@@ -540,17 +447,17 @@ void compute_nn_corr(const typename alps::results_type<SOLVER_TYPE>::type &resul
   boost::multi_array<std::complex<double>, 2> data(boost::extents[n_def][n_tau]);
   load_signed_multi_dimension_data(results, std::string("Two_time_correlation_functions"), data);
 
-  ar["/DENSITY_DENSITY_CORRELATION_FUNCTIONS"] << data;
+  ar["DENSITY_DENSITY_CORRELATION_FUNCTIONS"] = data;
 }
 
 
 template<typename SOLVER_TYPE>
 void compute_fidelity_susceptibility(const typename alps::results_type<SOLVER_TYPE>::type &results,
                                      const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
-                                     alps::hdf5::archive &ar) {
+                                     std::map<std::string,boost::any> &ar) {
   std::complex<double> kLkR =
       std::complex<double>(results["kLkR_Re"].template mean<double>(), results["kLkR_Im"].template mean<double>());
   std::complex<double>
       k = std::complex<double>(results["k_Re"].template mean<double>(), results["k_Im"].template mean<double>());
-  ar["FIDELITY_SUSCEPTIBILITY"] << 0.5 * (kLkR - 0.25 * k * k);
+  ar["FIDELITY_SUSCEPTIBILITY"] = (0.5 * (kLkR - 0.25 * k * k)).real();
 }

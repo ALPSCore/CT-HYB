@@ -337,7 +337,7 @@ class ThermalizationChecker {
     if (max_val - min_val < 0.05*max_val) {
       actual_thermalization_steps_ = 5.0 * steps;
       if (verbose) {
-        std::cout << "Actual number of thermalization steps is set to " << actual_thermalization_steps_ << " at MPI rank = " << global_mpi_rank;
+        //std::cout << "Actual number of thermalization steps is set to " << actual_thermalization_steps_ << " at MPI rank = " << global_mpi_rank;
         std::cout << ", Binned expansion orders = ";
         for (int ib = 0; ib < num_bins; ++ib) {
           std::cout << rebinned[ib]/bin_size << " ";

@@ -1,7 +1,3 @@
-extern int global_mpi_rank;
-
-//#include <alps/mc/random01.hpp>
-
 #include "measurement.hpp"
 #include "measurement.ipp"
 

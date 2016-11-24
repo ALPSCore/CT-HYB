@@ -146,7 +146,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   }
   sliding_window.init_stacks(p["sliding_window.min"], mc_config.operators);
   mc_config.trace = sliding_window.compute_trace(mc_config.operators);
-  if (global_mpi_rank == 0 && verbose) {
+  if (comm.rank() == 0 && verbose) {
     std::cout << "initial trace = " << mc_config.trace << " with N_SLIDING_WINDOW = " << sliding_window.get_n_window()
               << std::endl;
   }
@@ -157,7 +157,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   //Two-time correlation functions
   read_two_time_correlation_functions();
 
-  if (global_mpi_rank == 0 && verbose) {
+  if (comm.rank() == 0 && verbose) {
     std::cout << "The number of blocks in the inverse matrix is " << mc_config.M.num_blocks() << "." << std::endl;
     for (int block = 0; block < mc_config.M.num_blocks(); ++block) {
       std::cout << "flavors in block " << block << " : ";
@@ -708,7 +708,7 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
 
       )
   );
-  if (verbose && global_mpi_rank == 0 && sweeps % 10 == 0) {
+  if (verbose && comm.rank() == 0 && sweeps % 10 == 0) {
     std::cout << " new window size = " << N_win_standard << " sweep = " << sweeps << " pert_order = "
               << mc_config.pert_order() << std::endl;
   }
@@ -755,14 +755,14 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
     it->second->finalize_learning();
   }
 
-  if (global_mpi_rank == 0) {
+  if (comm.rank() == 0) {
     std::cout << "Thermalization process done after " << sweeps << " steps." << std::endl;
     std::cout << "The number of segments for sliding window update is " << N_win_standard << "."
               << std::endl;
     std::cout << "Perturbation orders (averaged over processes) are the following:" << std::endl;
   }
   const std::vector<int> &order_creation_flavor = count_creation_operators(FLAVORS, mc_config);
-  if (global_mpi_rank == 0) {
+  if (comm.rank() == 0) {
     for (int flavor = 0; flavor < FLAVORS; ++flavor) {
       std::cout << " flavor " << flavor << " " << order_creation_flavor[flavor] << std::endl;
     }
@@ -773,7 +773,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
       std::cout <<
                 boost::format(
                     "Warning: flat histogram is not yet obtained for MPI rank %1%. Increase thermalization time!"
-                ) % global_mpi_rank << std::endl;
+                ) % comm.rank() << std::endl;
     }
     p_flat_histogram_config_space->synchronize(comm);
     // Apply the new worm space weights
@@ -787,7 +787,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   measurements["Pert_order_start"] << pert_order_recorder.mean();
 
   if (verbose) {
-    std::cout << std::endl << "Weight of configuration spaces for MPI rank " << global_mpi_rank << " : ";
+    std::cout << std::endl << "Weight of configuration spaces for MPI rank " << comm.rank() << " : ";
     std::cout << " Z function space = " << config_space_extra_weight[0];
     for (int w = 0; w < worm_types.size(); ++w) {
       std::cout << " , " << get_config_space_name(worm_types[w]) << " = " << config_space_extra_weight[w + 1];
