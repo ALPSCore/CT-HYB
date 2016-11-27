@@ -1,3 +1,5 @@
+#include "model.hpp"
+
 template<typename T>
 struct PruneHelper {
   PruneHelper(double eps) : eps_(eps) { };
@@ -37,7 +39,15 @@ void ImpurityModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters)
       .define<double>("model.outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
                       "Cutoff energy for outer states for computing trace (measured from the lowest eigenvalue)")
       .define<double>("model.cutoff_ham", 1E-12,
-                      "Cutoff for entries in the local Hamiltonian matrix");
+                      "Cutoff for entries in the local Hamiltonian matrix")
+      .define<bool>("model.command_line_mode", false,
+                    "if you pass Coulomb tensor, hopping matrix, delta tau via parameters instead of using text files [ADVANCED]")
+      .define<std::vector<double> >("model.coulomb_tensor_Re", "Real part of U tensor [ADVANCED]")
+      .define<std::vector<double> >("model.coulomb_tensor_Im", "Imaginary part of U tensor [ADVANCED]")
+      .define<std::vector<double> >("model.hopping_matrix_Re", "Real part of hopping matrix [ADVANCED]")
+      .define<std::vector<double> >("model.hopping_matrix_Im", "Imaginary part of hopping matrix [ADVANCED]")
+      .define<std::vector<double> >("model.delta_Re", "Real part of delta(tau) [ADVANCED]")
+      .define<std::vector<double> >("model.delta_Im", "Imaginary part of delta(tau) [ADVANCED]");
 }
 
 
@@ -88,7 +98,28 @@ int ImpurityModel<SCALAR, DERIVED>::get_dst_sector_bra(OPERATOR_TYPE op, int fla
 
 template<typename SCALAR, typename DERIVED>
 void ImpurityModel<SCALAR, DERIVED>::read_U_tensor(const alps::params &par) {
-  if (par.defined("model.coulomb_tensor_input_file")) {
+  if (par["model.command_line_mode"]) {
+    const std::vector<double> &Uijkl_Re = par["model.coulomb_tensor_Re"].template as<std::vector<double> >();
+    const std::vector<double> &Uijkl_Im = par["model.coulomb_tensor_Im"].template as<std::vector<double> >();
+    const int nf4 = num_flavors()*num_flavors()*num_flavors()*num_flavors();
+    if (Uijkl_Re.size() != nf4 || Uijkl_Im.size() != nf4) {
+      throw std::runtime_error("The size of the Coulomb tensor is wrong");
+    }
+    int idx = 0;
+    for (int f1 = 0; f1 < num_flavors(); ++f1) {
+      for (int f2 = 0; f2 < num_flavors(); ++f2) {
+        for (int f3 = 0; f3 < num_flavors(); ++f3) {
+          for (int f4 = 0; f4 < num_flavors(); ++f4) {
+            std::complex<double> ztmp = std::complex<double>(Uijkl_Re[idx], Uijkl_Im[idx]);
+            if (std::abs(ztmp) != 0.0) {
+              nonzero_U_vals.push_back(boost::make_tuple(f1, f2, f3, f4, mycast<SCALAR>(0.5*ztmp)));
+            }
+            ++ idx;
+          }
+        }
+      }
+    }
+  } else if (par.defined("model.coulomb_tensor_input_file")) {
     std::ifstream infile_f(boost::lexical_cast<std::string>(par["model.coulomb_tensor_input_file"]).c_str());
     if (!infile_f.is_open()) {
       std::cerr << "We cannot open " << par["model.coulomb_tensor_input_file"] << "!" << std::endl;
@@ -144,7 +175,26 @@ void ImpurityModel<SCALAR, DERIVED>::read_U_tensor(const alps::params &par) {
 
 template<typename SCALAR, typename DERIVED>
 void ImpurityModel<SCALAR, DERIVED>::read_hopping(const alps::params &par) {
-  if (par.defined("model.hopping_matrix_input_file")) {
+  if (par["model.command_line_mode"]) {
+    const int len = num_flavors() * num_flavors();
+    const std::vector<double> &hopping_matrix_Re = par["model.hopping_matrix_Re"].template as<std::vector<double> >();
+    const std::vector<double> &hopping_matrix_Im = par["model.hopping_matrix_Im"].template as<std::vector<double> >();
+    if (hopping_matrix_Re.size() != len || hopping_matrix_Im.size() != len) {
+      throw std::runtime_error("Size of hopping matrix is wrong!");
+    }
+    int idx = 0;
+    for (int f0 = 0; f0 < flavors_; ++f0) {
+      for (int f1 = 0; f1 < flavors_; ++f1) {
+        const SCALAR hopping = mycast<SCALAR>(
+            std::complex<double>(hopping_matrix_Re[idx], hopping_matrix_Im[idx])
+        );
+        if (std::abs(hopping) != 0.0) {
+          nonzero_t_vals.push_back(boost::make_tuple(f0, f1, hopping));
+        }
+        ++ idx;
+      }
+    }
+  } else if (par.defined("model.hopping_matrix_input_file")) {
     std::ifstream infile_f(boost::lexical_cast<std::string>(par["model.hopping_matrix_input_file"]).c_str());
     if (!infile_f.is_open()) {
       std::cerr << "We cannot open " << par["model.hopping_matrix_input_file"] << "!" << std::endl;
@@ -187,7 +237,28 @@ template<typename SCALAR, typename DERIVED>
 void ImpurityModel<SCALAR, DERIVED>::read_hybridization_function(const alps::params &par) {
   F.resize(boost::extents[flavors_][flavors_][Np1_]);
 
-  if (par["model.delta_input_file"].template as<std::string>() == "") {
+  if (par["model.command_line_mode"]) {
+    std::fill(F.origin(), F.origin() + F.num_elements(), 0.0);
+    const std::vector<double> &delta_Re = par["model.delta_Re"].template as<std::vector<double> >();
+    const std::vector<double> &delta_Im = par["model.delta_Im"].template as<std::vector<double> >();
+    if (delta_Re.size() != F.num_elements() || delta_Im.size() != F.num_elements()) {
+      throw std::runtime_error("Size of delta tau is wrong");
+    }
+    int idx = 0;
+    for (int time = 0; time < Np1_; ++time) {
+      for (int f1 = 0; f1 < flavors_; ++f1) {
+        for (int f2 = 0; f2 < flavors_; ++f2) {
+          assert(f2 < F.shape()[0]);
+          assert(f1 < F.shape()[1]);
+          assert(Np1_ - time - 1 < F.shape()[2]);
+          assert(idx < delta_Re.size());
+          assert(idx < delta_Im.size());
+          F[f2][f1][Np1_ - time - 1] = - mycast<SCALAR>(std::complex<double>(delta_Re[idx], delta_Im[idx]));
+          ++ idx;
+        }
+      }
+    }
+  } else if (par["model.delta_input_file"].template as<std::string>() == "") {
     std::fill(F.origin(), F.origin() + F.num_elements(), 0.0);
     for (int i = 0; i < flavors_; i++) {
       for (int time = 0; time < Np1_; time++) {

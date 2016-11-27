@@ -13,7 +13,29 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_SOURCE_DIR})
 #To include alps/fastupdate
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 
-SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+#SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# Disable in-source builds
+if (${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
+    message(FATAL_ERROR "In source builds are disabled. Please use a separate build directory")
+endif()
+
+set(CMAKE_DISABLE_SOURCE_CHANGES ON)
+set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
+
+# RPATH fix
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set(CMAKE_INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+else()
+    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+endif()
+
+#policy update CMP0042
+if(APPLE)
+    set(CMAKE_MACOSX_RPATH ON)
+endif()
+
 
 # The project relies on the ALPSCore package. If ALPSCore is not found
 # automatically, specify its location using:

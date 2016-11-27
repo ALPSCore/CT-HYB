@@ -110,7 +110,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       single_op_shift_updater(BETA, FLAVORS, N),
       worm_insertion_removers(0),
       sliding_window(p_model.get(), BETA),
-      g_meas_legendre(FLAVORS, p["measurement.G1.n_legendre"], N, BETA),
+      g_meas_legendre(FLAVORS, p["measurement.G1.n_legendre"], p["measurement.G1.n_matsubara"], BETA),
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
@@ -487,7 +487,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_two_time_correlation_functions(
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
-  assert(sliding_window.get_position_right_edge() == 0);
+  //assert(sliding_window.get_position_right_edge() == 0);
 
   //Propose higher-order insertion/removal updates less frequently
   std::vector<double> proposal_rates;
@@ -506,7 +506,7 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
     sliding_window.set_window_size(current_n_window, mc_config.operators, 0, ITIME_LEFT);
   }
 
-  assert(sliding_window.get_position_right_edge() == 0);
+  //assert(sliding_window.get_position_right_edge() == 0);
   const int num_move = std::max(2 * current_n_window - 2, 1);
   for (int move = 0; move < num_move; ++move) {
     double pert_order_sum = 0;
@@ -534,7 +534,7 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
     sliding_window.move_window_to_next_position(mc_config.operators);
   }
   sanity_check();
-  assert(sliding_window.get_position_right_edge() == 0);
+  //assert(sliding_window.get_position_right_edge() == 0 || sliding_window.get_position_right_edge() == 2*current_n_window-2);
 }
 
 template<typename IMP_MODEL>
