@@ -32,7 +32,7 @@ int run_simulation(int argc, const char *argv[], typename alps::parameters_type<
 #ifdef ALPS_HAVE_MPI
   typedef mymcmpiadapter<SOLVER_TYPE> sim_type;
 #else
-  non-MPI environment is not supported!
+  #error non-MPI environment is not supported!
 #endif
 
   SOLVER_TYPE::define_parameters(parameters);
