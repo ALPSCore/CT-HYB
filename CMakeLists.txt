@@ -123,7 +123,7 @@ install (TARGETS alpscore_cthyb
         )
 
 install(EXPORT ALPSCoreCTHYB-export
-        FILE ALPSCoreCTHYB-config.cmake
+        FILE alpscorecthyb-config.cmake
         DESTINATION share/cmake/ALPSCoreCTHYB/
         EXPORT_LINK_INTERFACE_LIBRARIES)
 
