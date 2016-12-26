@@ -769,10 +769,10 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
     std::cout << std::endl;
   }
   if (p_flat_histogram_config_space) {
-    if (!p_flat_histogram_config_space->converged()) {
+    if (!p_flat_histogram_config_space->converged() && verbose) {
       std::cout <<
                 boost::format(
-                    "Warning: flat histogram is not yet obtained for MPI rank %1%. Increase thermalization time!"
+                    "Warning: flat histogram is not yet obtained for MPI rank %1%. It may be safer to increase thermalization time!"
                 ) % comm.rank() << std::endl;
     }
     p_flat_histogram_config_space->synchronize(comm);
