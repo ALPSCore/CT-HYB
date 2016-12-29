@@ -95,7 +95,7 @@ target_link_libraries(hybmat alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBR
 option(Testing "Enable testing" ON)
 include(EnableGtests) #defined in ./cmake
 include_directories("test")
-list(APPEND LINK_ALL alpscore_cthyb)
+list(APPEND LINK_ALL alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 #testing source files
 set(unittest_src
