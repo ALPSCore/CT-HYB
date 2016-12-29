@@ -89,7 +89,7 @@ target_link_libraries(alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} 
 
 #executable
 ADD_EXECUTABLE(hybmat ./src/main.cpp)
-target_link_libraries(hybmat alpscore_cthyb)
+target_link_libraries(hybmat alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 #testing setup
 option(Testing "Enable testing" ON)
