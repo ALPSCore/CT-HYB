@@ -2,6 +2,7 @@
 - [Tutorial1](#tutorial1)
 
 ## Tutorial1
+**We strongly recommend to run this tutorial at least with 24 MPI processes and 600 sec. Otherwise, the calculation will fail to converge.**
 We explain how to solve a three-orbital model with spin-orbit coupling and Slater-Kanamori interaction.
 The DOS of the bath is a semicircular of the width 4.
 The hybridization function is diagonal in flavor.

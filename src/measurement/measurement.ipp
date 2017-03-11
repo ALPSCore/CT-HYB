@@ -161,8 +161,10 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   const std::vector<psi> c_ops = mc_config.M.get_c_ops();
   const std::vector<psi> worm_ops = mc_config.p_worm->get_operators();
 
+  const int n_aux_lines = Rank;
+
   //compute the intermediate state by connecting operators in the worm by hybridization
-  alps::fastupdate::ResizableMatrix<SCALAR> M(pert_order + Rank + 1, pert_order + Rank + 1, 0.0);
+  alps::fastupdate::ResizableMatrix<SCALAR> M(pert_order + Rank + n_aux_lines, pert_order + Rank + n_aux_lines, 0.0);
   M.conservative_resize(pert_order, pert_order);
   int offset = 0;
   for (int ib = 0; ib < mc_config.M.num_blocks(); ++ib) {
@@ -170,7 +172,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
     M.block(offset, offset, block_size, block_size) = mc_config.M.compute_inverse_matrix(ib);
     offset += block_size;
   }
-  matrix_t B(pert_order, Rank + 1), C(Rank + 1, pert_order), D(Rank + 1, Rank + 1);
+  matrix_t B(pert_order, Rank + n_aux_lines), C(Rank + n_aux_lines, pert_order), D(Rank + n_aux_lines, Rank + n_aux_lines);
   B.setZero();
   C.setZero();
   D.setZero();
@@ -184,8 +186,8 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
       C(i, j) = p_gf->operator()(worm_ops[2 * i], cdagg_ops[j]);
     }
   }
-  for (int i = 0; i < Rank + 1; ++i) {
-    for (int j = 0; j < Rank + 1; ++j) {
+  for (int i = 0; i < Rank + n_aux_lines; ++i) {
+    for (int j = 0; j < Rank + n_aux_lines; ++j) {
       if (i < Rank && j < Rank) {
         D(i, j) = p_gf->operator()(worm_ops[2 * i], worm_ops[2 * j + 1]);
       } else {
@@ -201,7 +203,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
     return;
   }
   alps::fastupdate::compute_inverse_matrix_up(B, C, D, M);
-  assert(M.size1() == pert_order + Rank + 1);
+  assert(M.size1() == pert_order + Rank + n_aux_lines);
 
   std::vector<psi> cdagg_ops_new(cdagg_ops);
   std::vector<psi> c_ops_new(c_ops);
@@ -214,11 +216,13 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   //TO DO: move this to a separated function
   if (pert_order + Rank > max_num_ops) {
     const int num_ops = pert_order + Rank;
-    std::vector<bool> is_row_active(num_ops + 1, false), is_col_active(num_ops + 1, false);
+    std::vector<bool> is_row_active(num_ops + n_aux_lines, false), is_col_active(num_ops + n_aux_lines, false);
     //always choose the original worm position for detailed balance condition
-    for (int i = 0; i < Rank + 1; ++i) {
-      is_row_active[num_ops - i] = true;
-      is_col_active[num_ops - i] = true;
+    for (int i = 0; i < Rank + n_aux_lines; ++i) {
+      //is_row_active[num_ops - i] = true;
+      //is_col_active[num_ops - i] = true;
+      is_row_active[is_row_active.size() - 1 - i] = true;
+      is_col_active[is_col_active.size() - 1 - i] = true;
     }
     for (int i = 0; i < max_num_ops - Rank; ++i) {
       is_row_active[i] = true;
@@ -227,8 +231,8 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
     MyRandomNumberGenerator rnd(random);
     std::random_shuffle(is_row_active.begin(), is_row_active.begin() + pert_order, rnd);
     std::random_shuffle(is_col_active.begin(), is_col_active.begin() + pert_order, rnd);
-    assert(boost::count(is_col_active, true) == max_num_ops + 1);
-    assert(boost::count(is_row_active, true) == max_num_ops + 1);
+    assert(boost::count(is_col_active, true) == max_num_ops + n_aux_lines);
+    assert(boost::count(is_row_active, true) == max_num_ops + n_aux_lines);
 
     {
       std::vector<psi> cdagg_ops_reduced, c_ops_reduced;
@@ -248,7 +252,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
 
     {
       const int mat_size = M.size1();
-      alps::fastupdate::ResizableMatrix<SCALAR> M_reduced(max_num_ops + 1, max_num_ops + 1, 0.0);
+      alps::fastupdate::ResizableMatrix<SCALAR> M_reduced(max_num_ops + n_aux_lines, max_num_ops + n_aux_lines, 0.0);
       int j_reduced = 0;
       for (int j = 0; j < mat_size; ++j) {
         if (!is_col_active[j]) {
@@ -263,17 +267,17 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
           ++ i_reduced;
         }
         ++ j_reduced;
-        assert(i_reduced == max_num_ops + 1);
+        assert(i_reduced == max_num_ops + n_aux_lines);
       }
-      assert(j_reduced == max_num_ops + 1);
+      assert(j_reduced == max_num_ops + n_aux_lines);
       std::swap(M, M_reduced);
-      assert(M.size1() == max_num_ops + 1);
-      assert(M.size2() == max_num_ops + 1);
+      assert(M.size1() == max_num_ops + n_aux_lines);
+      assert(M.size2() == max_num_ops + n_aux_lines);
     }
   }
 
   //drop small values
-  const double cutoff = 1.0e-15 * M.block().cwiseAbs().maxCoeff();
+  const double cutoff = 1.0e-10 * M.block().cwiseAbs().maxCoeff();
   for (int j = 0; j < M.size2(); ++j) {
     for (int i = 0; i < M.size1(); ++i) {
       if (std::abs(M(i, j)) < cutoff) {
@@ -395,7 +399,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   const int num_legendre = legendre_trans.num_legendre();
   const int num_phys_rows = creation_ops.size();
   //std::cout << "num_phys_rows " << num_phys_rows << " " << annihilation_ops.size() << " " << M.size1() << std::endl;
-  if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.size1() - 1) {
+  const int n_aux_lines = 2;
+  if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.size1() - n_aux_lines) {
     throw std::runtime_error("Fatal error in MeasureGHelper<SCALAR, 2>::perform()");
   }
 
@@ -449,11 +454,15 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
 
   //First, compute relative weights
-  Eigen::Matrix<SCALAR,3,3> tmp_mat;
-  boost::array<int,3> rows3, cols3;
+  const int rank = 2;
+  const int det_size = rank + n_aux_lines;
+  Eigen::Matrix<SCALAR,det_size,det_size> tmp_mat;
+  boost::array<int,det_size> rows3, cols3;
   const int last = M.size1() - 1;
-  rows3[2] = last;
-  cols3[2] = last;
+  for (int i = 0; i < n_aux_lines; ++i) {
+    cols3[rank+i] = rows3[rank+i] = i + M.size1() - n_aux_lines;
+  }
+  assert(cols3.back()==last);
   boost::multi_array<SCALAR,4> coeffs(boost::extents[num_phys_rows][num_phys_rows][num_phys_rows][num_phys_rows]);
   double norm = 0.0;
   for (int a = 0; a < num_phys_rows; ++a) {
@@ -476,8 +485,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
           rows3[1] = d;
           cols3[0] = a;
           cols3[1] = c;
-          for (int j = 0; j < 3; ++j) {
-            for (int i = 0; i < 3; ++i) {
+          for (int j = 0; j < det_size; ++j) {
+            for (int i = 0; i < det_size; ++i) {
               tmp_mat(i,j) = M(rows3[i], cols3[j]);
             }
           }
