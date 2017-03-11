@@ -3,14 +3,22 @@ import matplotlib.pyplot as plt
 import pylab
 import h5py
 
+def read_param(h5, name):
+    if '/parameters/dictionary/'+name in h5:
+        return h5['/parameters/dictionary/'+name].value
+    elif '/parameters/'+name in h5:
+        return h5['/parameters/'+name].value
+    else:
+        raise RuntimeError("Parameter "+ name + " not found") 
+
 def read_h5(p):
     r = {}
 
     print p+'.out.h5'
     h5 = h5py.File(p+'.out.h5','r')
     
-    r["SITES"] = h5['/parameters/model.sites'].value
-    r["BETA"] = h5['/parameters/model.beta'].value
+    r["SITES"] = read_param(h5, 'model.sites')
+    r["BETA"] = read_param(h5, 'model.beta')
 
     def load_g(path):
         N = h5[path].shape[0]
@@ -23,6 +31,8 @@ def read_h5(p):
     r["Gomega"] = load_g('/gf/data')
 
     r["Sign"] = h5['/simulation/results/Sign/mean/value'].value
+
+    r["Equal_time_G1"] = h5['/EQUAL_TIME_G1'].value[:,:,0] + 1J*h5['/EQUAL_TIME_G1'].value[:,:,1]
 
     return r
 
@@ -62,11 +72,13 @@ for i in range(len(result_list)):
     sign = result_list[i]["Sign"]
     gf_legendre = result_list[i]["Gtau"]
     gomega_l = result_list[i]["Gomega"]
+    equal_time_G1 = result_list[i]["Equal_time_G1"]
 
     print "sign=",sign
     occ = 0.0
     for i_f in range(nf):
         occ += -gf_legendre[-1,i_f,i_f]
+        print(i_f, -gf_legendre[0,i_f,i_f], -gf_legendre[-1,i_f,i_f], equal_time_G1[i_f,i_f].real)
 
     tau_point = np.linspace(0.0, 1.0, gf_legendre.shape[0])
     plt.subplot(211)
