@@ -32,7 +32,7 @@ def read_h5(p):
 
     r["Sign"] = h5['/simulation/results/Sign/mean/value'].value
 
-    r["Equal_time_G1"] = h5['/EQUAL_TIME_G1'].value[:,:,0] + 1J*h5['/EQUAL_TIME_G1'].value[:,:,1]
+    #r["Equal_time_G1"] = h5['/EQUAL_TIME_G1'].value[:,:,0] + 1J*h5['/EQUAL_TIME_G1'].value[:,:,1]
 
     return r
 
@@ -72,13 +72,13 @@ for i in range(len(result_list)):
     sign = result_list[i]["Sign"]
     gf_legendre = result_list[i]["Gtau"]
     gomega_l = result_list[i]["Gomega"]
-    equal_time_G1 = result_list[i]["Equal_time_G1"]
+    #equal_time_G1 = result_list[i]["Equal_time_G1"]
 
     print "sign=",sign
-    occ = 0.0
-    for i_f in range(nf):
-        occ += -gf_legendre[-1,i_f,i_f]
-        print(i_f, -gf_legendre[0,i_f,i_f], -gf_legendre[-1,i_f,i_f], equal_time_G1[i_f,i_f].real)
+    #occ = 0.0
+    #for i_f in range(nf):
+        #occ += -gf_legendre[-1,i_f,i_f]
+        #print(i_f, -gf_legendre[0,i_f,i_f], -gf_legendre[-1,i_f,i_f], equal_time_G1[i_f,i_f].real)
 
     tau_point = np.linspace(0.0, 1.0, gf_legendre.shape[0])
     plt.subplot(211)
