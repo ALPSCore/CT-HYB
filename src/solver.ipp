@@ -51,7 +51,9 @@ int MatrixSolver<Scalar>::solve() {
 
       //Single-particle Green's function
       compute_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
-      compute_euqal_time_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
+      if (Base::parameters_["measurement.equal_time_G1.on"] != 0) {
+        compute_euqal_time_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
+      }
 
       //Two-particle Green's function
       if (Base::parameters_["measurement.G2.on"] != 0) {

@@ -46,6 +46,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
       .define<int>("measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>("measurement.G1.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
+          //Equal-time single-particle GF
+      .define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
           //Two-particle GF
       .define<int>("measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
       .define<int>("measurement.G2.n_legendre", 20, "Number of legendre polynomials for measurement")

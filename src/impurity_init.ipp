@@ -40,7 +40,9 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
     p_G2_meas->create_alps_observable(measurements);
   }
 
-  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G1");
+  if (par["measurement.equal_time_G1.on"] != 0) {
+    create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G1");
+  }
 
   if (par["measurement.equal_time_G2.on"] != 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G2");
@@ -166,7 +168,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   /*
    * Equal-time G1
    */
-  {
+  if (par["measurement.equal_time_G1.on"] != 0) {
     const std::string name("Equal_time_G1");
     worm_types.push_back(Equal_time_G1);
     add_worm_mover<WormMoverType>(Equal_time_G1, name + "_mover");
