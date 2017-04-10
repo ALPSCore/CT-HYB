@@ -55,7 +55,7 @@ endif()
 find_package(Eigen3 REQUIRED)
 
 # Option (use quad precision for part of calculations)
-option(USE_QUAD_PRECISION "Use quad precision for part of calculations" OFF)
+option(USE_QUAD_PRECISION "Use quad precision for part of calculations" ON)
 if(USE_QUAD_PRECISION)
     add_definitions(-DUSE_QUAD_PRECISION)
 endif()
