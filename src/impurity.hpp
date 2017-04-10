@@ -123,6 +123,9 @@ class HybridizationSimulation: public alps::mcbase {
   //for set up
   void create_observables(); //build ALPS observables
   void create_worm_updaters();
+  void register_worm_space(ConfigSpace config_space) {
+
+  };
   template<typename W>
   void add_worm_mover(ConfigSpace config_space,
                       const std::string &updater_name);
@@ -149,6 +152,17 @@ class HybridizationSimulation: public alps::mcbase {
       } else {
         return std::distance(worm_types.begin(), it) + 1;
       }
+    }
+  }
+
+  //Return the configuration space corresponding to a given index (the inverse of get_config_space_position)
+  ConfigSpace get_config_space(int idx_space) const {
+    if (idx_space == 0) {
+      return Z_FUNCTION;
+    } else if (idx_space <= worm_types.size()) {
+      return worm_types[idx_space - 1];
+    } else {
+      throw std::runtime_error("Out of range in get_config_space");
     }
   }
 

@@ -26,6 +26,8 @@ template class GWormShifter<PP_REAL, 2, PP_EXTENDED_SCALAR, PP_SW>;
 
 template class EqualTimeG1_TwoTimeG2_Connector<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 
+template class EqualTimeG_G_Connector<PP_REAL, 1, PP_EXTENDED_SCALAR, PP_SW>;
+
 template bool
 global_update<PP_REAL, PP_EXTENDED_SCALAR, alps::random01, PP_SW, ExchangeFlavor, WormExchangeFlavor>(
     alps::random01 &rng,

@@ -126,7 +126,7 @@ int count_num_pairs_after_insert(const operator_container_t &operators,
 }
 
 std::ostream &operator<<(std::ostream &os, const psi &psi) {
-  os << " [flavor " << psi.flavor() << " , " << psi.time() << " ] ";
+  os << " [flavor " << psi.flavor() << " , " << psi.time() << " type " << psi.type() << " ] ";
   return os;
 }
 
