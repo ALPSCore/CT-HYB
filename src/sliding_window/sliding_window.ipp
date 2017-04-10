@@ -400,7 +400,9 @@ SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t &ope
 
     int min_dim = right_states[braket].back().min_dim();
     int sector_ket = right_states[braket].back().sector();
-    EXTENDED_REAL norm_prod = 1.0;
+    //EXTENDED_REAL norm_prod = 1.0;
+    double log_norm_prod = 0.0;
+    bool invalid = false;
 
     if (num_ops > 0) {
       std::vector<psi>::const_iterator it = ops_in_range.begin();
@@ -408,7 +410,7 @@ SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t &ope
       it_up++;
 
       assert(sector_ket >= 0);
-      norm_prod *= compute_exp(sector_ket, it->time() - tau_right);
+      log_norm_prod += compute_log_exp(sector_ket, it->time() - tau_right);
       for (int i = 0; i < num_ops; i++) {
         assert(sector_ket >= 0);
         sector_ket = p_model->get_dst_sector_ket(it->type(), it->flavor(), sector_ket);
@@ -418,22 +420,22 @@ SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t &ope
         min_dim = std::min(min_dim, p_model->dim_sector(sector_ket));
 
         if (it_up != ops_in_range.end()) {
-          norm_prod *= compute_exp(sector_ket, it_up->time() - it->time());
+          log_norm_prod += compute_log_exp(sector_ket, it_up->time() - it->time());
         } else {
-          norm_prod *= compute_exp(sector_ket, tau_left - it->time());
+          log_norm_prod += compute_log_exp(sector_ket, tau_left - it->time());
         }
         it++;
         it_up++;
       }
       if (sector_ket == nirvana) {
-        norm_prod = 0.0;
+        invalid = true;
       }
     } else {
-      norm_prod *= compute_exp(sector_ket, tau_left - tau_right);
+      log_norm_prod += compute_log_exp(sector_ket, tau_left - tau_right);
     }
     bound[braket] =
-        sector_ket == left_states[braket].back().sector() ?
-        norm_prod * norm_left_states[braket].back() * norm_right_states[braket].back() *
+        sector_ket == left_states[braket].back().sector() && !invalid ?
+        my_safe_real_exp(log_norm_prod) * norm_left_states[braket].back() * norm_right_states[braket].back() *
             ((EXTENDED_REAL) 1. * min_dim) :
         0.0;
     trace_bound_sum += bound[braket];

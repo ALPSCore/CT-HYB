@@ -92,14 +92,12 @@ class SlidingWindowManager {
   inline int depth_right_states() const { return right_states[0].size(); }
   void pop_back_bra(int num_pop_back = 1);
   void pop_back_ket(int num_pop_back = 1);
-  inline double compute_exp(int sector, double tau) const {
-    const double limit = std::log(std::numeric_limits<double>::min()) / 2;
-    const double prod = -tau * p_model->min_energy(sector);
-    if (prod < limit) {
-      return 0.0;
-    } else {
-      return std::exp(-tau * p_model->min_energy(sector));
-    }
+  //FIXME: DO NOT USE MULTIPRECISION. USE LOG
+  //inline EXTENDED_REAL compute_exp(int sector, double tau) const {
+    //return boost::multiprecision::exp(EXTENDED_REAL(-tau * p_model->min_energy(sector)));
+  //}
+  inline double compute_log_exp(int sector, double tau) const {
+    return -tau * p_model->min_energy(sector);
   }
   inline bool is_braket_invalid(int braket) const {
     return right_states[braket].back().invalid() || left_states[braket].back().invalid();

@@ -447,6 +447,7 @@ bool InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::p
   }
 
   if (rng() < 0.5) {
+    //propose insertion
     for (int iop = 0; iop < update_rank_; ++iop) {
       BaseType::cdagg_ops_add_.push_back(
           psi(open_random(rng, tau_low_, tau_high_),
@@ -472,6 +473,7 @@ bool InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::p
         - std::min(BaseType::cdagg_ops_add_[0].time().time(), BaseType::c_ops_add_[0].time().time());
     return true;
   } else {
+    //propose removal
     if (cdagg_ops_in_range_.size() < update_rank_ || c_ops_in_range_.size() < update_rank_) {
       return false;
     }
@@ -1017,7 +1019,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
   if (mc_config.p_worm) {
-    assert(typeid(mc_config.p_worm.get()) == typeid(p_worm_template_.get()));
+    assert(mc_config.p_worm->get_name() == p_worm_template_->get_name());
 
     //check if all the operators of the worm in the sliding window
     const double tau_low = std::max(sliding_window.get_tau_low(), BaseType::tau_lower_limit_);
@@ -1246,9 +1248,6 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
     const SLIDING_WINDOW &sliding_window,
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
-  if (typeid(mc_config.p_worm.get()) != typeid(p_worm_template_.get())) {
-    throw std::logic_error("Type is wrong in GWormInsertionRemover::update()");
-  }
 
   std::map<ConfigSpace, double>::const_iterator it = config_space_weight.find(p_worm_template_->get_config_space());
   if (it == config_space_weight.end()) {
@@ -1258,6 +1257,9 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
 
   if (mc_config.p_worm) {
     //propose removal by attaching worm operators to the bath
+    if (mc_config.p_worm->get_name() != p_worm_template_->get_name()) {
+      throw std::logic_error("Type is wrong in GWormInsertionRemover::update()");
+    }
     const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
     for (int rank = 0; rank < RANK; ++rank) {
       BaseType::c_ops_add_.push_back(worm_ops[2 * rank]);
@@ -1296,6 +1298,88 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
   }
   return true;
 }
+
+template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+bool EqualTimeG_G_Connector<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
+    alps::random01 &rng,
+    MonteCarloConfiguration<SCALAR> &mc_config,
+    const SLIDING_WINDOW &sliding_window,
+    const std::map<ConfigSpace, double> &config_space_weight
+) {
+  if (!mc_config.p_worm) {
+    throw std::logic_error("No worm exists in EqualTimeG_G_Connector::update()");
+  }
+
+  const double tau_low = sliding_window.get_tau_low();
+  const double tau_high = sliding_window.get_tau_high();
+
+  //The current worm is not in the window.
+  if (!is_worm_in_range(*mc_config.p_worm, tau_low, tau_high)) {
+    return false;
+  }
+
+  const double Gworm_space_weight = config_space_weight.find(p_Gworm_template_->get_config_space())->second;
+  const double equal_time_Gworm_space_weight = config_space_weight.find(p_equal_time_Gworm_template_->get_config_space())->second;
+
+  if (mc_config.p_worm->get_name() == p_Gworm_template_->get_name()) {
+    //We have a G worm. We try to change this to an equal-time G worm.
+
+    //We will not change hybridization operators.
+    BaseType::c_ops_add_.resize(0);
+    BaseType::cdagg_ops_add_.resize(0);
+    BaseType::c_ops_rem_.resize(0);
+    BaseType::cdagg_ops_rem_.resize(0);
+
+    //Set up a new equal-time G worm
+    BaseType::p_new_worm_ = p_equal_time_Gworm_template_->clone();
+    BaseType::p_new_worm_->set_time(0, open_random(rng, tau_low, tau_high));
+    assert(mc_config.p_worm->num_independent_flavors() == 2*RANK);
+    //The following code reflects that the ordering of creation and annhilation operators is opposite.
+    // For instance, two-particle G is
+    //  Equal-time G: c^dagger c c^dagger c
+    //  G: c c^dagger c c^dagger
+    for (int pair = 0; pair < RANK; ++pair) {
+      BaseType::p_new_worm_->set_flavor(2 * pair + 1, mc_config.p_worm->get_flavor(2 * pair));
+      BaseType::p_new_worm_->set_flavor(2 * pair, mc_config.p_worm->get_flavor(2 * pair + 1));
+    }
+
+    //Changes in worm operators are taken care of by LocalUpdater
+
+    //Compute correction to acceptance rate
+    BaseType::acceptance_rate_correction_ = (equal_time_Gworm_space_weight/Gworm_space_weight)
+        * std::pow(tau_high - tau_low, 1-2*RANK);
+  } else if (mc_config.p_worm->get_name() == p_equal_time_Gworm_template_->get_name()) {
+    //We have a equal-time G worm. We try to change this to a G worm.
+
+    //We will not change hybridization operators.
+    BaseType::c_ops_add_.resize(0);
+    BaseType::cdagg_ops_add_.resize(0);
+    BaseType::c_ops_rem_.resize(0);
+    BaseType::cdagg_ops_rem_.resize(0);
+
+    //Set up a new G worm
+    BaseType::p_new_worm_ = p_Gworm_template_->clone();
+    for (int time = 0; time < 2*RANK; ++time) {
+      BaseType::p_new_worm_->set_time(time, open_random(rng, tau_low, tau_high));
+    }
+    assert(mc_config.p_worm->num_independent_flavors() == 2*RANK);
+    assert(mc_config.p_worm->num_independent_times() == 1);
+    for (int pair = 0; pair < RANK; ++pair) {
+      BaseType::p_new_worm_->set_flavor(2*pair+1, mc_config.p_worm->get_flavor(2*pair));
+      BaseType::p_new_worm_->set_flavor(2*pair, mc_config.p_worm->get_flavor(2*pair+1));
+    }
+
+    //Changes in worm operators are taken care of by LocalUpdater
+
+    //Compute correction to acceptance rate
+    BaseType::acceptance_rate_correction_ = (Gworm_space_weight/equal_time_Gworm_space_weight)
+        * std::pow(tau_high - tau_low, 2*RANK-1);
+  } else {
+    throw std::logic_error("Type is wrong in EqualTimeG_G_Connector::update()");
+  }
+  return true;
+}
+
 
 inline double get_tau_first_hyb_op_larger_than(const operator_container_t &ops,
                           const psi &op,
@@ -1419,7 +1503,9 @@ bool EqualTimeG1_TwoTimeG2_Connector<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::p
       BaseType::acceptance_rate_correction_ = (weight_G2 / weight_G1) *
           num_flavors_ * num_flavors_ * (tau_high - tau_low);
     } else {
+      //FIXME: NOT IMPLEMENTED
       return false;
+
       //Insert new operators into the trace and remove hybridized operators
       std::pair<it_t, it_t> op_range = mc_config.operators.range(
           tau_low <= bll::_1, bll::_1 <= tau_high
@@ -1469,7 +1555,9 @@ bool EqualTimeG1_TwoTimeG2_Connector<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::p
           num_flavors_ * num_flavors_ * (tau_high - tau_low)
       );
     } else {
+      //FIXME: NOT IMPLEMENTED
       return false;
+
       //Remove worm operators and insert operators into the determinant to cancel out changes in quantum numbers
       boost::optional<psi> hyb_op_upper_bound, hyb_op_lower_bound;
       const double tau_max = get_tau_first_hyb_op_larger_than(mc_config.operators, worm_ops[2], tau_high, worm_ops, hyb_op_lower_bound);
@@ -1527,7 +1615,7 @@ bool GWormShifter<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   namespace bll = boost::lambda;
   typedef operator_container_t::iterator it_t;
 
-  if (typeid(mc_config.p_worm.get()) != typeid(p_worm_template_.get())) {
+  if (mc_config.p_worm->get_name() != p_worm_template_->get_name()) {
     throw std::logic_error("Type is wrong in GWormShifter::update()");
   }
 

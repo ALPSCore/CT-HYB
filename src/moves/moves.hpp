@@ -519,6 +519,42 @@ class EqualTimeG1_TwoTimeG2_Connector: public LocalUpdater<SCALAR, EXTENDED_SCAL
 };
 
 /**
+ * @brief Connect equal-time G space and G space
+ */
+template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class EqualTimeG_G_Connector: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+
+ public:
+  EqualTimeG_G_Connector(const std::string &str,
+                                  double beta,
+                                  boost::shared_ptr<Worm> p_equal_time_Gworm_template,
+                                  boost::shared_ptr<Worm> p_Gworm_template
+                                  ) : BaseType(str),
+                                      p_equal_time_Gworm_template_(p_equal_time_Gworm_template),
+                                      p_Gworm_template_(p_Gworm_template) {
+    if (p_Gworm_template_->get_name() == p_equal_time_Gworm_template_->get_name()) {
+      throw std::runtime_error("Do not set the same worm types!");
+    }
+    //std::cout << "debug name " << typeid(p_Gworm_template_.get()).name() << " " <<  typeid(p_equal_time_Gworm_template_.get()).name() << std::endl;
+    assert(p_Gworm_template_->num_independent_times()==2*RANK);
+    assert(p_equal_time_Gworm_template->num_independent_times()==1);
+  }
+
+ private:
+  virtual bool propose(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
+  );
+
+  boost::shared_ptr<Worm> p_equal_time_Gworm_template_;
+  boost::shared_ptr<Worm> p_Gworm_template_;
+};
+
+
+/**
  * @brief Shift updater a Green's function worm by reconnecting hybridization lines
  */
 template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
