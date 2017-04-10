@@ -588,6 +588,15 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
       adjust_worm_space_weight();
     }
 
+    //EqualTimeG1 <=> G1
+    if (specialized_updaters.find("Connect_Equal_time_G1_and_G1") != specialized_updaters.end() &&
+        (mc_config.current_config_space() == Equal_time_G1 || mc_config.current_config_space() == G1)
+        ) {
+      bool accepted = specialized_updaters["Connect_Equal_time_G1_and_G1"]->
+          update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+      adjust_worm_space_weight();
+    }
+
 
     if (specialized_updaters.find("G1_shifter_hyb") != specialized_updaters.end()
         && mc_config.current_config_space() == G1) {
@@ -806,7 +815,14 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
   }
   for (int i = 0; i < config_spaces_visited_in_measurement_steps.size(); ++i) {
     if (!config_spaces_visited_in_measurement_steps[i]) {
-      throw std::runtime_error("Some configuration space was not visited in measurement steps. Thermalization time may be too short.");
+      std::cerr << "Configuration space for " + get_config_space_name(get_config_space(i)) + " was not visited in measurement steps. " << std::endl;
+      std::cerr << "This basically means that the code failed to estimated the volume of the configuration spaces ";
+      std::cerr << "using Wang-Landau algorithm. " << std::endl;
+      std::cerr << "There are two possible reasons. " << std::endl;
+      std::cerr << "(1) Thermalization and simulation times were just too short. Increasing simulation time will help. In addition, you can use more MPI processes." << std::endl;
+      std::cerr << "(2) The number of electrons is numerically zero (chemical potential is too low). This is a technical issue of the current version. Just please do not simulate an empty shell." << std::endl;
+      throw std::runtime_error(
+          "Configuration space for " + get_config_space_name(get_config_space(i)) + " was not visited in measurement steps.");
     }
   }
 }

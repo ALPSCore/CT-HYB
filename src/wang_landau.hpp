@@ -126,12 +126,15 @@ class FlatHistogram {
 
     ++num_updates_lambda_;
     log_lambda_ = std::max(
-        -2.0 * std::log(num_updates_lambda_),
+        std::log(1 + 1.0/(num_updates_lambda_*num_updates_lambda_)),
         std::max(0.5 * log_lambda_, min_log_lambda_)
     );//limited by 1/num_updates_lambda**2
     if (verbose) {
       std::cout << " new lambda = " << std::exp(log_lambda_) << std::endl;
       std::cout << " new log_lambda = " << log_lambda_ << std::endl;
+      for (int i = 0; i < log_f_.size(); ++i) {
+        std::cout << " log_f " << i << " " << log_f_[i] - log_f_[0] << std::endl;
+      }
     }
     rescale_f();
 

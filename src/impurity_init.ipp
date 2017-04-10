@@ -220,6 +220,21 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         );
   }
 
+  /*
+   * Connect Equal_time_G1 and G spaces
+   */
+  if (std::find(worm_types.begin(), worm_types.end(), Equal_time_G1) != worm_types.end() &&
+      std::find(worm_types.begin(), worm_types.end(), G1) != worm_types.end()) {
+    specialized_updaters["Connect_Equal_time_G1_and_G1"] =
+        boost::shared_ptr<LocalUpdaterType>(
+            new EqualTimeG_G_Connector<SCALAR, 1, EXTENDED_SCALAR, SW_TYPE>(
+                "Connect_Equal_time_G1_and_G1", BETA,
+                boost::shared_ptr<Worm>(new EqualTimeGWorm<1>()),
+                boost::shared_ptr<Worm>(new GWorm<1>())
+            )
+        );
+  }
+
   if (std::find(worm_types.begin(), worm_types.end(), G1) != worm_types.end()) {
     specialized_updaters["G1_shifter_hyb"] =
         boost::shared_ptr<LocalUpdaterType>(

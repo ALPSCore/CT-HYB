@@ -47,7 +47,9 @@ void ImpurityModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters)
       .define<std::vector<double> >("model.hopping_matrix_Re", "Real part of hopping matrix [ADVANCED]")
       .define<std::vector<double> >("model.hopping_matrix_Im", "Imaginary part of hopping matrix [ADVANCED]")
       .define<std::vector<double> >("model.delta_Re", "Real part of delta(tau) [ADVANCED]")
-      .define<std::vector<double> >("model.delta_Im", "Imaginary part of delta(tau) [ADVANCED]");
+      .define<std::vector<double> >("model.delta_Im", "Imaginary part of delta(tau) [ADVANCED]")
+      .define<std::vector<double> >("model.rot_mat_Re", "Real part of transformation matrix of basis [ADVANCED]")
+      .define<std::vector<double> >("model.rot_mat_Im", "Imaginary part of transformation matrix of basis [ADVANCED]");
 }
 
 
@@ -313,45 +315,58 @@ void ImpurityModel<SCALAR, DERIVED>::read_rotation_hybridization_function(const 
   inv_rotmat_F.resize(flavors_, flavors_);
   rotmat_Delta.resize(flavors_, flavors_);
   inv_rotmat_Delta.resize(flavors_, flavors_);
-  if (!par.defined("model.basis_input_file") || par["model.basis_input_file"] == std::string("")) {
+  if (!par["model.command_line_mode"]
+    && (!par.defined("model.basis_input_file") || par["model.basis_input_file"] == std::string(""))) {
     rotmat_F.setIdentity();
     inv_rotmat_F.setIdentity();
     rotmat_Delta.setIdentity();
     inv_rotmat_Delta.setIdentity();
   } else {
-    if (verbose_) {
-      std::cout << "Opening " << par["model.basis_input_file"].template as<std::string>() << "..." << std::endl;
-    }
-    std::ifstream infile_f(par["model.basis_input_file"].template as<std::string>().c_str());
-    if (!infile_f.is_open()) {
-      std::cerr << "in file for BASIS_INPUT_FILE not open! " << std::endl;
-      exit(1);
-    }
+    if (par["model.command_line_mode"]) {
+      const std::vector<double> &rot_mat_Re = par["model.rot_mat_Re"].template as<std::vector<double> >();
+      const std::vector<double> &rot_mat_Im = par["model.rot_mat_Im"].template as<std::vector<double> >();
+      int idx = 0;
+      for (int i = 0; i < flavors_; ++i) {
+        for (int j = 0; j < flavors_; j++) {
+          rotmat_F(i, j) = mycast<SCALAR>(std::complex<double>(rot_mat_Re[idx], -rot_mat_Im[idx]));
+          ++ idx;
+        }
+      }
+    } else {
+      if (verbose_) {
+        std::cout << "Opening " << par["model.basis_input_file"].template as<std::string>() << "..." << std::endl;
+      }
+      std::ifstream infile_f(par["model.basis_input_file"].template as<std::string>().c_str());
+      if (!infile_f.is_open()) {
+        std::cerr << "in file for BASIS_INPUT_FILE not open! " << std::endl;
+        exit(1);
+      }
 
 #ifndef NDEBUG
-    std::cout << "Reading " << boost::lexical_cast<std::string>(par["model.basis_input_file"]) << "..." << std::endl;
+      std::cout << "Reading " << boost::lexical_cast<std::string>(par["model.basis_input_file"]) << "..." << std::endl;
 #endif
-    for (int i = 0; i < flavors_; ++i) {
-      for (int j = 0; j < flavors_; j++) {
-        int i_dummy, j_dummy;
-        double real, imag;
-        infile_f >> i_dummy >> j_dummy >> real >> imag;
-        if (i_dummy != i || j_dummy != j) {
-          throw std::runtime_error("Wrong format: BASIS_INPUT_FILE");
+      for (int i = 0; i < flavors_; ++i) {
+        for (int j = 0; j < flavors_; j++) {
+          int i_dummy, j_dummy;
+          double real, imag;
+          infile_f >> i_dummy >> j_dummy >> real >> imag;
+          if (i_dummy != i || j_dummy != j) {
+            throw std::runtime_error("Wrong format: BASIS_INPUT_FILE");
+          }
+          rotmat_F(i, j) = mycast<SCALAR>(std::complex<double>(real, -imag));
+          //Caution: the minus in the imaginary part
+          //This is because the input is a rotation matrix for Delta(tau) not F(tau).
         }
-        rotmat_F(i, j) = mycast<SCALAR>(std::complex<double>(real, -imag));
-        //Caution: the minus in the imaginary part
-        //This is because the input is a rotation matrix for Delta(tau) not F(tau).
       }
-    }
 #ifndef NDEBUG
-    std::cout << "Rotation matrix (read)" << std::endl;
-    for (int i = 0; i < flavors_; ++i) {
-      for (int j = 0; j < flavors_; ++j) {
-        std::cout << i << " " << j << " " << rotmat_F(i, j) << std::endl;
+      std::cout << "Rotation matrix (read)" << std::endl;
+      for (int i = 0; i < flavors_; ++i) {
+        for (int j = 0; j < flavors_; ++j) {
+          std::cout << i << " " << j << " " << rotmat_F(i, j) << std::endl;
+        }
       }
-    }
 #endif
+    } //if (par["model.command_line_mode"])
 
     //normalization
     for (int j = 0; j < flavors_; ++j) {
@@ -551,8 +566,14 @@ void ImpurityModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params
   }
   for (int flavor = 0; flavor < flavors_; ++flavor) {
     for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
-      if (hopping_org_basis(flavor, flavor2) != myconj<SCALAR>(hopping_org_basis(flavor2, flavor))) {
-        throw std::runtime_error("Error: Hopping matrix is not hermite!");
+      if (std::abs(hopping_org_basis(flavor, flavor2)-myconj<SCALAR>(hopping_org_basis(flavor2, flavor))) > 1e-8) {
+        std::cout << "Warning: Hopping matrix is not hermite! " << flavor <<
+          " " << flavor2 << " " << hopping_org_basis(flavor, flavor2) << " " << hopping_org_basis(flavor2, flavor) << std::endl;
+      }
+      if (flavor == flavor2) {
+        hopping_org_basis(flavor, flavor2) = get_real(hopping_org_basis(flavor, flavor2));
+      } else {
+        hopping_org_basis(flavor, flavor2) = myconj<SCALAR>(hopping_org_basis(flavor2, flavor));
       }
     }
   }
