@@ -4,12 +4,12 @@
 typedef SlidingWindowManager<REAL_EIGEN_BASIS_MODEL> SW_REAL_MATRIX;
 typedef SlidingWindowManager<COMPLEX_EIGEN_BASIS_MODEL> SW_COMPLEX_MATRIX;
 
-void init_work_space(boost::multi_array<std::complex<double>, 3> &data, int num_flavors, int num_legendre, int num_freq) {
-  data.resize(boost::extents[num_flavors][num_flavors][num_legendre]);
+void init_work_space(boost::multi_array<std::complex<double>, 3> &data, int num_flavors, int num_ir, int num_freq) {
+  data.resize(boost::extents[num_flavors][num_flavors][num_ir]);
 }
 
-void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_flavors, int num_legendre, int num_freq) {
-  data.resize(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_legendre][num_legendre][num_freq]);
+void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_flavors, int num_ir, int num_freq) {
+  data.resize(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_ir][num_ir][num_freq]);
 }
 
 #undef PP_SCALAR

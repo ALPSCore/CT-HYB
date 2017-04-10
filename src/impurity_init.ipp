@@ -3,8 +3,8 @@
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_observables() {
   // create measurement objects
-  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_legendre");
-  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_legendre_rotated");
+  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_ir");
+  create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Greens_ir_rotated");
   create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Two_time_correlation_functions");
 
   measurements << alps::accumulators::LogBinningAccumulator<std::vector<double> >("n");
@@ -112,7 +112,10 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
           )
       );
   p_G1_meas.reset(
-      new GMeasurement<SCALAR, 1>(FLAVORS, par["measurement.G1.n_legendre"], 0, BETA,
+      new GMeasurement<SCALAR, 1>(FLAVORS,
+                                  par["measurement.G1.Lambda"],
+                                  par["measurement.G1.max_dim"],
+                                  0, BETA,
                                   par["measurement.G1.max_num_data_accumulated"])
   );
 
@@ -133,7 +136,9 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     );
     p_G2_meas.reset(
         new GMeasurement<SCALAR, 2>(FLAVORS,
-                                    par["measurement.G2.n_legendre"], par["measurement.G2.n_bosonic_freq"], BETA,
+                                    par["measurement.G2.Lambda_f"],
+                                    par["measurement.G2.max_dim_f"],
+                                    par["measurement.G2.n_bosonic_freq"], BETA,
                                     par["measurement.G2.max_num_data_accumulated"]
         )
     );
@@ -161,7 +166,11 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         )
     );
     p_two_time_G2_meas.reset(
-        new TwoTimeG2Measurement<SCALAR>(FLAVORS, par["measurement.two_time_G2.n_legendre"], BETA)
+        new TwoTimeG2Measurement<SCALAR>(FLAVORS,
+                                         par["measurement.two_time_G2.Lambda"],
+                                         par["measurement.two_time_G2.max_dim"],
+                                         BETA
+        )
     );
   }
 

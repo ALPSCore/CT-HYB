@@ -13,6 +13,7 @@
 #include <alps/fastupdate/detail/util.hpp>
 #include "../src/model/model.hpp"
 #include "../src/util.hpp"
+#include "src/orthogonal_basis/basis.hpp"
 
 template<typename T>
 boost::tuple<int,int,int,int,T>
