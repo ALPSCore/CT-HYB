@@ -41,7 +41,11 @@ inline std::complex<double> convert_to_complex(const std::complex<double>& x) {
   return x;
 }
 
-#else
+inline double my_safe_real_exp(const double& x) {
+  return x > -400 ? std::exp(x) : 0.0;
+}
+
+#else //USE_QUAD_PRECISION
 
 #include <boost/multiprecision/cpp_bin_float.hpp>
 typedef boost::multiprecision::cpp_bin_float_quad EXTENDED_REAL;
@@ -321,6 +325,10 @@ inline std::complex<double> convert_to_complex(const EXTENDED_COMPLEX &x) {
       x.real().convert_to<double>(),
       x.imag().convert_to<double>()
   );
+}
+
+inline EXTENDED_REAL my_safe_real_exp(const double& x) {
+  return boost::multiprecision::exp(EXTENDED_REAL(x));
 }
 
 #endif
