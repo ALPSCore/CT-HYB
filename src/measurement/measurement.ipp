@@ -132,16 +132,16 @@ void TwoTimeG2Measurement<SCALAR>::measure_impl(const std::vector<psi> &worm_ops
     flavors[f] = worm_ops[f].flavor();
   }
 
-  const int num_legendre = legendre_trans_.num_legendre();
-  std::vector<double> Pl_vals(num_legendre);
+  const int dim_basis = basis_.dim();
+  std::vector<double> Pl_vals(dim_basis);
 
-  legendre_trans_.compute_legendre(2 * tdiff / beta_ - 1.0, Pl_vals);
-  for (int il = 0; il < num_legendre; ++il) {
+  basis_.value(2 * tdiff / beta_ - 1.0, Pl_vals);
+  for (int il = 0; il < dim_basis; ++il) {
     data
     [flavors[0]]
     [flavors[1]]
     [flavors[2]]
-    [flavors[3]][il] += weight * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
+    [flavors[3]][il] += weight *  Pl_vals[il] * sqrt(2.0/basis_.norm2(il));
   }
 }
 
@@ -288,7 +288,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
 
   //measure by removal as we would do for the partition function expansion
   MeasureGHelper<SCALAR, Rank>::perform(beta_,
-                                        legendre_trans_,
+                                        basis_,
                                         num_freq_,
                                         mc_config.sign,
                                         weight_rat,
@@ -321,7 +321,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
 //Measure G1 by removal in G1 space
 template<typename SCALAR>
 void MeasureGHelper<SCALAR, 1>::perform(double beta,
-                                        LegendreTransformer &legendre_trans,
+                                        const FermionicIRBasis &basis,
                                         int n_freq,
                                         SCALAR sign,
                                         SCALAR weight_rat_intermediate_state,
@@ -331,9 +331,9 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
                                         boost::multi_array<std::complex<double>, 3> &result) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
-  const int num_legendre = legendre_trans.num_legendre();
+  const int dim_basis = basis.dim();
 
-  std::vector<double> Pl_vals(num_legendre);
+  std::vector<double> Pl_vals(dim_basis);
 
   std::vector<psi>::const_iterator it1, it2;
   const int mat_size = M.size1();
@@ -358,6 +358,11 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
     }
   }
 
+  std::vector<double> sqrt_2l_1(dim_basis);
+  for (int il = 0; il < dim_basis; ++il) {
+    sqrt_2l_1[il] = sqrt(2.0/basis.norm2(il));
+  }
+
   double scale_fact = -1.0/(norm * beta);
   for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
     (k == 0 ? it1 = annihilation_ops.begin() : it1++);
@@ -375,9 +380,9 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
       const int flavor_a = it1->flavor();
       const int flavor_c = it2->flavor();
       const double x = 2 * argument * temperature - 1.0;
-      legendre_trans.compute_legendre(x, Pl_vals);
-      for (int il = 0; il < num_legendre; ++il) {
-        result[flavor_a][flavor_c][il] += scale_fact * coeffs[k][l] * legendre_trans.get_sqrt_2l_1()[il] * Pl_vals[il];
+      basis.value(x, Pl_vals);
+      for (int il = 0; il < dim_basis; ++il) {
+        result[flavor_a][flavor_c][il] += scale_fact * coeffs[k][l] * sqrt_2l_1[il] * Pl_vals[il];
       }
     }
   }
@@ -386,7 +391,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 //Measure G2 by removal in G2 space
 template<typename SCALAR>
 void MeasureGHelper<SCALAR, 2>::perform(double beta,
-                                        LegendreTransformer &legendre_trans,
+                                        const FermionicIRBasis &basis,
                                         int n_freq,
                                         SCALAR sign,
                                         SCALAR weight_rat_intermediate_state,
@@ -396,7 +401,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
                                         boost::multi_array<std::complex<double>, 7> &result) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
-  const int num_legendre = legendre_trans.num_legendre();
+  const int dim_basis = basis.dim();
   const int num_phys_rows = creation_ops.size();
   //std::cout << "num_phys_rows " << num_phys_rows << " " << annihilation_ops.size() << " " << M.size1() << std::endl;
   const int n_aux_lines = 2;
@@ -405,18 +410,20 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
 
   //Compute values of P
-  std::vector<double> sqrt_2l_1 = legendre_trans.get_sqrt_2l_1();
-  std::vector<double> sqrt_2l_1_p(sqrt_2l_1);
-  for (int il = 0; il < num_legendre; il += 2) {
+  std::vector<double> sqrt_2l_1(dim_basis), sqrt_2l_1_p(dim_basis);
+  for (int il = 0; il < dim_basis; ++il) {
+    sqrt_2l_1_p[il] = sqrt_2l_1[il] = sqrt(2.0/basis.norm2(il));
+  }
+  for (int il = 0; il < dim_basis; il += 2) {
     sqrt_2l_1_p[il] *= -1;
   }
 
   boost::multi_array<double, 3>
-      sqrt_2l_1_Pl(boost::extents[num_phys_rows][num_phys_rows][num_legendre]);//annihilator, creator, legendre
+      sqrt_2l_1_Pl(boost::extents[num_phys_rows][num_phys_rows][dim_basis]);//annihilator, creator, ir
   boost::multi_array<double, 3>
-      sqrt_2l_1_Pl_p(boost::extents[num_phys_rows][num_phys_rows][num_legendre]);//annihilator, creator, legendre
+      sqrt_2l_1_Pl_p(boost::extents[num_phys_rows][num_phys_rows][dim_basis]);//annihilator, creator, ir
   {
-    std::vector<double> Pl_tmp(num_legendre);
+    std::vector<double> Pl_tmp(dim_basis);
     for (int k = 0; k < num_phys_rows; k++) {
       for (int l = 0; l < num_phys_rows; l++) {
         double argument = annihilation_ops[k].time() - creation_ops[l].time();
@@ -426,8 +433,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
           arg_sign = -1.0;
         }
         const double x = 2 * argument * temperature - 1.0;
-        legendre_trans.compute_legendre(x, Pl_tmp);
-        for (int il = 0; il < num_legendre; ++il) {
+        basis.value(x, Pl_tmp);
+        for (int il = 0; il < dim_basis; ++il) {
           sqrt_2l_1_Pl[k][l][il] = arg_sign * Pl_tmp[il] * sqrt_2l_1[il];
           sqrt_2l_1_Pl_p[k][l][il] = arg_sign * Pl_tmp[il] * sqrt_2l_1_p[il];
         }
@@ -436,7 +443,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
 
   boost::multi_array<std::complex<double>, 3>
-      expiomega(boost::extents[num_phys_rows][num_phys_rows][n_freq]);//annihilator, creator, legendre
+      expiomega(boost::extents[num_phys_rows][num_phys_rows][n_freq]);//annihilator, creator, ir
   {
     for (int k = 0; k < num_phys_rows; k++) {
       for (int l = 0; l < num_phys_rows; l++) {
@@ -518,8 +525,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
             continue;
           }
           const SCALAR coeff = coeffs[a][b][c][d] * scale_fact;
-          for (int il = 0; il < num_legendre; ++il) {
-            for (int il_p = 0; il_p < num_legendre; ++il_p) {
+          for (int il = 0; il < dim_basis; ++il) {
+            for (int il_p = 0; il_p < dim_basis; ++il_p) {
               const SCALAR coeff2 = coeff * sqrt_2l_1_Pl[a][b][il] * sqrt_2l_1_Pl_p[c][d][il_p];
               for (int im = 0; im < n_freq; ++im) {
                 result[flavor_a][flavor_b][flavor_c][flavor_d][il][il_p][im] += coeff2 * expiomega[a][d][im];

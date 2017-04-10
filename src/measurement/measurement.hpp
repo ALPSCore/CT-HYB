@@ -15,7 +15,7 @@
 #include "../accumulator.hpp"
 #include "../mc_config.hpp"
 #include "../sliding_window/sliding_window.hpp"
-#include "../legendre.hpp"
+#include "src/orthogonal_basis/basis.hpp"
 #include "../operator.hpp"
 
 
@@ -29,19 +29,18 @@ class GreensFunctionLegendreMeasurement {
    * Constructor
    *
    * @param num_flavors    the number of flavors
-   * @param num_legendre   the number of legendre coefficients
+   * @param Lambda   parameter for the IR basis
+   * @param max_dim   the maximum dimension of the IR basis
    * @param num_matsubara  the number of Matsubara frequencies
    * @param beta           inverse temperature
    */
-  GreensFunctionLegendreMeasurement(int num_flavors, int num_legendre, int num_matsubra, double beta) :
+  GreensFunctionLegendreMeasurement(int num_flavors, double Lambda, int max_dim, double beta) :
       num_flavors_(num_flavors),
-      num_legendre_(num_legendre),
-      num_matsubara_(num_matsubra),
       beta_(beta),
       temperature_(1.0 / beta),
-      legendre_trans_(num_matsubara_, num_legendre_),
+      basis_(Lambda, max_dim),
       n_meas_(0),
-      g_meas_(boost::extents[num_flavors][num_flavors][num_legendre]) {
+      g_meas_(boost::extents[num_flavors][num_flavors][basis_.dim()]) {
     std::fill(g_meas_.origin(), g_meas_.origin() + g_meas_.num_elements(), 0.0);
   }
 
@@ -53,7 +52,7 @@ class GreensFunctionLegendreMeasurement {
    */
   void measure(const MonteCarloConfiguration<SCALAR> &mc_config) {
     //Work array for P[x_l]
-    std::vector<double> Pl_vals(num_legendre_);
+    std::vector<double> Pl_vals(basis_.dim());
     ++n_meas_;
     std::vector<psi>::const_iterator it1, it2;
 
@@ -70,6 +69,10 @@ class GreensFunctionLegendreMeasurement {
 
       //const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>& G =
       //mc_config.M.compute_G_matrix(block);
+      std::vector<double> sqrt_2l_1(basis_.dim());
+      for (int il = 0; il < basis_.dim(); ++il) {
+        sqrt_2l_1[il] = sqrt(2.0/basis_.norm2(il));
+      }
 
       for (int k = 0; k < M.rows(); k++) {
         (k == 0 ? it1 = annihilation_operators.begin() : it1++);
@@ -88,10 +91,10 @@ class GreensFunctionLegendreMeasurement {
           const int flavor_a = it1->flavor();
           const int flavor_c = it2->flavor();
           const double x = 2 * argument * temperature_ - 1.0;
-          legendre_trans_.compute_legendre(x, Pl_vals);
+          basis_.value(x, Pl_vals);
           const SCALAR coeff = -M(l, k) * bubble_sign * mc_config.sign * temperature_;
-          for (int il = 0; il < num_legendre_; ++il) {
-            g_meas_[flavor_a][flavor_c][il] += coeff * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
+          for (int il = 0; il < basis_.dim(); ++il) {
+            g_meas_[flavor_a][flavor_c][il] += coeff * sqrt_2l_1[il] * Pl_vals[il];
           }
         }
       }
@@ -105,7 +108,7 @@ class GreensFunctionLegendreMeasurement {
    */
   template<typename Derived>
   boost::multi_array<std::complex<double>,
-                     3> get_measured_legendre_coefficients(const Eigen::MatrixBase<Derived> &rotmat_Delta) const {
+                     3> get_measured_coefficients(const Eigen::MatrixBase<Derived> &rotmat_Delta) const {
     if (n_meas_ == 0) {
       throw std::runtime_error("Error: n_meas_=0");
     }
@@ -118,7 +121,7 @@ class GreensFunctionLegendreMeasurement {
 
     //Transform to the original basis
     Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> gf_tmp(num_flavors_, num_flavors_);
-    for (int il = 0; il < num_legendre_; ++il) {
+    for (int il = 0; il < basis_.dim(); ++il) {
       for (int flavor = 0; flavor < num_flavors_; ++flavor) {
         for (int flavor2 = 0; flavor2 < num_flavors_; ++flavor2) {
           gf_tmp(flavor, flavor2) = result[flavor][flavor2][il];
@@ -144,18 +147,18 @@ class GreensFunctionLegendreMeasurement {
   }
 
   /**
-   * Returns the number of legendre coefficients
+   * Returns the number of ir coefficients
    */
-  inline int get_num_legendre() const { return num_legendre_; }
+  inline int get_num_ir() const { return basis_.dim(); }
 
   inline bool has_samples() const { return n_meas_ > 0; }
 
   inline int num_samples() const { return n_meas_; }
 
  private:
-  const int num_flavors_, num_legendre_, num_matsubara_;
+  const int num_flavors_;
   const double beta_, temperature_;
-  LegendreTransformer legendre_trans_;
+  FermionicIRBasis basis_;
   int n_meas_;
   boost::multi_array<std::complex<double>, 3> g_meas_;
 };
@@ -234,14 +237,15 @@ class TwoTimeG2Measurement {
    * Constructor
    *
    * @param num_flavors    the number of flavors
-   * @param num_legendre   the number of legendre coefficients
+   * @param Lambda         Lambda for bosonic IR basis
+   * @param max_dim        the maximum dimension of bosonic IR basis
    * @param beta           inverse temperature
    */
-  TwoTimeG2Measurement(int num_flavors, int num_legendre, double beta) :
+  TwoTimeG2Measurement(int num_flavors, double Lambda, int max_dim, double beta) :
       num_flavors_(num_flavors),
       beta_(beta),
-      legendre_trans_(1, num_legendre),
-      data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_legendre]) {
+      basis_(Lambda, max_dim),
+      data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][basis_.dim()]) {
     std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
   }
 
@@ -260,12 +264,12 @@ class TwoTimeG2Measurement {
                     boost::multi_array<std::complex<double>,5> &data);
   int num_flavors_;
   double beta_;
-  LegendreTransformer legendre_trans_;
+  BosonicIRBasis basis_;
   boost::multi_array<std::complex<double>, 5> data_;
 };
 
-void init_work_space(boost::multi_array<std::complex<double>, 3> &data, int num_flavors, int num_legendre, int num_freq);
-void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_flavors, int num_legendre, int num_freq);
+void init_work_space(boost::multi_array<std::complex<double>, 3> &data, int num_flavors, int num_ir, int num_freq);
+void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_flavors, int num_ir, int num_freq);
 
 /**
  * @brief Helper struct for measurement of Green's function using Legendre basis in G space
@@ -273,7 +277,7 @@ void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_
 template<typename SCALAR, int RANK>
 struct MeasureGHelper {
   static void perform(double beta,
-                      LegendreTransformer &legendre_trans,
+                      const FermionicIRBasis &basis,
                       int n_freq,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
@@ -289,7 +293,7 @@ struct MeasureGHelper {
 template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 1> {
   static void perform(double beta,
-                      LegendreTransformer &legendre_trans,
+                      const FermionicIRBasis &basis,
                       int n_freq,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
@@ -305,7 +309,7 @@ struct MeasureGHelper<SCALAR, 1> {
 template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 2> {
   static void perform(double beta,
-                      LegendreTransformer &legendre_trans,
+                      const FermionicIRBasis &basis,
                       int n_freq,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
@@ -325,19 +329,22 @@ class GMeasurement {
    * Constructor
    *
    * @param num_flavors    the number of flavors
-   * @param num_legendre   the number of legendre coefficients
+   * @param Lambda_f   Lambda for fermionic ir basis
+   * @param max_dim_f   max dim of fermionic ir basis
    * @param num_freq       the number of bosonic frequencies
    * @param beta           inverse temperature
    */
-  GMeasurement(int num_flavors, int num_legendre, int num_freq, double beta, int max_num_data = 1) :
+  GMeasurement(int num_flavors,
+               double Lambda_f,
+               int max_dim_f, int num_freq, double beta, int max_num_data = 1) :
       str_("G"+boost::lexical_cast<std::string>(Rank)),
       num_flavors_(num_flavors),
       num_freq_(num_freq),
       beta_(beta),
-      legendre_trans_(1, num_legendre),
+      basis_(Lambda_f, max_dim_f),
       num_data_(0),
       max_num_data_(max_num_data) {
-    init_work_space(data_, num_flavors, num_legendre, num_freq);
+    init_work_space(data_, num_flavors, basis_.dim(), num_freq);
   };
 
   /**
@@ -358,8 +365,8 @@ class GMeasurement {
   std::string str_;
   int num_flavors_, num_freq_;
   double beta_;
-  LegendreTransformer legendre_trans_;
-  //flavor, ..., flavor, legendre, legendre, ..., legendre
+  FermionicIRBasis basis_;
+  //flavor, ..., flavor, ir, ir, ..., ir
   boost::multi_array<std::complex<double>, 4 * Rank - 1> data_;
   int num_data_;
   int max_num_data_;//max number of data accumlated before passing data to ALPS

@@ -8,7 +8,7 @@
 #include <alps/gf/gf.hpp>
 #include <alps/gf/tail.hpp>
 
-#include "legendre.hpp"
+#include "src/orthogonal_basis/basis.hpp"
 
 template<typename T>
 struct to_complex {
@@ -25,7 +25,7 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
                                              Eigen::Dynamic> &rotmat_Delta,
                          std::map<std::string,boost::any> &ar,
                          bool verbose = false) {
-  const int n_legendre(parms["measurement.two_time_G2.n_legendre"].template as<int>());
+  const int dim_ir_basis(parms["measurement.two_time_G2.dim_ir_basis"].template as<int>());
   const double beta(parms["model.beta"]);
   const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   const double temperature(1.0 / beta);
@@ -41,15 +41,15 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
 
   const std::vector<double> data_Re = results["Two_time_G2_Re"].template mean<std::vector<double> >();
   const std::vector<double> data_Im = results["Two_time_G2_Im"].template mean<std::vector<double> >();
-  assert(data_Re.size() == n_flavors * n_flavors * n_flavors * n_flavors * n_legendre);
+  assert(data_Re.size() == n_flavors * n_flavors * n_flavors * n_flavors * dim_ir_basis);
   boost::multi_array<std::complex<double>, 5>
-      data(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_legendre]);
+      data(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][dim_ir_basis]);
   std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
   std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
                  std::bind1st(std::multiplies<std::complex<double> >(), coeff));
 
   boost::multi_array<std::complex<double>, 5>
-      data_org_basis(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_legendre]);
+      data_org_basis(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][dim_ir_basis]);
   std::fill(data_org_basis.origin(), data_org_basis.origin() + data_org_basis.num_elements(), 0.0);
 
   //basis rotation very ugly. TO DO: replace the loops with tensordots.
@@ -61,7 +61,7 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
             for (int g1 = 0; g1 < n_flavors; ++g1) {
               for (int g2 = 0; g2 < n_flavors; ++g2) {
                 for (int g3 = 0; g3 < n_flavors; ++g3) {
-                  for (int il = 0; il < n_legendre; ++il) {
+                  for (int il = 0; il < dim_ir_basis; ++il) {
                     data_org_basis[f0][f1][f2][f3][il] += data[g0][g1][g2][g3][il] *
                         myconj(rotmat_Delta(f0, g0)) *
                         rotmat_Delta(f1, g1) *
@@ -90,7 +90,6 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
-  const int n_legendre(parms["measurement.G1.n_legendre"].template as<int>());
   const int n_tau(parms["measurement.G1.n_tau"]);
   const int n_matsubara(parms["measurement.G1.n_matsubara"]);
   const double beta(parms["model.beta"]);
@@ -102,14 +101,16 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
       results["worm_space_volume_G1"].template mean<double>() /
           (sign * results["Z_function_space_volume"].template mean<double>());
 
+  const int dim_ir_basis = results["G1_Re"].template mean<std::vector<double> >().size()/(n_flavors * n_flavors);
+
   boost::multi_array<std::complex<double>, 3>
-      Gl_org_basis(boost::extents[n_flavors][n_flavors][n_legendre]);
+      Gl_org_basis(boost::extents[n_flavors][n_flavors][dim_ir_basis]);
   {
     const std::vector<double> Gl_Re = results["G1_Re"].template mean<std::vector<double> >();
     const std::vector<double> Gl_Im = results["G1_Im"].template mean<std::vector<double> >();
-    assert(Gl_Re.size() == n_flavors * n_flavors * n_legendre);
+    assert(Gl_Re.size() == n_flavors * n_flavors * dim_ir_basis);
     boost::multi_array<std::complex<double>, 3>
-        Gl(boost::extents[n_flavors][n_flavors][n_legendre]);
+        Gl(boost::extents[n_flavors][n_flavors][dim_ir_basis]);
     std::transform(Gl_Re.begin(), Gl_Re.end(), Gl_Im.begin(), Gl.origin(), to_complex<double>());
     std::transform(Gl.origin(), Gl.origin() + Gl.num_elements(), Gl.origin(),
                    std::bind1st(std::multiplies<std::complex<double> >(), coeff));
@@ -117,7 +118,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
     //rotate back to the original basis
     complex_matrix_t mattmp(n_flavors, n_flavors), mattmp2(n_flavors, n_flavors);
     const matrix_t inv_rotmat_Delta = rotmat_Delta.inverse();
-    for (int il = 0; il < n_legendre; ++il) {
+    for (int il = 0; il < dim_ir_basis; ++il) {
       for (int flavor1 = 0; flavor1 < n_flavors; ++flavor1) {
         for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
           mattmp(flavor1, flavor2) = Gl[flavor1][flavor2][il];
@@ -136,7 +137,9 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   /*
    * Initialize LegendreTransformer
    */
-  LegendreTransformer legendre_transformer(n_matsubara, n_legendre);
+  FermionicIRBasis basis(
+      parms["measurement.G1.Lambda"].template as<double>(), parms["measurement.G1.max_dim"].template as<int>()
+  );
 
   /*
    * Compute G(tau) from Legendre coefficients
@@ -148,16 +151,20 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
 
   ITIME_GF
       itime_gf(alps::gf::itime_mesh(beta, n_tau + 1), alps::gf::index_mesh(n_flavors), alps::gf::index_mesh(n_flavors));
-  std::vector<double> Pvals(n_legendre);
-  const std::vector<double> &sqrt_array = legendre_transformer.get_sqrt_2l_1();
+  std::vector<double> Pvals(dim_ir_basis);
+  std::vector<double> sqrt_array(dim_ir_basis);
+  for (int il = 0; il < dim_ir_basis; ++il) {
+    sqrt_array[il] = sqrt(2.0/basis.norm2(il));
+  }
+
   for (int itau = 0; itau < n_tau + 1; ++itau) {
     const double tau = itau * (beta / n_tau);
     const double x = 2 * tau / beta - 1.0;
-    legendre_transformer.compute_legendre(x, Pvals); //Compute P_l[x]
+    basis.value(x, Pvals); //Compute P_l[x]
 
     for (int flavor = 0; flavor < n_flavors; ++flavor) {
       for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
-        for (int il = 0; il < n_legendre; ++il) {
+        for (int il = 0; il < dim_ir_basis; ++il) {
           itime_gf(g::itime_index(itau), g::index(flavor), g::index(flavor2)) +=
               Pvals[il] * Gl_org_basis[flavor][flavor2][il] * sqrt_array[il] * temperature;
         }
@@ -174,14 +181,14 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
                                    alps::gf::index_mesh
   > GOMEGA;
 
-  const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> &Tnl(legendre_transformer.Tnl());
-  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> tmp_mat(n_legendre, 1), tmp_mat2(n_matsubara, 1);
+  const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> &Tnl(basis.Tnl(n_matsubara));
+  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> tmp_mat(dim_ir_basis, 1), tmp_mat2(n_matsubara, 1);
   GOMEGA gomega(alps::gf::matsubara_positive_mesh(beta, n_matsubara),
                 alps::gf::index_mesh(n_flavors),
                 alps::gf::index_mesh(n_flavors));
   for (int flavor = 0; flavor < n_flavors; ++flavor) {
     for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
-      for (int il = 0; il < n_legendre; ++il) {
+      for (int il = 0; il < dim_ir_basis; ++il) {
         tmp_mat(il, 0) = Gl_org_basis[flavor][flavor2][il];
       }
       tmp_mat2 = Tnl * tmp_mat;
@@ -268,7 +275,7 @@ void compute_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
                 const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
                 std::map<std::string,boost::any> &ar,
                 bool verbose = false) {
-  const int n_legendre(parms["measurement.G2.n_legendre"]);
+  //const int dim_ir_basis(parms["measurement.G2.dim_ir_basis"]);
   const int n_freq(parms["measurement.G2.n_bosonic_freq"]);
   const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   const double sign = results["Sign"].template mean<double>();
@@ -278,17 +285,20 @@ void compute_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
       results["worm_space_volume_G2"].template mean<double>() /
           (sign * results["Z_function_space_volume"].template mean<double>());
 
+  //ugly
+  const int dim_ir_basis = results["G1_Re"].template mean<std::vector<double> >().size()/(n_flavors * n_flavors);
+
   const std::vector<double> Gl_Re = results["G2_Re"].template mean<std::vector<double> >();
   const std::vector<double> Gl_Im = results["G2_Im"].template mean<std::vector<double> >();
   boost::multi_array<std::complex<double>, 7>
-      Gl(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_legendre][n_legendre][n_freq]);
+      Gl(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][dim_ir_basis][dim_ir_basis][n_freq]);
   std::transform(Gl_Re.begin(), Gl_Re.end(), Gl_Im.begin(), Gl.origin(), to_complex<double>());
   std::transform(Gl.origin(), Gl.origin() + Gl.num_elements(), Gl.origin(),
                  std::bind1st(std::multiplies<std::complex<double> >(), coeff));
 
   //rotate back to the original basis (using not-cache-friendly approach...)
-  for (int il = 0; il < n_legendre; ++il) {
-    for (int il2 = 0; il2 < n_legendre; ++il2) {
+  for (int il = 0; il < dim_ir_basis; ++il) {
+    for (int il2 = 0; il2 < dim_ir_basis; ++il2) {
       for (int ifreq = 0; ifreq < n_freq; ++ifreq) {
 
         //copy data to work1

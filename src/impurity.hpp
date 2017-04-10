@@ -245,7 +245,7 @@ class HybridizationSimulation: public alps::mcbase {
   SW_TYPE sliding_window;
 
   //for measuring Green's function (by removal)
-  GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
+  GreensFunctionLegendreMeasurement<SCALAR> g_meas;
 
   //Measurement of two-time correlation functions by worm sampling
   boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
