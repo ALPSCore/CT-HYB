@@ -288,8 +288,8 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
 
   //measure by removal as we would do for the partition function expansion
   MeasureGHelper<SCALAR, Rank>::perform(beta_,
-                                        basis_,
-                                        num_freq_,
+                                        *p_basis_f_,
+                                        *p_basis_b_,
                                         mc_config.sign,
                                         weight_rat,
                                         cdagg_ops_new,
@@ -309,20 +309,11 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   }
 }
 
-//template<typename SCALAR>
-//struct RescaleAdd {
-  //RescaleAdd(SCALAR a) : a_(a) {}
-  //SCALAR operator()(const SCALAR &x, const SCALAR &y) {
-    //return a_ * x + y;
-  //}
-  //SCALAR a_;
-//};
-
 //Measure G1 by removal in G1 space
 template<typename SCALAR>
 void MeasureGHelper<SCALAR, 1>::perform(double beta,
-                                        const FermionicIRBasis &basis,
-                                        int n_freq,
+                                        const OrthogonalBasis &basis_f,
+                                        const OrthogonalBasis &basis_b,
                                         SCALAR sign,
                                         SCALAR weight_rat_intermediate_state,
                                         const std::vector<psi> &creation_ops,
@@ -331,7 +322,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
                                         boost::multi_array<std::complex<double>, 3> &result) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
-  const int dim_basis = basis.dim();
+  const int dim_basis = basis_f.dim();
 
   std::vector<double> Pl_vals(dim_basis);
 
@@ -360,7 +351,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 
   std::vector<double> sqrt_2l_1(dim_basis);
   for (int il = 0; il < dim_basis; ++il) {
-    sqrt_2l_1[il] = sqrt(2.0/basis.norm2(il));
+    sqrt_2l_1[il] = sqrt(2.0/basis_f.norm2(il));
   }
 
   double scale_fact = -1.0/(norm * beta);
@@ -380,7 +371,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
       const int flavor_a = it1->flavor();
       const int flavor_c = it2->flavor();
       const double x = 2 * argument * temperature - 1.0;
-      basis.value(x, Pl_vals);
+      basis_f.value(x, Pl_vals);
       for (int il = 0; il < dim_basis; ++il) {
         result[flavor_a][flavor_c][il] += scale_fact * coeffs[k][l] * sqrt_2l_1[il] * Pl_vals[il];
       }
@@ -391,8 +382,8 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 //Measure G2 by removal in G2 space
 template<typename SCALAR>
 void MeasureGHelper<SCALAR, 2>::perform(double beta,
-                                        const FermionicIRBasis &basis,
-                                        int n_freq,
+                                        const OrthogonalBasis &basis_f,
+                                        const OrthogonalBasis &basis_b,
                                         SCALAR sign,
                                         SCALAR weight_rat_intermediate_state,
                                         const std::vector<psi> &creation_ops,
@@ -401,29 +392,30 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
                                         boost::multi_array<std::complex<double>, 7> &result) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
-  const int dim_basis = basis.dim();
+  const int dim_f = basis_f.dim();
+  const int dim_b = basis_b.dim();
+  const int max_dim = std::max(dim_f, dim_b);
   const int num_phys_rows = creation_ops.size();
-  //std::cout << "num_phys_rows " << num_phys_rows << " " << annihilation_ops.size() << " " << M.size1() << std::endl;
   const int n_aux_lines = 2;
   if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.size1() - n_aux_lines) {
     throw std::runtime_error("Fatal error in MeasureGHelper<SCALAR, 2>::perform()");
   }
 
-  //Compute values of P
-  std::vector<double> sqrt_2l_1(dim_basis), sqrt_2l_1_p(dim_basis);
-  for (int il = 0; il < dim_basis; ++il) {
-    sqrt_2l_1_p[il] = sqrt_2l_1[il] = sqrt(2.0/basis.norm2(il));
-  }
-  for (int il = 0; il < dim_basis; il += 2) {
-    sqrt_2l_1_p[il] *= -1;
-  }
-
   boost::multi_array<double, 3>
-      sqrt_2l_1_Pl(boost::extents[num_phys_rows][num_phys_rows][dim_basis]);//annihilator, creator, ir
+      Pl_f(boost::extents[num_phys_rows][num_phys_rows][dim_f]);//annihilator, creator, ir
   boost::multi_array<double, 3>
-      sqrt_2l_1_Pl_p(boost::extents[num_phys_rows][num_phys_rows][dim_basis]);//annihilator, creator, ir
+      Pl_b(boost::extents[num_phys_rows][num_phys_rows][dim_b]);//annihilator, creator, ir
   {
-    std::vector<double> Pl_tmp(dim_basis);
+    //Normalization factor of basis functions
+    std::vector<double> norm_coeff_f(dim_f), norm_coeff_b(dim_b);
+    for (int il = 0; il < dim_f; ++il) {
+      norm_coeff_f[il] = sqrt(2.0/basis_f.norm2(il));
+    }
+    for (int il = 0; il < dim_b; ++il) {
+      norm_coeff_b[il] = sqrt(2.0/basis_b.norm2(il));
+    }
+
+    std::vector<double> Pl_tmp(max_dim);
     for (int k = 0; k < num_phys_rows; k++) {
       for (int l = 0; l < num_phys_rows; l++) {
         double argument = annihilation_ops[k].time() - creation_ops[l].time();
@@ -433,25 +425,14 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
           arg_sign = -1.0;
         }
         const double x = 2 * argument * temperature - 1.0;
-        basis.value(x, Pl_tmp);
-        for (int il = 0; il < dim_basis; ++il) {
-          sqrt_2l_1_Pl[k][l][il] = arg_sign * Pl_tmp[il] * sqrt_2l_1[il];
-          sqrt_2l_1_Pl_p[k][l][il] = arg_sign * Pl_tmp[il] * sqrt_2l_1_p[il];
+        basis_f.value(x, Pl_tmp);
+        for (int il = 0; il < dim_f; ++il) {
+          Pl_f[k][l][il] = arg_sign * norm_coeff_f[il] * Pl_tmp[il];
         }
-      }
-    }
-  }
 
-  boost::multi_array<std::complex<double>, 3>
-      expiomega(boost::extents[num_phys_rows][num_phys_rows][n_freq]);//annihilator, creator, ir
-  {
-    for (int k = 0; k < num_phys_rows; k++) {
-      for (int l = 0; l < num_phys_rows; l++) {
-        const double tau_diff = annihilation_ops[k].time() - creation_ops[l].time();
-        const std::complex<double> rat = std::exp(std::complex<double>(0.0, 2 * M_PI * tau_diff * temperature));
-        expiomega[k][l][0] = 1.0;
-        for (int freq = 1; freq < n_freq; ++freq) {
-          expiomega[k][l][freq] = rat * expiomega[k][l][freq - 1];
+        basis_b.value(x, Pl_tmp);
+        for (int il = 0; il < dim_b; ++il) {
+          Pl_b[k][l][il] = norm_coeff_b[il] * Pl_tmp[il];
         }
       }
     }
@@ -504,6 +485,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
+
   //Then, accumulate data
   const double scale_fact = 1.0/(norm * beta);
   for (int a = 0; a < num_phys_rows; ++a) {
@@ -525,11 +507,12 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
             continue;
           }
           const SCALAR coeff = coeffs[a][b][c][d] * scale_fact;
-          for (int il = 0; il < dim_basis; ++il) {
-            for (int il_p = 0; il_p < dim_basis; ++il_p) {
-              const SCALAR coeff2 = coeff * sqrt_2l_1_Pl[a][b][il] * sqrt_2l_1_Pl_p[c][d][il_p];
-              for (int im = 0; im < n_freq; ++im) {
-                result[flavor_a][flavor_b][flavor_c][flavor_d][il][il_p][im] += coeff2 * expiomega[a][d][im];
+          for (int il = 0; il < dim_f; ++il) {
+            for (int il_p = 0; il_p < dim_f; ++il_p) {
+              const SCALAR coeff2 = coeff * Pl_f[a][b][il] * Pl_f[c][d][il_p] * (il_p == 0 ? -1.0 : 1.0);
+              for (int im = 0; im < dim_b; ++im) {
+                result[flavor_a][flavor_b][flavor_c][flavor_d][il][il_p][im]
+                    += coeff2 * Pl_b[a][d][im];
               }
             }
           }

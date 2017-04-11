@@ -111,13 +111,16 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
               "G1_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>())
           )
       );
-  p_G1_meas.reset(
-      new GMeasurement<SCALAR, 1>(FLAVORS,
-                                  par["measurement.G1.Lambda"],
-                                  par["measurement.G1.max_dim"],
-                                  0, BETA,
-                                  par["measurement.G1.max_num_data_accumulated"])
-  );
+
+  {
+    boost::shared_ptr<OrthogonalBasis> basis_f(new FermionicIRBasis(par["measurement.G1.Lambda"], 100000000));
+    p_G1_meas.reset(
+        new GMeasurement<SCALAR, 1>(FLAVORS,
+                                    basis_f,
+                                    BETA,
+                                    par["measurement.G1.max_num_data_accumulated"])
+    );
+  }
 
   /*
    * G2
@@ -134,14 +137,18 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         )
     );
-    p_G2_meas.reset(
-        new GMeasurement<SCALAR, 2>(FLAVORS,
-                                    par["measurement.G2.Lambda_f"],
-                                    par["measurement.G2.max_dim_f"],
-                                    par["measurement.G2.n_bosonic_freq"], BETA,
+    {
+      boost::shared_ptr<OrthogonalBasis> basis_f(new FermionicIRBasis(par["measurement.G2.Lambda_f"], 100000000));
+      boost::shared_ptr<OrthogonalBasis> basis_b(new FermionicIRBasis(par["measurement.G2.Lambda_b"], 100000000));
+      p_G2_meas.reset(
+          new GMeasurement<SCALAR, 2>(FLAVORS,
+                                    basis_f,
+                                    basis_b,
+                                    BETA,
                                     par["measurement.G2.max_num_data_accumulated"]
-        )
-    );
+          )
+      );
+    }
     specialized_updaters["G2_ins_rem_hyb"] =
         boost::shared_ptr<LocalUpdaterType>(
             new G2WormInsertionRemoverType(

@@ -9,14 +9,10 @@
 #include <boost/math/special_functions/bessel.hpp>
 #include <boost/multi_array.hpp>
 
-//#include <gsl/gsl_errno.h>
-//#include <gsl/gsl_spline.h>
-
 #include <Eigen/Core>
 #include <Eigen/SVD>
 
-//#include <alps/gf/numerical_basis.hpp>
-#include "../../include/ir_basis/ir_basis.hpp"
+#include <alps/gf_extension/ir/ir_basis.hpp>
 
 /**
  * Class represents an orthogonal basis set.
@@ -63,5 +59,5 @@ class IrBasis : public OrthogonalBasis {
   mutable complex_matrix_t Tnl_;
 };
 
-typedef IrBasis<ir::FermionicBasis> FermionicIRBasis;
-typedef IrBasis<ir::BosonicBasis> BosonicIRBasis;
+typedef IrBasis<alps::gf_extension::ir::fermionic_basis> FermionicIRBasis;
+typedef IrBasis<alps::gf_extension::ir::bosonic_basis> BosonicIRBasis;

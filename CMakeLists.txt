@@ -40,7 +40,7 @@ endif()
 # The project relies on the ALPSCore package. If ALPSCore is not found
 # automatically, specify its location using:
 # export ALPSCore_DIR=/location/to/ALPSCORE/
-find_package(ALPSCore REQUIRED)
+find_package(ALPSCore REQUIRED utilities hdf5 accumulators params mc gf gf-extensions)
 
 #Find MPI
 include(EnableMPI)

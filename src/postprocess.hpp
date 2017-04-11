@@ -132,13 +132,13 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
       }
     }
   }
-  ar["G1_LEGENDRE"] = Gl_org_basis;
+  ar["G1_IR"] = Gl_org_basis;
 
   /*
    * Initialize LegendreTransformer
    */
   FermionicIRBasis basis(
-      parms["measurement.G1.Lambda"].template as<double>(), parms["measurement.G1.max_dim"].template as<int>()
+      parms["measurement.G1.Lambda"].template as<double>(), 100000000
   );
 
   /*

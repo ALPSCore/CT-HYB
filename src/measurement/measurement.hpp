@@ -20,7 +20,7 @@
 
 
 /**
- * @brief Class for measurement of single-particle Green's function using Legendre basis
+ * @brief Class for measurement of single-particle Green's function using Legendre basis (non-worm version)
  */
 template<typename SCALAR>
 class GreensFunctionLegendreMeasurement {
@@ -277,8 +277,8 @@ void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_
 template<typename SCALAR, int RANK>
 struct MeasureGHelper {
   static void perform(double beta,
-                      const FermionicIRBasis &basis,
-                      int n_freq,
+                      const OrthogonalBasis &basis_f,
+                      const OrthogonalBasis &basis_b,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
@@ -293,8 +293,8 @@ struct MeasureGHelper {
 template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 1> {
   static void perform(double beta,
-                      const FermionicIRBasis &basis,
-                      int n_freq,
+                      const OrthogonalBasis &basis_f,
+                      const OrthogonalBasis &basis_b,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
@@ -309,8 +309,8 @@ struct MeasureGHelper<SCALAR, 1> {
 template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 2> {
   static void perform(double beta,
-                      const FermionicIRBasis &basis,
-                      int n_freq,
+                      const OrthogonalBasis &basis_f,
+                      const OrthogonalBasis &basis_b,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
@@ -326,25 +326,42 @@ template<typename SCALAR, int Rank>
 class GMeasurement {
  public:
   /**
-   * Constructor
+   * Constructor for G1
    *
    * @param num_flavors    the number of flavors
-   * @param Lambda_f   Lambda for fermionic ir basis
-   * @param max_dim_f   max dim of fermionic ir basis
-   * @param num_freq       the number of bosonic frequencies
+   * @param p_basis_f      Basis for fermioninc freq.
+   * @param beta           inverse temperature
+   */
+  GMeasurement(int num_flavors, boost::shared_ptr<OrthogonalBasis> p_basis_f, double beta, int max_num_data = 1) :
+      str_("G"+boost::lexical_cast<std::string>(Rank)),
+      num_flavors_(num_flavors),
+      beta_(beta),
+      p_basis_f_(p_basis_f),
+      num_data_(0),
+      max_num_data_(max_num_data) {
+    init_work_space(data_, num_flavors, p_basis_f_->dim(), 1);
+  };
+
+  /**
+   * Constructor for G2
+   *
+   * @param num_flavors    the number of flavors
+   * @param p_basis_f      Basis for fermionic freq.
+   * @param p_basis_b      Basis for bosonic freq.
    * @param beta           inverse temperature
    */
   GMeasurement(int num_flavors,
-               double Lambda_f,
-               int max_dim_f, int num_freq, double beta, int max_num_data = 1) :
+               boost::shared_ptr<OrthogonalBasis> p_basis_f,
+               boost::shared_ptr<OrthogonalBasis> p_basis_b,
+               double beta, int max_num_data = 1) :
       str_("G"+boost::lexical_cast<std::string>(Rank)),
       num_flavors_(num_flavors),
-      num_freq_(num_freq),
       beta_(beta),
-      basis_(Lambda_f, max_dim_f),
+      p_basis_f_(p_basis_f),
+      p_basis_b_(p_basis_b),
       num_data_(0),
       max_num_data_(max_num_data) {
-    init_work_space(data_, num_flavors, basis_.dim(), num_freq);
+    init_work_space(data_, num_flavors, p_basis_f_->dim(), p_basis_b_->dim());
   };
 
   /**
@@ -365,7 +382,7 @@ class GMeasurement {
   std::string str_;
   int num_flavors_, num_freq_;
   double beta_;
-  FermionicIRBasis basis_;
+  boost::shared_ptr<OrthogonalBasis> p_basis_f_, p_basis_b_;
   //flavor, ..., flavor, ir, ir, ..., ir
   boost::multi_array<std::complex<double>, 4 * Rank - 1> data_;
   int num_data_;
