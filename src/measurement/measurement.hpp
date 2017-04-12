@@ -277,8 +277,8 @@ void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_
 template<typename SCALAR, int RANK>
 struct MeasureGHelper {
   static void perform(double beta,
-                      const OrthogonalBasis &basis_f,
-                      const OrthogonalBasis &basis_b,
+                      boost::shared_ptr<OrthogonalBasis> p_basis_f,
+                      boost::shared_ptr<OrthogonalBasis> p_basis_b,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
@@ -293,8 +293,8 @@ struct MeasureGHelper {
 template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 1> {
   static void perform(double beta,
-                      const OrthogonalBasis &basis_f,
-                      const OrthogonalBasis &basis_b,
+                      boost::shared_ptr<OrthogonalBasis> p_basis_f,
+                      boost::shared_ptr<OrthogonalBasis> p_basis_b,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
@@ -309,8 +309,8 @@ struct MeasureGHelper<SCALAR, 1> {
 template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 2> {
   static void perform(double beta,
-                      const OrthogonalBasis &basis_f,
-                      const OrthogonalBasis &basis_b,
+                      boost::shared_ptr<OrthogonalBasis> p_basis_f,
+                      boost::shared_ptr<OrthogonalBasis> p_basis_b,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
@@ -377,6 +377,10 @@ class GMeasurement {
   void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                alps::accumulators::accumulator_set &measurements,
                alps::random01 &random, int max_matrix_size, double eps = 1E-5);
+
+  boost::shared_ptr<OrthogonalBasis> get_p_basis_f() {return p_basis_f_;}
+
+  boost::shared_ptr<OrthogonalBasis> get_p_basis_b() {return p_basis_b_;}
 
  private:
   std::string str_;

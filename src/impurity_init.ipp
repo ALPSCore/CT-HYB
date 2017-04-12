@@ -138,8 +138,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         )
     );
     {
-      boost::shared_ptr<OrthogonalBasis> basis_f(new FermionicIRBasis(par["measurement.G2.Lambda_f"], 100000000));
-      boost::shared_ptr<OrthogonalBasis> basis_b(new FermionicIRBasis(par["measurement.G2.Lambda_b"], 100000000));
+      boost::shared_ptr<OrthogonalBasis> basis_f(new FermionicIRBasis(par["measurement.G2.Lambda_f"], par["measurement.G2.max_dim_f"]));
+      boost::shared_ptr<OrthogonalBasis> basis_b(new FermionicIRBasis(par["measurement.G2.Lambda_b"], par["measurement.G2.max_dim_b"]));
       p_G2_meas.reset(
           new GMeasurement<SCALAR, 2>(FLAVORS,
                                     basis_f,

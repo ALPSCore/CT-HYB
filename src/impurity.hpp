@@ -119,6 +119,10 @@ class HybridizationSimulation: public alps::mcbase {
   //for postprocess
   void show_statistics(const alps::accumulators::result_set &results);
 
+  void compute_G1(const alps::accumulators::result_set &results, std::map<std::string,boost::any> &ar);
+
+  void compute_G2(const alps::accumulators::result_set &results, std::map<std::string,boost::any> &ar);
+
  private:
   //for set up
   void create_observables(); //build ALPS observables
@@ -245,7 +249,7 @@ class HybridizationSimulation: public alps::mcbase {
   SW_TYPE sliding_window;
 
   //for measuring Green's function (by removal)
-  GreensFunctionLegendreMeasurement<SCALAR> g_meas;
+  //GreensFunctionLegendreMeasurement<SCALAR> g_meas;
 
   //Measurement of two-time correlation functions by worm sampling
   boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
