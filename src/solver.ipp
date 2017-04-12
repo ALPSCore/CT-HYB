@@ -50,14 +50,14 @@ int MatrixSolver<Scalar>::solve() {
       results_["Sign"] = mc_results_["Sign"].template mean<double>();
 
       //Single-particle Green's function
-      compute_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
+      sim.compute_G1(mc_results_, results_);
       if (Base::parameters_["measurement.equal_time_G1.on"] != 0) {
         compute_euqal_time_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
       }
 
       //Two-particle Green's function
       if (Base::parameters_["measurement.G2.on"] != 0) {
-        compute_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
+        sim.compute_G2(mc_results_, results_);
       }
       if (Base::parameters_["measurement.two_time_G2.on"] != 0) {
         compute_two_time_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);

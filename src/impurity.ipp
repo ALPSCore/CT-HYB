@@ -36,7 +36,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
                    "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
           //
           //Single-particle GF
-      //.define<int>("measurement.G1.max_dim", 100, "Maximum dimension of the IR basis for measuring G(tau)")
+      .define<int>("measurement.G1.max_dim", 100, "Maximum dimension of the IR basis for measuring G(tau)")
       .define<double>("measurement.G1.Lambda", 1000.0, "Lambda parameter for the IR basis")
       .define<int>("measurement.G1.n_tau",
                    2000,
@@ -51,9 +51,10 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
           //Two-particle GF
       .define<int>("measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
-      .define<int>("measurement.G2.Lambda_f", 1000.0, "Lambda parameter for the Fermionic IR basis")
-      .define<int>("measurement.G2.Lambda_b", 1000.0, "Lambda parameter for the Bosonic IR basis")
-      //.define<int>("measurement.G2.max_dim_f", 20, "Maximum dimension of the Fermionic IR basis")
+      .define<double>("measurement.G2.Lambda_f", 1000.0, "Lambda parameter for the Fermionic IR basis")
+      .define<double>("measurement.G2.Lambda_b", 1000.0, "Lambda parameter for the Bosonic IR basis")
+      .define<int>("measurement.G2.max_dim_f", 20, "Maximum dimension of the Fermionic IR basis")
+      .define<int>("measurement.G2.max_dim_b", 20, "Maximum dimension of the Bosonic IR basis")
       //.define<int>("measurement.G2.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
       .define<int>("measurement.G2.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
       .define<int>("measurement.G2.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
@@ -61,12 +62,12 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
           //
           //Two-time two-particle GF
       .define<int>("measurement.two_time_G2.on", 0, "Set a non-zero value to activate measurement.")
+      .define<double>("measurement.two_time_G2.Lambda", 1000.0, "Lambda parameter for the Bosonic IR basis")
       .define<int>("measurement.two_time_G2.max_dim",
                    50,
                    "Maximum dimenson of the IR basis for measuring two-time two-particle Green's function.")
           //
           //Equal-time two-particle GF
-      .define<double>("measurement.G2.Lambda", 1000.0, "Omega max")
       .define<int>("measurement.equal_time_G2.on", 0, "Set a non-zero value to activate measurement.")
           //
           //Density-density correlations
@@ -116,7 +117,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       single_op_shift_updater(BETA, FLAVORS, N),
       worm_insertion_removers(0),
       sliding_window(p_model.get(), BETA),
-      g_meas(FLAVORS, p["measurement.G1.Lambda"], p["measurement.G1.max_dim"], BETA),
+      //g_meas(FLAVORS, p["measurement.G1.Lambda"], p["measurement.G1.max_dim"], BETA),
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
@@ -265,7 +266,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
 
   switch (mc_config.current_config_space()) {
     case Z_FUNCTION:
-      g_meas.measure(mc_config);//measure Green's function by removal
+      //g_meas.measure(mc_config);//measure Green's function by removal
       measure_scalar_observable<SCALAR>(measurements, "kLkR",
                                         static_cast<double>(measure_kLkR(mc_config.operators, BETA,
                                                                          0.5 * BETA * random())) * mc_config.sign);
@@ -421,6 +422,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
   measure_two_time_correlation_functions();
 
   //Measure Legendre coefficients of single-particle Green's function
+  /*
   if (g_meas.has_samples()) {
     measure_simple_vector_observable<COMPLEX>(measurements, "Greens_ir",
                                               to_std_vector(
@@ -437,6 +439,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
     );
     g_meas.reset();
   }
+  */
 
   measurements["Sign"] << mycast<double>(mc_config.sign);
 
@@ -752,7 +755,6 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
 /////////////////////////////////////////////////
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
-  g_meas.reset();
   single_op_shift_updater.finalize_learning();
   for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
     ins_rem_updater[k - 1]->finalize_learning();
