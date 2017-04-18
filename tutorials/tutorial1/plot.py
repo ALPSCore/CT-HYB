@@ -32,6 +32,8 @@ def read_h5(p):
 
     r["Sign"] = h5['/simulation/results/Sign/mean/value'].value
 
+    r["Sign_count"] = h5['/simulation/results/Sign/count'].value
+
     #r["Equal_time_G1"] = h5['/EQUAL_TIME_G1'].value[:,:,0] + 1J*h5['/EQUAL_TIME_G1'].value[:,:,1]
 
     return r
@@ -74,6 +76,8 @@ for i in range(len(result_list)):
     gomega_l = result_list[i]["Gomega"]
     #equal_time_G1 = result_list[i]["Equal_time_G1"]
 
+    print "The number of measurements is ", result_list[i]["Sign_count"]
+
     print "sign=",sign
     #occ = 0.0
     #for i_f in range(nf):
@@ -98,5 +102,5 @@ plt.subplot(212)
 plt.legend(loc='best',shadow=True,frameon=False,prop={'size' : 12})
 
 plt.tight_layout()
-plt.savefig("GF.pdf")
+plt.savefig("GF.eps")
 plt.close(1)
