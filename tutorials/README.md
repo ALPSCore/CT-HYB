@@ -1,5 +1,22 @@
 # List of tutorials
+- [Tutorial0](#tutorial0)
 - [Tutorial1](#tutorial1)
+
+## Tutorial0
+This is an example of an single-band Anderson impurity model.
+$python mk_model.py                        #generate Coulomb matrix & hybridization function & generate hopping matrix
+$mpirun -np 24 /path/to/hybmat input.ini   #run the solver with 24 MPI processes
+$python plot.py                            #plot Green's function. The plot will be written into GF.eps.
+
+At the end of the simulation, the results are written into the HDF5 file "input.out.h5".
+A HDF5 file can be read easily e.g. by using the h5py library in Python.
+In the script file "plot.py", one reads out the Green's function from the output file,
+plot the data, and save the plot as a eps file.
+Note that latex must be required to run plot.py.
+If latex is not available on your cluster, please just download input.out.h5 to your local system and run plot.py.
+The graph looks like this (simulation time was 5min with 24 MPI processes).
+![](tutorial0/GF.png)
+
 
 ## Tutorial1
 **We strongly recommend to run this tutorial at least with 24 MPI processes and 600 sec. Otherwise, the calculation will fail to converge.**
