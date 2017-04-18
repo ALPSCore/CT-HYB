@@ -12,7 +12,7 @@
 #include <Eigen/Core>
 #include <Eigen/SVD>
 
-#include <alps/gf_extension/ir/ir_basis.hpp>
+#include <alps/gf_extension/ir_basis.hpp>
 
 /**
  * Class represents an orthogonal basis set.
@@ -59,5 +59,5 @@ class IrBasis : public OrthogonalBasis {
   mutable complex_matrix_t Tnl_;
 };
 
-typedef IrBasis<alps::gf_extension::ir::fermionic_basis> FermionicIRBasis;
-typedef IrBasis<alps::gf_extension::ir::bosonic_basis> BosonicIRBasis;
+typedef IrBasis<alps::gf_extension::fermionic_ir_basis> FermionicIRBasis;
+typedef IrBasis<alps::gf_extension::bosonic_ir_basis> BosonicIRBasis;
