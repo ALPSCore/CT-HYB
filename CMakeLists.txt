@@ -42,6 +42,13 @@ endif()
 # export ALPSCore_DIR=/location/to/ALPSCORE/
 find_package(ALPSCore REQUIRED utilities hdf5 accumulators params mc gf gf-extensions)
 
+#Check if the compilers are consistent.
+if (ALPSCore_CXX_COMPILER_ID AND CMAKE_CXX_COMPILER_ID)
+    if (NOT ${ALPSCore_CXX_COMPILER_ID} STREQUAL ${CMAKE_CXX_COMPILER_ID})
+        message(WARNING "You are using a different compiler from that was used to build the ALPSCore libraries. Please use the same compiler for safety!")
+    endif()
+endif()
+
 #Find MPI
 include(EnableMPI)
 
@@ -53,9 +60,6 @@ else()
     find_package(Boost 1.54.0)
 endif()
 find_package(Eigen3 3.3 REQUIRED)
-
-#GSL
-find_package(GSL REQUIRED)
 
 #LAPACK
 find_package(LAPACK REQUIRED)
@@ -71,13 +75,16 @@ endif()
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 
 #include directories
-set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH} ${MPI_C_INCLUDE_PATH} ${GSL_INCLUDE_DIRS} ${GSLCBLAS_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/include) #rest taken care of by libraries dependencies
+set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH} ${MPI_C_INCLUDE_PATH} ${CMAKE_SOURCE_DIR}/include) #rest taken care of by libraries dependencies
 include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
 #source files
 set(LIB_FILES ./src/solver.cpp ./src/sliding_window/sliding_window.cpp src/orthogonal_basis/basis.cpp ./src/util.cpp ./src/model/model.cpp ./src/model/clustering.cpp src/operator_util.cpp src/moves/moves.cpp src/measurement/measurement.cpp)
 add_library(alpscore_cthyb SHARED ${LIB_FILES})
 set_target_properties(alpscore_cthyb PROPERTIES PUBLIC_HEADER src/solver.hpp)
+
+#static version
+add_library(alpscore_cthyb_static STATIC ${LIB_FILES})
 
 #Compiler dependent libraries
 set(EXTRA_LIBS "")
@@ -91,11 +98,12 @@ if (USE_QUAD_PRECISION)
 endif()
 
 #Set link libraries
-target_link_libraries(alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${GSL_LIBRARIES} ${GSLCBLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${EXTRA_LIBS})
+target_link_libraries(alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${EXTRA_LIBS})
+target_link_libraries(alpscore_cthyb_static ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${EXTRA_LIBS})
 
 #executable
 ADD_EXECUTABLE(hybmat ./src/main.cpp)
-target_link_libraries(hybmat alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+target_link_libraries(hybmat alpscore_cthyb_static ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 #testing setup
 option(Testing "Enable testing" ON)
