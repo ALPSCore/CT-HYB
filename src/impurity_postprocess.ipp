@@ -1,5 +1,7 @@
 #include "impurity.hpp"
 
+#include <alps/gf_extension/transformer.hpp>
+
 inline void print_acc_rate(const alps::accumulators::result_set &results, const std::string &name, std::ostream &os) {
   os << " " << name + " : "
      << results[name + "_accepted_scalar"].mean<double>()
@@ -12,6 +14,17 @@ struct to_complex {
   std::complex<T> operator()(const T &re, const T &im) {
     return std::complex<T>(re, im);
   }
+};
+
+template<typename T>
+boost::multi_array<T,2> to_multi_array(const Eigen::Matrix<T,Eigen::Dynamic,Eigen::Dynamic>& mat) {
+  boost::multi_array<T,2> array(boost::extents[mat.rows()][mat.cols()]);
+  for (int i = 0; i < mat.rows(); ++i) {
+    for (int j = 0; j < mat.cols(); ++j) {
+      array[i][j] = mat(i,j);
+    }
+  }
+  return array;
 };
 
 template<typename IMP_MODEL>
@@ -76,6 +89,8 @@ void HybridizationSimulation<IMP_MODEL>::compute_G1(
   boost::shared_ptr<OrthogonalBasis> p_basis = p_G1_meas->get_p_basis_f();
   const int dim_ir_basis = p_basis->dim();
 
+  //rotate back to the original basis
+  //FIXME: USE Eigen::Tensor
   boost::multi_array<std::complex<double>, 3>
       Gl_org_basis(boost::extents[n_flavors][n_flavors][dim_ir_basis]);
   {
@@ -88,7 +103,6 @@ void HybridizationSimulation<IMP_MODEL>::compute_G1(
     std::transform(Gl.origin(), Gl.origin() + Gl.num_elements(), Gl.origin(),
                    std::bind1st(std::multiplies<std::complex<double> >(), coeff));
 
-    //rotate back to the original basis
     complex_matrix_t mattmp(n_flavors, n_flavors), mattmp2(n_flavors, n_flavors);
     const matrix_t inv_rotmat_Delta = p_model->get_rotmat_Delta().inverse();
     for (int il = 0; il < dim_ir_basis; ++il) {
@@ -105,65 +119,46 @@ void HybridizationSimulation<IMP_MODEL>::compute_G1(
       }
     }
   }
-  ar["G1_IR"] = Gl_org_basis;
+
+  //We store a transformation matrix to Matsubara frequencies for post process
+  g::numerical_mesh<double> nmesh{dynamic_cast<const FermionicIRBasis&>(*p_basis).construct_mesh(beta)};
+  const int niw_basis = 10000;
+  nmesh.set_transformation_matrix_to_matsubara(
+      to_multi_array(p_basis->Tnl(niw_basis))
+  );
+
+  using gl_type = g::three_index_gf<std::complex<double>,
+                                    g::numerical_mesh<double>,
+                                    g::index_mesh,
+                                    g::index_mesh>;
+  gl_type Gl(nmesh, g::index_mesh(n_flavors), g::index_mesh(n_flavors));
+  for (int il = 0; il < dim_ir_basis; ++il) {
+    for (int flavor1 = 0; flavor1 < n_flavors; ++flavor1) {
+      for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
+        Gl(
+            g::numerical_mesh<double>::index_type(il),
+            g::index_mesh::index_type(flavor1),
+            g::index_mesh::index_type(flavor2)
+        ) = Gl_org_basis[flavor1][flavor2][il];
+      }
+    }
+  }
+  ar["G1_IR"] = Gl;
+
 
   /*
    * Compute G(tau) from Legendre coefficients
    */
-  typedef alps::gf::three_index_gf<std::complex<double>, alps::gf::itime_mesh,
-                                   alps::gf::index_mesh,
-                                   alps::gf::index_mesh
-  > ITIME_GF;
-
-  ITIME_GF
-      itime_gf(alps::gf::itime_mesh(beta, n_tau + 1), alps::gf::index_mesh(n_flavors), alps::gf::index_mesh(n_flavors));
-  std::vector<double> Pvals(dim_ir_basis);
-  std::vector<double> sqrt_array(dim_ir_basis);
-  for (int il = 0; il < dim_ir_basis; ++il) {
-    sqrt_array[il] = sqrt(2.0/p_basis->norm2(il));
-  }
-
-  for (int itau = 0; itau < n_tau + 1; ++itau) {
-    const double tau = itau * (beta / n_tau);
-    const double x = 2 * tau / beta - 1.0;
-    p_basis->value(x, Pvals); //Compute P_l[x]
-
-    for (int flavor = 0; flavor < n_flavors; ++flavor) {
-      for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
-        for (int il = 0; il < dim_ir_basis; ++il) {
-          itime_gf(g::itime_index(itau), g::index(flavor), g::index(flavor2)) +=
-              Pvals[il] * Gl_org_basis[flavor][flavor2][il] * sqrt_array[il] * temperature;
-        }
-      }
-    }
-  }
-  ar["gtau"] = itime_gf;
+  typedef g::three_index_gf<std::complex<double>,g::itime_mesh,g::index_mesh,g::index_mesh> ITIME_GF;
+  alps::gf_extension::transformer<ITIME_GF, gl_type> trans_tau(n_tau+1, nmesh);
+  ar["gtau"] = trans_tau(Gl);
 
   /*
    * Compute Gomega from Legendre coefficients
    */
-  typedef alps::gf::three_index_gf<std::complex<double>, alps::gf::matsubara_positive_mesh,
-                                   alps::gf::index_mesh,
-                                   alps::gf::index_mesh
-  > GOMEGA;
-
-  const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> &Tnl(p_basis->Tnl(n_matsubara));
-  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> tmp_mat(dim_ir_basis, 1), tmp_mat2(n_matsubara, 1);
-  GOMEGA gomega(alps::gf::matsubara_positive_mesh(beta, n_matsubara),
-                alps::gf::index_mesh(n_flavors),
-                alps::gf::index_mesh(n_flavors));
-  for (int flavor = 0; flavor < n_flavors; ++flavor) {
-    for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
-      for (int il = 0; il < dim_ir_basis; ++il) {
-        tmp_mat(il, 0) = Gl_org_basis[flavor][flavor2][il];
-      }
-      tmp_mat2 = Tnl * tmp_mat;
-      for (int im = 0; im < n_matsubara; ++im) {
-        gomega(g::matsubara_index(im), g::index(flavor), g::index(flavor2)) = tmp_mat2(im, 0);
-      }
-    }
-  }
-  ar["gf"] = gomega;
+  typedef g::three_index_gf<std::complex<double>,g::matsubara_positive_mesh,g::index_mesh,g::index_mesh> GOMEGA;
+  alps::gf_extension::transformer<GOMEGA, gl_type> trans_omega(n_matsubara, nmesh);
+  ar["gf"] = trans_omega(Gl);
 }
 
 //very crapy way to implement ...

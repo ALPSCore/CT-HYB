@@ -10,15 +10,22 @@ namespace alps {
 namespace hdf5 {
 
 namespace detail {
-  typedef alps::gf::three_index_gf<std::complex<double>, alps::gf::itime_mesh,
-                                 alps::gf::index_mesh,
-                                 alps::gf::index_mesh
+  namespace g=alps::gf;
+
+  typedef g::three_index_gf<std::complex<double>, g::itime_mesh,
+                                 g::index_mesh,
+                                 g::index_mesh
   > G1_tau_t;
 
-  typedef alps::gf::three_index_gf<std::complex<double>, alps::gf::matsubara_positive_mesh,
-                                 alps::gf::index_mesh,
-                                 alps::gf::index_mesh
+  typedef g::three_index_gf<std::complex<double>, g::matsubara_positive_mesh,
+                                 g::index_mesh,
+                                 g::index_mesh
   > G1_omega_t;
+
+  typedef g::three_index_gf<std::complex<double>,
+                            g::numerical_mesh<double>,
+                            g::index_mesh, g::index_mesh
+  > G1_IR_t;
 
   template<class T>
   struct save_if_match {
@@ -73,15 +80,16 @@ void save(
   cnt += detail::save_if_match<boost::multi_array<dcomplex_,7 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
   cnt += detail::save_if_match<boost::multi_array<dcomplex_,8 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
 
-  //r = detail::save_if_match<detail::G1_omega_t>::perform(ar, path, value, size, chunk, offset);
-  //r = detail::save_if_match<detail::G1_tau_t>::perform(ar, path, value, size, chunk, offset);
-
   if (value.type() == typeid(detail::G1_omega_t)) {
     boost::any_cast<const detail::G1_omega_t&>(value).save(ar, ar.complete_path(path));
     ++ cnt;
   }
   if (value.type() == typeid(detail::G1_tau_t)) {
     boost::any_cast<const detail::G1_tau_t&>(value).save(ar, ar.complete_path(path));
+    ++ cnt;
+  }
+  if (value.type() == typeid(detail::G1_IR_t)) {
+    boost::any_cast<const detail::G1_IR_t&>(value).save(ar, ar.complete_path(path));
     ++ cnt;
   }
 

@@ -32,6 +32,7 @@ class OrthogonalBasis {
 
   /** Returns the transformation matrix to positive Matsubara frequencies */
   virtual const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> Tnl(int n_iw) const = 0;
+
 };
 
 /**
@@ -53,11 +54,17 @@ class IrBasis : public OrthogonalBasis {
   /** Returns the transformation matrix to positive Matsubara frequencies */
   virtual const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> Tnl(int n_iw) const;
 
+  alps::gf::numerical_mesh<double>
+  construct_mesh(double beta) const {
+    return alps::gf::numerical_mesh<double>{beta, p_basis_->all(), p_basis_->get_statistics()};
+  }
+
  private:
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
   boost::shared_ptr<Base> p_basis_;
   mutable complex_matrix_t Tnl_;
 };
+
 
 typedef IrBasis<alps::gf_extension::fermionic_ir_basis> FermionicIRBasis;
 typedef IrBasis<alps::gf_extension::bosonic_ir_basis> BosonicIRBasis;
