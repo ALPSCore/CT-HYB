@@ -122,7 +122,7 @@ void HybridizationSimulation<IMP_MODEL>::compute_G1(
 
   //We store a transformation matrix to Matsubara frequencies for post process
   g::numerical_mesh<double> nmesh{dynamic_cast<const FermionicIRBasis&>(*p_basis).construct_mesh(beta)};
-  const int niw_basis = 10000;
+  const int niw_basis = 100000;
   nmesh.set_transformation_matrix_to_matsubara(
       to_multi_array(p_basis->Tnl(niw_basis))
   );
@@ -291,5 +291,10 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
     }
   }
 
-  ar["G2_LEGENDRE"] = Gl;
+  ar["G2_IR/data"] = Gl;
+
+  //save mesh
+  const int niw_basis = 100000;
+  ar["G2_IR/Tnl_f"] = to_multi_array(p_G2_meas->get_p_basis_f()->Tnl(niw_basis));
+  ar["G2_IR/Tnl_b"] = to_multi_array(p_G2_meas->get_p_basis_b()->Tnl(niw_basis));
 }

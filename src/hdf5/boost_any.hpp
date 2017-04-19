@@ -27,6 +27,8 @@ namespace detail {
                             g::index_mesh, g::index_mesh
   > G1_IR_t;
 
+  typedef g::numerical_mesh<double> nmesh_t;
+
   template<class T>
   struct save_if_match {
     static bool perform(
@@ -90,6 +92,10 @@ void save(
   }
   if (value.type() == typeid(detail::G1_IR_t)) {
     boost::any_cast<const detail::G1_IR_t&>(value).save(ar, ar.complete_path(path));
+    ++ cnt;
+  }
+  if (value.type() == typeid(detail::nmesh_t)) {
+    boost::any_cast<const detail::nmesh_t&>(value).save(ar, ar.complete_path(path));
     ++ cnt;
   }
 
