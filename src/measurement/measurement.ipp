@@ -509,7 +509,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
           const SCALAR coeff = coeffs[a][b][c][d] * scale_fact;
           for (int il1 = 0; il1 < dim_f; ++il1) {
             for (int il2 = 0; il2 < dim_f; ++il2) {
-              const SCALAR coeff2 = coeff * Pl_f[a][b][il1] * Pl_f[c][d][il2] * (il2 == 0 ? -1.0 : 1.0);
+              const SCALAR coeff2 = coeff * Pl_f[a][b][il1] * Pl_f[c][d][il2] * (il2%2 == 0 ? -1.0 : 1.0);
               for (int il3 = 0; il3 < dim_b; ++il3) {
                 result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += coeff2 * Pl_b[a][d][il3];
               }
