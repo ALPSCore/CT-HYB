@@ -213,75 +213,20 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   }
   const SCALAR weight_rat = det_rat;
 
-  //TO DO: move this to a separated function
-  if (pert_order + Rank > max_num_ops) {
-    const int num_ops = pert_order + Rank;
-    std::vector<bool> is_row_active(num_ops + n_aux_lines, false), is_col_active(num_ops + n_aux_lines, false);
-    //always choose the original worm position for detailed balance condition
-    for (int i = 0; i < Rank + n_aux_lines; ++i) {
-      //is_row_active[num_ops - i] = true;
-      //is_col_active[num_ops - i] = true;
-      is_row_active[is_row_active.size() - 1 - i] = true;
-      is_col_active[is_col_active.size() - 1 - i] = true;
-    }
-    for (int i = 0; i < max_num_ops - Rank; ++i) {
-      is_row_active[i] = true;
-      is_col_active[i] = true;
-    }
-    MyRandomNumberGenerator rnd(random);
-    std::random_shuffle(is_row_active.begin(), is_row_active.begin() + pert_order, rnd);
-    std::random_shuffle(is_col_active.begin(), is_col_active.begin() + pert_order, rnd);
-    assert(boost::count(is_col_active, true) == max_num_ops + n_aux_lines);
-    assert(boost::count(is_row_active, true) == max_num_ops + n_aux_lines);
-
-    {
-      std::vector<psi> cdagg_ops_reduced, c_ops_reduced;
-      for (int i = 0; i < num_ops; ++i) {
-        if (is_col_active[i]) {
-          c_ops_reduced.push_back(c_ops_new[i]);
-        }
-        if (is_row_active[i]) {
-          cdagg_ops_reduced.push_back(cdagg_ops_new[i]);
-        }
-      }
-      std::swap(cdagg_ops_reduced, cdagg_ops_new);
-      std::swap(c_ops_reduced, c_ops_new);
-      assert(cdagg_ops_new.size() == max_num_ops);
-      assert(c_ops_new.size() == max_num_ops);
-    }
-
-    {
-      const int mat_size = M.size1();
-      alps::fastupdate::ResizableMatrix<SCALAR> M_reduced(max_num_ops + n_aux_lines, max_num_ops + n_aux_lines, 0.0);
-      int j_reduced = 0;
-      for (int j = 0; j < mat_size; ++j) {
-        if (!is_col_active[j]) {
-          continue;
-        }
-        int i_reduced = 0;
-        for (int i = 0; i < mat_size; ++i) {
-          if (!is_row_active[i]) {
-            continue;
-          }
-          M_reduced(i_reduced, j_reduced) = M(i, j);
-          ++ i_reduced;
-        }
-        ++ j_reduced;
-        assert(i_reduced == max_num_ops + n_aux_lines);
-      }
-      assert(j_reduced == max_num_ops + n_aux_lines);
-      std::swap(M, M_reduced);
-      assert(M.size1() == max_num_ops + n_aux_lines);
-      assert(M.size2() == max_num_ops + n_aux_lines);
-    }
-  }
+  //compute effective matrix
+  const int num_phys_lines = pert_order + Rank;
+  matrix_t M_eff =
+      M.block(0, 0, num_phys_lines, num_phys_lines) -
+          M.block(0, num_phys_lines, num_phys_lines, n_aux_lines)
+              * M.block(num_phys_lines, num_phys_lines, n_aux_lines, n_aux_lines).inverse()
+              * M.block(num_phys_lines, 0, n_aux_lines, num_phys_lines);
 
   //drop small values
-  const double cutoff = 1.0e-10 * M.block().cwiseAbs().maxCoeff();
-  for (int j = 0; j < M.size2(); ++j) {
-    for (int i = 0; i < M.size1(); ++i) {
-      if (std::abs(M(i, j)) < cutoff) {
-        M(i, j) = 0.0;
+  const double cutoff = 1.0e-10 * M_eff.cwiseAbs().maxCoeff();
+  for (int j = 0; j < num_phys_lines; ++j) {
+    for (int i = 0; i < num_phys_lines; ++i) {
+      if (std::abs(M_eff(i, j)) < cutoff) {
+        M_eff(i, j) = 0.0;
       }
     }
   }
@@ -291,10 +236,11 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
                                         p_basis_f_,
                                         p_basis_b_,
                                         mc_config.sign,
-                                        weight_rat,
+                                        weight_rat *
+                                          M.block(num_phys_lines, num_phys_lines, n_aux_lines, n_aux_lines).determinant(),
                                         cdagg_ops_new,
                                         c_ops_new,
-                                        M,
+                                        M_eff,
                                         data_);
   ++ num_data_;
 
@@ -318,7 +264,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
                                         SCALAR weight_rat_intermediate_state,
                                         const std::vector<psi> &creation_ops,
                                         const std::vector<psi> &annihilation_ops,
-                                        const alps::fastupdate::ResizableMatrix<SCALAR> &M,
+                                        const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
                                         boost::multi_array<std::complex<double>, 3> &result) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
@@ -327,14 +273,16 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
   std::vector<double> Pl_vals(dim_basis);
 
   std::vector<psi>::const_iterator it1, it2;
-  const int mat_size = M.size1();
+  const int mat_size = M.rows();
+
+  assert(mat_size == creation_ops.size());
 
   //First, we compute relative weights
-  boost::multi_array<SCALAR,2> coeffs(boost::extents[mat_size-1][mat_size-1]);
+  boost::multi_array<SCALAR,2> coeffs(boost::extents[mat_size][mat_size]);
   double norm = 0.0;
-  for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
+  for (int k = 0; k < mat_size; k++) {//the last one is aux fields
     (k == 0 ? it1 = annihilation_ops.begin() : it1++);
-    for (int l = 0; l < mat_size - 1; l++) {
+    for (int l = 0; l < mat_size; l++) {
       (l == 0 ? it2 = creation_ops.begin() : it2++);
       if (M(l, k) == 0.0) {
         coeffs[k][l] = 0.0;
@@ -343,8 +291,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 
       const double bubble_sign = it1->time() - it2->time() > 0.0 ? 1.0 : -1.0;
 
-      coeffs[k][l] = (M(l, k) * M(mat_size - 1, mat_size - 1) - M(l, mat_size - 1) * M(mat_size - 1, k))
-          * bubble_sign * sign * weight_rat_intermediate_state;
+      coeffs[k][l] = M(l, k) * bubble_sign * sign * weight_rat_intermediate_state;
       norm += std::abs(coeffs[k][l]);
     }
   }
@@ -355,9 +302,9 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
   }
 
   double scale_fact = -1.0/(norm * beta);
-  for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
+  for (int k = 0; k < mat_size; k++) {//the last one is aux fields
     (k == 0 ? it1 = annihilation_ops.begin() : it1++);
-    for (int l = 0; l < mat_size - 1; l++) {
+    for (int l = 0; l < mat_size; l++) {
       (l == 0 ? it2 = creation_ops.begin() : it2++);
       if (M(l, k) == 0.0) {
         continue;
@@ -388,16 +335,20 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
                                         SCALAR weight_rat_intermediate_state,
                                         const std::vector<psi> &creation_ops,
                                         const std::vector<psi> &annihilation_ops,
-                                        const alps::fastupdate::ResizableMatrix<SCALAR> &M,
+                                        const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
                                         boost::multi_array<std::complex<double>, 7> &result) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
   const int dim_f = p_basis_f->dim();
   const int dim_b = p_basis_b->dim();
-  const int max_dim = std::max(dim_f, dim_b);
+  //const int max_dim = std::max(dim_f, dim_b);
   const int num_phys_rows = creation_ops.size();
-  const int n_aux_lines = 2;
-  if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.size1() - n_aux_lines) {
+  //const int n_aux_lines = 2;
+  //const int mat_size = M.size1();
+
+  assert(M.rows() == creation_ops.size());
+
+  if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.rows()) {
     throw std::runtime_error("Fatal error in MeasureGHelper<SCALAR, 2>::perform()");
   }
 
@@ -415,7 +366,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       norm_coeff_b[il] = sqrt(2.0/p_basis_b->norm2(il));
     }
 
-    std::vector<double> Pl_tmp(max_dim);
+    std::vector<double> Pl_tmp(std::max(dim_f, dim_b));
     for (int k = 0; k < num_phys_rows; k++) {
       for (int l = 0; l < num_phys_rows; l++) {
         double argument = annihilation_ops[k].time() - creation_ops[l].time();
@@ -442,15 +393,10 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
 
   //First, compute relative weights
-  const int rank = 2;
-  const int det_size = rank + n_aux_lines;
-  Eigen::Matrix<SCALAR,det_size,det_size> tmp_mat;
-  boost::array<int,det_size> rows3, cols3;
-  const int last = M.size1() - 1;
-  for (int i = 0; i < n_aux_lines; ++i) {
-    cols3[rank+i] = rows3[rank+i] = i + M.size1() - n_aux_lines;
-  }
-  assert(cols3.back()==last);
+  //const int rank = 2;
+  //const int det_size = rank;
+  //Eigen::Matrix<SCALAR,rank,rank> tmp_mat;
+  //assert(cols3.back()==last);
   boost::multi_array<SCALAR,4> coeffs(boost::extents[num_phys_rows][num_phys_rows][num_phys_rows][num_phys_rows]);
   double norm = 0.0;
   for (int a = 0; a < num_phys_rows; ++a) {
@@ -465,20 +411,20 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
           }
           /*
            * Delta convention
-           * M_ab  M_ad  M_a*
-           * M_cb  M_cd  M_c*
-           * M_*b  M_*d  M_**
+           * M_ab  M_ad
+           * M_cb  M_cd
            */
-          rows3[0] = b;
-          rows3[1] = d;
-          cols3[0] = a;
-          cols3[1] = c;
-          for (int j = 0; j < det_size; ++j) {
-            for (int i = 0; i < det_size; ++i) {
-              tmp_mat(i,j) = M(rows3[i], cols3[j]);
-            }
-          }
-          coeffs[a][b][c][d] = sign * weight_rat_intermediate_state * tmp_mat.determinant();
+          //rows3[0] = b;
+          //rows3[1] = d;
+          //cols3[0] = a;
+          //cols3[1] = c;
+          //for (int j = 0; j < det_size; ++j) {
+            //for (int i = 0; i < det_size; ++i) {
+              //tmp_mat(i,j) = M(rows3[i], cols3[j]);
+            //}
+          //}
+          const SCALAR det = M(b,a) * M(d,c) - M(b,c) * M(d,a);
+          coeffs[a][b][c][d] = sign * weight_rat_intermediate_state * det;
           norm += std::abs(coeffs[a][b][c][d]);
         }
       }
