@@ -213,6 +213,69 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   }
   const SCALAR weight_rat = det_rat;
 
+  //TO DO: move this to a separated function
+  if (pert_order + Rank > max_num_ops) {
+    const int num_ops = pert_order + Rank;
+    std::vector<bool> is_row_active(num_ops + n_aux_lines, false), is_col_active(num_ops + n_aux_lines, false);
+    //always choose the original worm position for detailed balance condition
+    for (int i = 0; i < Rank + n_aux_lines; ++i) {
+      //is_row_active[num_ops - i] = true;
+      //is_col_active[num_ops - i] = true;
+      is_row_active[is_row_active.size() - 1 - i] = true;
+      is_col_active[is_col_active.size() - 1 - i] = true;
+    }
+    for (int i = 0; i < max_num_ops - Rank; ++i) {
+      is_row_active[i] = true;
+      is_col_active[i] = true;
+    }
+    MyRandomNumberGenerator rnd(random);
+    std::random_shuffle(is_row_active.begin(), is_row_active.begin() + pert_order, rnd);
+    std::random_shuffle(is_col_active.begin(), is_col_active.begin() + pert_order, rnd);
+    assert(boost::count(is_col_active, true) == max_num_ops + n_aux_lines);
+    assert(boost::count(is_row_active, true) == max_num_ops + n_aux_lines);
+
+    {
+      std::vector<psi> cdagg_ops_reduced, c_ops_reduced;
+      for (int i = 0; i < num_ops; ++i) {
+        if (is_col_active[i]) {
+          c_ops_reduced.push_back(c_ops_new[i]);
+        }
+        if (is_row_active[i]) {
+          cdagg_ops_reduced.push_back(cdagg_ops_new[i]);
+        }
+      }
+      std::swap(cdagg_ops_reduced, cdagg_ops_new);
+      std::swap(c_ops_reduced, c_ops_new);
+      assert(cdagg_ops_new.size() == max_num_ops);
+      assert(c_ops_new.size() == max_num_ops);
+    }
+
+    {
+      const int mat_size = M.size1();
+      alps::fastupdate::ResizableMatrix<SCALAR> M_reduced(max_num_ops + n_aux_lines, max_num_ops + n_aux_lines, 0.0);
+      int j_reduced = 0;
+      for (int j = 0; j < mat_size; ++j) {
+        if (!is_col_active[j]) {
+          continue;
+        }
+        int i_reduced = 0;
+        for (int i = 0; i < mat_size; ++i) {
+          if (!is_row_active[i]) {
+            continue;
+          }
+          M_reduced(i_reduced, j_reduced) = M(i, j);
+          ++ i_reduced;
+        }
+        ++ j_reduced;
+        assert(i_reduced == max_num_ops + n_aux_lines);
+      }
+      assert(j_reduced == max_num_ops + n_aux_lines);
+      std::swap(M, M_reduced);
+      assert(M.size1() == max_num_ops + n_aux_lines);
+      assert(M.size2() == max_num_ops + n_aux_lines);
+    }
+  }
+
   //compute effective matrix
   const int num_phys_lines = pert_order + Rank;
   matrix_t M_eff =
@@ -341,10 +404,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   const int num_flavors = result.shape()[0];
   const int dim_f = p_basis_f->dim();
   const int dim_b = p_basis_b->dim();
-  //const int max_dim = std::max(dim_f, dim_b);
   const int num_phys_rows = creation_ops.size();
-  //const int n_aux_lines = 2;
-  //const int mat_size = M.size1();
 
   assert(M.rows() == creation_ops.size());
 
@@ -393,63 +453,49 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
 
   //First, compute relative weights
-  //const int rank = 2;
-  //const int det_size = rank;
-  //Eigen::Matrix<SCALAR,rank,rank> tmp_mat;
-  //assert(cols3.back()==last);
   boost::multi_array<SCALAR,4> coeffs(boost::extents[num_phys_rows][num_phys_rows][num_phys_rows][num_phys_rows]);
+  std::fill(coeffs.origin(), coeffs.origin()+coeffs.num_elements(), 0.0);
   double norm = 0.0;
   for (int a = 0; a < num_phys_rows; ++a) {
     for (int b = 0; b < num_phys_rows; ++b) {
-      for (int c = 0; c < num_phys_rows; ++c) {
-        if (a==c) {
-          continue;
-        }
-        for (int d = 0; d < num_phys_rows; ++d) {
-          if (b==d) {
-            continue;
-          }
+      for (int c = a+1; c < num_phys_rows; ++c) {
+        for (int d = b+1; d < num_phys_rows; ++d) {
           /*
            * Delta convention
            * M_ab  M_ad
            * M_cb  M_cd
            */
-          //rows3[0] = b;
-          //rows3[1] = d;
-          //cols3[0] = a;
-          //cols3[1] = c;
-          //for (int j = 0; j < det_size; ++j) {
-            //for (int i = 0; i < det_size; ++i) {
-              //tmp_mat(i,j) = M(rows3[i], cols3[j]);
-            //}
-          //}
-          const SCALAR det = M(b,a) * M(d,c) - M(b,c) * M(d,a);
-          coeffs[a][b][c][d] = sign * weight_rat_intermediate_state * det;
-          norm += std::abs(coeffs[a][b][c][d]);
+          coeffs[a][b][c][d] = sign * weight_rat_intermediate_state * (M(b,a) * M(d,c) - M(b,c) * M(d,a));
+          coeffs[c][b][a][d] = coeffs[a][d][c][b] = -coeffs[a][b][c][d];
+          coeffs[c][d][a][b] = coeffs[a][b][c][d];
+          norm += 4*std::abs(coeffs[a][b][c][d]);
         }
       }
     }
   }
 
-
   //Then, accumulate data
   const double scale_fact = 1.0/(norm * beta);
+  const double cutoff = 1e-15 * norm;
   for (int a = 0; a < num_phys_rows; ++a) {
     const int flavor_a = annihilation_ops[a].flavor();
+
     for (int b = 0; b < num_phys_rows; ++b) {
       const int flavor_b = creation_ops[b].flavor();
+
       for (int c = 0; c < num_phys_rows; ++c) {
         if (a==c) {
           continue;
         }
         const int flavor_c = annihilation_ops[c].flavor();
+
         for (int d = 0; d < num_phys_rows; ++d) {
           if (b==d) {
             continue;
           }
           const int flavor_d = creation_ops[d].flavor();
 
-          if (coeffs[a][b][c][d] == 0.0) {
+          if (std::abs(coeffs[a][b][c][d]) < cutoff) {
             continue;
           }
           const SCALAR coeff = coeffs[a][b][c][d] * scale_fact;
