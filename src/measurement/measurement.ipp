@@ -277,7 +277,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   }
 
   //compute effective matrix
-  const int num_phys_lines = pert_order + Rank;
+  const int num_phys_lines = M.size1() - n_aux_lines;
   matrix_t M_eff =
       M.block(0, 0, num_phys_lines, num_phys_lines) -
           M.block(0, num_phys_lines, num_phys_lines, n_aux_lines)
