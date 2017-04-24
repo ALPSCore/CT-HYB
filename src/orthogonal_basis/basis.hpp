@@ -42,7 +42,7 @@ template<class Base>
 class IrBasis : public OrthogonalBasis {
  public:
   IrBasis(double Lambda, int max_dim) {
-    p_basis_.reset(new Base(Lambda, max_dim, 1e-8, 501));
+    p_basis_.reset(new Base(Lambda, max_dim, 1e-8, 500));
   }
 
   double norm2(int l) const {return 1.0;}
@@ -57,6 +57,11 @@ class IrBasis : public OrthogonalBasis {
   alps::gf::numerical_mesh<double>
   construct_mesh(double beta) const {
     return alps::gf::numerical_mesh<double>{beta, p_basis_->all(), p_basis_->get_statistics()};
+  }
+
+  const alps::gf::piecewise_polynomial<double>&
+  basis_function(int l) const {
+    return p_basis_->operator()(l);
   }
 
  private:
