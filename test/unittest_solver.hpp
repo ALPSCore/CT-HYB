@@ -14,6 +14,9 @@
 #include "../src/model/model.hpp"
 #include "../src/util.hpp"
 #include "src/orthogonal_basis/basis.hpp"
+#include "src/measurement/measurement.hpp"
+
+#include <alps/gf_extension/piecewise_polynomial.hpp>
 
 template<typename T>
 boost::tuple<int,int,int,int,T>

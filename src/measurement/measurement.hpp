@@ -11,6 +11,7 @@
 #include <alps/fastupdate/resizable_matrix.hpp>
 #include <alps/mc/random01.hpp>
 #include <alps/accumulators.hpp>
+#include <alps/gf_extension/piecewise_polynomial.hpp>
 
 #include "../accumulator.hpp"
 #include "../mc_config.hpp"
@@ -271,6 +272,49 @@ class TwoTimeG2Measurement {
 void init_work_space(boost::multi_array<std::complex<double>, 3> &data, int num_flavors, int num_ir, int num_freq);
 void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_flavors, int num_ir, int num_freq);
 
+template<typename T>
+using eigen_tensor2_map_t = Eigen::TensorMap<Eigen::Tensor<T,2>>;
+
+//template<typename Derived>
+//eigen_tensor2_map_t tensor2_map(const Eigen::MatrixBase<Derived>& mat) {
+  //return eigen_tensor2_map_t(mat.data(), mat.rows(), mat.cols());
+//}
+
+inline Eigen::Tensor<std::complex<double>,2>
+to_Tnl_pn(const Eigen::Matrix<std::complex<double>,Eigen::Dynamic,Eigen::Dynamic>& Tnl, alps::gf::statistics::statistics_type s) {
+  int niw = Tnl.rows();
+  int nl = Tnl.cols();
+  Eigen::Tensor<std::complex<double>,2> Tnl_pn(2*niw, nl);
+  Tnl_pn.setZero();
+  if (s==alps::gf::statistics::FERMIONIC) {
+    for (int l=0; l<nl; ++l) {
+      for (int n=0; n<niw; ++n) {
+        Tnl_pn(niw + n, l) = Tnl(n, l);
+        Tnl_pn(niw - 1 - n, l) = std::conj(Tnl(n, l));
+      }
+    }
+  } else if (s==alps::gf::statistics::BOSONIC) {
+    for (int l=0; l<nl; ++l) {
+      for (int n=0; n<niw; ++n) {
+        Tnl_pn(niw + n, l) = Tnl(n, l);
+      }
+      for (int n=1; n<niw; ++n) {
+        Tnl_pn(niw - n, l) = std::conj(Tnl(n, l));
+      }
+    }
+  } else {
+    throw std::runtime_error("Unknown statistics type");
+  }
+  return Tnl_pn;
+}
+
+void
+compute_w_tensor(
+    int niw_positive,
+    const FermionicIRBasis& basis_f,
+    const BosonicIRBasis& basis_b,
+    Eigen::Tensor<std::complex<double>,3>& w_tensor);
+
 /**
  * @brief Helper struct for measurement of Green's function using Legendre basis in G space
  */
@@ -283,7 +327,8 @@ struct MeasureGHelper {
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
                       const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
-                      boost::multi_array<std::complex<double>, 4 * RANK -1> &data
+                      boost::multi_array<std::complex<double>, 4 * RANK -1> &data,
+                      const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F
   );
 };
 
@@ -299,7 +344,8 @@ struct MeasureGHelper<SCALAR, 1> {
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
                       const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
-                      boost::multi_array<std::complex<double>, 3> &data
+                      boost::multi_array<std::complex<double>, 3> &data,
+                      const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F
   );
 };
 
@@ -315,7 +361,8 @@ struct MeasureGHelper<SCALAR, 2> {
                       const std::vector<psi> &creation_ops,
                       const std::vector<psi> &annihilation_ops,
                       const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
-                      boost::multi_array<std::complex<double>, 7> &data
+                      boost::multi_array<std::complex<double>, 7> &data,
+                      const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F
   );
 };
 
@@ -362,6 +409,64 @@ class GMeasurement {
       num_data_(0),
       max_num_data_(max_num_data) {
     init_work_space(data_, num_flavors, p_basis_f_->dim(), p_basis_b_->dim());
+
+
+    //ration matrix from Fork term to Hartree term
+    const int niw = 10000;
+    std::cout << " A " << std::endl;
+    auto Tnl_b = p_basis_b_->Tnl(niw);
+    std::cout << " B " << std::endl;
+    auto Tnl_f = p_basis_f_->Tnl(niw);
+    std::cout << " C " << std::endl;
+    const int dim_f = p_basis_f->dim();
+    const int dim_b = p_basis_b->dim();
+
+    auto Tnl_f_pn = to_Tnl_pn(Tnl_f, alps::gf::statistics::FERMIONIC);
+    auto Tnl_b_pn = to_Tnl_pn(Tnl_b, alps::gf::statistics::BOSONIC);
+
+    using dcomplex = std::complex<double>;
+
+    //w(l, l^prime, n)
+    Eigen::Tensor<dcomplex,3> w_tensor(niw, dim_b, dim_f);
+    auto back_to_range = [](int i) {return std::max(std::min(i, 2*niw),0);};
+    for (int lp = 0; lp < dim_f; ++lp) {
+      for (int l = 0; l < dim_b; ++l) {
+        for (int n = 0; n < 2*niw; ++n) {
+          const auto shift = n-niw;
+          const auto min_m = back_to_range(-shift);
+          const auto max_m = back_to_range(2*niw-shift);
+          dcomplex tmp = 0.0;
+          for (int m = min_m; m < max_m; ++m) {
+            tmp += std::conj(Tnl_b_pn(m,l)) * Tnl_f_pn(m+shift, lp);
+          }
+          w_tensor(n,l,lp) = tmp;
+        }
+      }
+    }
+
+    Eigen::Tensor<dcomplex,6> C_tensor(dim_f, dim_f, dim_b, dim_f, dim_f, dim_b);
+    C_tensor.setZero();
+    for (int lp3 = 0; lp3 < dim_b; ++lp3) {
+      std::cout << "lp3 " << lp3 << std::endl;
+      for (int lp2 = 0; lp2 < dim_f; ++lp2) {
+        for (int lp1 = 0; lp1 < dim_f; ++lp1) {
+          for (int l3 = 0; l3 < dim_b; ++l3) {
+            for (int l2 = 0; l2 < dim_f; ++l2) {
+              for (int l1 = 0; l1 < dim_f; ++l1) {
+                dcomplex tmp = 0.0;
+                for (int n = 0; n < 2*niw; ++n) {
+                  tmp += w_tensor(n,l3,lp1) * std::conj(w_tensor(n,lp3,l1) * Tnl_f_pn(n,l2)) * Tnl_f_pn(n,lp2);
+                }
+                C_tensor(l1, l2, l3, lp1, lp2, lp3) = - tmp * ((l2+lp2)%2 == 0 ? 1.0 : -1.0);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    trans_tensor_H_to_F_ = C_tensor;
+
   };
 
   /**
@@ -391,6 +496,7 @@ class GMeasurement {
   boost::multi_array<std::complex<double>, 4 * Rank - 1> data_;
   int num_data_;
   int max_num_data_;//max number of data accumlated before passing data to ALPS
+  Eigen::Tensor<std::complex<double>,6> trans_tensor_H_to_F_;
 };
 
 /**

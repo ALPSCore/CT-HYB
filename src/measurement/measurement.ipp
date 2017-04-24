@@ -304,7 +304,9 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
                                         cdagg_ops_new,
                                         c_ops_new,
                                         M_eff,
-                                        data_);
+                                        data_,
+                                        trans_tensor_H_to_F_
+  );
   ++ num_data_;
 
   if (num_data_ == max_num_data_) {
@@ -328,7 +330,9 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
                                         const std::vector<psi> &creation_ops,
                                         const std::vector<psi> &annihilation_ops,
                                         const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
-                                        boost::multi_array<std::complex<double>, 3> &result) {
+                                        boost::multi_array<std::complex<double>, 3> &result,
+                                        const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F
+) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
   const int dim_basis = p_basis_f->dim();
@@ -389,6 +393,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
   }
 };
 
+
 //Measure G2 by removal in G2 space
 template<typename SCALAR>
 void MeasureGHelper<SCALAR, 2>::perform(double beta,
@@ -399,7 +404,9 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
                                         const std::vector<psi> &creation_ops,
                                         const std::vector<psi> &annihilation_ops,
                                         const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
-                                        boost::multi_array<std::complex<double>, 7> &result) {
+                                        boost::multi_array<std::complex<double>, 7> &result,
+                                        const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F
+) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
   const int dim_f = p_basis_f->dim();
@@ -474,6 +481,12 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
+  Eigen::Tensor<std::complex<double>,7> result_H(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
+  result_H.setZero();
+
+  Eigen::Tensor<std::complex<double>,7> result_HF(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
+  result_HF.setZero();
+
   //Then, accumulate data
   const double scale_fact = 1.0/(norm * beta);
   const double cutoff = 1e-15 * norm;
@@ -502,8 +515,11 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
           for (int il1 = 0; il1 < dim_f; ++il1) {
             for (int il2 = 0; il2 < dim_f; ++il2) {
               const SCALAR coeff2 = coeff * Pl_f[a][b][il1] * Pl_f[c][d][il2] * (il2%2 == 0 ? -1.0 : 1.0);
+              const SCALAR coeff2_H = sign * weight_rat_intermediate_state * M(b,a) * M(d,c) * scale_fact * Pl_f[a][b][il1] * Pl_f[c][d][il2] * (il2%2 == 0 ? -1.0 : 1.0);
               for (int il3 = 0; il3 < dim_b; ++il3) {
                 result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += coeff2 * Pl_b[a][d][il3];
+                result_HF(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) += coeff2 * Pl_b[a][d][il3];
+                result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) += coeff2_H * Pl_b[a][d][il3];
               }
             }
           }
@@ -511,6 +527,39 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
+
+  Eigen::Tensor<std::complex<double>,7> result_F(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
+  result_F.setZero();
+
+  using dcomplex = std::complex<double>;
+  Eigen::TensorMap<Eigen::Tensor<dcomplex,5>> result_F_map(result_F.data(), num_flavors, num_flavors, num_flavors, num_flavors, dim_f*dim_f*dim_b);
+  Eigen::TensorMap<Eigen::Tensor<dcomplex,5>> result_H_map(result_H.data(), num_flavors, num_flavors, num_flavors, num_flavors, dim_f*dim_f*dim_b);
+  Eigen::TensorMap<Eigen::Tensor<const dcomplex,2>> C_map(trans_tensor_H_to_F.data(), dim_f*dim_f*dim_b, dim_f*dim_f*dim_b);
+
+  std::array<Eigen::IndexPair<int>,1> product_dims = {Eigen::IndexPair<int>(1, 0)};
+
+  for(int flavor_d = 0; flavor_d < num_flavors; ++flavor_d) {
+    for(int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {
+      for(int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
+        for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
+          result_F_map.chip(flavor_d,3).chip(flavor_c,2).chip(flavor_b,1).chip(flavor_a,0) =
+              C_map.contract(result_H_map.chip(flavor_b,3).chip(flavor_c,2).chip(flavor_d,1).chip(flavor_a,0), product_dims);
+        }
+      }
+    }
+  }
+  for(int flavor_d = 0; flavor_d < num_flavors; ++flavor_d) {
+    for (int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {
+      for (int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
+        for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
+          std::cout << flavor_a << " " << flavor_b << " " << flavor_c << " " << flavor_d << " " <<
+                                                                                                result_F_map(flavor_a, flavor_b, flavor_c, flavor_d, 0)+result_H_map(flavor_a, flavor_b, flavor_c, flavor_d, 0) << " " << result_HF(flavor_a, flavor_b, flavor_c, flavor_d, 0, 0, 0) << std::endl;
+
+        }
+      }
+    }
+  }
+
 };
 
 template<typename SCALAR, int Rank>
