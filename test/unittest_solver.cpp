@@ -216,15 +216,16 @@ TEST(Util, IteratorOverTwoSets) {
 
 TEST(G2Measurement, ForkTermToHartreeTerm) {
   double Lambda = 1E+2;
-  int max_dim_f = 1;
-  int max_dim_b = 1;
-  const int niw = 10000;
+  int max_dim_f = 5;
+  int max_dim_b = 5;
+  const int niw_sum = 10000;
+  const int niw = 10;
 
   FermionicIRBasis basis_f(Lambda, max_dim_f);
   BosonicIRBasis basis_b(Lambda, max_dim_b);
 
-  auto Tnl_f = basis_f.Tnl(niw);
-  auto Tnl_b = basis_b.Tnl(niw);
+  auto Tnl_f = basis_f.Tnl(niw_sum);
+  auto Tnl_b = basis_b.Tnl(niw_sum);
   const int dim_f = basis_f.dim();
   const int dim_b = basis_b.dim();
 
@@ -233,17 +234,14 @@ TEST(G2Measurement, ForkTermToHartreeTerm) {
 
   using dcomplex = std::complex<double>;
 
-  //w(l, l^prime, n)
+  //Compute w(l, l^prime, n) by summing one freq., which will suffer from truncation errors
   Eigen::Tensor<dcomplex,3> w_tensor(niw, dim_b, dim_f);
-  auto back_to_range = [](int i) {return std::max(std::min(i, 2*niw),0);};
-  for (int m = 0; m < niw; ++m) {
-    std::cout << m << " " << std::abs(Tnl_b(m, 0)) << " " << std::abs(Tnl_f(m, 0)) << std::endl;
-  }
+  auto back_to_range = [](int i) {return std::max(std::min(i, 2*niw_sum),0);};
   for (int lp = 0; lp < dim_f; ++lp) {
     for (int l = 0; l < dim_b; ++l) {
-      for (int n = 0; n < 10; ++n) {
+      for (int n = 0; n < niw; ++n) {
         const auto min_m = back_to_range(-n);
-        const auto max_m = back_to_range(2*niw -n);
+        const auto max_m = back_to_range(2*niw_sum -n);
         dcomplex tmp = 0.0;
         for (int m = min_m; m < max_m; ++m) {
           tmp += std::conj(Tnl_b_pn(m,l)) * Tnl_f_pn(m+n, lp);
@@ -253,13 +251,16 @@ TEST(G2Measurement, ForkTermToHartreeTerm) {
     }
   }
 
+  //Alternatively, use the tau formula, which will give more accurate results.
   Eigen::Tensor<dcomplex,3> w_tensor2;
   compute_w_tensor(niw, basis_f, basis_b, w_tensor2);
+
+  //The two results should match approximately.
   for (int lp=0; lp<dim_f; ++lp) {
     for (int l=0; l<dim_b; ++l) {
-      std::cout << " " << w_tensor(0, l, lp) << " " << w_tensor2(0, l, lp) << std::endl;
-      std::cout << " " << w_tensor(1, l, lp) << " " << w_tensor2(1, l, lp) << std::endl;
-      std::cout << " " << w_tensor(2, l, lp) << " " << w_tensor2(2, l, lp) << std::endl;
+      for (int n=0; n<niw; ++n) {
+        ASSERT_NEAR(abs(w_tensor(n, l, lp)-w_tensor2(n, l, lp)), 0.0,  0.002);
+      }
     }
   }
 }
