@@ -481,11 +481,11 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
-  Eigen::Tensor<std::complex<double>,7> result_H(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
-  result_H.setZero();
+  //Eigen::Tensor<std::complex<double>,7> result_H(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
+  //result_H.setZero();
 
-  Eigen::Tensor<std::complex<double>,7> result_HF(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
-  result_HF.setZero();
+  //Eigen::Tensor<std::complex<double>,7> result_HF(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
+  //result_HF.setZero();
 
   //Then, accumulate data
   const double scale_fact = 1.0/(norm * beta);
@@ -515,11 +515,11 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
           for (int il1 = 0; il1 < dim_f; ++il1) {
             for (int il2 = 0; il2 < dim_f; ++il2) {
               const SCALAR coeff2 = coeff * Pl_f[a][b][il1] * Pl_f[c][d][il2] * (il2%2 == 0 ? -1.0 : 1.0);
-              const SCALAR coeff2_H = sign * weight_rat_intermediate_state * M(b,a) * M(d,c) * scale_fact * Pl_f[a][b][il1] * Pl_f[c][d][il2] * (il2%2 == 0 ? -1.0 : 1.0);
+              //const SCALAR coeff2_H = sign * weight_rat_intermediate_state * M(b,a) * M(d,c) * scale_fact * Pl_f[a][b][il1] * Pl_f[c][d][il2] * (il2%2 == 0 ? -1.0 : 1.0);
               for (int il3 = 0; il3 < dim_b; ++il3) {
                 result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += coeff2 * Pl_b[a][d][il3];
-                result_HF(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) += coeff2 * Pl_b[a][d][il3];
-                result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) += coeff2_H * Pl_b[a][d][il3];
+                //result_HF(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) += coeff2 * Pl_b[a][d][il3];
+                //result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) += coeff2_H * Pl_b[a][d][il3];
               }
             }
           }
@@ -528,6 +528,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
+  /*
   Eigen::Tensor<std::complex<double>,7> result_F(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
   result_F.setZero();
 
@@ -559,6 +560,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
+  */
 
 };
 

@@ -52,7 +52,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
           //Two-particle GF
       .define<int>("measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
       //.define<double>("measurement.G2.Lambda_f", 1000.0, "Lambda parameter for the Fermionic IR basis")
-      .define<double>("measurement.G2.Lambda_b", 1000.0, "Lambda parameter for the Bosonic IR basis")
+      //.define<double>("measurement.G2.Lambda_b", 1000.0, "Lambda parameter for the Bosonic IR basis")
       .define<int>("measurement.G2.max_dim_f", 20, "Maximum dimension of the Fermionic IR basis")
       .define<int>("measurement.G2.max_dim_b", 20, "Maximum dimension of the Bosonic IR basis")
       //.define<int>("measurement.G2.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
