@@ -264,3 +264,31 @@ TEST(G2Measurement, ForkTermToHartreeTerm) {
     }
   }
 }
+
+TEST(G2Measurement, ForkTermToHartreeTerm2) {
+  using dcomplex = std::complex<double>;
+
+  double Lambda = 1E+1;
+  int max_dim_f = 5;
+  int max_dim_b = 5;
+  const int niw = 1000;
+
+  FermionicIRBasis basis_f(Lambda, max_dim_f);
+  BosonicIRBasis basis_b(Lambda, max_dim_b);
+
+  auto dim_f = basis_f.dim();
+  auto dim_b = basis_b.dim();
+
+  Eigen::Tensor<dcomplex,6> tensor;
+  compute_tensor_from_H_to_F_term(niw, basis_f, basis_b, tensor);
+
+  //Must be a real symmetric matrix
+  {
+    Eigen::TensorMap<Eigen::Tensor<dcomplex,2>> mat_view(tensor.data(), dim_f*dim_f*dim_b, dim_f*dim_f*dim_b);
+    for (int j=0; j < dim_f*dim_f*dim_b; ++j) {
+      for (int i=0; i < dim_f*dim_f*dim_b; ++i) {
+        ASSERT_NEAR(std::abs(mat_view(i,j) - mat_view(j,i)), 0.0, 1e-8);
+      }
+    }
+  }
+}

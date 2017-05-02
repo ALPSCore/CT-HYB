@@ -236,6 +236,7 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
     std::map<std::string,boost::any> &ar) {
   const int n_flavors = par["model.sites"].template as<int>() * par["model.spins"].template as<int>();
   const double sign = results["Sign"].template mean<double>();
+  const double beta(par["model.beta"]);
 
   //The factor of temperature below comes from the extra degree of freedom for beta in the worm
   const double coeff =
@@ -291,10 +292,47 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
     }
   }
 
-  ar["G2_IR/data"] = Gl;
+  //ar["G2_IR/data"] = Gl;
 
   //save mesh
-  const int niw_basis = 100000;
-  ar["G2_IR/Tnl_f"] = to_multi_array(p_G2_meas->get_p_basis_f()->Tnl(niw_basis));
-  ar["G2_IR/Tnl_b"] = to_multi_array(p_G2_meas->get_p_basis_b()->Tnl(niw_basis));
+  //const int niw_basis = 100000;
+  //ar["G2_IR/Tnl_f"] = to_multi_array(p_G2_meas->get_p_basis_f()->Tnl(niw_basis));
+  //ar["G2_IR/Tnl_b"] = to_multi_array(p_G2_meas->get_p_basis_b()->Tnl(niw_basis));
+
+  namespace g = alps::gf;
+  using nmesh_t = g::numerical_mesh<double>;
+  using imesh_t = g::index_mesh;
+
+  nmesh_t nmesh_f {dynamic_cast<const FermionicIRBasis&>(*p_G2_meas->get_p_basis_f()).construct_mesh(beta)};
+  nmesh_t nmesh_b {dynamic_cast<const BosonicIRBasis&>(*p_G2_meas->get_p_basis_b()).construct_mesh(beta)};
+  imesh_t imesh {n_flavors};
+
+  using g2_t = g::seven_index_gf<std::complex<double>,nmesh_t,nmesh_t,nmesh_t,imesh_t,imesh_t,imesh_t,imesh_t>;
+  g2_t g2_l {nmesh_f, nmesh_f, nmesh_b, imesh, imesh, imesh, imesh};
+
+  for (int il = 0; il < dim_f; ++il) {
+    for (int il2 = 0; il2 < dim_f; ++il2) {
+      for (int il3 = 0; il3 < dim_b; ++il3) {
+
+        for (int f1 = 0; f1 < n_flavors; ++f1) {
+          for (int f2 = 0; f2 < n_flavors; ++f2) {
+            for (int f3 = 0; f3 < n_flavors; ++f3) {
+              for (int f4 = 0; f4 < n_flavors; ++f4) {
+                g2_l(nmesh_t::index_type(il),
+                   nmesh_t::index_type(il2),
+                   nmesh_t::index_type(il3),
+                   imesh_t::index_type(f1),
+                   imesh_t::index_type(f2),
+                   imesh_t::index_type(f3),
+                   imesh_t::index_type(f4)
+                ) = Gl[f1][f2][f3][f4][il][il2][il3];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  ar["G2_IR"] = g2_l;
 }

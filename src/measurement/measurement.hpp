@@ -315,6 +315,13 @@ compute_w_tensor(
     const BosonicIRBasis& basis_b,
     Eigen::Tensor<std::complex<double>,3>& w_tensor);
 
+void
+compute_tensor_from_H_to_F_term(
+    int niw_positive,
+    const FermionicIRBasis& basis_f,
+    const BosonicIRBasis& basis_b,
+    Eigen::Tensor<std::complex<double>,6>& results);
+
 /**
  * @brief Helper struct for measurement of Green's function using Legendre basis in G space
  */
@@ -410,63 +417,20 @@ class GMeasurement {
       max_num_data_(max_num_data) {
     init_work_space(data_, num_flavors, p_basis_f_->dim(), p_basis_b_->dim());
 
-
     //ration matrix from Fork term to Hartree term
-    const int niw = 10000;
-    std::cout << " A " << std::endl;
-    auto Tnl_b = p_basis_b_->Tnl(niw);
-    std::cout << " B " << std::endl;
+    const int niw = 1000;
     auto Tnl_f = p_basis_f_->Tnl(niw);
-    std::cout << " C " << std::endl;
     const int dim_f = p_basis_f->dim();
     const int dim_b = p_basis_b->dim();
 
-    auto Tnl_f_pn = to_Tnl_pn(Tnl_f, alps::gf::statistics::FERMIONIC);
-    auto Tnl_b_pn = to_Tnl_pn(Tnl_b, alps::gf::statistics::BOSONIC);
-
     using dcomplex = std::complex<double>;
 
-    //w(l, l^prime, n)
-    Eigen::Tensor<dcomplex,3> w_tensor(niw, dim_b, dim_f);
-    auto back_to_range = [](int i) {return std::max(std::min(i, 2*niw),0);};
-    for (int lp = 0; lp < dim_f; ++lp) {
-      for (int l = 0; l < dim_b; ++l) {
-        for (int n = 0; n < 2*niw; ++n) {
-          const auto shift = n-niw;
-          const auto min_m = back_to_range(-shift);
-          const auto max_m = back_to_range(2*niw-shift);
-          dcomplex tmp = 0.0;
-          for (int m = min_m; m < max_m; ++m) {
-            tmp += std::conj(Tnl_b_pn(m,l)) * Tnl_f_pn(m+shift, lp);
-          }
-          w_tensor(n,l,lp) = tmp;
-        }
-      }
-    }
-
-    Eigen::Tensor<dcomplex,6> C_tensor(dim_f, dim_f, dim_b, dim_f, dim_f, dim_b);
-    C_tensor.setZero();
-    for (int lp3 = 0; lp3 < dim_b; ++lp3) {
-      std::cout << "lp3 " << lp3 << std::endl;
-      for (int lp2 = 0; lp2 < dim_f; ++lp2) {
-        for (int lp1 = 0; lp1 < dim_f; ++lp1) {
-          for (int l3 = 0; l3 < dim_b; ++l3) {
-            for (int l2 = 0; l2 < dim_f; ++l2) {
-              for (int l1 = 0; l1 < dim_f; ++l1) {
-                dcomplex tmp = 0.0;
-                for (int n = 0; n < 2*niw; ++n) {
-                  tmp += w_tensor(n,l3,lp1) * std::conj(w_tensor(n,lp3,l1) * Tnl_f_pn(n,l2)) * Tnl_f_pn(n,lp2);
-                }
-                C_tensor(l1, l2, l3, lp1, lp2, lp3) = - tmp * ((l2+lp2)%2 == 0 ? 1.0 : -1.0);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    trans_tensor_H_to_F_ = C_tensor;
-
+    /*
+    compute_tensor_from_H_to_F_term(niw,
+                                    dynamic_cast<const FermionicIRBasis&>(*p_basis_f),
+                                    dynamic_cast<const BosonicIRBasis&>(*p_basis_b),
+                                    trans_tensor_H_to_F_);
+                                    */
   };
 
   /**

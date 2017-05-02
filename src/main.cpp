@@ -34,36 +34,42 @@ int main(int argc, const char *argv[]) {
   alps::accumulators::result_set results;
 
   //set up solver
-  boost::shared_ptr<alps::cthyb::Solver> p_solver;
-  if (par["algorithm"].as<std::string>() == "real-matrix") {
-    alps::cthyb::MatrixSolver<double>::define_parameters(par);
-    if (par.help_requested(std::cout)) { exit(0); } //If help message is requested, print it and exit normally.
+  try {
+    boost::shared_ptr<alps::cthyb::Solver> p_solver;
+    if (par["algorithm"].as<std::string>() == "real-matrix") {
+      alps::cthyb::MatrixSolver<double>::define_parameters(par);
+      if (par.help_requested(std::cout)) { exit(0); } //If help message is requested, print it and exit normally.
 
-    p_solver.reset(new alps::cthyb::MatrixSolver<double>(par));
-  } else if (par["algorithm"].as<std::string>() == "complex-matrix") {
-    alps::cthyb::MatrixSolver<std::complex<double> >::define_parameters(par);
-    if (par.help_requested(std::cout)) { exit(0); } //If help message is requested, print it and exit normally.
+      p_solver.reset(new alps::cthyb::MatrixSolver<double>(par));
+    } else if (par["algorithm"].as<std::string>() == "complex-matrix") {
+      alps::cthyb::MatrixSolver<std::complex<double> >::define_parameters(par);
+      if (par.help_requested(std::cout)) { exit(0); } //If help message is requested, print it and exit normally.
 
-    p_solver.reset(new alps::cthyb::MatrixSolver<std::complex<double> >(par));
-  } else {
-    throw std::runtime_error("Unknown algorithm: " + par["algorithm"].as<std::string>());
-  }
+      p_solver.reset(new alps::cthyb::MatrixSolver<std::complex<double> >(par));
+    } else {
+      throw std::runtime_error("Unknown algorithm: " + par["algorithm"].as<std::string>());
+    }
 
-  //solve the model
-  p_solver->solve();
+    //solve the model
+    p_solver->solve();
 
-  //write the results into a hdf5 file
-  if (c.rank() == 0) {
-    std::string output_file = par["outputfile"];
-    alps::hdf5::archive ar(output_file, "w");
-    ar["/parameters"] << par;
-    ar["/simulation/results"] << p_solver->get_accumulated_results();
-    {
-      const std::map<std::string,boost::any> &results = p_solver->get_results();
-      for (std::map<std::string,boost::any>::const_iterator it = results.begin(); it != results.end(); ++it) {
-        ar["/" + it->first] << it->second;
+    //write the results into a hdf5 file
+    if (c.rank() == 0) {
+      std::string output_file = par["outputfile"];
+      alps::hdf5::archive ar(output_file, "w");
+      ar["/parameters"] << par;
+      ar["/simulation/results"] << p_solver->get_accumulated_results();
+      {
+        const std::map<std::string,boost::any> &results = p_solver->get_results();
+        for (std::map<std::string,boost::any>::const_iterator it = results.begin(); it != results.end(); ++it) {
+          ar["/" + it->first] << it->second;
+        }
       }
     }
+  } catch (const std::exception& e) {
+    std::cerr << "Exception thrown at MPI process " + boost::lexical_cast<std::string>(c.rank()) << "!" << std::endl;
+    std::cerr << "If your job does not stop, please kill it manually by yourself (e.g., using bkill, qdel)." << std::endl;
+    std::cerr << e.what() << std::endl;
   }
 
   return 0;
