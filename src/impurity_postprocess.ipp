@@ -122,10 +122,6 @@ void HybridizationSimulation<IMP_MODEL>::compute_G1(
 
   //We store a transformation matrix to Matsubara frequencies for post process
   g::numerical_mesh<double> nmesh{dynamic_cast<const FermionicIRBasis&>(*p_basis).construct_mesh(beta)};
-  const int niw_basis = 100000;
-  nmesh.set_transformation_matrix_to_matsubara(
-      to_multi_array(p_basis->Tnl(niw_basis))
-  );
 
   using gl_type = g::three_index_gf<std::complex<double>,
                                     g::numerical_mesh<double>,
