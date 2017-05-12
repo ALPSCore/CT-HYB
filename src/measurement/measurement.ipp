@@ -1,4 +1,4 @@
-#include "./measurement.hpp"
+#include "measurement.hpp"
 
 template<typename SCALAR>
 template<typename SlidingWindow>
@@ -456,12 +456,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
-  //naive way to evaluate
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
-
-  //First, compute relative weights
-  boost::multi_array<SCALAR,4> coeffs(boost::extents[num_phys_rows][num_phys_rows][num_phys_rows][num_phys_rows]);
-  std::fill(coeffs.origin(), coeffs.origin()+coeffs.num_elements(), 0.0);
+  //First, compute relative weights. This costs O(num_phys_rows^4) operations.
   double norm = 0.0;
   for (int a = 0; a < num_phys_rows; ++a) {
     for (int b = 0; b < num_phys_rows; ++b) {
@@ -472,63 +468,80 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
            * M_ab  M_ad
            * M_cb  M_cd
            */
-          coeffs[a][b][c][d] = sign * weight_rat_intermediate_state * (M(b,a) * M(d,c) - M(b,c) * M(d,a));
-          coeffs[c][b][a][d] = coeffs[a][d][c][b] = -coeffs[a][b][c][d];
-          coeffs[c][d][a][b] = coeffs[a][b][c][d];
-          norm += 4*std::abs(coeffs[a][b][c][d]);
+          norm += std::abs(weight_rat_intermediate_state * (M(b,a) * M(d,c) - M(b,c) * M(d,a)));
         }
       }
     }
   }
+  //The factor 4 is from the degree of freedom of exchange a and c or b and d.
+  norm *= 4;
 
-  //Eigen::Tensor<std::complex<double>,7> result_H(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
-  //result_H.setZero();
-
-  //Eigen::Tensor<std::complex<double>,7> result_HF(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
-  //result_HF.setZero();
-
-  //Then, accumulate data
-  const double scale_fact = 1.0/(norm * beta);
-  const double cutoff = 1e-15 * norm;
-  for (int a = 0; a < num_phys_rows; ++a) {
-    const int flavor_a = annihilation_ops[a].flavor();
-
-    for (int b = 0; b < num_phys_rows; ++b) {
-      const int flavor_b = creation_ops[b].flavor();
-
-      for (int c = 0; c < num_phys_rows; ++c) {
-        if (a==c) {
-          continue;
-        }
-        const int flavor_c = annihilation_ops[c].flavor();
-
-        for (int d = 0; d < num_phys_rows; ++d) {
-          if (b==d) {
-            continue;
-          }
-          const int flavor_d = creation_ops[d].flavor();
-
-          if (std::abs(coeffs[a][b][c][d]) < cutoff) {
-            continue;
-          }
-          const SCALAR coeff = coeffs[a][b][c][d] * scale_fact;
-          for (int il1 = 0; il1 < dim_f; ++il1) {
-            for (int il2 = 0; il2 < dim_f; ++il2) {
-              const SCALAR coeff2 = coeff * Pl_f[a][b][il1] * Pl_f[c][d][il2] * (il2%2 == 0 ? -1.0 : 1.0);
-              //const SCALAR coeff2_H = sign * weight_rat_intermediate_state * M(b,a) * M(d,c) * scale_fact * Pl_f[a][b][il1] * Pl_f[c][d][il2] * (il2%2 == 0 ? -1.0 : 1.0);
-              for (int il3 = 0; il3 < dim_b; ++il3) {
-                result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += coeff2 * Pl_b[a][d][il3];
-                //result_HF(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) += coeff2 * Pl_b[a][d][il3];
-                //result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) += coeff2_H * Pl_b[a][d][il3];
-              }
-            }
-          }
-        }
+  Eigen::Tensor<SCALAR,3> tensor1(num_flavors, num_phys_rows, dim_f);//(f2, il1)
+  tensor1.setZero();
+  for (int il1 = 0; il1 < dim_f; ++il1) {
+    for (int a = 0; a < num_phys_rows; ++a) {
+      for (int b = 0; b < num_phys_rows; ++b) {
+        int flavor_b = creation_ops[b].flavor();
+        tensor1(flavor_b, a, il1) += M(b,a) * Pl_f[a][b][il1];
       }
     }
+  }
+
+  Eigen::Tensor<SCALAR,3> tensor2(num_flavors, num_phys_rows, dim_f);//(f3, d, il2)
+  tensor2.setZero();
+  for (int il2 = 0; il2 < dim_f; ++il2) {
+    for (int d = 0; d < num_phys_rows; ++d) {
+      for (int c = 0; c < num_phys_rows; ++c) {
+        const int flavor_c = annihilation_ops[c].flavor();
+        tensor2(flavor_c, d, il2) += M(d,c) * Pl_f[c][d][il2] * (il2 == 0 ? -1.0 : 1.0);
+      }
+    }
+  }
+
+  //Contraction requires O(num_phys_rows^2 Nl^3 num_flavors^2) operators
+  //FIXME: USE CONTRACT IN EIGEN::TENSOR
+  Eigen::Tensor<SCALAR,7> tensor3(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
+  tensor3.setZero();
+  const SCALAR coeff = sign * weight_rat_intermediate_state / (norm * beta);//where is this beta factor from?
+  for (int a = 0; a < num_phys_rows; ++a) {
+    const int flavor_a = annihilation_ops[a].flavor();
+    for (int d = 0; d < num_phys_rows; ++d) {
+      const int flavor_d = creation_ops[d].flavor();
+
+      for (int il1 = 0; il1 < dim_f; ++il1) {
+      for (int il2 = 0; il2 < dim_f; ++il2) {
+      for (int il3 = 0; il3 < dim_b; ++il3) {
+        for (int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
+        for (int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {
+          tensor3(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) +=
+            coeff * tensor1(flavor_b, a, il1) * tensor2(flavor_c, d, il2) * Pl_b[a][d][il3];
+        }
+        }
+      }
+      }
+      }
+    }
+  }
+
+  //Then, accumulate data
+  for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
+  for (int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
+  for (int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {
+  for (int flavor_d = 0; flavor_d < num_flavors; ++flavor_d) {
+    for (int il1 = 0; il1 < dim_f; ++il1) {
+    for (int il2 = 0; il2 < dim_f; ++il2) {
+    for (int il3 = 0; il3 < dim_b; ++il3) {
+      result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += tensor3(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
+    }
+    }
+    }
+  }
+  }
+  }
   }
 
   /*
+   *
   Eigen::Tensor<std::complex<double>,7> result_F(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
   result_F.setZero();
 
@@ -560,6 +573,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
+
+
   */
 
 };
