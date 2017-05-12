@@ -523,6 +523,34 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
+  for (int a = 0; a < num_phys_rows; ++a) {
+    int flavor_a = annihilation_ops[a].flavor();
+    for (int b = 0; b < num_phys_rows; ++b) {
+      int flavor_b = creation_ops[b].flavor();
+      for (int c = 0; c < num_phys_rows; ++c) {
+        int flavor_c = annihilation_ops[c].flavor();
+        for (int d = 0; d < num_phys_rows; ++d) {
+          int flavor_d = creation_ops[d].flavor();
+
+          if (a != c && b != d) {
+            continue;
+          }
+
+          for (int il1 = 0; il1 < dim_f; ++il1) {
+            for (int il2 = 0; il2 < dim_f; ++il2) {
+              for (int il3 = 0; il3 < dim_b; ++il3) {
+                tensor3(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) -=
+                    coeff * M(b, a) * M(d, c) * Pl_f[a][b][il1] * Pl_f[c][d][il2] * Pl_b[a][d][il3]
+                        * (il2 == 0 ? -1.0 : 1.0);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+
   //Then, accumulate data
   for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
   for (int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
