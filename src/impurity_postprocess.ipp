@@ -331,4 +331,8 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
   }
 
   ar["G2_IR"] = g2_l;
+
+  alps::gf_extension::transformer_Hartree_to_Fock<g2_t> trans_to_F(g2_l.mesh1(), g2_l.mesh3());
+
+  ar["G2_F_IR"] = trans_to_F(g2_l);
 }
