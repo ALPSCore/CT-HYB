@@ -500,8 +500,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
 
   //Contraction requires O(num_phys_rows^2 Nl^3 num_flavors^2) operators
   //FIXME: USE CONTRACT IN EIGEN::TENSOR
-  Eigen::Tensor<SCALAR,7> tensor3(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
-  tensor3.setZero();
+  Eigen::Tensor<SCALAR,7> result_H(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
+  result_H.setZero();
   const SCALAR coeff = sign * weight_rat_intermediate_state / (norm * beta);//where is this beta factor from?
   for (int a = 0; a < num_phys_rows; ++a) {
     const int flavor_a = annihilation_ops[a].flavor();
@@ -513,7 +513,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       for (int il3 = 0; il3 < dim_b; ++il3) {
         for (int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
         for (int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {
-          tensor3(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) +=
+          result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) +=
             coeff * tensor1(flavor_b, a, il1) * tensor2(flavor_c, d, il2) * Pl_b[a][d][il3];
         }
         }
@@ -523,6 +523,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
+  //substract contributions from terms for a==c or b==d.
   for (int a = 0; a < num_phys_rows; ++a) {
     int flavor_a = annihilation_ops[a].flavor();
     for (int b = 0; b < num_phys_rows; ++b) {
@@ -539,7 +540,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
           for (int il1 = 0; il1 < dim_f; ++il1) {
             for (int il2 = 0; il2 < dim_f; ++il2) {
               for (int il3 = 0; il3 < dim_b; ++il3) {
-                tensor3(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) -=
+                result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) -=
                     coeff * M(b, a) * M(d, c) * Pl_f[a][b][il1] * Pl_f[c][d][il2] * Pl_b[a][d][il3]
                         * (il2 == 0 ? -1.0 : 1.0);
               }
@@ -550,6 +551,54 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
+#ifdef DEBUG_G2
+  Eigen::Tensor<SCALAR,7> result_F(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
+  result_F.setZero();
+  for (int a = 0; a < num_phys_rows; ++a) {
+    int flavor_a = annihilation_ops[a].flavor();
+    for (int b = 0; b < num_phys_rows; ++b) {
+      int flavor_b = creation_ops[b].flavor();
+      for (int c = 0; c < num_phys_rows; ++c) {
+        int flavor_c = annihilation_ops[c].flavor();
+        for (int d = 0; d < num_phys_rows; ++d) {
+          int flavor_d = creation_ops[d].flavor();
+
+          if (a == c || b == d) {
+            continue;
+          }
+
+          for (int il1 = 0; il1 < dim_f; ++il1) {
+            for (int il2 = 0; il2 < dim_f; ++il2) {
+              for (int il3 = 0; il3 < dim_b; ++il3) {
+                result_F(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) +=
+                    -coeff * M(d, a) * M(b, c) * Pl_f[a][b][il1] * Pl_f[c][d][il2] * Pl_b[a][d][il3]
+                        * (il2 == 0 ? -1.0 : 1.0);
+                //result_H2(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) +=
+                    //coeff * M(b, a) * M(d, c) * Pl_f[a][b][il1] * Pl_f[c][d][il2] * Pl_b[a][d][il3]
+                        //* (il2 == 0 ? -1.0 : 1.0);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+#endif
+
+#ifdef DEBUG_G2
+  using nmesh_t = alps::gf::numerical_mesh<double>;
+  using imesh_t = alps::gf::index_mesh;
+  using g2_t = alps::gf::seven_index_gf<std::complex<double>,nmesh_t,nmesh_t,nmesh_t,imesh_t,imesh_t,imesh_t,imesh_t>;
+  g2_t g2_H(
+      nmesh_t{dynamic_cast<const FermionicIRBasis&>(*p_basis_f).construct_mesh(beta)},
+      nmesh_t{dynamic_cast<const FermionicIRBasis&>(*p_basis_f).construct_mesh(beta)},
+      nmesh_t{dynamic_cast<const BosonicIRBasis&>(*p_basis_b).construct_mesh(beta)},
+      alps::gf::index_mesh(num_flavors),
+      alps::gf::index_mesh(num_flavors),
+      alps::gf::index_mesh(num_flavors),
+      alps::gf::index_mesh(num_flavors)
+  );
+#endif
 
   //Then, accumulate data
   for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
@@ -559,7 +608,18 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     for (int il1 = 0; il1 < dim_f; ++il1) {
     for (int il2 = 0; il2 < dim_f; ++il2) {
     for (int il3 = 0; il3 < dim_b; ++il3) {
-      result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += tensor3(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
+#ifdef DEBUG_G2
+      g2_H(
+          alps::gf::numerical_mesh<double>::index_type(il1),
+          alps::gf::numerical_mesh<double>::index_type(il2),
+          alps::gf::numerical_mesh<double>::index_type(il3),
+          alps::gf::index_mesh::index_type(flavor_a),
+          alps::gf::index_mesh::index_type(flavor_b),
+          alps::gf::index_mesh::index_type(flavor_c),
+          alps::gf::index_mesh::index_type(flavor_d)
+      ) = result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
+#endif
+      result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
     }
     }
     }
@@ -567,6 +627,37 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
   }
   }
+
+#ifdef DEBUG_G2
+  alps::gf_extension::transformer_Hartree_to_Fock<g2_t> trans_to_F(g2_H.mesh1(), g2_H.mesh3());
+  auto g2_F = trans_to_F(g2_H);
+  for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
+  for (int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
+  for (int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {
+  for (int flavor_d = 0; flavor_d < num_flavors; ++flavor_d) {
+    for (int il1 = 0; il1 < dim_f; ++il1) {
+    for (int il2 = 0; il2 < dim_f; ++il2) {
+    for (int il3 = 0; il3 < 1; ++il3) {
+      std::cout << "debug " << flavor_a << "  " << flavor_b << " "<< flavor_c << " " << flavor_d << " "
+        << il1 << " " << il2 << " " << il3 << "     "
+        << result_F(flavor_a,flavor_b,flavor_c,flavor_d,il1,il2,il3) << " "
+        << g2_F(
+          alps::gf::numerical_mesh<double>::index_type(il1),
+          alps::gf::numerical_mesh<double>::index_type(il2),
+          alps::gf::numerical_mesh<double>::index_type(il3),
+          alps::gf::index_mesh::index_type(flavor_a),
+          alps::gf::index_mesh::index_type(flavor_b),
+          alps::gf::index_mesh::index_type(flavor_c),
+          alps::gf::index_mesh::index_type(flavor_d)
+        ).real() << std::endl;
+    }
+    }
+    }
+  }
+  }
+  }
+  }
+#endif
 
   /*
    *
@@ -601,8 +692,6 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
-
-
   */
 
 };
