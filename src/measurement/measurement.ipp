@@ -551,7 +551,10 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
-#ifdef DEBUG_G2
+  //DEBUG
+//#define COMPUTE_F
+
+#ifdef COMPUTE_F
   Eigen::Tensor<SCALAR,7> result_F(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
   result_F.setZero();
   for (int a = 0; a < num_phys_rows; ++a) {
@@ -573,9 +576,6 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
                 result_F(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) +=
                     -coeff * M(d, a) * M(b, c) * Pl_f[a][b][il1] * Pl_f[c][d][il2] * Pl_b[a][d][il3]
                         * (il2 == 0 ? -1.0 : 1.0);
-                //result_H2(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) +=
-                    //coeff * M(b, a) * M(d, c) * Pl_f[a][b][il1] * Pl_f[c][d][il2] * Pl_b[a][d][il3]
-                        //* (il2 == 0 ? -1.0 : 1.0);
               }
             }
           }
@@ -583,21 +583,6 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
-#endif
-
-#ifdef DEBUG_G2
-  using nmesh_t = alps::gf::numerical_mesh<double>;
-  using imesh_t = alps::gf::index_mesh;
-  using g2_t = alps::gf::seven_index_gf<std::complex<double>,nmesh_t,nmesh_t,nmesh_t,imesh_t,imesh_t,imesh_t,imesh_t>;
-  g2_t g2_H(
-      nmesh_t{dynamic_cast<const FermionicIRBasis&>(*p_basis_f).construct_mesh(beta)},
-      nmesh_t{dynamic_cast<const FermionicIRBasis&>(*p_basis_f).construct_mesh(beta)},
-      nmesh_t{dynamic_cast<const BosonicIRBasis&>(*p_basis_b).construct_mesh(beta)},
-      alps::gf::index_mesh(num_flavors),
-      alps::gf::index_mesh(num_flavors),
-      alps::gf::index_mesh(num_flavors),
-      alps::gf::index_mesh(num_flavors)
-  );
 #endif
 
   //Then, accumulate data
@@ -608,92 +593,18 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     for (int il1 = 0; il1 < dim_f; ++il1) {
     for (int il2 = 0; il2 < dim_f; ++il2) {
     for (int il3 = 0; il3 < dim_b; ++il3) {
-#ifdef DEBUG_G2
-      g2_H(
-          alps::gf::numerical_mesh<double>::index_type(il1),
-          alps::gf::numerical_mesh<double>::index_type(il2),
-          alps::gf::numerical_mesh<double>::index_type(il3),
-          alps::gf::index_mesh::index_type(flavor_a),
-          alps::gf::index_mesh::index_type(flavor_b),
-          alps::gf::index_mesh::index_type(flavor_c),
-          alps::gf::index_mesh::index_type(flavor_d)
-      ) = result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
-#endif
+#ifdef COMPUTE_F
+      result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += result_F(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
+#else
       result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
-    }
-    }
-    }
-  }
-  }
-  }
-  }
-
-#ifdef DEBUG_G2
-  alps::gf_extension::transformer_Hartree_to_Fock<g2_t> trans_to_F(g2_H.mesh1(), g2_H.mesh3());
-  auto g2_F = trans_to_F(g2_H);
-  for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
-  for (int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
-  for (int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {
-  for (int flavor_d = 0; flavor_d < num_flavors; ++flavor_d) {
-    for (int il1 = 0; il1 < dim_f; ++il1) {
-    for (int il2 = 0; il2 < dim_f; ++il2) {
-    for (int il3 = 0; il3 < 1; ++il3) {
-      std::cout << "debug " << flavor_a << "  " << flavor_b << " "<< flavor_c << " " << flavor_d << " "
-        << il1 << " " << il2 << " " << il3 << "     "
-        << result_F(flavor_a,flavor_b,flavor_c,flavor_d,il1,il2,il3) << " "
-        << g2_F(
-          alps::gf::numerical_mesh<double>::index_type(il1),
-          alps::gf::numerical_mesh<double>::index_type(il2),
-          alps::gf::numerical_mesh<double>::index_type(il3),
-          alps::gf::index_mesh::index_type(flavor_a),
-          alps::gf::index_mesh::index_type(flavor_b),
-          alps::gf::index_mesh::index_type(flavor_c),
-          alps::gf::index_mesh::index_type(flavor_d)
-        ).real() << std::endl;
-    }
-    }
-    }
-  }
-  }
-  }
-  }
 #endif
-
-  /*
-   *
-  Eigen::Tensor<std::complex<double>,7> result_F(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
-  result_F.setZero();
-
-  using dcomplex = std::complex<double>;
-  Eigen::TensorMap<Eigen::Tensor<dcomplex,5>> result_F_map(result_F.data(), num_flavors, num_flavors, num_flavors, num_flavors, dim_f*dim_f*dim_b);
-  Eigen::TensorMap<Eigen::Tensor<dcomplex,5>> result_H_map(result_H.data(), num_flavors, num_flavors, num_flavors, num_flavors, dim_f*dim_f*dim_b);
-  Eigen::TensorMap<Eigen::Tensor<const dcomplex,2>> C_map(trans_tensor_H_to_F.data(), dim_f*dim_f*dim_b, dim_f*dim_f*dim_b);
-
-  std::array<Eigen::IndexPair<int>,1> product_dims = {Eigen::IndexPair<int>(1, 0)};
-
-  for(int flavor_d = 0; flavor_d < num_flavors; ++flavor_d) {
-    for(int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {
-      for(int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
-        for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
-          result_F_map.chip(flavor_d,3).chip(flavor_c,2).chip(flavor_b,1).chip(flavor_a,0) =
-              C_map.contract(result_H_map.chip(flavor_b,3).chip(flavor_c,2).chip(flavor_d,1).chip(flavor_a,0), product_dims);
-        }
-      }
+    }
+    }
     }
   }
-  for(int flavor_d = 0; flavor_d < num_flavors; ++flavor_d) {
-    for (int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {
-      for (int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
-        for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
-          std::cout << flavor_a << " " << flavor_b << " " << flavor_c << " " << flavor_d << " " <<
-                                                                                                result_F_map(flavor_a, flavor_b, flavor_c, flavor_d, 0)+result_H_map(flavor_a, flavor_b, flavor_c, flavor_d, 0) << " " << result_HF(flavor_a, flavor_b, flavor_c, flavor_d, 0, 0, 0) << std::endl;
-
-        }
-      }
-    }
   }
-  */
-
+  }
+  }
 };
 
 template<typename SCALAR, int Rank>
