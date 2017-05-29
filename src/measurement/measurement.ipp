@@ -493,7 +493,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     for (int d = 0; d < num_phys_rows; ++d) {
       for (int c = 0; c < num_phys_rows; ++c) {
         const int flavor_c = annihilation_ops[c].flavor();
-        tensor2(flavor_c, d, il2) += M(d,c) * Pl_f[c][d][il2] * (il2 == 0 ? -1.0 : 1.0);
+        tensor2(flavor_c, d, il2) += M(d,c) * Pl_f[c][d][il2] * (il2%2 == 0 ? -1.0 : 1.0);
       }
     }
   }
@@ -542,7 +542,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
               for (int il3 = 0; il3 < dim_b; ++il3) {
                 result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) -=
                     coeff * M(b, a) * M(d, c) * Pl_f[a][b][il1] * Pl_f[c][d][il2] * Pl_b[a][d][il3]
-                        * (il2 == 0 ? -1.0 : 1.0);
+                        * (il2%2 == 0 ? -1.0 : 1.0);
               }
             }
           }
@@ -557,6 +557,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
 #ifdef COMPUTE_F
   Eigen::Tensor<SCALAR,7> result_F(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
   result_F.setZero();
+  Eigen::Tensor<SCALAR,7> result_H2(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
+  result_H2.setZero();
   for (int a = 0; a < num_phys_rows; ++a) {
     int flavor_a = annihilation_ops[a].flavor();
     for (int b = 0; b < num_phys_rows; ++b) {
@@ -575,7 +577,10 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
               for (int il3 = 0; il3 < dim_b; ++il3) {
                 result_F(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) +=
                     -coeff * M(d, a) * M(b, c) * Pl_f[a][b][il1] * Pl_f[c][d][il2] * Pl_b[a][d][il3]
-                        * (il2 == 0 ? -1.0 : 1.0);
+                        * (il2%2 == 0 ? -1.0 : 1.0);
+                result_H2(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) +=
+                    coeff * M(b, a) * M(d, c) * Pl_f[a][b][il1] * Pl_f[c][d][il2] * Pl_b[a][d][il3]
+                        * (il2%2 == 0 ? -1.0 : 1.0);
               }
             }
           }
@@ -593,8 +598,13 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     for (int il1 = 0; il1 < dim_f; ++il1) {
     for (int il2 = 0; il2 < dim_f; ++il2) {
     for (int il3 = 0; il3 < dim_b; ++il3) {
+      if(std::abs(result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3)-result_H2(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3))>1e-5) {
+        throw std::runtime_error("Error in H and H2.");
+      }
 #ifdef COMPUTE_F
-      result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += result_F(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
+      result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] +=
+          //result_F(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) + result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
+          result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
 #else
       result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
 #endif
