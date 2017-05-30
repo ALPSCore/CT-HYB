@@ -473,9 +473,6 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
           auto w = weight_rat_intermediate_state * (M(b,a) * M(d,c) - M(b,c) * M(d,a));
           norm += std::abs(w);
           weights.push_back(std::make_tuple(w, a, b, c, d));
-          //if (c==num_phys_rows-1 && a==num_phys_rows-2 && b==num_phys_rows-2 && d==num_phys_rows-1) {
-            //std::cout << "debug_last " << w << std::endl;
-          //}
         }
       }
     }
@@ -493,19 +490,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
   );
 
-  /*
-  if (weights.size() > 5) {
-    std::cout << "debug "
-              << std::get<0>(weights[0]) << " "
-              << std::get<0>(weights[1]) << " "
-        << std::get<0>(weights[2]) << " "
-        << std::get<0>(weights[3]) << " "
-        << std::get<0>(weights[4]) << " "
-              << std::endl;
-  }
-  */
-
-  Eigen::Tensor<SCALAR,7> result_H_and_F(num_flavors, num_flavors, num_flavors, num_flavors, dim_f, dim_f, dim_b);
+  Eigen::Tensor<SCALAR,7> result_H_and_F(dim_f, dim_f, dim_b, num_flavors, num_flavors, num_flavors, num_flavors);
   result_H_and_F.setZero();
   auto cutoff = 1e-8*std::abs(std::get<0>(weights[0]));
   for (int s=0; s < weights.size(); ++s) {
@@ -513,28 +498,31 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       break;
     }
     auto w = std::get<0>(weights[s]);
-    auto a = std::get<1>(weights[s]);
-    auto b = std::get<2>(weights[s]);
-    auto c = std::get<3>(weights[s]);
-    auto d = std::get<4>(weights[s]);
 
     auto sign_swap = 1.0;
     for (int swap_ac=0; swap_ac<2; ++swap_ac) {
+      auto a = std::get<1>(weights[s]);
+      auto c = std::get<3>(weights[s]);
+      auto sign_swap_ac = 1.0;
       if (swap_ac==1) {
         std::swap(a,c);
-        sign_swap *= -1;
+        sign_swap_ac = -1.0;
       }
       int flavor_a = annihilation_ops[a].flavor();
       int flavor_c = annihilation_ops[c].flavor();
 
       for (int swap_bd=0; swap_bd<2; ++swap_bd) {
+        auto b = std::get<2>(weights[s]);
+        auto d = std::get<4>(weights[s]);
+        auto sign_swap_bd = 1.0;
         if (swap_bd==1) {
           std::swap(b,d);
-          sign_swap *= -1;
+          sign_swap_bd = -1.0;
         }
         int flavor_b = creation_ops[b].flavor();
         int flavor_d = creation_ops[d].flavor();
 
+        auto sign_swap = sign_swap_ac * sign_swap_bd;
         for (int il3 = 0; il3 < dim_b; ++il3) {
           for (int il2 = 0; il2 < dim_f; ++il2) {
             for (int il1 = 0; il1 < dim_f; ++il1) {
