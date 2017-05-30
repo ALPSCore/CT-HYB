@@ -148,6 +148,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
                                     par["measurement.G2.max_num_data_accumulated"]
           )
       );
+      random.engine();
     }
     specialized_updaters["G2_ins_rem_hyb"] =
         boost::shared_ptr<LocalUpdaterType>(

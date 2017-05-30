@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <tuple>
 
 #include <boost/multi_array.hpp>
 #include <boost/range/algorithm.hpp>
@@ -386,13 +387,17 @@ class GMeasurement {
    * @param p_basis_f      Basis for fermioninc freq.
    * @param beta           inverse temperature
    */
-  GMeasurement(int num_flavors, boost::shared_ptr<OrthogonalBasis> p_basis_f, double beta, int max_num_data = 1) :
+  GMeasurement(int num_flavors, boost::shared_ptr<OrthogonalBasis> p_basis_f, double beta,
+               int max_num_data = 1) :
       str_("G"+boost::lexical_cast<std::string>(Rank)),
       num_flavors_(num_flavors),
       beta_(beta),
       p_basis_f_(p_basis_f),
       num_data_(0),
-      max_num_data_(max_num_data) {
+      max_num_data_(max_num_data),
+      n_reconnection_(-1),
+      p_mt_engine_(nullptr)
+  {
     init_work_space(data_, num_flavors, p_basis_f_->dim(), 1);
   };
 
@@ -407,30 +412,21 @@ class GMeasurement {
   GMeasurement(int num_flavors,
                boost::shared_ptr<OrthogonalBasis> p_basis_f,
                boost::shared_ptr<OrthogonalBasis> p_basis_b,
-               double beta, int max_num_data = 1) :
+               double beta, int max_num_data = 1,
+               int n_reconnection = 100,
+               boost::random::mt19937* p_mt_engine = nullptr
+  ) :
       str_("G"+boost::lexical_cast<std::string>(Rank)),
       num_flavors_(num_flavors),
       beta_(beta),
       p_basis_f_(p_basis_f),
       p_basis_b_(p_basis_b),
       num_data_(0),
-      max_num_data_(max_num_data) {
+      max_num_data_(max_num_data),
+      n_reconnection_(n_reconnection),
+      p_mt_engine_(p_mt_engine)
+  {
     init_work_space(data_, num_flavors, p_basis_f_->dim(), p_basis_b_->dim());
-
-    //ration matrix from Fork term to Hartree term
-    const int niw = 1000;
-    auto Tnl_f = p_basis_f_->Tnl(niw);
-    const int dim_f = p_basis_f->dim();
-    const int dim_b = p_basis_b->dim();
-
-    using dcomplex = std::complex<double>;
-
-    /*
-    compute_tensor_from_H_to_F_term(niw,
-                                    dynamic_cast<const FermionicIRBasis&>(*p_basis_f),
-                                    dynamic_cast<const BosonicIRBasis&>(*p_basis_b),
-                                    trans_tensor_H_to_F_);
-                                    */
   };
 
   /**
@@ -460,6 +456,8 @@ class GMeasurement {
   boost::multi_array<std::complex<double>, 4 * Rank - 1> data_;
   int num_data_;
   int max_num_data_;//max number of data accumlated before passing data to ALPS
+  int n_reconnection_;
+  boost::random::mt19937* p_mt_engine_;
   Eigen::Tensor<std::complex<double>,6> trans_tensor_H_to_F_;
 };
 

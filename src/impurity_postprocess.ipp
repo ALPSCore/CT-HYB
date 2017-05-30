@@ -304,7 +304,7 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
   imesh_t imesh {n_flavors};
 
   using g2_t = g::seven_index_gf<std::complex<double>,nmesh_t,nmesh_t,nmesh_t,imesh_t,imesh_t,imesh_t,imesh_t>;
-  g2_t g2_h_l {nmesh_f, nmesh_f, nmesh_b, imesh, imesh, imesh, imesh};
+  g2_t g2_l {nmesh_f, nmesh_f, nmesh_b, imesh, imesh, imesh, imesh};
 
   for (int il = 0; il < dim_f; ++il) {
     for (int il2 = 0; il2 < dim_f; ++il2) {
@@ -314,7 +314,7 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
           for (int f2 = 0; f2 < n_flavors; ++f2) {
             for (int f3 = 0; f3 < n_flavors; ++f3) {
               for (int f4 = 0; f4 < n_flavors; ++f4) {
-                g2_h_l(nmesh_t::index_type(il),
+                g2_l(nmesh_t::index_type(il),
                    nmesh_t::index_type(il2),
                    nmesh_t::index_type(il3),
                    imesh_t::index_type(f1),
@@ -329,7 +329,7 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
       }
     }
   }
-  ar["G2_H_IR"] = g2_h_l;
+  ar["G2_IR"] = g2_l;
 
   //Load G1
   using g1_l_type = g::three_index_gf<std::complex<double>,
@@ -339,18 +339,12 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
   auto g1_l = boost::any_cast<g1_l_type>(ar["G1_IR"]);
 
   //Bubble (Hatree)
-  auto g2_bubble_h = alps::gf_extension::compute_G2_bubble_H(g1_l, g2_h_l.mesh1(), g2_h_l.mesh3());
+  auto g2_bubble_h = alps::gf_extension::compute_G2_bubble_H(g1_l, g2_l.mesh1(), g2_l.mesh3());
   ar["G2_BUBBLE_H_IR"] = g2_bubble_h;
 
   //Bubble (Fock)
-  auto g2_bubble_f = alps::gf_extension::compute_G2_bubble_F(g1_l, g2_h_l.mesh1(), g2_h_l.mesh3());
+  auto g2_bubble_f = alps::gf_extension::compute_G2_bubble_F(g1_l, g2_l.mesh1(), g2_l.mesh3());
   ar["G2_BUBBLE_F_IR"] = g2_bubble_f;
 
-  alps::gf_extension::transformer_Hartree_to_Fock<g2_t> trans_to_F(g2_h_l.mesh1(), g2_h_l.mesh3());
-  ar["G2_F_IR"] = trans_to_F(g2_h_l);
-
-  auto g2_h_res = g2_h_l - g2_bubble_h;
-  auto g2_f_res = trans_to_F(g2_h_res);
-
-  ar["G2_CONNECTED_IR"] = g2_h_res + g2_f_res;
+  ar["G2_CONNECTED_IR"] = g2_l - g2_bubble_h - g2_bubble_f;
 }
