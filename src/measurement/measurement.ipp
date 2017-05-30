@@ -299,8 +299,8 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
                                         p_basis_f_,
                                         p_basis_b_,
                                         mc_config.sign,
-                                        weight_rat *
-                                          M.block(num_phys_lines, num_phys_lines, n_aux_lines, n_aux_lines).determinant(),
+                                        weight_rat,
+                                        M.block(num_phys_lines, num_phys_lines, n_aux_lines, n_aux_lines).determinant(),
                                         cdagg_ops_new,
                                         c_ops_new,
                                         M_eff,
@@ -327,6 +327,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
                                         boost::shared_ptr<OrthogonalBasis> p_basis_b,
                                         SCALAR sign,
                                         SCALAR weight_rat_intermediate_state,
+                                        SCALAR extra_weight,
                                         const std::vector<psi> &creation_ops,
                                         const std::vector<psi> &annihilation_ops,
                                         const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
@@ -358,7 +359,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 
       const double bubble_sign = it1->time() - it2->time() > 0.0 ? 1.0 : -1.0;
 
-      coeffs[k][l] = M(l, k) * bubble_sign * sign * weight_rat_intermediate_state;
+      coeffs[k][l] = M(l, k) * bubble_sign * sign * weight_rat_intermediate_state * extra_weight;
       norm += std::abs(coeffs[k][l]);
     }
   }
@@ -401,6 +402,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
                                         boost::shared_ptr<OrthogonalBasis> p_basis_b,
                                         SCALAR sign,
                                         SCALAR weight_rat_intermediate_state,
+                                        SCALAR extra_weight,
                                         const std::vector<psi> &creation_ops,
                                         const std::vector<psi> &annihilation_ops,
                                         const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
@@ -470,7 +472,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
            * M_ab  M_ad
            * M_cb  M_cd
            */
-          auto w = weight_rat_intermediate_state * (M(b,a) * M(d,c) - M(b,c) * M(d,a));
+          auto w = weight_rat_intermediate_state * extra_weight * (M(b,a) * M(d,c) - M(b,c) * M(d,a));
           norm += std::abs(w);
           weights.push_back(std::make_tuple(w, a, b, c, d));
         }
