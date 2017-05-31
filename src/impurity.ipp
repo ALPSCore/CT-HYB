@@ -56,7 +56,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.G2.max_dim_f", 20, "Maximum dimension of the Fermionic IR basis")
       .define<int>("measurement.G2.max_dim_b", 20, "Maximum dimension of the Bosonic IR basis")
       //.define<int>("measurement.G2.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
-      .define<int>("measurement.G2.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
+      .define<int>("measurement.G2.max_matrix_size", 20, "Max size of inverse matrix for measurement.")
       .define<int>("measurement.G2.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>("measurement.G2.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
           //

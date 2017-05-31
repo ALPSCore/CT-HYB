@@ -145,7 +145,9 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
                                     basis_f,
                                     basis_b,
                                     BETA,
-                                    par["measurement.G2.max_num_data_accumulated"]
+                                    par["measurement.G2.max_num_data_accumulated"],
+                                      10000000,//this is dummy
+                                    &random.engine()
           )
       );
       random.engine();

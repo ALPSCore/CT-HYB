@@ -305,7 +305,8 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
                                         c_ops_new,
                                         M_eff,
                                         data_,
-                                        trans_tensor_H_to_F_
+                                        trans_tensor_H_to_F_,
+                                        p_mt_engine_
   );
   ++ num_data_;
 
@@ -332,7 +333,8 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
                                         const std::vector<psi> &annihilation_ops,
                                         const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
                                         boost::multi_array<std::complex<double>, 3> &result,
-                                        const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F
+                                        const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F,
+                                        boost::random::mt19937* p_mt_engine
 ) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
@@ -407,7 +409,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
                                         const std::vector<psi> &annihilation_ops,
                                         const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
                                         boost::multi_array<std::complex<double>, 7> &result,
-                                        const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F
+                                        const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F,
+                                        boost::random::mt19937* p_mt_engine
 ) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
@@ -421,10 +424,12 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     throw std::runtime_error("Fatal error in MeasureGHelper<SCALAR, 2>::perform()");
   }
 
-  boost::multi_array<double, 3>
-      Pl_f(boost::extents[num_phys_rows][num_phys_rows][dim_f]);//annihilator, creator, ir
-  boost::multi_array<double, 3>
-      Pl_b(boost::extents[num_phys_rows][num_phys_rows][dim_b]);//annihilator, creator, ir
+  //boost::multi_array<double, 3>
+      //Pl_f(boost::extents[num_phys_rows][num_phys_rows][dim_f]);//annihilator, creator, ir
+  //boost::multi_array<double, 3>
+      //Pl_b(boost::extents[num_phys_rows][num_phys_rows][dim_b]);//annihilator, creator, ir
+  Eigen::Tensor<double,3> Pl_f(dim_f, num_phys_rows, num_phys_rows);
+  Eigen::Tensor<double,3> Pl_b(dim_b, num_phys_rows, num_phys_rows);
   {
     //Normalization factor of basis functions
     std::vector<double> norm_coeff_f(dim_f), norm_coeff_b(dim_b);
@@ -447,12 +452,12 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
         const double x = 2 * argument * temperature - 1.0;
         p_basis_f->value(x, Pl_tmp);
         for (int il = 0; il < dim_f; ++il) {
-          Pl_f[k][l][il] = arg_sign * norm_coeff_f[il] * Pl_tmp[il];
+          Pl_f(il, k, l) = arg_sign * norm_coeff_f[il] * Pl_tmp[il];
         }
 
         p_basis_b->value(x, Pl_tmp);
         for (int il = 0; il < dim_b; ++il) {
-          Pl_b[k][l][il] = norm_coeff_b[il] * Pl_tmp[il];
+          Pl_b(il, k, l) = norm_coeff_b[il] * Pl_tmp[il];
         }
       }
     }
@@ -461,7 +466,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
   //First, compute relative weights. This costs O(num_phys_rows^4) operations.
   double norm = 0.0;
-  using tuple_type = std::tuple<SCALAR,int,int,int,int>;
+  using tuple_type = std::tuple<SCALAR,int,int,int,int,SCALAR>;
   std::vector<tuple_type> weights;
   for (int a = 0; a < num_phys_rows; ++a) {
     for (int b = 0; b < num_phys_rows; ++b) {
@@ -474,7 +479,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
            */
           auto w = weight_rat_intermediate_state * extra_weight * (M(b,a) * M(d,c) - M(b,c) * M(d,a));
           norm += std::abs(w);
-          weights.push_back(std::make_tuple(w, a, b, c, d));
+          weights.push_back(std::make_tuple(w, a, b, c, d, -1000.0));
         }
       }
     }
@@ -484,6 +489,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
 
   //divide weights by norm
   //std::transform(weights.begin(), weights.end(), weights.begin(), ([&norm](double x) { return (4.0 * x / norm);}) );
+
   std::sort(
       weights.begin(),
       weights.end(),
@@ -492,19 +498,72 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
   );
 
-  Eigen::Tensor<SCALAR,7> result_H_and_F(dim_f, dim_f, dim_b, num_flavors, num_flavors, num_flavors, num_flavors);
-  result_H_and_F.setZero();
-  auto cutoff = 1e-8*std::abs(std::get<0>(weights[0]));
-  for (int s=0; s < weights.size(); ++s) {
-    if (std::abs(std::get<0>(weights[s])) < cutoff) {
-      break;
+  const int max_n_reconnection = num_phys_rows * num_phys_rows * num_phys_rows;
+  //std::cout << "debug " << weights.size() << std::endl;
+  std::vector<tuple_type> weights_for_sum;
+  if (weights.size() < max_n_reconnection) {
+    weights_for_sum.resize(weights.size());
+    auto cutoff = 1e-8*std::abs(std::get<0>(weights[0]));
+    for (int s=0; s < weights.size(); ++s) {
+      if (std::abs(std::get<0>(weights[s])) < cutoff) {
+        break;
+      }
+      auto w = weights[s];
+      std::get<5>(w) = std::get<0>(w)/norm;
+      weights_for_sum[s] = w;
     }
-    auto w = std::get<0>(weights[s]);
+  } else {
+    std::vector<double> prob(weights.size());
+    std::transform(
+        weights.begin(), weights.end(),
+        prob.begin(),
+        ([](const tuple_type& t){return std::abs(std::get<0>(t));})
+    );
+    boost::random::discrete_distribution<> dist(prob);
+    if (p_mt_engine== nullptr) {
+      throw std::runtime_error("Pointer to MT engine is null!");
+    }
+    weights_for_sum.resize(max_n_reconnection);
+    for (int i=0; i<max_n_reconnection; ++i) {
+      auto w = weights[dist(*p_mt_engine)];
+      //0.25 is from the exchanges of a<=>c and b<=>d.
+      std::get<5>(w) = 0.25*(std::get<0>(w)/std::abs(std::get<0>(w)))/static_cast<double>(max_n_reconnection);
+      weights_for_sum[i] = w;
+    }
+  }
+
+  weights.resize(0);
+
+  /*
+  auto get_dcba = [](const tuple_type& t) {
+    return std::tuple<int,int,int,int>(
+        std::make_tuple(
+            std::get<4>(t),
+            std::get<3>(t),
+            std::get<2>(t),
+            std::get<1>(t)
+        )
+    );
+  };
+  std::sort(
+      weights.begin(),
+      weights.end(),
+      [&get_dcba](const tuple_type& t1, const tuple_type& t2) {
+        return get_dcba(t1) > get_dcba(t2);
+      }
+  );
+  */
+
+  Eigen::Tensor<SCALAR,7> result_H_and_F(dim_f, dim_f, dim_b, num_flavors, num_flavors, num_flavors, num_flavors);
+  Eigen::Tensor<SCALAR,2> work(dim_f, dim_b);
+  result_H_and_F.setZero();
+  for (int s=0; s < weights_for_sum.size(); ++s) {
+    auto w = std::get<5>(weights_for_sum[s]);
 
     auto sign_swap = 1.0;
     for (int swap_ac=0; swap_ac<2; ++swap_ac) {
-      auto a = std::get<1>(weights[s]);
-      auto c = std::get<3>(weights[s]);
+      auto a = std::get<1>(weights_for_sum[s]);
+      auto c = std::get<3>(weights_for_sum[s]);
       auto sign_swap_ac = 1.0;
       if (swap_ac==1) {
         std::swap(a,c);
@@ -514,8 +573,8 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       int flavor_c = annihilation_ops[c].flavor();
 
       for (int swap_bd=0; swap_bd<2; ++swap_bd) {
-        auto b = std::get<2>(weights[s]);
-        auto d = std::get<4>(weights[s]);
+        auto b = std::get<2>(weights_for_sum[s]);
+        auto d = std::get<4>(weights_for_sum[s]);
         auto sign_swap_bd = 1.0;
         if (swap_bd==1) {
           std::swap(b,d);
@@ -527,9 +586,14 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
         auto sign_swap = sign_swap_ac * sign_swap_bd;
         for (int il3 = 0; il3 < dim_b; ++il3) {
           for (int il2 = 0; il2 < dim_f; ++il2) {
+            work(il2, il3) = w * sign_swap * Pl_f(il2,c,d) * Pl_b(il3,a,d);
+          }
+        }
+
+        for (int il3 = 0; il3 < dim_b; ++il3) {
+          for (int il2 = 0; il2 < dim_f; ++il2) {
             for (int il1 = 0; il1 < dim_f; ++il1) {
-              result_H_and_F(il1, il2, il3, flavor_a, flavor_b, flavor_c, flavor_d) +=
-                  w * sign_swap * Pl_f[a][b][il1] * Pl_f[c][d][il2] * Pl_b[a][d][il3];
+              result_H_and_F(il1, il2, il3, flavor_a, flavor_b, flavor_c, flavor_d) += Pl_f(il1,a,b) * work(il2, il3);
             }
           }
         }
@@ -538,7 +602,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
 
   //Then, accumulate data
-  const SCALAR coeff = sign / (norm * beta);//where is this beta factor from?
+  const SCALAR coeff = sign / beta;//where is this beta factor from?
   for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
   for (int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
   for (int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {

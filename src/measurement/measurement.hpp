@@ -337,7 +337,8 @@ struct MeasureGHelper {
                       const std::vector<psi> &annihilation_ops,
                       const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
                       boost::multi_array<std::complex<double>, 4 * RANK -1> &data,
-                      const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F
+                      const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F,
+                      boost::random::mt19937* p_mt_engine
   );
 };
 
@@ -355,7 +356,8 @@ struct MeasureGHelper<SCALAR, 1> {
                       const std::vector<psi> &annihilation_ops,
                       const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
                       boost::multi_array<std::complex<double>, 3> &data,
-                      const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F
+                      const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F,
+                      boost::random::mt19937* p_mt_engine
   );
 };
 
@@ -373,7 +375,8 @@ struct MeasureGHelper<SCALAR, 2> {
                       const std::vector<psi> &annihilation_ops,
                       const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
                       boost::multi_array<std::complex<double>, 7> &data,
-                      const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F
+                      const Eigen::Tensor<std::complex<double>,6>& trans_tensor_H_to_F,
+                      boost::random::mt19937* p_mt_engine
   );
 };
 
@@ -416,7 +419,7 @@ class GMeasurement {
                boost::shared_ptr<OrthogonalBasis> p_basis_f,
                boost::shared_ptr<OrthogonalBasis> p_basis_b,
                double beta, int max_num_data = 1,
-               int n_reconnection = 100,
+               int n_reconnection = 100000,
                boost::random::mt19937* p_mt_engine = nullptr
   ) :
       str_("G"+boost::lexical_cast<std::string>(Rank)),
