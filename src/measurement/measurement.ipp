@@ -430,9 +430,9 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       //Pl_b(boost::extents[num_phys_rows][num_phys_rows][dim_b]);//annihilator, creator, ir
   Eigen::Tensor<double,3> Pl_f(dim_f, num_phys_rows, num_phys_rows);
   Eigen::Tensor<double,3> Pl_b(dim_b, num_phys_rows, num_phys_rows);
+  std::vector<double> norm_coeff_f(dim_f), norm_coeff_b(dim_b);
   {
     //Normalization factor of basis functions
-    std::vector<double> norm_coeff_f(dim_f), norm_coeff_b(dim_b);
     for (int il = 0; il < dim_f; ++il) {
       norm_coeff_f[il] = sqrt(2.0/p_basis_f->norm2(il));
     }
@@ -462,6 +462,19 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
+
+  auto to_x = [&beta, &temperature](double tau) {
+    double tau2;
+    if (tau > 0.0) {
+      tau2 = tau - beta * static_cast<int>(tau/beta);
+    } else if (tau==0.0){
+      tau2 = 0.0;
+    } else {
+      tau2 = tau + beta * (1+static_cast<int>(std::abs(tau)/beta));
+    }
+    assert(tau2 <= beta && tau2 >=0);
+    return 2 * tau2 * temperature - 1.0;
+  };
 
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
   //First, compute relative weights. This costs O(num_phys_rows^4) operations.
@@ -557,6 +570,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   Eigen::Tensor<SCALAR,7> result_H_and_F(dim_f, dim_f, dim_b, num_flavors, num_flavors, num_flavors, num_flavors);
   Eigen::Tensor<SCALAR,2> work(dim_f, dim_b);
   result_H_and_F.setZero();
+  std::vector<double> Pl_b_tmp(dim_b);
   for (int s=0; s < weights_for_sum.size(); ++s) {
     auto w = std::get<5>(weights_for_sum[s]);
 
@@ -583,10 +597,24 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
         int flavor_b = creation_ops[b].flavor();
         int flavor_d = creation_ops[d].flavor();
 
+#ifdef SHIFTED_IR
+        double t_ab = annihilation_ops[a].time() - creation_ops[b].time();
+        double t_cd = annihilation_ops[c].time() - creation_ops[d].time();
+        double t_ad = annihilation_ops[a].time() - creation_ops[d].time();
+
+        p_basis_b->value(to_x(t_ad - 0.5*(t_ab+t_cd)), Pl_b_tmp);
+        for (int il3 = 0; il3 < dim_b; ++il3) {
+          Pl_b_tmp[il3] *= norm_coeff_b[il3];
+        }
+#else
+        for (int il3 = 0; il3 < dim_b; ++il3) {
+          Pl_b_tmp[il3] =  Pl_b(il3,a,d);
+        }
+#endif
         auto sign_swap = sign_swap_ac * sign_swap_bd;
         for (int il3 = 0; il3 < dim_b; ++il3) {
           for (int il2 = 0; il2 < dim_f; ++il2) {
-            work(il2, il3) = w * sign_swap * Pl_f(il2,c,d) * Pl_b(il3,a,d);
+            work(il2, il3) = w * sign_swap * Pl_f(il2,c,d) * Pl_b_tmp[il3];
           }
         }
 

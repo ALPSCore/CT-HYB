@@ -342,9 +342,11 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
   auto g2_bubble_h = alps::gf_extension::compute_G2_bubble_H(g1_l, g2_l.mesh1(), g2_l.mesh3());
   ar["G2_BUBBLE_H_IR"] = g2_bubble_h;
 
+#ifndef SHIFTED_IR
   //Bubble (Fock)
   auto g2_bubble_f = alps::gf_extension::compute_G2_bubble_F(g1_l, g2_l.mesh1(), g2_l.mesh3());
   ar["G2_BUBBLE_F_IR"] = g2_bubble_f;
 
   ar["G2_CONNECTED_IR"] = g2_l - g2_bubble_h - g2_bubble_f;
+#endif
 }
