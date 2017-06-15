@@ -608,12 +608,12 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
         }
 #else
         for (int il3 = 0; il3 < dim_b; ++il3) {
-          Pl_b_tmp[il3] =  Pl_b(il3,a,d);
-        }
-#endif
-        auto sign_swap = sign_swap_ac * sign_swap_bd;
-        for (int il3 = 0; il3 < dim_b; ++il3) {
           for (int il2 = 0; il2 < dim_f; ++il2) {
+            Pl_b_tmp[il3] =  Pl_b(il3,a,d);
+          }
+#endif
+          auto sign_swap = sign_swap_ac * sign_swap_bd;
+          for (int il3 = 0; il3 < dim_b; ++il3) {
             work(il2, il3) = w * sign_swap * Pl_f(il2,c,d) * Pl_b_tmp[il3];
           }
         }
