@@ -598,9 +598,9 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     for (int il1 = 0; il1 < dim_f; ++il1) {
     for (int il2 = 0; il2 < dim_f; ++il2) {
     for (int il3 = 0; il3 < dim_b; ++il3) {
-      if(std::abs(result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3)-result_H2(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3))>1e-5) {
-        throw std::runtime_error("Error in H and H2.");
-      }
+      //if(std::abs(result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3)-result_H2(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3))>1e-5) {
+        //throw std::runtime_error("Error in H and H2.");
+      //}
 #ifdef COMPUTE_F
       result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] +=
           //result_F(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3) + result_H(flavor_a, flavor_b, flavor_c, flavor_d, il1, il2, il3);
