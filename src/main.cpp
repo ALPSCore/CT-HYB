@@ -55,7 +55,7 @@ int main(int argc, const char *argv[]) {
   //write the results into a hdf5 file
   if (c.rank() == 0) {
     std::string output_file = par["outputfile"];
-    alps::hdf5::archive ar(boost::filesystem::path(output_file), "w");
+    alps::hdf5::archive ar(output_file, "w");
     ar["/parameters"] << par;
     ar["/simulation/results"] << p_solver->get_accumulated_results();
     {
