@@ -524,6 +524,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
 
   //substract contributions from terms for a==c or b==d.
+  /*
   for (int a = 0; a < num_phys_rows; ++a) {
     int flavor_a = annihilation_ops[a].flavor();
     for (int b = 0; b < num_phys_rows; ++b) {
@@ -550,6 +551,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
+  */
 
   //DEBUG
 //#define COMPUTE_F
