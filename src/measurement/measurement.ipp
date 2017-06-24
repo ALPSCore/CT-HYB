@@ -1,6 +1,6 @@
 #include "measurement.hpp"
 
-#include <boost/timer/timer.hpp>
+//#include <boost/timer/timer.hpp>
 template<typename SCALAR>
 template<typename SlidingWindow>
 void TwoTimeG2Measurement<SCALAR>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
@@ -419,7 +419,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.rows()) {
     throw std::runtime_error("Fatal error in MeasureGHelper<SCALAR, 2>::perform()");
   }
-  boost::timer::cpu_timer timer;
+  //boost::timer::cpu_timer timer;
 
   boost::multi_array<double, 3>
       Pl_f(boost::extents[num_phys_rows][num_phys_rows][dim_f]);//annihilator, creator, ir
@@ -457,7 +457,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
-  const double time1 = timer.elapsed().wall * 1E-9;
+  //const double time1 = timer.elapsed().wall * 1E-9;
 
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
   //First, compute relative weights. This costs O(num_phys_rows^4) operations.
@@ -478,7 +478,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
   //The factor 4 is from the degree of freedom of exchange a and c or b and d.
   norm *= 4;
-  const double time2 = timer.elapsed().wall * 1E-9;
+  //const double time2 = timer.elapsed().wall * 1E-9;
 
   Eigen::Tensor<SCALAR,3> tensor1(dim_f, num_flavors, num_phys_rows);//(f2, il1)
   tensor1.setZero();
@@ -502,7 +502,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
-  const double time3 = timer.elapsed().wall * 1E-9;
+  //const double time3 = timer.elapsed().wall * 1E-9;
   //Contraction requires O(num_phys_rows^2 Nl^3 num_flavors^2) operators
   Eigen::Tensor<SCALAR,7> result_H(dim_f, num_flavors, dim_f, num_flavors, dim_b, num_flavors, num_flavors);
   result_H.setZero();
@@ -540,7 +540,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     }
   }
 
-  const double time4 = timer.elapsed().wall * 1E-9;
+  //const double time4 = timer.elapsed().wall * 1E-9;
 
   //Then, accumulate data
   for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
@@ -558,11 +558,11 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
   }
   }
-  const double time5 = timer.elapsed().wall * 1E-9;
-  std::cout << "timing21 " << time2-time1 << std::endl;
-  std::cout << "timing32 " << time3-time2 << std::endl;
-  std::cout << "timing43 " << time4-time3 << std::endl;
-  std::cout << "timing54 " << time5-time4 << std::endl;
+  //const double time5 = timer.elapsed().wall * 1E-9;
+  //std::cout << "timing21 " << time2-time1 << std::endl;
+  //std::cout << "timing32 " << time3-time2 << std::endl;
+  //std::cout << "timing43 " << time4-time3 << std::endl;
+  //std::cout << "timing54 " << time5-time4 << std::endl;
 };
 
 template<typename SCALAR, int Rank>
