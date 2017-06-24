@@ -504,50 +504,40 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
 
   const double time3 = timer.elapsed().wall * 1E-9;
   //Contraction requires O(num_phys_rows^2 Nl^3 num_flavors^2) operators
-  //FIXME: USE CONTRACT IN EIGEN::TENSOR
   Eigen::Tensor<SCALAR,7> result_H(dim_f, num_flavors, dim_f, num_flavors, dim_b, num_flavors, num_flavors);
   result_H.setZero();
   const SCALAR coeff = sign * weight_rat_intermediate_state / (norm * beta);//where is this beta factor from?
   Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(0, 0) };
-  Eigen::Tensor<SCALAR,3> map3(1,dim_b,num_phys_rows);
+  Eigen::Tensor<SCALAR,2> map3(1,dim_b);
 
   for (int d = 0; d < num_phys_rows; ++d) {
-    ////boost::timer::cpu_timer timer2;
-    //const double time1 = timer2.elapsed().wall * 1E-9;
     const int flavor_d = creation_ops[d].flavor();
-
-    //map3(1, il3, a)
-    for (int a = 0; a < num_phys_rows; ++a) {
-      for (int il3 = 0; il3 < dim_b; ++il3) {
-        map3(0, il3, a) = coeff * Pl_b[a][d][il3];
-      }
-    }
-
-    //map2(1, l2, flavor_c)
-    Eigen::TensorMap<Eigen::Tensor<SCALAR, 3>> map2(&tensor2(0, 0, d), 1, dim_f, num_flavors);
-
-    //map23 (l2, flavor_c, l3, a)
-    Eigen::Tensor<SCALAR,4> map23 = map2.contract(map3, product_dims);
-    //const double time2 = timer2.elapsed().wall * 1E-9;
 
     for (int a = 0; a < num_phys_rows; ++a) {
       const int flavor_a = annihilation_ops[a].flavor();
+
+      //map3(1, il3)
+      for (int il3 = 0; il3 < dim_b; ++il3) {
+        map3(0, il3) = coeff * Pl_b[a][d][il3];
+      }
+
+      //map2(1, l2, flavor_c)
+      Eigen::TensorMap<Eigen::Tensor<SCALAR, 3>> map2(&tensor2(0, 0, d), 1, dim_f, num_flavors);
+
+      //map23 (1, l2, flavor_c, l3)
+      //(1,l2,flavor_c) * (1, l3) => (l2, flavor_c, l3) => (1, l2, flavor_c, l3)
+      Eigen::array<long,4> new_dims {1,dim_f,num_flavors,dim_b};
+      Eigen::Tensor<SCALAR,4> map23 = map2.contract(map3, product_dims).reshape(new_dims);
+
       //map1_a (1, l1, flavor_b)
       Eigen::TensorMap<Eigen::Tensor<SCALAR,3>> map1_a(&tensor1(0,0,a), 1, dim_f, num_flavors);
 
-      //map23_a (1, l2, flavor_c, l3)
-      Eigen::TensorMap<Eigen::Tensor<SCALAR,4>> map23_a(&map23(0,0,0,a), 1, dim_f, num_flavors, dim_b);
-
-      //map_H(l1, l2, l3, flavor_b, flavor_c)
+      //map_H (l1, flavor_b, l2, flavor_c, l3)
       Eigen::TensorMap<Eigen::Tensor<SCALAR,5>> map_H(
           &result_H(0, 0, 0, 0, 0, flavor_a, flavor_d), dim_f, num_flavors, dim_f, num_flavors, dim_b
       );
-
-      //(l1, flavor_b, l2, flavor_c, l3)
-      map_H += map1_a.contract(map23_a, product_dims);
+      map_H += map1_a.contract(map23, product_dims);
     }
-    //const double time3 = timer2.elapsed().wall * 1E-9;
-    //std::cout << "timer2 " << time2 - time1  << " " << time3 - time2 << std::endl;
   }
 
   const double time4 = timer.elapsed().wall * 1E-9;
