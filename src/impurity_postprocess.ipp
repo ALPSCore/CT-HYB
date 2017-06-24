@@ -342,6 +342,10 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
   auto g2_bubble_h = alps::gf_extension::compute_G2_bubble_H(g1_l, g2_h_l.mesh1(), g2_h_l.mesh3());
   ar["G2_BUBBLE_H_IR"] = g2_bubble_h;
 
+  //Bubble (Fock)
+  auto g2_bubble_f = alps::gf_extension::compute_G2_bubble_F(g1_l, g2_h_l.mesh1(), g2_h_l.mesh3());
+  ar["G2_BUBBLE_F_IR"] = g2_bubble_f;
+
   alps::gf_extension::transformer_Hartree_to_Fock<g2_t> trans_to_F(g2_h_l.mesh1(), g2_h_l.mesh3());
   auto g2_f_l = trans_to_F(g2_h_l);
   ar["G2_F_IR"] = g2_f_l;
