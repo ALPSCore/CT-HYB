@@ -111,7 +111,7 @@ measure_g2(double beta,
   }
 
   const double time3 = timer.elapsed().wall * 1E-9;
-  //Contraction requires O(num_phys_rows^2 Nl^3 num_flavors^2) operators
+  //Contraction requires O(num_phys_rows^2 Nl^3 num_flavors^2) operations
   //Cancellation requires O(num_phys_rows^3 Nl^3) operators
   Eigen::Tensor<SCALAR,7> result_H(dim_f, num_flavors, dim_f, num_flavors, dim_b, num_flavors, num_flavors);
   result_H.setZero();
