@@ -88,7 +88,7 @@ measure_g2(double beta,
   norm *= 4;
   const double time2 = timer.elapsed().wall * 1E-9;
 
-  Eigen::Tensor<SCALAR,3> tensor1(dim_f, num_flavors, num_phys_rows);//(f2, il1)
+  Eigen::Tensor<SCALAR,3> tensor1(dim_f, num_flavors, num_phys_rows);//(l1, flavor_b, a)
   tensor1.setZero();
   for (int il1 = 0; il1 < dim_f; ++il1) {
     for (int a = 0; a < num_phys_rows; ++a) {
@@ -116,38 +116,64 @@ measure_g2(double beta,
   Eigen::Tensor<SCALAR,7> result_H(dim_f, num_flavors, dim_f, num_flavors, dim_b, num_flavors, num_flavors);
   result_H.setZero();
   const SCALAR coeff = 1.0 / (norm * beta);//where is this beta factor from?
-  Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(0, 0) };
   Eigen::Tensor<SCALAR,2> map3(1,dim_b);
 
-  for (int d = 0; d < num_phys_rows; ++d) {
-    const int flavor_d = creation_ops[d].flavor();
 
-    for (int a = 0; a < num_phys_rows; ++a) {
-      const int flavor_a = annihilation_ops[a].flavor();
+  std::vector<std::vector<int>> flavor_creation(num_flavors), flavor_annihilation(num_flavors);
+  for (int i = 0; i < num_phys_rows; ++i) {
+    flavor_creation[creation_ops[i].flavor()].push_back(i);
+    flavor_annihilation[annihilation_ops[i].flavor()].push_back(i);
+  }
 
-      //map3(1, il3)
-      for (int il3 = 0; il3 < dim_b; ++il3) {
-        map3(0, il3) = coeff * Pl_b[a][d][il3];
-      }
+  const int cache_size = 100;
+  Eigen::Tensor<SCALAR,4> right_tensor(dim_f, num_flavors, dim_b, cache_size);
+  Eigen::Tensor<SCALAR,3> left_tensor(dim_f, num_flavors, cache_size);
 
-      //map2(1, l2, flavor_c)
-      Eigen::TensorMap<Eigen::Tensor<SCALAR, 3>> map2(&tensor2(0, 0, d), 1, dim_f, num_flavors);
+  for (int flavor_d = 0; flavor_d < num_flavors; ++flavor_d) {
+    for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
+      int D = flavor_annihilation[flavor_a].size() * flavor_creation[flavor_d].size();
 
-      //map23 (1, l2, flavor_c, l3)
-      //(1,l2,flavor_c) * (1, l3) => (l2, flavor_c, l3) => (1, l2, flavor_c, l3)
-      Eigen::array<long,4> new_dims {1,dim_f,num_flavors,dim_b};
-      Eigen::Tensor<SCALAR,4> map23 = map2.contract(map3, product_dims).reshape(new_dims);
-
-      //map1_a (1, l1, flavor_b)
-      Eigen::TensorMap<Eigen::Tensor<SCALAR,3>> map1_a(&tensor1(0,0,a), 1, dim_f, num_flavors);
+      //Eigen::array<long,4> right_dims {D,dim_f,num_flavors,dim_b};
 
       //map_H (l1, flavor_b, l2, flavor_c, l3)
       Eigen::TensorMap<Eigen::Tensor<SCALAR,5>> map_H(
           &result_H(0, 0, 0, 0, 0, flavor_a, flavor_d), dim_f, num_flavors, dim_f, num_flavors, dim_b
       );
-      map_H += map1_a.contract(map23, product_dims);
-    }
-  }
+
+      int idx = 0;
+      int tot_idx = 0;
+      for (auto a : flavor_annihilation[flavor_a]) {
+        for (auto d : flavor_creation[flavor_d]) {
+          //map3(1, il3)
+          for (int il3 = 0; il3 < dim_b; ++il3) {
+            map3(0, il3) = coeff * Pl_b[a][d][il3];
+          }
+
+          //(1,l2,flavor_c) * (1, l3) => (l2, flavor_c, l3)
+          Eigen::TensorMap<Eigen::Tensor<SCALAR, 3>> map2(&tensor2(0, 0, d), 1, dim_f, num_flavors);
+          Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(0, 0) };
+          right_tensor.chip(idx,3) = map2.contract(map3, product_dims);
+
+          left_tensor.chip(idx,2) = tensor1.chip(a,2);
+
+          if (idx == cache_size-1 || tot_idx == D-1) {
+            Eigen::array<int, 4> r_offsets = {0, 0, 0, 0};
+            Eigen::array<int, 4> r_extents = {dim_f, num_flavors, dim_b, idx+1};
+            Eigen::array<int, 3> l_offsets = {0, 0, 0};
+            Eigen::array<int, 3> l_extents = {dim_f, num_flavors, idx+1};
+            map_H += left_tensor.slice(l_offsets, l_extents).contract(
+                right_tensor.slice(r_offsets, r_extents),
+                Eigen::array<Eigen::IndexPair<int>, 1>{Eigen::IndexPair<int>(2, 3)}
+            );
+            idx = 0;
+          } else {
+            ++idx;
+          }
+          ++ tot_idx;
+        } //d
+      } //a
+    }//flavor_a
+  }//flavor_d
 
   const double time4 = timer.elapsed().wall * 1E-9;
 
