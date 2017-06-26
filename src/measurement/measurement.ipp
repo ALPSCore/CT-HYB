@@ -420,7 +420,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     throw std::runtime_error("Fatal error in MeasureGHelper<SCALAR, 2>::perform()");
   }
 
-  Eigen::Tensor<SCALAR,7> r = (sign * weight_rat_intermediate_state) *
+  Eigen::Tensor<SCALAR,7> r = sign * (weight_rat_intermediate_state/std::abs(weight_rat_intermediate_state)) *
       measure_g2(beta, num_flavors, p_basis_f, p_basis_b, creation_ops, annihilation_ops, M);
 
   //Then, accumulate data
