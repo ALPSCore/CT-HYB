@@ -353,11 +353,11 @@ measure_g2(double beta,
   }
   }
   const double time6 = timer.elapsed().wall * 1E-9;
-  std::cout << "timing21 " << time2-time1 << std::endl;
-  std::cout << "timing32 " << time3-time2 << std::endl;
-  std::cout << "timing43 " << time4-time3 << std::endl;
-  std::cout << "timing54 " << time5-time4 << std::endl;
-  std::cout << "timing65 " << time6-time5 << std::endl;
+  //std::cout << "timing21 " << time2-time1 << std::endl;
+  //std::cout << "timing32 " << time3-time2 << std::endl;
+  //std::cout << "timing43 " << time4-time3 << std::endl;
+  ////std::cout << "timing54 " << time5-time4 << std::endl;
+  //std::cout << "timing65 " << time6-time5 << std::endl;
 
   return result;
 };
