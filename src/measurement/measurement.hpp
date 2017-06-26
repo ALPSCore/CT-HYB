@@ -18,6 +18,7 @@
 #include "../sliding_window/sliding_window.hpp"
 #include "src/orthogonal_basis/basis.hpp"
 #include "../operator.hpp"
+#include "g2.hpp"
 
 
 /**

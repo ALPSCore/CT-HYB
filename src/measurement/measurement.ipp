@@ -1,6 +1,6 @@
 #include "measurement.hpp"
 
-//#include <boost/timer/timer.hpp>
+#include <boost/timer/timer.hpp>
 template<typename SCALAR>
 template<typename SlidingWindow>
 void TwoTimeG2Measurement<SCALAR>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
@@ -419,128 +419,9 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.rows()) {
     throw std::runtime_error("Fatal error in MeasureGHelper<SCALAR, 2>::perform()");
   }
-  //boost::timer::cpu_timer timer;
 
-  boost::multi_array<double, 3>
-      Pl_f(boost::extents[num_phys_rows][num_phys_rows][dim_f]);//annihilator, creator, ir
-  boost::multi_array<double, 3>
-      Pl_b(boost::extents[num_phys_rows][num_phys_rows][dim_b]);//annihilator, creator, ir
-  {
-    //Normalization factor of basis functions
-    std::vector<double> norm_coeff_f(dim_f), norm_coeff_b(dim_b);
-    for (int il = 0; il < dim_f; ++il) {
-      norm_coeff_f[il] = sqrt(2.0/p_basis_f->norm2(il));
-    }
-    for (int il = 0; il < dim_b; ++il) {
-      norm_coeff_b[il] = sqrt(2.0/p_basis_b->norm2(il));
-    }
-
-    std::vector<double> Pl_tmp(std::max(dim_f, dim_b));
-    for (int k = 0; k < num_phys_rows; k++) {
-      for (int l = 0; l < num_phys_rows; l++) {
-        double argument = annihilation_ops[k].time() - creation_ops[l].time();
-        double arg_sign = 1.0;
-        if (argument < 0) {
-          argument += beta;
-          arg_sign = -1.0;
-        }
-        const double x = 2 * argument * temperature - 1.0;
-        p_basis_f->value(x, Pl_tmp);
-        for (int il = 0; il < dim_f; ++il) {
-          Pl_f[k][l][il] = arg_sign * norm_coeff_f[il] * Pl_tmp[il];
-        }
-
-        p_basis_b->value(x, Pl_tmp);
-        for (int il = 0; il < dim_b; ++il) {
-          Pl_b[k][l][il] = norm_coeff_b[il] * Pl_tmp[il];
-        }
-      }
-    }
-  }
-  //const double time1 = timer.elapsed().wall * 1E-9;
-
-  //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
-  //First, compute relative weights. This costs O(num_phys_rows^4) operations.
-  double norm = 0.0;
-  for (int a = 0; a < num_phys_rows; ++a) {
-    for (int b = 0; b < num_phys_rows; ++b) {
-      for (int c = a+1; c < num_phys_rows; ++c) {
-        for (int d = b+1; d < num_phys_rows; ++d) {
-          /*
-           * Delta convention
-           * M_ab  M_ad
-           * M_cb  M_cd
-           */
-          norm += std::abs(weight_rat_intermediate_state * (M(b,a) * M(d,c) - M(b,c) * M(d,a)));
-        }
-      }
-    }
-  }
-  //The factor 4 is from the degree of freedom of exchange a and c or b and d.
-  norm *= 4;
-  //const double time2 = timer.elapsed().wall * 1E-9;
-
-  Eigen::Tensor<SCALAR,3> tensor1(dim_f, num_flavors, num_phys_rows);//(f2, il1)
-  tensor1.setZero();
-  for (int il1 = 0; il1 < dim_f; ++il1) {
-    for (int a = 0; a < num_phys_rows; ++a) {
-      for (int b = 0; b < num_phys_rows; ++b) {
-        int flavor_b = creation_ops[b].flavor();
-        tensor1(il1, flavor_b, a) += M(b,a) * Pl_f[a][b][il1];
-      }
-    }
-  }
-
-  Eigen::Tensor<SCALAR,3> tensor2(dim_f, num_flavors, num_phys_rows);//(f3, d, il2)
-  tensor2.setZero();
-  for (int il2 = 0; il2 < dim_f; ++il2) {
-    for (int d = 0; d < num_phys_rows; ++d) {
-      for (int c = 0; c < num_phys_rows; ++c) {
-        const int flavor_c = annihilation_ops[c].flavor();
-        tensor2(il2, flavor_c, d) += M(d,c) * Pl_f[c][d][il2] * (il2%2 == 0 ? -1.0 : 1.0);
-      }
-    }
-  }
-
-  //const double time3 = timer.elapsed().wall * 1E-9;
-  //Contraction requires O(num_phys_rows^2 Nl^3 num_flavors^2) operators
-  Eigen::Tensor<SCALAR,7> result_H(dim_f, num_flavors, dim_f, num_flavors, dim_b, num_flavors, num_flavors);
-  result_H.setZero();
-  const SCALAR coeff = sign * weight_rat_intermediate_state / (norm * beta);//where is this beta factor from?
-  Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(0, 0) };
-  Eigen::Tensor<SCALAR,2> map3(1,dim_b);
-
-  for (int d = 0; d < num_phys_rows; ++d) {
-    const int flavor_d = creation_ops[d].flavor();
-
-    for (int a = 0; a < num_phys_rows; ++a) {
-      const int flavor_a = annihilation_ops[a].flavor();
-
-      //map3(1, il3)
-      for (int il3 = 0; il3 < dim_b; ++il3) {
-        map3(0, il3) = coeff * Pl_b[a][d][il3];
-      }
-
-      //map2(1, l2, flavor_c)
-      Eigen::TensorMap<Eigen::Tensor<SCALAR, 3>> map2(&tensor2(0, 0, d), 1, dim_f, num_flavors);
-
-      //map23 (1, l2, flavor_c, l3)
-      //(1,l2,flavor_c) * (1, l3) => (l2, flavor_c, l3) => (1, l2, flavor_c, l3)
-      Eigen::array<long,4> new_dims {1,dim_f,num_flavors,dim_b};
-      Eigen::Tensor<SCALAR,4> map23 = map2.contract(map3, product_dims).reshape(new_dims);
-
-      //map1_a (1, l1, flavor_b)
-      Eigen::TensorMap<Eigen::Tensor<SCALAR,3>> map1_a(&tensor1(0,0,a), 1, dim_f, num_flavors);
-
-      //map_H (l1, flavor_b, l2, flavor_c, l3)
-      Eigen::TensorMap<Eigen::Tensor<SCALAR,5>> map_H(
-          &result_H(0, 0, 0, 0, 0, flavor_a, flavor_d), dim_f, num_flavors, dim_f, num_flavors, dim_b
-      );
-      map_H += map1_a.contract(map23, product_dims);
-    }
-  }
-
-  //const double time4 = timer.elapsed().wall * 1E-9;
+  Eigen::Tensor<SCALAR,7> r = (sign * weight_rat_intermediate_state) *
+      measure_g2(beta, num_flavors, p_basis_f, p_basis_b, creation_ops, annihilation_ops, M);
 
   //Then, accumulate data
   for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
@@ -550,7 +431,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
     for (int il1 = 0; il1 < dim_f; ++il1) {
     for (int il2 = 0; il2 < dim_f; ++il2) {
     for (int il3 = 0; il3 < dim_b; ++il3) {
-      result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += result_H(il1, flavor_b, il2, flavor_c, il3, flavor_a, flavor_d);
+      result[flavor_a][flavor_b][flavor_c][flavor_d][il1][il2][il3] += r(il1, il2, il3, flavor_a, flavor_b, flavor_c, flavor_d);
     }
     }
     }
@@ -558,11 +439,6 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
   }
   }
-  //const double time5 = timer.elapsed().wall * 1E-9;
-  //std::cout << "timing21 " << time2-time1 << std::endl;
-  //std::cout << "timing32 " << time3-time2 << std::endl;
-  //std::cout << "timing43 " << time4-time3 << std::endl;
-  //std::cout << "timing54 " << time5-time4 << std::endl;
 };
 
 template<typename SCALAR, int Rank>
