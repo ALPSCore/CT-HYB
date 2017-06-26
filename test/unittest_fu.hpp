@@ -19,6 +19,7 @@
 #include <alps/fastupdate/fastupdate_formula.hpp>
 #include "util_fu.hpp"
 
+
 template<typename Derived>
 inline int num_cols(const Eigen::MatrixBase<Derived> &m) {
   return m.cols();
