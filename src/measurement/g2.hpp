@@ -15,7 +15,8 @@ measure_g2(double beta,
            boost::shared_ptr<OrthogonalBasis> p_basis_b,
            const std::vector<psi> &creation_ops,
            const std::vector<psi> &annihilation_ops,
-           const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M
+           const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic> &M,
+           bool exact_cancellation = true
 ) {
   const double temperature = 1. / beta;
   const int dim_f = p_basis_f->dim();
@@ -178,7 +179,6 @@ measure_g2(double beta,
   const double time4 = timer.elapsed().wall * 1E-9;
 
   //substract contributions from terms for a==c or b==d.
-  bool exact_cancellation = true;
   Eigen::Tensor<SCALAR,7> result_H_cancel2(dim_f, dim_f, dim_b, num_flavors, num_flavors, num_flavors, num_flavors);
   result_H_cancel2.setZero();
 
@@ -190,8 +190,6 @@ measure_g2(double beta,
       cancel_ad.setZero();
       for (int a = 0; a < num_phys_rows; ++a) {
         int flavor_a = annihilation_ops[a].flavor();
-        //auto c = a;
-        //int flavor_c = annihilation_ops[c].flavor();
 
         Eigen::Tensor<SCALAR, 3> left_tensor(1, dim_f, num_flavors);
         left_tensor.setZero();
@@ -325,10 +323,6 @@ measure_g2(double beta,
         }
       }
     } //a==c && b==d
-
-    //Eigen::Tensor<SCALAR,7> tmp = result_H_cancel-result_H_cancel2;
-    //std::cout << tmp(0,0,0,0,0,0,0) << " " << result_H_cancel(0,0,0,0,0,0,0) << " " << result_H_cancel2(0,0,0,0,0,0,0) << std::endl;
-    //std::cout << tmp.abs().maximum() << std::endl;
 
   }//if (exact_cancellation)
   const double time5 = timer.elapsed().wall * 1E-9;
