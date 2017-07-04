@@ -23,7 +23,7 @@ ALPSCore needs to be properly installed, see [ALPSCore library](https://github.c
 ### Boost (>= 1.54.0)
 Only header-file libraries are needed. The dependencies will be taken care of by ALPSCore.
 
-### Eigen3
+### Eigen3 (>= 3.3)
 Head-file libraries for linear algebra.
 
 If you want to use our solver from TRIQS applications, please refer to [TRIQS-compatible Python interface](https://github.com/shinaoka/triqs_interface).

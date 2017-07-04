@@ -52,7 +52,7 @@ if (MEASURE_TIMING)
 else()
     find_package(Boost 1.54.0)
 endif()
-find_package(Eigen3 REQUIRED)
+find_package(Eigen3 3.3 REQUIRED)
 
 # Option (use quad precision for part of calculations)
 option(USE_QUAD_PRECISION "Use quad precision for part of calculations" ON)
