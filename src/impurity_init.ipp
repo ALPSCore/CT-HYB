@@ -68,9 +68,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
     it->second->create_measurement_acc_rate(measurements);
   }
 
-#ifdef MEASURE_TIMING
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("TimingsSecPerNMEAS");
-#endif
 }
 
 template<typename IMP_MODEL>

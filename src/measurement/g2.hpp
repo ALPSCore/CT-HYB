@@ -28,7 +28,7 @@ measure_g2(double beta,
   if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.rows()) {
     throw std::runtime_error("Fatal error in measure_g2");
   }
-  boost::timer::cpu_timer timer;
+  //boost::timer::cpu_timer timer;
 
   boost::multi_array<double, 3>
       Pl_f(boost::extents[num_phys_rows][num_phys_rows][dim_f]);//annihilator, creator, ir
@@ -66,7 +66,7 @@ measure_g2(double beta,
       }
     }
   }
-  const double time1 = timer.elapsed().wall * 1E-9;
+  //const double time1 = timer.elapsed().wall * 1E-9;
 
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
   //First, compute relative weights. This costs O(num_phys_rows^4) operations.
@@ -87,7 +87,7 @@ measure_g2(double beta,
   }
   //The factor 4 is from the degree of freedom of exchange a and c or b and d.
   norm *= 4;
-  const double time2 = timer.elapsed().wall * 1E-9;
+  //const double time2 = timer.elapsed().wall * 1E-9;
 
   Eigen::Tensor<SCALAR,3> tensor1(dim_f, num_flavors, num_phys_rows);//(l1, flavor_b, a)
   tensor1.setZero();
@@ -111,7 +111,7 @@ measure_g2(double beta,
     }
   }
 
-  const double time3 = timer.elapsed().wall * 1E-9;
+  //const double time3 = timer.elapsed().wall * 1E-9;
   //Contraction requires O(num_phys_rows^2 Nl^3 num_flavors^2) operations
   //Cancellation requires O(num_phys_rows^3 Nl^3) operators
   Eigen::Tensor<SCALAR,7> result_H(dim_f, num_flavors, dim_f, num_flavors, dim_b, num_flavors, num_flavors);
@@ -176,7 +176,7 @@ measure_g2(double beta,
     }//flavor_a
   }//flavor_d
 
-  const double time4 = timer.elapsed().wall * 1E-9;
+  //const double time4 = timer.elapsed().wall * 1E-9;
 
   //substract contributions from terms for a==c or b==d.
   Eigen::Tensor<SCALAR,7> result_H_cancel2(dim_f, dim_f, dim_b, num_flavors, num_flavors, num_flavors, num_flavors);
@@ -325,7 +325,7 @@ measure_g2(double beta,
     } //a==c && b==d
 
   }//if (exact_cancellation)
-  const double time5 = timer.elapsed().wall * 1E-9;
+  //const double time5 = timer.elapsed().wall * 1E-9;
 
   //Then, accumulate data
   Eigen::Tensor<SCALAR,7> result(dim_f, dim_f, dim_b, num_flavors, num_flavors, num_flavors, num_flavors);
@@ -346,7 +346,7 @@ measure_g2(double beta,
   }
   }
   }
-  const double time6 = timer.elapsed().wall * 1E-9;
+  //const double time6 = timer.elapsed().wall * 1E-9;
   //std::cout << "timing21 " << time2-time1 << std::endl;
   //std::cout << "timing32 " << time3-time2 << std::endl;
   //std::cout << "timing43 " << time4-time3 << std::endl;
@@ -377,7 +377,7 @@ measure_g2_ref(double beta,
   if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.rows()) {
     throw std::runtime_error("Fatal error in measure_g2");
   }
-  boost::timer::cpu_timer timer;
+  //boost::timer::cpu_timer timer;
 
   boost::multi_array<double, 3>
       Pl_f(boost::extents[num_phys_rows][num_phys_rows][dim_f]);//annihilator, creator, ir

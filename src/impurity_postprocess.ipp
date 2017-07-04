@@ -29,7 +29,6 @@ boost::multi_array<T,2> to_multi_array(const Eigen::Matrix<T,Eigen::Dynamic,Eige
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::show_statistics(const alps::accumulators::result_set &results) {
-#ifdef MEASURE_TIMING
   const std::vector<double> timings = results["TimingsSecPerNMEAS"].template mean<std::vector<double> >();
   std::cout << std::endl << "==== Timings analysis ====" << std::endl;
   std::cout << " The following are the timings per window sweep (in units of second): " << std::endl;
@@ -37,7 +36,6 @@ void HybridizationSimulation<IMP_MODEL>::show_statistics(const alps::accumulator
   std::cout << " Global updates (global shift etc.): " << timings[1] << std::endl;
   std::cout << " Worm measurement: " << timings[2] << std::endl;
   std::cout << " Non worm measurement: " << timings[3] << std::endl;
-#endif
 
   std::cout << std::endl << "==== Thermalization analysis ====" << std::endl;
   std::cout << boost::format("Perturbation orders just before and after measurement steps are %1% and %2%.") %

@@ -19,6 +19,7 @@
 #include <cmath>
 #include <valarray>
 #include <time.h>
+#include <chrono>
 
 #include <boost/assert.hpp>
 #include <boost/multi_index_container.hpp>
@@ -30,9 +31,7 @@
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
 #include <boost/array.hpp>
-#ifdef MEASURE_TIMING
-#include <boost/timer/timer.hpp>
-#endif
+
 
 //Eigen3
 #include<Eigen/Dense>

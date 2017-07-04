@@ -52,13 +52,7 @@ endif()
 #Find MPI
 include(EnableMPI)
 
-if (MEASURE_TIMING)
-    message("measurement of timing enabled")
-    add_definitions(-DMEASURE_TIMING)
-    find_package(Boost 1.54.0 REQUIRED timer)
-else()
-    find_package(Boost 1.54.0)
-endif()
+find_package(Boost 1.54.0)
 find_package(Eigen3 3.3 REQUIRED)
 
 #LAPACK
