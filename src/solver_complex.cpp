@@ -4,8 +4,6 @@
 namespace alps {
 namespace cthyb {
 
-template class MatrixSolver<double>;
-
 template class MatrixSolver<std::complex<double> >;
 
 }

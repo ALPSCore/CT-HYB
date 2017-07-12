@@ -24,7 +24,7 @@
 #endif
 
 #ifndef ALPS_HAVE_MPI
-MPI environment is required!
+#error MPI environment is required!
 #endif
 
 template<typename T> class ImpurityModelEigenBasis;
