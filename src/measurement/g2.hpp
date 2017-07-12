@@ -3,7 +3,7 @@
 #include "../operator.hpp"
 #include "src/orthogonal_basis/basis.hpp"
 
-#include <boost/timer/timer.hpp>
+//#include <boost/timer/timer.hpp>
 
 
 //Measure G2 by removing hyridization lines
@@ -415,7 +415,7 @@ measure_g2_ref(double beta,
       }
     }
   }
-  const double time1 = timer.elapsed().wall * 1E-9;
+  //const double time1 = timer.elapsed().wall * 1E-9;
 
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
   //First, compute relative weights. This costs O(num_phys_rows^4) operations.
