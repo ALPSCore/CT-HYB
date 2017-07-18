@@ -217,14 +217,14 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 
     pert_order_recorder << mc_config.pert_order();
 
-    const double time1 = std::chrono::duration_cast<std::chrono::seconds>(
+    const double time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::high_resolution_clock::now()-start
     ).count();
 
     /** one sweep of the window */
     do_one_sweep();
 
-    const double time2 = std::chrono::duration_cast<std::chrono::seconds>(
+    const double time2 = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::high_resolution_clock::now()-start
     ).count();
     timings[0] += time2 - time1;
@@ -240,7 +240,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       update_MC_parameters();
     }
 
-    const double time3 = std::chrono::duration_cast<std::chrono::seconds>(
+    const double time3 = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::high_resolution_clock::now()-start
     ).count();
     timings[1] += time3 - time2;
@@ -249,7 +249,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       measure_every_step();
     }
 
-    const double time4 = std::chrono::duration_cast<std::chrono::seconds>(
+    const double time4 = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::high_resolution_clock::now()-start
     ).count();
     timings[2] += time4 - time3;
@@ -360,7 +360,7 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   }
 
   auto end = std::chrono::high_resolution_clock::now();
-  timings[3] = std::chrono::duration_cast<std::chrono::seconds>(end-start).count();
+  timings[3] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
   measurements["TimingsSecPerNMEAS"] << timings;
   std::fill(timings.begin(), timings.end(), 0.0);
 }

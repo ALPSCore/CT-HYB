@@ -31,7 +31,7 @@ template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::show_statistics(const alps::accumulators::result_set &results) {
   const std::vector<double> timings = results["TimingsSecPerNMEAS"].template mean<std::vector<double> >();
   std::cout << std::endl << "==== Timings analysis ====" << std::endl;
-  std::cout << " The following are the timings per window sweep (in units of second): " << std::endl;
+  std::cout << " The following are the timings per window sweep (in units of nanosecond): " << std::endl;
   std::cout << " Local updates (insertion/removal/shift of operators/worm: " << timings[0] << std::endl;
   std::cout << " Global updates (global shift etc.): " << timings[1] << std::endl;
   std::cout << " Worm measurement: " << timings[2] << std::endl;
@@ -341,12 +341,12 @@ void HybridizationSimulation<IMP_MODEL>::compute_G2(
   ar["G2_BUBBLE_H_IR"] = g2_bubble_h;
 
   //Bubble (Fock)
-  auto g2_bubble_f = alps::gf_extension::compute_G2_bubble_F(g1_l, g2_h_l.mesh1(), g2_h_l.mesh3());
-  ar["G2_BUBBLE_F_IR"] = g2_bubble_f;
+  //auto g2_bubble_f = alps::gf_extension::compute_G2_bubble_F(g1_l, g2_h_l.mesh1(), g2_h_l.mesh3());
+  //ar["G2_BUBBLE_F_IR"] = g2_bubble_f;
 
-  alps::gf_extension::transformer_Hartree_to_Fock<g2_t> trans_to_F(g2_h_l.mesh1(), g2_h_l.mesh3());
-  auto g2_f_l = trans_to_F(g2_h_l);
-  ar["G2_F_IR"] = g2_f_l;
+  //alps::gf_extension::transformer_Hartree_to_Fock<g2_t> trans_to_F(g2_h_l.mesh1(), g2_h_l.mesh3());
+  //auto g2_f_l = trans_to_F(g2_h_l);
+  //ar["G2_F_IR"] = g2_f_l;
 
-  ar["G2_IR"] = g2_h_l + g2_f_l;
+  //ar["G2_IR"] = g2_h_l + g2_f_l;
 }
