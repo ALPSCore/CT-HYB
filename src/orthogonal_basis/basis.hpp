@@ -42,7 +42,7 @@ template<class Base>
 class IrBasis : public OrthogonalBasis {
  public:
   IrBasis(double Lambda, int max_dim) {
-    p_basis_.reset(new Base(Lambda, max_dim, 1e-8, 500));
+    p_basis_.reset(new Base(Lambda, max_dim, 1e-10, 500));
   }
 
   double norm2(int l) const {return 1.0;}
