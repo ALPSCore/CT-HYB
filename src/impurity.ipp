@@ -45,7 +45,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
                    2000,
                    "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
       .define<int>("measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
-      .define<int>("measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
+      .define<int>("measurement.G1.max_num_data_accumulated", 1, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>("measurement.G1.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
           //Equal-time single-particle GF
       .define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
@@ -53,11 +53,12 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
       //.define<double>("measurement.G2.Lambda_f", 1000.0, "Lambda parameter for the Fermionic IR basis")
       //.define<double>("measurement.G2.Lambda_b", 1000.0, "Lambda parameter for the Bosonic IR basis")
+      .define<int>("measurement.G2.n_meas", 10, "Measurements are performed every N_MEAS updates.")
       .define<int>("measurement.G2.max_dim_f", 20, "Maximum dimension of the Fermionic IR basis")
       .define<int>("measurement.G2.max_dim_b", 20, "Maximum dimension of the Bosonic IR basis")
       //.define<int>("measurement.G2.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
       .define<int>("measurement.G2.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
-      .define<int>("measurement.G2.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
+      .define<int>("measurement.G2.max_num_data_accumulated", 1, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>("measurement.G2.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
           //
           //Two-time two-particle GF
@@ -280,9 +281,11 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       break;
 
     case G2:
-      p_G2_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G2.max_matrix_size"],
-                                 par["measurement.G2.aux_field"]
-      );
+      if (sweeps % par["measurement.G2.n_meas"].template as<int>() == 0) {
+        p_G2_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G2.max_matrix_size"],
+                                   par["measurement.G2.aux_field"]
+        );
+      }
       break;
 
     case Two_time_G2:
