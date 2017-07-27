@@ -2,9 +2,7 @@
 
 #include "../operator.hpp"
 #include "src/orthogonal_basis/basis.hpp"
-
-//#include <boost/timer/timer.hpp>
-
+#include <chrono>
 
 //Measure G2 by removing hyridization lines
 template<typename SCALAR>
@@ -28,7 +26,8 @@ measure_g2(double beta,
   if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.rows()) {
     throw std::runtime_error("Fatal error in measure_g2");
   }
-  //boost::timer::cpu_timer timer;
+
+  auto t0 = std::chrono::high_resolution_clock::now();
 
   boost::multi_array<double, 3>
       Pl_f(boost::extents[num_phys_rows][num_phys_rows][dim_f]);//annihilator, creator, ir
@@ -66,7 +65,8 @@ measure_g2(double beta,
       }
     }
   }
-  //const double time1 = timer.elapsed().wall * 1E-9;
+
+  auto t1 = std::chrono::high_resolution_clock::now();
 
   //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
   //First, compute relative weights. This costs O(num_phys_rows^4) operations.
@@ -87,7 +87,7 @@ measure_g2(double beta,
   }
   //The factor 4 is from the degree of freedom of exchange a and c or b and d.
   norm *= 4;
-  //const double time2 = timer.elapsed().wall * 1E-9;
+  auto t2 = std::chrono::high_resolution_clock::now();
 
   Eigen::Tensor<SCALAR,3> tensor1(dim_f, num_flavors, num_phys_rows);//(l1, flavor_b, a)
   tensor1.setZero();
@@ -111,7 +111,7 @@ measure_g2(double beta,
     }
   }
 
-  //const double time3 = timer.elapsed().wall * 1E-9;
+  auto t3 = std::chrono::high_resolution_clock::now();
   //Contraction requires O(num_phys_rows^2 Nl^3 num_flavors^2) operations
   //Cancellation requires O(num_phys_rows^3 Nl^3) operators
   Eigen::Tensor<SCALAR,7> result_H(dim_f, num_flavors, dim_f, num_flavors, dim_b, num_flavors, num_flavors);
@@ -126,61 +126,70 @@ measure_g2(double beta,
     flavor_annihilation[annihilation_ops[i].flavor()].push_back(i);
   }
 
-  const int cache_size = 100;
-  Eigen::Tensor<SCALAR,4> right_tensor(dim_f, num_flavors, dim_b, cache_size);
-  Eigen::Tensor<SCALAR,3> left_tensor(dim_f, num_flavors, cache_size);
+  Eigen::Tensor<SCALAR,3> right_tensor(dim_f, num_flavors, dim_b);
+  Eigen::Tensor<SCALAR,2> left_tensor(dim_f, num_flavors);
 
   for (int flavor_d = 0; flavor_d < num_flavors; ++flavor_d) {
+
+    //tensor2_mini
+    Eigen::Tensor<SCALAR,3> tensor2_mini(dim_f, num_flavors, flavor_creation[flavor_d].size());
+    for (int id=0; id < flavor_creation[flavor_d].size(); ++id) {
+      auto d = flavor_creation[flavor_d][id];
+      for (int flavor_c = 0; flavor_c < num_flavors; ++flavor_c) {
+        for (int il2 = 0; il2 < dim_f; ++il2) {
+          tensor2_mini(il2, flavor_c, id) = tensor2(il2, flavor_c, d);
+        }
+      }
+    }
+
     for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
-      int D = flavor_annihilation[flavor_a].size() * flavor_creation[flavor_d].size();
+      //tensor1_min
+      Eigen::Tensor<SCALAR,3> tensor1_mini(dim_f, num_flavors, flavor_annihilation[flavor_a].size());//(l1, flavor_b, a)
+      for (int ia=0; ia < flavor_annihilation[flavor_a].size(); ++ia) {
+        auto a = flavor_annihilation[flavor_a][ia];
+        for (int flavor_b=0; flavor_b < num_flavors; ++flavor_b) {
+          for (int il1 = 0; il1 < dim_f; ++il1) {
+            tensor1_mini(il1, flavor_b, ia) = tensor1(il1, flavor_b, a);
+          }
+        }
+      }
 
-      //Eigen::array<long,4> right_dims {D,dim_f,num_flavors,dim_b};
 
-      //map_H (l1, flavor_b, l2, flavor_c, l3)
+      Eigen::Tensor<SCALAR,3> u_l3(dim_b, flavor_annihilation[flavor_a].size(), flavor_creation[flavor_d].size());
+      for (int ia=0; ia < flavor_annihilation[flavor_a].size(); ++ia) {
+        auto a = flavor_annihilation[flavor_a][ia];
+        for (int id=0; id < flavor_creation[flavor_d].size(); ++id) {
+          auto d = flavor_creation[flavor_d][id];
+          for (int il3 = 0; il3 < dim_b; ++il3) {
+            u_l3(il3, ia, id) = coeff * Pl_b[a][d][il3];
+          }
+        }
+      }
+
+      //tensor3(il2, flavor_c, il3, a)
+      Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 2) };
+      Eigen::Tensor<SCALAR,4> tensor3 = tensor2_mini.contract(u_l3, product_dims);
+
+      //tensor1_mini: (l1, flavor_b, a)
+      //tensor3: (l2, flavor_c, l3, a)
+      //-> map_H(l1, flavor_b, l2, flavor_c, l3)
       Eigen::TensorMap<Eigen::Tensor<SCALAR,5>> map_H(
           &result_H(0, 0, 0, 0, 0, flavor_a, flavor_d), dim_f, num_flavors, dim_f, num_flavors, dim_b
       );
+      map_H += tensor1_mini.contract(tensor3,
+        Eigen::array<Eigen::IndexPair<int>, 1>{Eigen::IndexPair<int>(2, 3)}
+      );
 
-      int idx = 0;
-      int tot_idx = 0;
-      for (auto a : flavor_annihilation[flavor_a]) {
-        for (auto d : flavor_creation[flavor_d]) {
-          //map3(1, il3)
-          for (int il3 = 0; il3 < dim_b; ++il3) {
-            map3(0, il3) = coeff * Pl_b[a][d][il3];
-          }
-
-          //(1,l2,flavor_c) * (1, l3) => (l2, flavor_c, l3)
-          Eigen::TensorMap<Eigen::Tensor<SCALAR, 3>> map2(&tensor2(0, 0, d), 1, dim_f, num_flavors);
-          Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(0, 0) };
-          right_tensor.chip(idx,3) = map2.contract(map3, product_dims);
-
-          left_tensor.chip(idx,2) = tensor1.chip(a,2);
-
-          if (idx == cache_size-1 || tot_idx == D-1) {
-            Eigen::array<int, 4> r_offsets = {0, 0, 0, 0};
-            Eigen::array<int, 4> r_extents = {dim_f, num_flavors, dim_b, idx+1};
-            Eigen::array<int, 3> l_offsets = {0, 0, 0};
-            Eigen::array<int, 3> l_extents = {dim_f, num_flavors, idx+1};
-            map_H += left_tensor.slice(l_offsets, l_extents).contract(
-                right_tensor.slice(r_offsets, r_extents),
-                Eigen::array<Eigen::IndexPair<int>, 1>{Eigen::IndexPair<int>(2, 3)}
-            );
-            idx = 0;
-          } else {
-            ++idx;
-          }
-          ++ tot_idx;
-        } //d
-      } //a
     }//flavor_a
   }//flavor_d
 
-  //const double time4 = timer.elapsed().wall * 1E-9;
+  auto t4 = std::chrono::high_resolution_clock::now();
 
   //substract contributions from terms for a==c or b==d.
   Eigen::Tensor<SCALAR,7> result_H_cancel2(dim_f, dim_f, dim_b, num_flavors, num_flavors, num_flavors, num_flavors);
   result_H_cancel2.setZero();
+
+  std::chrono::time_point<std::chrono::high_resolution_clock> t5, t6;
 
   if (exact_cancellation) {
     //a==c
@@ -232,6 +241,8 @@ measure_g2(double beta,
         }
       }
     }
+
+    t5 = std::chrono::high_resolution_clock::now();
 
     //b==d
     {
@@ -288,23 +299,28 @@ measure_g2(double beta,
       }
     }
 
+    t6 = std::chrono::high_resolution_clock::now();
     //a==c && b==d (double counting)
     {
       //(l1, l2, l3, flavor_a=flavor_c, flavor_b=flavor_d)
       Eigen::Tensor<SCALAR,5> cancel_abcd(dim_f, dim_f, dim_b, num_flavors, num_flavors);
       cancel_abcd.setZero();
-      for (int a = 0; a < num_phys_rows; ++a) {
-        int flavor_a = annihilation_ops[a].flavor();
-        for (int b = 0; b < num_phys_rows; ++b) {
-          int flavor_b = creation_ops[b].flavor();
 
-          for (int il3 = 0; il3 < dim_b; ++il3) {
-            for (int il2 = 0; il2 < dim_f; ++il2) {
-              for (int il1 = 0; il1 < dim_f; ++il1) {
-                cancel_abcd(il1, il2, il3, flavor_a, flavor_b) +=
-                    M(b, a) * M(b, a) * Pl_f[a][b][il1] * Pl_f[a][b][il2] * Pl_b[a][b][il3]
-                        * (il2 % 2 == 0 ? -1.0 : 1.0);
+      for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
+        for (auto a : flavor_annihilation[flavor_a]) {
+
+          for (int flavor_b = 0; flavor_b < num_flavors; ++flavor_b) {
+            for (auto b : flavor_creation[flavor_b]) {
+
+              for (int il3 = 0; il3 < dim_b; ++il3) {
+                for (int il2 = 0; il2 < dim_f; ++il2) {
+                  auto tmp = M(b, a) * M(b, a) * Pl_f[a][b][il2] * Pl_b[a][b][il3];
+                  for (int il1 = 0; il1 < dim_f; ++il1) {
+                    cancel_abcd(il1, il2, il3, flavor_a, flavor_b) += tmp * Pl_f[a][b][il1];
+                  }
+                }
               }
+
             }
           }
         }
@@ -314,9 +330,10 @@ measure_g2(double beta,
         for (int flavor_a = 0; flavor_a < num_flavors; ++flavor_a) {
           for (int il3 = 0; il3 < dim_b; ++il3) {
             for (int il2 = 0; il2 < dim_f; ++il2) {
+              auto sign_il2 =  (il2 % 2 == 0 ? -1.0 : 1.0);
               for (int il1 = 0; il1 < dim_f; ++il1) {
                 result_H_cancel2(il1, il2, il3, flavor_a, flavor_b, flavor_a, flavor_b)
-                    += coeff * cancel_abcd(il1, il2, il3, flavor_a, flavor_b);
+                    += coeff * cancel_abcd(il1, il2, il3, flavor_a, flavor_b) * sign_il2;
               }
             }
           }
@@ -325,7 +342,7 @@ measure_g2(double beta,
     } //a==c && b==d
 
   }//if (exact_cancellation)
-  //const double time5 = timer.elapsed().wall * 1E-9;
+  auto t7 = std::chrono::high_resolution_clock::now();
 
   //Then, accumulate data
   Eigen::Tensor<SCALAR,7> result(dim_f, dim_f, dim_b, num_flavors, num_flavors, num_flavors, num_flavors);
@@ -346,12 +363,19 @@ measure_g2(double beta,
   }
   }
   }
-  //const double time6 = timer.elapsed().wall * 1E-9;
-  //std::cout << "timing21 " << time2-time1 << std::endl;
-  //std::cout << "timing32 " << time3-time2 << std::endl;
-  //std::cout << "timing43 " << time4-time3 << std::endl;
-  //std::cout << "timing54 " << time5-time4 << std::endl;
-  //std::cout << "timing65 " << time6-time5 << std::endl;
+
+  auto t8 = std::chrono::high_resolution_clock::now();
+
+  /*
+  std::cout << "t10 " << std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count() << std::endl;
+  std::cout << "t21 " << std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count() << std::endl;
+  std::cout << "t32 " << std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count() << std::endl;
+  std::cout << "t43 " << std::chrono::duration_cast<std::chrono::nanoseconds>(t4-t3).count() << std::endl;
+  std::cout << "t54 " << std::chrono::duration_cast<std::chrono::nanoseconds>(t5-t4).count() << std::endl;
+  std::cout << "t65 " << std::chrono::duration_cast<std::chrono::nanoseconds>(t6-t5).count() << std::endl;
+  std::cout << "t76 " << std::chrono::duration_cast<std::chrono::nanoseconds>(t7-t6).count() << std::endl;
+  std::cout << "t87 " << std::chrono::duration_cast<std::chrono::nanoseconds>(t8-t7).count() << std::endl;
+   */
 
   return result;
 };
