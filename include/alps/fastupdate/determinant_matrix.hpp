@@ -56,7 +56,6 @@ namespace alps {
 
       typedef typename cdagg_container_t::iterator cdagg_it;
       typedef typename c_container_t::iterator c_it;
-      BOOST_STATIC_ASSERT((boost::is_same<typename CdaggerOp::itime_type, typename COp::itime_type>::value));
 
       typedef Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic> eigen_matrix_t;
 

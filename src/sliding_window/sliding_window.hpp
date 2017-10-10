@@ -2,7 +2,6 @@
 
 #include <boost/tuple/tuple.hpp>
 #include <boost/multi_array.hpp>
-#include <boost/static_assert.hpp>
 
 #include "../wide_scalar.hpp"
 #include "../operator.hpp"
@@ -25,7 +24,6 @@ class SlidingWindowManager {
   typedef typename operator_container_t::iterator op_it_t;
   typedef typename boost::tuple<int, int, ITIME_AXIS_LEFT_OR_RIGHT, int>
       state_t;//pos of left edge, pos of right edge, direction of move, num of windows
-  BOOST_STATIC_ASSERT(boost::is_same<typename BRAKET_TYPE::norm_type, EXTENDED_REAL>::value);
 
   SlidingWindowManager(MODEL *p_model, double beta);
 
