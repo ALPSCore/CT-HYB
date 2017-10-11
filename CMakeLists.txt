@@ -62,7 +62,7 @@ endif()
 
 #ALPSCore disable debug for gf library
 #(please do not set NDEBUG for DEBUG build. That would would disable runtime checks in the solver)
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 
 #include directories
 set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH} ${MPI_C_INCLUDE_PATH} ${CMAKE_SOURCE_DIR}/include) #rest taken care of by libraries dependencies
