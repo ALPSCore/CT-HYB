@@ -114,8 +114,13 @@ include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
 #source files
 set(LIB_FILES ./src/solver_real.cpp ./src/solver_complex.cpp ./src/sliding_window/sliding_window.cpp ./src/legendre.cpp ./src/util.cpp ./src/model/model_real.cpp ./src/model/model_complex.cpp ./src/model/clustering.cpp src/operator_util.cpp src/moves/moves.cpp src/measurement/measurement.cpp)
-add_library(alpscore_cthyb SHARED ${LIB_FILES})
-set_target_properties(alpscore_cthyb PROPERTIES PUBLIC_HEADER src/solver.hpp)
+if (CTHYB_BUILD_STATIC)
+    add_library(alpscore_cthyb STATIC ${LIB_FILES})
+endif()
+if (CTHYB_BUILD_SHARED)
+    add_library(alpscore_cthyb SHARED ${LIB_FILES})
+    set_target_properties(alpscore_cthyb PROPERTIES PUBLIC_HEADER src/solver.hpp)
+endif()
 
 #Compiler dependent libraries
 set(EXTRA_LIBS "")
@@ -152,28 +157,20 @@ foreach(test ${unittest_src})
     add_gtest(${test} test)
 endforeach(test)
 
-### Configuration file
-#configure_file("./cmake/ALPSCoreCTHYBConfig.cmake.in" "./ALPSCoreCTHYBConfig.cmake" @ONLY)
-#configure_file("./cmake/ALPSCoreCTHYBConfig.cmake.in" "./ALPSCoreCTHYBConfig.cmake")
-
-#installation
+#installation of binary
 install (TARGETS hybmat RUNTIME DESTINATION bin)
 
-install (TARGETS alpscore_cthyb
-        EXPORT ALPSCoreCTHYB-export
-        LIBRARY        DESTINATION lib
-        INCLUDES       DESTINATION include
-        PUBLIC_HEADER  DESTINATION include/alps/cthyb
-        )
+#installation of shared library
+if (CTHYB_BUILD_SHARED)
+    install (TARGETS alpscore_cthyb
+            EXPORT ALPSCoreCTHYB-export
+            LIBRARY        DESTINATION lib
+            INCLUDES       DESTINATION include
+            PUBLIC_HEADER  DESTINATION include/alps/cthyb
+            )
 
-install(EXPORT ALPSCoreCTHYB-export
-        FILE alpscorecthyb-config.cmake
-        DESTINATION share/cmake/ALPSCoreCTHYB/
-        EXPORT_LINK_INTERFACE_LIBRARIES)
-
-#install (TARGETS hybmat alpscore_cthyb
-#RUNTIME DESTINATION bin
-#LIBRARY DESTINATION lib
-#)
-#install (FILES "./src/solver.hpp" DESTINATION "include/alps/cthyb")
-#install (FILES "${CMAKE_BINARY_DIR}/ALPSCoreCTHYBConfig.cmake" DESTINATION "./share/ALPSCoreCTHYB/")
+    install(EXPORT ALPSCoreCTHYB-export
+            FILE alpscorecthyb-config.cmake
+            DESTINATION share/cmake/ALPSCoreCTHYB/
+            EXPORT_LINK_INTERFACE_LIBRARIES)
+endif()
