@@ -10,6 +10,41 @@ project(ALPSCoreCTHYB CXX)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_SOURCE_DIR})
 
+include(cthyb_macro)
+
+# Build static XOR shared
+# Defines CTHYB_BUILD_TYPE=STATIC|DYNAMIC .
+set(CTHYB_BUILD_TYPE "dynamic" CACHE STRING "Build type: `static`, `dynamic` or `unspecified`")
+set_property(CACHE CTHYB_BUILD_TYPE PROPERTY STRINGS static dynamic unspecified)
+string(TOLOWER ${CTHYB_BUILD_TYPE}  CTHYB_BUILD_TYPE)
+
+# We do not want those variables in cache:
+unset(CTHYB_BUILD_SHARED)
+unset(CTHYB_BUILD_STATIC)
+if (DEFINED CTHYB_BUILD_STATIC OR DEFINED CTHYB_BUILD_SHARED)
+    message(WARNING "Setting CTHYB_BUILD_SHARED, CTHYB_BUILD_STATIC in cache does not have any effect.")
+endif()
+unset(CTHYB_BUILD_SHARED CACHE)
+unset(CTHYB_BUILD_STATIC CACHE)
+
+if (CTHYB_BUILD_TYPE STREQUAL dynamic)
+    set(CTHYB_BUILD_SHARED true)
+    set(CTHYB_BUILD_STATIC false)
+    message(STATUS "Building shared libraries")
+    unset(BUILD_SHARED_LIBS CACHE)
+    option(BUILD_SHARED_LIBS "Generate shared libraries" ON)
+elseif (CTHYB_BUILD_TYPE STREQUAL static)
+    set(CTHYB_BUILD_SHARED false)
+    set(CTHYB_BUILD_STATIC true)
+    message(STATUS "Doing static build")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+    unset(BUILD_SHARED_LIBS CACHE)
+    option(BUILD_SHARED_LIBS "Generate shared libraries" OFF)
+else()
+    message(FATAL_ERROR "CTHYB_BUILD_TYPE should be set to either 'static' or 'dynamic' (or 'unspecified' only if you know what your are doing)")
+endif()
+option(CTHYB_BUILD_PIC "Generate position-independent code (PIC)" OFF)
+
 #To include alps/fastupdate
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 
@@ -45,12 +80,13 @@ find_package(ALPSCore REQUIRED)
 #Find MPI
 include(EnableMPI)
 
+#Add boost
 if (MEASURE_TIMING)
     message("measurement of timing enabled")
     add_definitions(-DMEASURE_TIMING)
-    find_package(Boost 1.54.0 REQUIRED timer chrono)
+    add_boost(timer chrono)
 else()
-    find_package(Boost 1.54.0 REQUIRED chrono)
+    add_boost(chrono)
 endif()
 
 #Eigen dependency
