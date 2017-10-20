@@ -58,19 +58,20 @@ endif()
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 
-# RPATH fix
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+if (CTHYB_BUILD_SHARED)
+  # RPATH fix
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(CMAKE_INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
-else()
+  else()
     set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-endif()
+  endif()
 
-#policy update CMP0042
-if(APPLE)
+  #policy update CMP0042
+  if(APPLE)
     set(CMAKE_MACOSX_RPATH ON)
-endif()
-
+  endif()
+endif(CTHYB_BUILD_SHARED)
 
 # The project relies on the ALPSCore package. If ALPSCore is not found
 # automatically, specify its location using:
