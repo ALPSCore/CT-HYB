@@ -13,6 +13,7 @@
  *************************************************************************************/
 #pragma once
 
+#include <boost/any.hpp>
 #include <alps/utilities/signal.hpp>
 #include <alps/mc/api.hpp>
 #include <alps/mc/mcbase.hpp>

@@ -15,7 +15,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       //.define<int>("Tmin", 1, "The scheduler checks longer than every Tmin seconds if the simulation is finished.")
       //.define<int>("Tmax", 60, "The scheduler checks shorter than every Tmax seconds if the simulation is finished.")
       .define<std::string>("outputfile",
-                           alps::fs::remove_extensions(parameters.get_origin_name()) + ".out.h5",
+                           alps::fs::remove_extensions(origin_name(parameters)) + ".out.h5",
                            "name of the output file")
       .define<int>("verbose", 0, "Verbose output for a non-zero value")
       .define<int>("sliding_window.max", 1000, "Max number of windows")
