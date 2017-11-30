@@ -1,4 +1,5 @@
-#include <Eigen/Dense>
+#include <Eigen/Core> // Has to be included first to avoid compilation failures(Eigen 3.3.4,Boost 1.65)
+                      // see discussion at https://github.com/ALPSCore/CT-HYB/issues/13
 #include "sliding_window.hpp"
 #include "sliding_window.ipp"
 #include "meas_static_obs.ipp"
