@@ -1,3 +1,4 @@
+#include <Eigen/Core>
 #include <alps/mc/random01.hpp>
 
 #include "moves.hpp"

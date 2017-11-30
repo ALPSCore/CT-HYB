@@ -1,3 +1,4 @@
+#include <Eigen/Dense>
 #include "sliding_window.hpp"
 #include "sliding_window.ipp"
 #include "meas_static_obs.ipp"
