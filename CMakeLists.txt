@@ -52,7 +52,11 @@ if (MEASURE_TIMING)
 else()
     find_package(Boost 1.54.0 REQUIRED chrono)
 endif()
-find_package(Eigen3 3.2.8 REQUIRED)
+
+# Eigen is provided by ALPSCore
+if (NOT ALPSCore_HAS_EIGEN_VERSION)
+  find_package(Eigen3 3.2.8 REQUIRED)
+endif()
 
 # Option (use quad precision for part of calculations)
 option(USE_QUAD_PRECISION "Use quad precision for part of calculations" ON)
