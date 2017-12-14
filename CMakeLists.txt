@@ -53,13 +53,9 @@ else()
     find_package(Boost 1.54.0 REQUIRED chrono)
 endif()
 
-#Eigen dependency
-set(EIGEN3_INCLUDE_DIR "")
-if (ALPSCore_HAS_EIGEN_VERSION)
-    message(STATUS "ALPSCore provides Eigen, version ${ALPSCore_HAS_EIGEN_VERSION}")
-else()
-    message(STATUS "Since ALPSCore does not provide Eigen3, trying to find Eigen3...")
-    find_package(Eigen3 3.2.8 REQUIRED)
+# Eigen is provided by ALPSCore
+if (NOT ALPSCore_HAS_EIGEN_VERSION)
+  find_package(Eigen3 3.2.8 REQUIRED)
 endif()
 
 # Option (use quad precision for part of calculations)

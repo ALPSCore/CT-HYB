@@ -1,3 +1,5 @@
+#include <Eigen/Core> // Has to be included first to avoid compilation failures(Eigen 3.3.4,Boost 1.65)
+                      // see discussion at https://github.com/ALPSCore/CT-HYB/issues/13
 #include <alps/mc/random01.hpp>
 
 #include "moves.hpp"
