@@ -95,6 +95,7 @@ for i in range(len(result_list)):
     plt.subplot(211)
     for i_f in range(nf):
         plt.plot(tau_point, -gtau[:,i_f,i_f].real, color=color_list[i_f], marker='', label='flavor'+str(i_f), ls='--', markersize=0)
+        print "flavor ", i_f, "G(tau=0) = ", gtau[0,i_f,i_f].real , "G(tau=beta) = ", gtau[-1,i_f,i_f].real
 
     omega_point = np.array([(2*im+1)*np.pi/beta for im in xrange(giw.shape[0])])
     plt.subplot(212)
