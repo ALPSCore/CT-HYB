@@ -86,20 +86,20 @@ for i in range(len(result_list)):
     nf = norb*2
 
     sign = result_list[i]["Sign"]
-    gf_legendre = result_list[i]["Gtau"]
-    gomega_l = result_list[i]["Gomega"]
+    gtau = result_list[i]["Gtau"]
+    giw = result_list[i]["Gomega"]
 
     print "The number of measurements is ", result_list[i]["Sign_count"]
 
-    tau_point = np.linspace(0.0, 1.0, gf_legendre.shape[0])
+    tau_point = np.linspace(0.0, 1.0, gtau.shape[0])
     plt.subplot(211)
     for i_f in range(nf):
-        plt.plot(tau_point, -gf_legendre[:,i_f,i_f].real, color=color_list[i_f], marker='', label='flavor'+str(i_f), ls='--', markersize=0)
+        plt.plot(tau_point, -gtau[:,i_f,i_f].real, color=color_list[i_f], marker='', label='flavor'+str(i_f), ls='--', markersize=0)
 
-    omega_point = np.array([(2*im+1)*np.pi/beta for im in xrange(gomega_l.shape[0])])
+    omega_point = np.array([(2*im+1)*np.pi/beta for im in xrange(giw.shape[0])])
     plt.subplot(212)
     for i_f in range(nf):
-        plt.plot(omega_point, -gomega_l[:,i_f,i_f].imag, color=color_list[i_f], marker='', label='flavor'+str(i_f), ls='--', markersize=0)
+        plt.plot(omega_point, -giw[:,i_f,i_f].imag, color=color_list[i_f], marker='', label='flavor'+str(i_f), ls='--', markersize=0)
     plt.plot(omega_point, 1/omega_point, color='k', label=r'$1/\omega_n$', ls='-')
 
 

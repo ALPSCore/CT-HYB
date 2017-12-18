@@ -120,13 +120,13 @@ void ImpurityModel<SCALAR, DERIVED>::read_U_tensor(const alps::params &par) {
       }
     }
   } else if (par.defined("model.coulomb_tensor_input_file")) {
-    std::ifstream infile_f(boost::lexical_cast<std::string>(par["model.coulomb_tensor_input_file"]).c_str());
+    std::ifstream infile_f(par["model.coulomb_tensor_input_file"].template as<std::string>().c_str() );
     if (!infile_f.is_open()) {
-      std::cerr << "We cannot open " << par["model.coulomb_tensor_input_file"] << "!" << std::endl;
+      std::cerr << "We cannot open " << par["model.coulomb_tensor_input_file"].template as<std::string>() << "!" << std::endl;
       exit(1);
     }
     if (verbose_) {
-      std::cout << "Reading " << par["model.coulomb_tensor_input_file"] << "..." << std::endl;
+      std::cout << "Reading " << par["model.coulomb_tensor_input_file"].template as<std::string>() << "..." << std::endl;
     }
 
     int num_elem;
@@ -195,20 +195,14 @@ void ImpurityModel<SCALAR, DERIVED>::read_hopping(const alps::params &par) {
       }
     }
   } else if (par.defined("model.hopping_matrix_input_file")) {
-    std::ifstream infile_f(boost::lexical_cast<std::string>(par["model.hopping_matrix_input_file"]).c_str());
+    std::string fname = par["model.hopping_matrix_input_file"].template as<std::string>();
+    std::ifstream infile_f(fname.c_str());
     if (!infile_f.is_open()) {
-      std::cerr << "We cannot open " << par["model.hopping_matrix_input_file"] << "!" << std::endl;
+      std::cerr << "We cannot open " << fname << "!" << std::endl;
       exit(1);
     }
 
-    //int num_elem;
-    //infile_f >> num_elem;
-    //if (num_elem<0) {
-    //std::runtime_error("The number of elements in HOPPING_MATRIX_INPUT_FILE cannot be negative!");
-    //}
-
     nonzero_t_vals.resize(0);
-    //for (int i_elem=0; i_elem<num_elem; ++i_elem) {
     int line = 0;
     for (int f0 = 0; f0 < flavors_; ++f0) {
       for (int f1 = 0; f1 < flavors_; ++f1) {
@@ -282,19 +276,19 @@ void ImpurityModel<SCALAR, DERIVED>::read_hybridization_function(const alps::par
         for (int j = 0; j < flavors_; j++) {
           infile_f >> dummy_it >> dummy_i >> dummy_j >> real >> imag;
           if (dummy_it != time) {
-            throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["model.delta_input_file"]) +
+            throw std::runtime_error("Format of " + par["model.delta_input_file"].template as<std::string>() +
                 " is wrong. The value at the first colum should be " +
                 boost::lexical_cast<std::string>(time) + "Error at line " +
                 boost::lexical_cast<std::string>(time + 1) + ".");
           }
           if (dummy_i != i) {
-            throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["model.delta_input_file"]) +
+            throw std::runtime_error("Format of " + par["model.delta_input_file"].template as<std::string>() +
                 " is wrong. The value at the second colum should be " +
                 boost::lexical_cast<std::string>(i) + "Error at line " +
                 boost::lexical_cast<std::string>(time + 1) + ".");
           }
           if (dummy_j != j) {
-            throw std::runtime_error("Format of " + boost::lexical_cast<std::string>(par["model.delta_input_file"]) +
+            throw std::runtime_error("Format of " + par["model.delta_input_file"].template as<std::string>() +
                 " is wrong. The value at the third colum should be " +
                 boost::lexical_cast<std::string>(j) + "Error at line " +
                 boost::lexical_cast<std::string>(time + 1) + ".");
@@ -329,7 +323,7 @@ void ImpurityModel<SCALAR, DERIVED>::read_rotation_hybridization_function(const 
     }
 
 #ifndef NDEBUG
-    std::cout << "Reading " << boost::lexical_cast<std::string>(par["model.basis_input_file"]) << "..." << std::endl;
+    std::cout << "Reading " << par["model.basis_input_file"].template as<std::string>() << "..." << std::endl;
 #endif
     for (int i = 0; i < flavors_; ++i) {
       for (int j = 0; j < flavors_; j++) {
