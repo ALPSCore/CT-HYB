@@ -80,6 +80,35 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
 }
 
 
+inline double tl1(int l) {
+  return l%2==0 ? -2 * std::sqrt(2.*l+1.) : 0.0;
+}
+
+/// Correct the first moment of asymptotic behavior c/iwn.
+/// c=1 for diagonal components and c=0 for off-diaognal components.
+template<typename T>
+void correct_G1_tail(double beta, boost::multi_array<T,3>& Gl) {
+  int n_flavors = Gl.shape()[0];
+  int nl = Gl.shape()[2];
+
+  for (int f1 = 0; f1 < n_flavors; ++f1) {
+    for (int f2 = 0; f2 < n_flavors; ++f2) {
+      double c1 = (f1 == f2 ? 1 : 0);
+
+      T diff = beta * c1;
+      T sum_t2 = 0.0;
+      for (int l=0; l<nl; ++l) {
+        diff -= tl1(l) * Gl[f1][f2][l];
+        sum_t2 += tl1(l) * tl1(l);
+      }
+
+      for (int l=0; l<nl; ++l) {
+        Gl[f1][f2][l] += (diff/sum_t2) * tl1(l);
+      }
+    }
+  }
+}
+
 template<typename SOLVER_TYPE>
 void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
                 const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
@@ -130,6 +159,9 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
         }
       }
     }
+
+    //correct the first moment
+    correct_G1_tail(beta, Gl_org_basis);
   }
   ar["G1_LEGENDRE"] = Gl_org_basis;
 
