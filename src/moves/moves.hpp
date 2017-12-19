@@ -520,7 +520,9 @@ class EqualTimeG1_TwoTimeG2_Connector: public LocalUpdater<SCALAR, EXTENDED_SCAL
 
 /**
  * @brief Shift updater a Green's function worm by reconnecting hybridization lines
+ * WARNING : There is a bug in GWormShifter.
  */
+/*
 template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class GWormShifter: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
   typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
@@ -545,6 +547,7 @@ class GWormShifter: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>
   boost::shared_ptr<Worm> p_worm_template_;
   std::vector<psi> ops_work_;
 };
+*/
 
 
 /**

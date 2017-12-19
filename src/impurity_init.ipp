@@ -220,6 +220,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         );
   }
 
+/*
+  DO NOT ACTIVATE GwormShifter. There is a bug.
   if (std::find(worm_types.begin(), worm_types.end(), G1) != worm_types.end()) {
     specialized_updaters["G1_shifter_hyb"] =
         boost::shared_ptr<LocalUpdaterType>(
@@ -239,6 +241,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         );
   }
+*/
 
   //Proposal probability of worm insertion is smaller than that of removal by the number of active worm spaces.
   //We correct this here.
