@@ -601,7 +601,6 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
           update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
       adjust_worm_space_weight();
     }
-    */
 
     if (specialized_updaters.find("G2_shifter_hyb") != specialized_updaters.end()
         && mc_config.current_config_space() == G2) {
@@ -609,6 +608,7 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
           update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
       adjust_worm_space_weight();
     }
+    */
 
     //worm move
     for (typename worm_updater_map_t::iterator it = worm_movers.begin(); it != worm_movers.end();
