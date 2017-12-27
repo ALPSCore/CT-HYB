@@ -48,9 +48,9 @@ include(EnableMPI)
 if (MEASURE_TIMING)
     message("measurement of timing enabled")
     add_definitions(-DMEASURE_TIMING)
-    find_package(Boost 1.54.0 REQUIRED timer chrono)
+    find_package(Boost 1.54.0 REQUIRED timer )
 else()
-    find_package(Boost 1.54.0 REQUIRED chrono)
+    find_package(Boost 1.54.0)
 endif()
 
 # Eigen is provided by ALPSCore

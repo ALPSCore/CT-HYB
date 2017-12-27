@@ -1,19 +1,17 @@
 #pragma once
 
+#include <ctime>
 #include <boost/format.hpp>
-//#include <boost/date_time/posix_time/posix_time_types.hpp>
-#include <boost/chrono.hpp>
 
 #include <alps/mc/mpiadapter.hpp>
 
-#include <time.h>
+//#include <time.h>
 
 class my_check_schedule
 {
  public:
-  typedef boost::chrono::high_resolution_clock clock;
-  typedef clock::time_point time_point;
-  typedef boost::chrono::duration<double> duration;
+  typedef std::time_t time_point;
+  typedef double duration;
 
   /// Constructor
   my_check_schedule(double tcheck = 10)
@@ -23,13 +21,13 @@ class my_check_schedule
 
   bool pending() const
   {
-    time_point now = clock::now();
+    time_point now = std::time(NULL);
     return now > (last_check_time_ + next_check_);
   }
 
   void update(double fraction)
   {
-    time_point now = clock::now();
+    time_point now = std::time(NULL);
     next_check_ = tcheck_;
     last_check_time_ = now;
   }
@@ -65,10 +63,10 @@ template<typename Base> class mymcmpiadapter : public alps::mcmpiadapter<Base,my
 
   std::pair<bool,bool> run(boost::function<bool ()> const & stop_callback) {
     bool done = false, stopped = false;
-    const time_t start_time = time(NULL);
+    const std::time_t start_time = std::time(NULL);
     bool all_processes_thermalized = false;
     bool this_thermalized = false;
-    time_t last_output_time = time(NULL);
+    std::time_t last_output_time = std::time(NULL);
 
     do {
       if (!this->is_thermalized()) {
@@ -99,10 +97,10 @@ template<typename Base> class mymcmpiadapter : public alps::mcmpiadapter<Base,my
         stopped = stop_callback();
         done = stopped;
         base_type_::schedule_checker.update(0.0);
-        if (base_type_::communicator.rank() == 0 && time(NULL) - last_output_time > 1.0) {
+        if (base_type_::communicator.rank() == 0 && std::time(NULL) - last_output_time > 1.0) {
           std::cout << "Checking if the simulation is finished: "
-                  <<  time(NULL) - start_time << " sec passed." << std::endl;
-          last_output_time = time(NULL);
+                  <<  std::time(NULL) - start_time << " sec passed." << std::endl;
+          last_output_time = std::time(NULL);
         }
       }
     } while(!done);

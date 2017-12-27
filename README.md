@@ -29,9 +29,8 @@ Head-file libraries for linear algebra.
 If you want to use our solver from TRIQS applications, please refer to [TRIQS-compatible Python interface](https://github.com/shinaoka/triqs_interface).
 
 ## Manual source installation
-The solver depends on ALPSCore libraries and some Boost libraries (timer, chrono, system).
+The solver depends on ALPSCore libraries and Boost header-file libraries.
 These libraries must be preinstalled.
-Note that the Boost timer, chrono, system libraries are not header-file-only libraries and must be compiled.
 If you want to install the TRIQS-compatible Python interface, please follow the procedure described [in another website](https://github.com/shinaoka/triqs_interface).
 
 The CT-HYB package can be obtained by following methods:
