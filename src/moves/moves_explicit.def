@@ -18,11 +18,11 @@ template class WormInsertionRemover<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 
 template class GWormInsertionRemover<PP_REAL, 1, PP_EXTENDED_SCALAR, PP_SW>;
 
-template class GWormShifter<PP_REAL, 1, PP_EXTENDED_SCALAR, PP_SW>;
+//template class GWormShifter<PP_REAL, 1, PP_EXTENDED_SCALAR, PP_SW>;
 
 template class GWormInsertionRemover<PP_REAL, 2, PP_EXTENDED_SCALAR, PP_SW>;
 
-template class GWormShifter<PP_REAL, 2, PP_EXTENDED_SCALAR, PP_SW>;
+//template class GWormShifter<PP_REAL, 2, PP_EXTENDED_SCALAR, PP_SW>;
 
 template class EqualTimeG1_TwoTimeG2_Connector<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 

@@ -1517,6 +1517,7 @@ bool EqualTimeG1_TwoTimeG2_Connector<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::p
   return true;
 }
 
+/*
 template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool GWormShifter<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
@@ -1573,3 +1574,4 @@ bool GWormShifter<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   BaseType::acceptance_rate_correction_ = 1.0;
   return true;
 }
+*/

@@ -27,12 +27,14 @@ void MatrixSolver<Scalar>::define_parameters(alps::params &parameters) {
 
 template<typename Scalar>
 int MatrixSolver<Scalar>::solve() {
+  try {
   alps::mpi::communicator c;
   const int my_rank = c.rank();
   const int verbose = Base::parameters_["verbose"];
   if (my_rank == 0 && verbose > 0) {
     std::cout << "Creating simulation..." << std::endl;
   }
+
   sim_type sim(Base::parameters_, c);
   const boost::function<bool()> cb = alps::stop_callback(c, size_t(Base::parameters_["timelimit"]));
 
@@ -88,6 +90,10 @@ int MatrixSolver<Scalar>::solve() {
   }
 
   c.barrier();
+  } catch (const std::exception& e) {
+      std::cerr << "Thrown exception " << e.what() << std::endl;
+      return 1;
+  }
 
   return 0;
 }

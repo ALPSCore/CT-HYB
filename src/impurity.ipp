@@ -30,11 +30,12 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("update.multi_pair_ins_rem", 2, "Perform 1, 2, ..., k-pair updates.")
       .define<int>("update.n_global_updates", 10, "Global updates are performed every N_GLOBAL_UPDATES updates.")
       .define<std::string>("update.swap_vector", "", "Definition of global flavor-exchange updates.")
+      .define<int>("update.single_operator_shift", 1, "Perform shifts of a single operator if a non-zero value is specified.")
+      .define<int>("update.operator_pair_flavor_update", 1, "Perform changes of flavors of a pair of operators if a non-zero value is specified.")
           //Measurement
       .define<int>("measurement.n_non_worm_meas",
                    10,
                    "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
-          //
           //Single-particle GF
       .define<int>("measurement.G1.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
       .define<int>("measurement.G1.n_tau",
@@ -515,20 +516,24 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
     //insertion and removal of operators hybridized with the bath
     for (int update = 0; update < FLAVORS; ++update) {
       ins_rem_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
-      operator_pair_flavor_updater.update(random, BETA, mc_config, sliding_window);
       pert_order_sum += mc_config.pert_order();
     }
 
+    if (par["update.operator_pair_flavor_update"].template as<int>() != 0) {
+      for (int update = 0; update < FLAVORS; ++update) {
+        operator_pair_flavor_updater.update(random, BETA, mc_config, sliding_window);
+      }
+    }
+
     //shift move of operators hybridized with the bath
-    for (int update = 0; update < FLAVORS * rank_ins_rem; ++update) {
-      single_op_shift_updater.update(random, BETA, mc_config, sliding_window);
+    if (par["update.single_operator_shift"].template as<int>() != 0) {
+      for (int update = 0; update < FLAVORS * rank_ins_rem; ++update) {
+        single_op_shift_updater.update(random, BETA, mc_config, sliding_window);
+      }
     }
 
     if (is_thermalized()) {
       config_spaces_visited_in_measurement_steps[get_config_space_position(mc_config.current_config_space())] = true;
-      //if (move%10 == 0) {
-        //measure_every_step();
-      //}
     }
 
     transition_between_config_spaces();
@@ -589,6 +594,7 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
     }
 
 
+    /*
     if (specialized_updaters.find("G1_shifter_hyb") != specialized_updaters.end()
         && mc_config.current_config_space() == G1) {
       bool accepted = specialized_updaters["G1_shifter_hyb"]->
@@ -602,6 +608,7 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
           update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
       adjust_worm_space_weight();
     }
+    */
 
     //worm move
     for (typename worm_updater_map_t::iterator it = worm_movers.begin(); it != worm_movers.end();
