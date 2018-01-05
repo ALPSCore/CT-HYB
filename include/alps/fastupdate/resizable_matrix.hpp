@@ -21,6 +21,7 @@ namespace alps {
     class ResizableMatrix {
     public:
       typedef Scalar type;
+      typedef Eigen::Block<Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic> > block_type;
 
       ResizableMatrix(int size1, int size2) :
         size1_(size1),
@@ -380,6 +381,22 @@ namespace alps {
     ALPS_STRONG_INLINE
     Scalar determinant(const alps::fastupdate::ResizableMatrix<Scalar> &m) {
       return m.determinant();
+    }
+
+    template<typename Scalar>
+    ALPS_STRONG_INLINE
+    Scalar phase_of_determinant(const alps::fastupdate::ResizableMatrix<Scalar> &m) {
+      Eigen::FullPivLU<Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic> > lu(m.block());
+      Scalar phase = 1.0;
+      for (int i=0; i<m.size1(); ++i) {
+        Scalar val = lu.matrixLU()(i,i);
+        if (val != 0.0) {
+          phase *= val/std::abs(val);
+        } else {
+          phase = 0.0;
+        }
+      }
+      return phase * static_cast<Scalar>(lu.permutationP().determinant() * lu.permutationQ().determinant());
     }
 
     //template<typename Scalar>
