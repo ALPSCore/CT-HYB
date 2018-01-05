@@ -94,7 +94,8 @@ namespace alps {
         invA.block(N, 0, M, N).noalias() = -H * C_invA;
 
         //compute E
-        invA.block(0, 0, N, N).noalias() -= invA_B * invA.block(N, 0, M, N);
+        eigen_matrix_t tmp_mat = invA_B * invA.block(N, 0, M, N);
+        invA.block(0, 0, N, N).noalias() -= tmp_mat;
 
         invA.block(0, N, N, M) = F;
         invA.block(N, N, M, M) = H;

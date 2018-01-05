@@ -848,6 +848,7 @@ global_update(R &rng,
 
   sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);
   if (trace_new == EXTENDED_SCALAR(0.0)) {
+    std::cout << "DEBUG A "  << std::endl;
     return false;
   }
 
@@ -857,6 +858,8 @@ global_update(R &rng,
       creation_operators_new, annihilation_operators_new,
       det_vec, mc_config.M, det_vec_new);
 
+  std::cout << "DEBUG B "  << det_rat << std::endl;
+
   const SCALAR prob =
       convert_to_scalar(
           EXTENDED_SCALAR(
@@ -864,6 +867,8 @@ global_update(R &rng,
                   EXTENDED_SCALAR(trace_new / mc_config.trace)
           )
       );
+
+  std::cout << "DEBUG C "  << prob << " " << trace_new << " " << mc_config.trace << std::endl;
 
   if (rng() < std::abs(prob)) {
     std::vector<std::pair<psi, psi> > operator_pairs(pert_order);

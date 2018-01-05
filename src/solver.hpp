@@ -39,7 +39,7 @@ class Solver {
  public:
   Solver(const alps::params &parameters) : comm_(alps::mpi::communicator()), parameters_(parameters) {}
 
-  virtual int solve() = 0;
+  virtual int solve(const std::string& dump_file = "") = 0;
 
   /** Get a reference to a collection of results */
   virtual const std::map<std::string,boost::any>& get_results() const = 0;
@@ -74,7 +74,7 @@ class MatrixSolver : public Solver {
 
   static void define_parameters(alps::params &parameters);
 
-  int solve();
+  int solve(const std::string& dump_file = "");
 
   /** Get a reference to a collection of results */
   const std::map<std::string,boost::any>& get_results() const;

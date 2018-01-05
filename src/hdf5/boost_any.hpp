@@ -40,7 +40,7 @@ namespace detail {
   };
 }
 
-void save(
+inline void save(
     archive & ar
     , std::string const & path
     , boost::any const & value
@@ -90,7 +90,7 @@ void save(
   }
 }
 
-void load(
+inline void load(
     archive & ar
     , std::string const & path
     , boost::any & value
