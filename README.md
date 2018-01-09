@@ -77,3 +77,7 @@ When you install the executalbe to your installation path by "make install", CMa
 When you launch "/path/to/install/dir/hybmat", some dynamic libraries which were visible in the build may not be found.
 In this case, please set your environment variables correctly (e.g., LD\_LIBRARY\_PATH) so that the system can find these libraries at runtime. More information is found [here]
 (https://cmake.org/Wiki/CMake_RPATH_handling).
+
+* "make test" fails in unittest_fu for Intel C++ compiler 2017.<br>
+This may be related to a bug in the optimizer of the compiler.
+You can lower the optimization level to O1 by setting "cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo".
