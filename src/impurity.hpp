@@ -268,7 +268,7 @@ class HybridizationSimulation: public alps::mcbase {
   //2 : measuring single-particle green's function and N2 correlation function
   std::vector<double> timings;
 
-  bool verbose;
+  int verbosity_level;
 
   bool thermalized;
 
