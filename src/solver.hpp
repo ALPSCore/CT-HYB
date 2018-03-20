@@ -2,12 +2,12 @@
  *
  * Hybridization expansion code for multi-orbital systems with general interactions
  *
- * Copyright (C) 2016 by Hiroshi Shinaoka <h.shinaoka@gmail.com>,
+ * Copyright (C) 2018 by Hiroshi Shinaoka <h.shinaoka@gmail.com>,
  *                                    Emanuel Gull <egull@umich.edu>,
  *                                    Philipp Werner <philipp.werner@unifr.ch>
  *
  *
- * This software is published under the GNU General Public License version 2.
+ * This software is published under the GNU General Public License version 3 or later.
  * See the file LICENSE.txt.
  *
  *************************************************************************************/

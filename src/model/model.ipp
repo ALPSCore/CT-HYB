@@ -42,6 +42,8 @@ void ImpurityModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters)
                       "Cutoff for entries in the local Hamiltonian matrix")
       .define<bool>("model.command_line_mode", false,
                     "if you pass Coulomb tensor, hopping matrix, delta tau via parameters instead of using text files [ADVANCED]")
+      .define<double>("model.hermicity_tolerance", 1E-12,
+                      "Tolerance in checking hermicity of the local Hamiltonian matrix")
       .define<std::vector<double> >("model.coulomb_tensor_Re", "Real part of U tensor [ADVANCED]")
       .define<std::vector<double> >("model.coulomb_tensor_Im", "Imaginary part of U tensor [ADVANCED]")
       .define<std::vector<double> >("model.hopping_matrix_Re", "Real part of hopping matrix [ADVANCED]")
@@ -545,7 +547,7 @@ void ImpurityModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params
   }
   for (int flavor = 0; flavor < flavors_; ++flavor) {
     for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
-      if (hopping_org_basis(flavor, flavor2) != myconj<SCALAR>(hopping_org_basis(flavor2, flavor))) {
+      if (std::abs(hopping_org_basis(flavor, flavor2) - myconj<SCALAR>(hopping_org_basis(flavor2, flavor))) > par["model.hermicity_tolerance"].template as<double>()) {
         throw std::runtime_error("Error: Hopping matrix is not hermite!");
       }
     }
