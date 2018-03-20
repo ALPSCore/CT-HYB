@@ -362,7 +362,7 @@ void HybridizationSimulation<IMP_MODEL>::read_eq_time_two_particle_greens_meas()
     return;
   }
 
-  std::ifstream infile_f(par[fname_key].as<std::string>());
+  std::ifstream infile_f(par[fname_key].template as<std::string>());
   if (!infile_f.is_open()) {
     std::cerr << "We cannot open " << par[fname_key] << "!" << std::endl;
     exit(1);
@@ -417,7 +417,7 @@ void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
     return;
   }
 
-  std::ifstream infile_f(par[fname_key].as<std::string>());
+  std::ifstream infile_f(par[fname_key].template as<std::string>());
   if (!infile_f.is_open()) {
     std::cerr << "We cannot open " << par[fname_key] << "!" << std::endl;
     exit(1);
