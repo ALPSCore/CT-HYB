@@ -4,7 +4,8 @@ dist: trusty
 
 compiler:
   - gcc
-  - clang
+
+    #- clang
 
 branches:
   only:
@@ -60,7 +61,6 @@ script:
   # Build, test and install ALPSCore/CT-HYB
   - cd $TRAVIS_BUILD_DIR/..
   - mkdir build
-  - mkdir installed
   - cd build
   - |
     cmake ../CT-HYB                                       \
