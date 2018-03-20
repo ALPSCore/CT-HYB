@@ -4,8 +4,7 @@ dist: trusty
 
 compiler:
   - gcc
-
-    #- clang
+  - clang
 
 branches:
   only:
