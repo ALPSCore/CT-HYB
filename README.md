@@ -29,39 +29,7 @@ Head-file libraries for linear algebra.
 If you want to use our solver from TRIQS applications, please refer to [TRIQS-compatible Python interface](https://github.com/shinaoka/triqs_interface).
 
 ## Manual source installation
-The solver depends on ALPSCore libraries and Boost header-file libraries.
-These libraries must be preinstalled.
-If you want to install the TRIQS-compatible Python interface, please follow the procedure described [in another website](https://github.com/shinaoka/triqs_interface).
-
-The CT-HYB package can be obtained by following methods:
-* Clone Git repository at Github
-```
-$ git clone https://github.com/ALPSCore/CT-HYB.git
-```
-
-* From release tarball:
-   1. Download a release tarball from [https://github.com/ALPSCore/CT-HYB/releases](https://github.com/ALPSCore/CT-HYB/releases)
-
-   1. Rename the downloaded tarball to CT-HYB.tar.gz (or CT-HYB.zip, if you chose the zip version) and unpack it: 
-
-            $ tar -xzf CT-HYB.tar.gz
-
-Then, make a (separated) build directly, and provide something like:
-```
-$ mkdir build
-$ cd build
-$ cmake\
-$     -DALPSCore_DIR=/path/to/ALPSCore \
-$     -DCMAKE_INSTALL_PREFIX=/path/to/install/dir \
-$     -DCMAKE_CXX_COMPILER=/path/to/C++/compiler \
-$    ../CT-HYB
-$ make
-$ make test
-$ make install
-```
-If you want to enable parallelization, please use a MPI C++ compiler.
-Note that if you enable MPI for the CT-HYB package, MPI must be enabled also in the installation of ALPSCore.
-If cmake does not find boost, please tell cmake the installation directory of boost by using the option "-DBOOST_ROOT=***".
+Please refer to [our wiki](https://github.com/ALPSCore/CT-HYB/wiki).
 
 ## Usage and tutorials
 Upon installation there will be a binary `hybmat`.
@@ -70,14 +38,3 @@ The program takes a param file as input or command line arguments of the form `-
 
 Tutorials are in the directory `tutorials`.
 The directory includes input param files and corresponding output data and some plots.
-
-## Trouble shooting
-* Some libraries are not found at runtime.<br>
-When you install the executalbe to your installation path by "make install", CMake removes the paths of dynamic libraries from the binary.
-When you launch "/path/to/install/dir/hybmat", some dynamic libraries which were visible in the build may not be found.
-In this case, please set your environment variables correctly (e.g., LD\_LIBRARY\_PATH) so that the system can find these libraries at runtime. More information is found [here]
-(https://cmake.org/Wiki/CMake_RPATH_handling).
-
-* "make test" fails in unittest_fu for Intel C++ compiler 2017.<br>
-This may be related to a bug in the optimizer of the compiler.
-You can lower the optimization level to O1 by setting "cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo".
