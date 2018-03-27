@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/ALPSCore/CT-HYB.svg?branch=master)](https://travis-ci.org/ALPSCore/CT-HYB)
+
 CT-HYB
 ======
 
