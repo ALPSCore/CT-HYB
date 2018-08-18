@@ -45,13 +45,7 @@ find_package(ALPSCore REQUIRED)
 #Find MPI
 include(EnableMPI)
 
-if (MEASURE_TIMING)
-    message("measurement of timing enabled")
-    add_definitions(-DMEASURE_TIMING)
-    find_package(Boost 1.54.0 REQUIRED timer )
-else()
-    find_package(Boost 1.54.0)
-endif()
+find_package(Boost 1.54.0)
 
 # Eigen is provided by ALPSCore
 if (NOT ALPSCore_HAS_EIGEN_VERSION)
@@ -70,12 +64,14 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DBOOST_DISABLE_ASSERTS 
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 #set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O1 -g -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 
+add_definitions(-D__INSTALL_PREFIX__=${CMAKE_INSTALL_PREFIX})
+
 #include directories
 set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH} ${MPI_C_INCLUDE_PATH} ${CMAKE_SOURCE_DIR}/include) #rest taken care of by libraries dependencies
 include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
 #source files
-set(LIB_FILES ./src/solver_real.cpp ./src/solver_complex.cpp ./src/sliding_window/sliding_window.cpp ./src/legendre.cpp ./src/util.cpp ./src/model/model_real.cpp ./src/model/model_complex.cpp ./src/model/clustering.cpp src/operator_util.cpp src/moves/moves.cpp src/measurement/measurement.cpp)
+set(LIB_FILES ./src/solver_real.cpp ./src/solver_complex.cpp ./src/sliding_window/sliding_window.cpp src/gf_basis.cpp ./src/util.cpp ./src/model/model_real.cpp ./src/model/model_complex.cpp ./src/model/clustering.cpp src/operator_util.cpp src/moves/moves.cpp src/measurement/measurement.cpp src/measurement/measurement.ipp)
 add_library(alpscore_cthyb SHARED ${LIB_FILES})
 set_target_properties(alpscore_cthyb PROPERTIES PUBLIC_HEADER src/solver.hpp)
 
@@ -118,8 +114,15 @@ endforeach(test)
 #configure_file("./cmake/ALPSCoreCTHYBConfig.cmake.in" "./ALPSCoreCTHYBConfig.cmake" @ONLY)
 #configure_file("./cmake/ALPSCoreCTHYBConfig.cmake.in" "./ALPSCoreCTHYBConfig.cmake")
 
+add_custom_command(TARGET hybmat POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/data/irbasis.h5
+        $<TARGET_FILE_DIR:hybmat>
+        )
+
 #installation
 install (TARGETS hybmat RUNTIME DESTINATION bin)
+install (FILES data/irbasis.h5 DESTINATION share)
 
 install (TARGETS alpscore_cthyb
         EXPORT ALPSCoreCTHYB-export

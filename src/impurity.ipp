@@ -37,7 +37,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
                    10,
                    "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
           //Single-particle GF
-      .define<int>("measurement.G1.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
+      .define<double>("measurement.Lambda", 1000.0, "Parameter for IR basis (Lambda=10, 100, 1000, 10000 are supported)")
       .define<int>("measurement.G1.n_tau",
                    2000,
                    "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
@@ -203,9 +203,7 @@ double HybridizationSimulation<IMP_MODEL>::fraction_completed() const {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::update() {
-#ifdef MEASURE_TIMING
-  boost::timer::cpu_timer timer;
-#endif
+  auto start = std::chrono::high_resolution_clock::now();
 
   //////////////////////////////////
   // Monte Carlo updates
@@ -215,17 +213,17 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 
     pert_order_recorder << mc_config.pert_order();
 
-#ifdef MEASURE_TIMING
-    const double time1 = timer.elapsed().wall * 1E-9;
-#endif
+    const double time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::high_resolution_clock::now()-start
+    ).count();
 
     /** one sweep of the window */
     do_one_sweep();
 
-#ifdef MEASURE_TIMING
-    const double time2 = timer.elapsed().wall * 1E-9;
+    const double time2 = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::high_resolution_clock::now()-start
+    ).count();
     timings[0] += time2 - time1;
-#endif
 
     //Perform global updates which might cost O(beta)
     //Ex: flavor exchanges, global shift
@@ -238,19 +236,19 @@ void HybridizationSimulation<IMP_MODEL>::update() {
       update_MC_parameters();
     }
 
-#ifdef MEASURE_TIMING
-    const double time3 = timer.elapsed().wall * 1E-9;
+    const double time3 = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::high_resolution_clock::now()-start
+    ).count();
     timings[1] += time3 - time2;
-#endif
 
     if (is_thermalized()) {
       measure_every_step();
     }
 
-#ifdef MEASURE_TIMING
-    const double time4 = timer.elapsed().wall * 1E-9;
+    const double time4 = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::high_resolution_clock::now()-start
+    ).count();
     timings[2] += time4 - time3;
-#endif
 
     sanity_check();
   }//loop up to N_meas
@@ -310,9 +308,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure() {
   assert(is_thermalized());
-#ifdef MEASURE_TIMING
-  boost::timer::cpu_timer timer;
-#endif
+  auto start = std::chrono::high_resolution_clock::now();
 
   //Measure the volumes of the configuration spaces
   {
@@ -359,11 +355,10 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
     //measure_N2_space();
   }
 
-#ifdef MEASURE_TIMING
-  timings[3] = timer.elapsed().wall * 1E-9;
+  auto end = std::chrono::high_resolution_clock::now();
+  timings[3] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
   measurements["TimingsSecPerNMEAS"] << timings;
   std::fill(timings.begin(), timings.end(), 0.0);
-#endif
 }
 
 template<typename IMP_MODEL>

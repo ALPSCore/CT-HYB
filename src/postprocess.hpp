@@ -8,7 +8,7 @@
 #include <alps/gf/gf.hpp>
 #include <alps/gf/tail.hpp>
 
-#include "legendre.hpp"
+#include "gf_basis.hpp"
 
 template<typename T>
 struct to_complex {
@@ -119,26 +119,25 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
-  const int n_legendre(parms["measurement.G1.n_legendre"].template as<int>());
-  const int n_tau(parms["measurement.G1.n_tau"]);
-  const int n_matsubara(parms["measurement.G1.n_matsubara"]);
-  const double beta(parms["model.beta"]);
-  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
-  const double temperature(1.0 / beta);
-  const double sign = results["Sign"].template mean<double>();
+  double beta(parms["model.beta"]);
+  IRbasis basis(params["measurement.Lambda"], beta);
+  int dim_F = basis.dim_F();
+  int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
+  double sign = results["Sign"].template mean<double>();
   //The factor of temperature below comes from the extra degree of freedom for beta in the worm
-  const double coeff =
+  double coeff =
       results["worm_space_volume_G1"].template mean<double>() /
           (sign * results["Z_function_space_volume"].template mean<double>());
 
+
   boost::multi_array<std::complex<double>, 3>
-      Gl_org_basis(boost::extents[n_flavors][n_flavors][n_legendre]);
+      Gl_org_basis(boost::extents[n_flavors][n_flavors][dim_F]);
   {
     const std::vector<double> Gl_Re = results["G1_Re"].template mean<std::vector<double> >();
     const std::vector<double> Gl_Im = results["G1_Im"].template mean<std::vector<double> >();
-    assert(Gl_Re.size() == n_flavors * n_flavors * n_legendre);
+    assert(Gl_Re.size() == n_flavors * n_flavors * dim_F);
     boost::multi_array<std::complex<double>, 3>
-        Gl(boost::extents[n_flavors][n_flavors][n_legendre]);
+        Gl(boost::extents[n_flavors][n_flavors][dim_F]);
     std::transform(Gl_Re.begin(), Gl_Re.end(), Gl_Im.begin(), Gl.origin(), to_complex<double>());
     std::transform(Gl.origin(), Gl.origin() + Gl.num_elements(), Gl.origin(),
                    std::bind1st(std::multiplies<std::complex<double> >(), coeff));
@@ -146,7 +145,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
     //rotate back to the original basis
     complex_matrix_t mattmp(n_flavors, n_flavors), mattmp2(n_flavors, n_flavors);
     const matrix_t inv_rotmat_Delta = rotmat_Delta.inverse();
-    for (int il = 0; il < n_legendre; ++il) {
+    for (int il = 0; il < dim_F; ++il) {
       for (int flavor1 = 0; flavor1 < n_flavors; ++flavor1) {
         for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
           mattmp(flavor1, flavor2) = Gl[flavor1][flavor2][il];
@@ -161,68 +160,9 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
     }
 
     //correct the first moment
-    correct_G1_tail(beta, Gl_org_basis);
+    //correct_G1_tail(beta, Gl_org_basis);
   }
-  ar["G1_LEGENDRE"] = Gl_org_basis;
-
-  /*
-   * Initialize LegendreTransformer
-   */
-  LegendreTransformer legendre_transformer(n_matsubara, n_legendre);
-
-  /*
-   * Compute G(tau) from Legendre coefficients
-   */
-  typedef alps::gf::three_index_gf<std::complex<double>, alps::gf::itime_mesh,
-                                   alps::gf::index_mesh,
-                                   alps::gf::index_mesh
-  > ITIME_GF;
-
-  ITIME_GF
-      itime_gf(alps::gf::itime_mesh(beta, n_tau + 1), alps::gf::index_mesh(n_flavors), alps::gf::index_mesh(n_flavors));
-  std::vector<double> Pvals(n_legendre);
-  const std::vector<double> &sqrt_array = legendre_transformer.get_sqrt_2l_1();
-  for (int itau = 0; itau < n_tau + 1; ++itau) {
-    const double tau = itau * (beta / n_tau);
-    const double x = 2 * tau / beta - 1.0;
-    legendre_transformer.compute_legendre(x, Pvals); //Compute P_l[x]
-
-    for (int flavor = 0; flavor < n_flavors; ++flavor) {
-      for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
-        for (int il = 0; il < n_legendre; ++il) {
-          itime_gf(g::itime_index(itau), g::index(flavor), g::index(flavor2)) +=
-              Pvals[il] * Gl_org_basis[flavor][flavor2][il] * sqrt_array[il] * temperature;
-        }
-      }
-    }
-  }
-  ar["gtau"] = itime_gf;
-
-  /*
-   * Compute Gomega from Legendre coefficients
-   */
-  typedef alps::gf::three_index_gf<std::complex<double>, alps::gf::matsubara_positive_mesh,
-                                   alps::gf::index_mesh,
-                                   alps::gf::index_mesh
-  > GOMEGA;
-
-  const Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> &Tnl(legendre_transformer.Tnl());
-  Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> tmp_mat(n_legendre, 1), tmp_mat2(n_matsubara, 1);
-  GOMEGA gomega(alps::gf::matsubara_positive_mesh(beta, n_matsubara),
-                alps::gf::index_mesh(n_flavors),
-                alps::gf::index_mesh(n_flavors));
-  for (int flavor = 0; flavor < n_flavors; ++flavor) {
-    for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
-      for (int il = 0; il < n_legendre; ++il) {
-        tmp_mat(il, 0) = Gl_org_basis[flavor][flavor2][il];
-      }
-      tmp_mat2 = Tnl * tmp_mat;
-      for (int im = 0; im < n_matsubara; ++im) {
-        gomega(g::matsubara_index(im), g::index(flavor), g::index(flavor2)) = tmp_mat2(im, 0);
-      }
-    }
-  }
-  ar["gf"] = gomega;
+  ar["G1_IR"] = Gl_org_basis;
 }
 
 //very crapy way to implement ...

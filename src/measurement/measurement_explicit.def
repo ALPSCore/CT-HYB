@@ -13,9 +13,7 @@ template struct MeasureGHelper<PP_SCALAR, 1>;
 
 template struct MeasureGHelper<PP_SCALAR, 2>;
 
-template class GMeasurement<PP_SCALAR, 1>;
-
-template class GMeasurement<PP_SCALAR, 2>;
+template class Reconnections<PP_SCALAR>;
 
 template class EqualTimeGMeasurement<PP_SCALAR, 1>;
 
