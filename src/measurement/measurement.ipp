@@ -1,5 +1,6 @@
 #include "./measurement.hpp"
 
+/*
 template<typename SCALAR>
 template<typename SlidingWindow>
 void TwoTimeG2Measurement<SCALAR>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
@@ -144,14 +145,14 @@ void TwoTimeG2Measurement<SCALAR>::measure_impl(const std::vector<psi> &worm_ops
     [flavors[3]][il] += weight * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
   }
 }
+*/
 
-template<typename SCALAR, int Rank>
-void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                                                 alps::accumulators::accumulator_set &measurements,
+template<typename SCALAR>
+Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_config,
                                                  alps::random01 &random,
                                                  int max_num_ops,
+                                                 int Rank,
                                                  double eps) {
-  typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
   typedef operator_container_t::iterator Iterator;
   typedef Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
 
@@ -164,12 +165,13 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   const int n_aux_lines = Rank;
 
   //compute the intermediate state by connecting operators in the worm by hybridization
-  alps::fastupdate::ResizableMatrix<SCALAR> M(pert_order + Rank + n_aux_lines, pert_order + Rank + n_aux_lines, 0.0);
-  M.conservative_resize(pert_order, pert_order);
+  M_.destructive_resize(pert_order + Rank + n_aux_lines, pert_order + Rank + n_aux_lines);
+
+  M_.conservative_resize(pert_order, pert_order);
   int offset = 0;
   for (int ib = 0; ib < mc_config.M.num_blocks(); ++ib) {
     const int block_size = mc_config.M.block_matrix_size(ib);
-    M.block(offset, offset, block_size, block_size) = mc_config.M.compute_inverse_matrix(ib);
+    M_.block(offset, offset, block_size, block_size) = mc_config.M.compute_inverse_matrix(ib);
     offset += block_size;
   }
   matrix_t B(pert_order, Rank + n_aux_lines), C(Rank + n_aux_lines, pert_order), D(Rank + n_aux_lines, Rank + n_aux_lines);
@@ -197,13 +199,13 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
     }
   }
 
-  const SCALAR det_rat = alps::fastupdate::compute_det_ratio_up(B, C, D, M);
+  const SCALAR det_rat = alps::fastupdate::compute_det_ratio_up(B, C, D, M_);
   if (det_rat == 0.0) {
     std::cerr << "Warning intermediate state has a vanishing weight in measurement of G" << Rank << "!" << std::endl;
     return;
   }
-  alps::fastupdate::compute_inverse_matrix_up(B, C, D, M);
-  assert(M.size1() == pert_order + Rank + n_aux_lines);
+  alps::fastupdate::compute_inverse_matrix_up(B, C, D, M_);
+  assert(M_.size1() == pert_order + Rank + n_aux_lines);
 
   std::vector<psi> cdagg_ops_new(cdagg_ops);
   std::vector<psi> c_ops_new(c_ops);
@@ -251,7 +253,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
     }
 
     {
-      const int mat_size = M.size1();
+      const int mat_size = M_.size1();
       alps::fastupdate::ResizableMatrix<SCALAR> M_reduced(max_num_ops + n_aux_lines, max_num_ops + n_aux_lines, 0.0);
       int j_reduced = 0;
       for (int j = 0; j < mat_size; ++j) {
@@ -270,70 +272,41 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
         assert(i_reduced == max_num_ops + n_aux_lines);
       }
       assert(j_reduced == max_num_ops + n_aux_lines);
-      std::swap(M, M_reduced);
-      assert(M.size1() == max_num_ops + n_aux_lines);
-      assert(M.size2() == max_num_ops + n_aux_lines);
+      std::swap(M_, M_reduced);
+      assert(M_.size1() == max_num_ops + n_aux_lines);
+      assert(M_.size2() == max_num_ops + n_aux_lines);
     }
   }
 
   //drop small values
-  const double cutoff = 1.0e-10 * M.block().cwiseAbs().maxCoeff();
-  for (int j = 0; j < M.size2(); ++j) {
-    for (int i = 0; i < M.size1(); ++i) {
-      if (std::abs(M(i, j)) < cutoff) {
-        M(i, j) = 0.0;
+  const double cutoff = 1.0e-10 * M_.block().cwiseAbs().maxCoeff();
+  for (int j = 0; j < M_.size2(); ++j) {
+    for (int i = 0; i < M_.size1(); ++i) {
+      if (std::abs(M_(i, j)) < cutoff) {
+        M_(i, j) = 0.0;
       }
     }
   }
 
-  //measure by removal as we would do for the partition function expansion
-  MeasureGHelper<SCALAR, Rank>::perform(beta_,
-                                        legendre_trans_,
-                                        num_freq_,
-                                        mc_config.sign,
-                                        weight_rat,
-                                        cdagg_ops_new,
-                                        c_ops_new,
-                                        M,
-                                        data_);
-  ++ num_data_;
-
-  if (num_data_ == max_num_data_) {
-    //pass the data to ALPS libraries
-    std::transform(data_.origin(), data_.origin() + data_.num_elements(), data_.origin(),
-                   std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
-    measure_simple_vector_observable<std::complex<double> >(measurements, str_.c_str(), to_std_vector(data_));
-
-    num_data_ = 0;
-    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
-  }
+  creation_ops_ = cdagg_ops_new;
+  annihilation_ops_ = c_ops_new;
 }
 
-//template<typename SCALAR>
-//struct RescaleAdd {
-  //RescaleAdd(SCALAR a) : a_(a) {}
-  //SCALAR operator()(const SCALAR &x, const SCALAR &y) {
-    //return a_ * x + y;
-  //}
-  //SCALAR a_;
-//};
 
-//Measure G1 by removal in G1 space
+//Compute G1 by removal in G1 space
 template<typename SCALAR>
-void MeasureGHelper<SCALAR, 1>::perform(double beta,
-                                        LegendreTransformer &legendre_trans,
-                                        int n_freq,
-                                        SCALAR sign,
-                                        SCALAR weight_rat_intermediate_state,
-                                        const std::vector<psi> &creation_ops,
-                                        const std::vector<psi> &annihilation_ops,
-                                        const alps::fastupdate::ResizableMatrix<SCALAR> &M,
-                                        boost::multi_array<std::complex<double>, 3> &result) {
-  const double temperature = 1. / beta;
-  const int num_flavors = result.shape()[0];
-  const int num_legendre = legendre_trans.num_legendre();
+void compute_G1(const IRbasis &basis,
+                SCALAR sign,
+                const Reconnections& reconnect,
+                boost::multi_array<std::complex<double>, 3> &result) {
+  double beta = basis.beta();
+  double temperature = 1. / beta;
+  int num_flavors = static_cast<int>(result.shape()[0]);
 
-  std::vector<double> Pl_vals(num_legendre);
+  std::vector<double> Ultau_vals(static_cast<int>(basis.dim_F()));
+  const auto& M = reconnect.M();
+  const auto& creation_ops = reconnect.creation_ops();
+  const auto& annihilation_ops = reconnect.annihilation_ops();
 
   std::vector<psi>::const_iterator it1, it2;
   const int mat_size = M.size1();
@@ -353,7 +326,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
       const double bubble_sign = it1->time() - it2->time() > 0.0 ? 1.0 : -1.0;
 
       coeffs[k][l] = (M(l, k) * M(mat_size - 1, mat_size - 1) - M(l, mat_size - 1) * M(mat_size - 1, k))
-          * bubble_sign * sign * weight_rat_intermediate_state;
+          * bubble_sign * sign * reconnect.weight_rat_intermediate_state();
       norm += std::abs(coeffs[k][l]);
     }
   }
@@ -374,163 +347,37 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 
       const int flavor_a = it1->flavor();
       const int flavor_c = it2->flavor();
-      const double x = 2 * argument * temperature - 1.0;
-      legendre_trans.compute_legendre(x, Pl_vals);
-      for (int il = 0; il < num_legendre; ++il) {
-        result[flavor_a][flavor_c][il] += scale_fact * coeffs[k][l] * legendre_trans.get_sqrt_2l_1()[il] * Pl_vals[il];
+      basis.compute_Utau_F(argument, Ultau_vals);
+      for (int il = 0; il < basis.dim_F(); ++il) {
+        result[flavor_a][flavor_c][il] += scale_fact * coeffs[k][l] * Ultau_vals[il];
       }
     }
   }
-};
+}
 
-//Measure G2 by removal in G2 space
 template<typename SCALAR>
-void MeasureGHelper<SCALAR, 2>::perform(double beta,
-                                        LegendreTransformer &legendre_trans,
-                                        int n_freq,
-                                        SCALAR sign,
-                                        SCALAR weight_rat_intermediate_state,
-                                        const std::vector<psi> &creation_ops,
-                                        const std::vector<psi> &annihilation_ops,
-                                        const alps::fastupdate::ResizableMatrix<SCALAR> &M,
-                                        boost::multi_array<std::complex<double>, 7> &result) {
-  const double temperature = 1. / beta;
-  const int num_flavors = result.shape()[0];
-  const int num_legendre = legendre_trans.num_legendre();
-  const int num_phys_rows = creation_ops.size();
-  //std::cout << "num_phys_rows " << num_phys_rows << " " << annihilation_ops.size() << " " << M.size1() << std::endl;
-  const int n_aux_lines = 2;
-  if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.size1() - n_aux_lines) {
-    throw std::runtime_error("Fatal error in MeasureGHelper<SCALAR, 2>::perform()");
-  }
+void GMeasurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
+                                           const IRbasis& basis,
+                                           alps::accumulators::accumulator_set &measurements,
+                                           alps::random01 &random,
+                                           int max_num_ops,
+                                           double eps) {
 
-  //Compute values of P
-  std::vector<double> sqrt_2l_1 = legendre_trans.get_sqrt_2l_1();
-  std::vector<double> sqrt_2l_1_p(sqrt_2l_1);
-  for (int il = 0; il < num_legendre; il += 2) {
-    sqrt_2l_1_p[il] *= -1;
-  }
+  Reconnections reconnection(mc_config, random, max_num_ops, 2);
 
-  boost::multi_array<double, 3>
-      sqrt_2l_1_Pl(boost::extents[num_phys_rows][num_phys_rows][num_legendre]);//annihilator, creator, legendre
-  boost::multi_array<double, 3>
-      sqrt_2l_1_Pl_p(boost::extents[num_phys_rows][num_phys_rows][num_legendre]);//annihilator, creator, legendre
-  {
-    std::vector<double> Pl_tmp(num_legendre);
-    for (int k = 0; k < num_phys_rows; k++) {
-      for (int l = 0; l < num_phys_rows; l++) {
-        double argument = annihilation_ops[k].time() - creation_ops[l].time();
-        double arg_sign = 1.0;
-        if (argument < 0) {
-          argument += beta;
-          arg_sign = -1.0;
-        }
-        const double x = 2 * argument * temperature - 1.0;
-        legendre_trans.compute_legendre(x, Pl_tmp);
-        for (int il = 0; il < num_legendre; ++il) {
-          sqrt_2l_1_Pl[k][l][il] = arg_sign * Pl_tmp[il] * sqrt_2l_1[il];
-          sqrt_2l_1_Pl_p[k][l][il] = arg_sign * Pl_tmp[il] * sqrt_2l_1_p[il];
-        }
-      }
-    }
-  }
+  compute_G1<SCALAR>(basis, mc_config.sign, reconnection, data_);
+  ++ num_data_;
 
-  boost::multi_array<std::complex<double>, 3>
-      expiomega(boost::extents[num_phys_rows][num_phys_rows][n_freq]);//annihilator, creator, legendre
-  {
-    for (int k = 0; k < num_phys_rows; k++) {
-      for (int l = 0; l < num_phys_rows; l++) {
-        const double tau_diff = annihilation_ops[k].time() - creation_ops[l].time();
-        const std::complex<double> rat = std::exp(std::complex<double>(0.0, 2 * M_PI * tau_diff * temperature));
-        expiomega[k][l][0] = 1.0;
-        for (int freq = 1; freq < n_freq; ++freq) {
-          expiomega[k][l][freq] = rat * expiomega[k][l][freq - 1];
-        }
-      }
-    }
-  }
+  if (num_data_ == max_num_data_) {
+    //pass the data to ALPS libraries
+    std::transform(data_.origin(), data_.origin() + data_.num_elements(), data_.origin(),
+                   std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
+    measure_simple_vector_observable<std::complex<double> >(measurements, str_.c_str(), to_std_vector(data_));
 
-  //naive way to evaluate
-  //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
-
-  //First, compute relative weights
-  const int rank = 2;
-  const int det_size = rank + n_aux_lines;
-  Eigen::Matrix<SCALAR,det_size,det_size> tmp_mat;
-  boost::array<int,det_size> rows3, cols3;
-  const int last = M.size1() - 1;
-  for (int i = 0; i < n_aux_lines; ++i) {
-    cols3[rank+i] = rows3[rank+i] = i + M.size1() - n_aux_lines;
+    num_data_ = 0;
+    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
   }
-  assert(cols3.back()==last);
-  boost::multi_array<SCALAR,4> coeffs(boost::extents[num_phys_rows][num_phys_rows][num_phys_rows][num_phys_rows]);
-  double norm = 0.0;
-  for (int a = 0; a < num_phys_rows; ++a) {
-    for (int b = 0; b < num_phys_rows; ++b) {
-      for (int c = 0; c < num_phys_rows; ++c) {
-        if (a==c) {
-          continue;
-        }
-        for (int d = 0; d < num_phys_rows; ++d) {
-          if (b==d) {
-            continue;
-          }
-          /*
-           * Delta convention
-           * M_ab  M_ad  M_a*
-           * M_cb  M_cd  M_c*
-           * M_*b  M_*d  M_**
-           */
-          rows3[0] = b;
-          rows3[1] = d;
-          cols3[0] = a;
-          cols3[1] = c;
-          for (int j = 0; j < det_size; ++j) {
-            for (int i = 0; i < det_size; ++i) {
-              tmp_mat(i,j) = M(rows3[i], cols3[j]);
-            }
-          }
-          coeffs[a][b][c][d] = sign * weight_rat_intermediate_state * tmp_mat.determinant();
-          norm += std::abs(coeffs[a][b][c][d]);
-        }
-      }
-    }
-  }
-
-  //Then, accumulate data
-  const double scale_fact = 1.0/(norm * beta);
-  for (int a = 0; a < num_phys_rows; ++a) {
-    const int flavor_a = annihilation_ops[a].flavor();
-    for (int b = 0; b < num_phys_rows; ++b) {
-      const int flavor_b = creation_ops[b].flavor();
-      for (int c = 0; c < num_phys_rows; ++c) {
-        if (a==c) {
-          continue;
-        }
-        const int flavor_c = annihilation_ops[c].flavor();
-        for (int d = 0; d < num_phys_rows; ++d) {
-          if (b==d) {
-            continue;
-          }
-          const int flavor_d = creation_ops[d].flavor();
-
-          if (coeffs[a][b][c][d] == 0.0) {
-            continue;
-          }
-          const SCALAR coeff = coeffs[a][b][c][d] * scale_fact;
-          for (int il = 0; il < num_legendre; ++il) {
-            for (int il_p = 0; il_p < num_legendre; ++il_p) {
-              const SCALAR coeff2 = coeff * sqrt_2l_1_Pl[a][b][il] * sqrt_2l_1_Pl_p[c][d][il_p];
-              for (int im = 0; im < n_freq; ++im) {
-                result[flavor_a][flavor_b][flavor_c][flavor_d][il][il_p][im] += coeff2 * expiomega[a][d][im];
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-};
+}
 
 template<typename SCALAR, int Rank>
 void

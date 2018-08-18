@@ -15,150 +15,9 @@
 #include "../accumulator.hpp"
 #include "../mc_config.hpp"
 #include "../sliding_window/sliding_window.hpp"
-#include "../legendre.hpp"
+#include "src/gf_basis.hpp"
 #include "../operator.hpp"
 
-
-/**
- * @brief Class for measurement of single-particle Green's function using Legendre basis
- */
-template<typename SCALAR>
-class GreensFunctionLegendreMeasurement {
- public:
-  /**
-   * Constructor
-   *
-   * @param num_flavors    the number of flavors
-   * @param num_legendre   the number of legendre coefficients
-   * @param num_matsubara  the number of Matsubara frequencies
-   * @param beta           inverse temperature
-   */
-  GreensFunctionLegendreMeasurement(int num_flavors, int num_legendre, int num_matsubra, double beta) :
-      num_flavors_(num_flavors),
-      num_legendre_(num_legendre),
-      num_matsubara_(num_matsubra),
-      beta_(beta),
-      temperature_(1.0 / beta),
-      legendre_trans_(num_matsubara_, num_legendre_),
-      n_meas_(0),
-      g_meas_(boost::extents[num_flavors][num_flavors][num_legendre]) {
-    std::fill(g_meas_.origin(), g_meas_.origin() + g_meas_.num_elements(), 0.0);
-  }
-
-  /**
-   * Measure Green's function
-   *
-   * @param M the inverse matrix for hybridization function
-   * @param operators a set of annihilation and creation operators
-   */
-  void measure(const MonteCarloConfiguration<SCALAR> &mc_config) {
-    //Work array for P[x_l]
-    std::vector<double> Pl_vals(num_legendre_);
-    ++n_meas_;
-    std::vector<psi>::const_iterator it1, it2;
-
-    if (mc_config.pert_order() == 0) {
-      return;
-    }
-
-    for (int block = 0; block < mc_config.M.num_blocks(); ++block) {
-      const std::vector<psi> &creation_operators = mc_config.M.get_cdagg_ops(block);
-      const std::vector<psi> &annihilation_operators = mc_config.M.get_c_ops(block);
-
-      const Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> &M =
-          mc_config.M.compute_inverse_matrix(block);
-
-      //const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>& G =
-      //mc_config.M.compute_G_matrix(block);
-
-      for (int k = 0; k < M.rows(); k++) {
-        (k == 0 ? it1 = annihilation_operators.begin() : it1++);
-        for (int l = 0; l < M.cols(); l++) {
-          (l == 0 ? it2 = creation_operators.begin() : it2++);
-          double argument = it1->time() - it2->time();
-          double bubble_sign = 1;
-          if (argument > 0) {
-            bubble_sign = 1;
-          } else {
-            bubble_sign = -1;
-            argument += beta_;
-          }
-          assert(-0.01 < argument && argument < beta_ + 0.01);
-
-          const int flavor_a = it1->flavor();
-          const int flavor_c = it2->flavor();
-          const double x = 2 * argument * temperature_ - 1.0;
-          legendre_trans_.compute_legendre(x, Pl_vals);
-          const SCALAR coeff = -M(l, k) * bubble_sign * mc_config.sign * temperature_;
-          for (int il = 0; il < num_legendre_; ++il) {
-            g_meas_[flavor_a][flavor_c][il] += coeff * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Return the measured data in the original basis.
-   *
-   * @param rotmat_Delta   rotation matrix for Delta, which defines the single-particle basis for the perturbation expansion
-   */
-  template<typename Derived>
-  boost::multi_array<std::complex<double>,
-                     3> get_measured_legendre_coefficients(const Eigen::MatrixBase<Derived> &rotmat_Delta) const {
-    if (n_meas_ == 0) {
-      throw std::runtime_error("Error: n_meas_=0");
-    }
-
-    //Divide by the number of measurements
-    boost::multi_array<std::complex<double>, 3> result(g_meas_);
-    std::transform(result.origin(), result.origin() + result.num_elements(), result.origin(),
-                   std::bind2nd(std::divides<std::complex<double> >(), 1. * n_meas_)
-    );
-
-    //Transform to the original basis
-    Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> gf_tmp(num_flavors_, num_flavors_);
-    for (int il = 0; il < num_legendre_; ++il) {
-      for (int flavor = 0; flavor < num_flavors_; ++flavor) {
-        for (int flavor2 = 0; flavor2 < num_flavors_; ++flavor2) {
-          gf_tmp(flavor, flavor2) = result[flavor][flavor2][il];
-        }
-      }
-      gf_tmp = rotmat_Delta * gf_tmp * rotmat_Delta.adjoint();
-      for (int flavor = 0; flavor < num_flavors_; ++flavor) {
-        for (int flavor2 = 0; flavor2 < num_flavors_; ++flavor2) {
-          result[flavor][flavor2][il] = gf_tmp(flavor, flavor2);
-        }
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Clear all the data measured
-   */
-  void reset() {
-    n_meas_ = 0;
-    std::fill(g_meas_.origin(), g_meas_.origin() + g_meas_.num_elements(), 0.0);
-  }
-
-  /**
-   * Returns the number of legendre coefficients
-   */
-  inline int get_num_legendre() const { return num_legendre_; }
-
-  inline bool has_samples() const { return n_meas_ > 0; }
-
-  inline int num_samples() const { return n_meas_; }
-
- private:
-  const int num_flavors_, num_legendre_, num_matsubara_;
-  const double beta_, temperature_;
-  LegendreTransformer legendre_trans_;
-  int n_meas_;
-  boost::multi_array<std::complex<double>, 3> g_meas_;
-};
 
 /**
  * Helper for measuring kL and KR
@@ -225,145 +84,82 @@ class AcceptanceRateMeasurement {
 };
 
 /**
- * @brief Class for measurement of two-time correlation function using Legendre basis
+ * @brief Perform reconnections of hybridization lines
+ *
+ * Rank: number of aux lines to be added in constructing an intermediate matrix
  */
 template<typename SCALAR>
-class TwoTimeG2Measurement {
+class Reconnections {
  public:
-  /**
-   * Constructor
-   *
-   * @param num_flavors    the number of flavors
-   * @param num_legendre   the number of legendre coefficients
-   * @param beta           inverse temperature
-   */
-  TwoTimeG2Measurement(int num_flavors, int num_legendre, double beta) :
-      num_flavors_(num_flavors),
-      beta_(beta),
-      legendre_trans_(1, num_legendre),
-      data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_legendre]) {
-    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
+  Reconnections(const MonteCarloConfiguration<SCALAR> &mc_config,
+               alps::random01 &random, int max_matrix_size, int Rank, double eps = 1E-5);
+
+  const alps::fastupdate::ResizableMatrix<SCALAR>& M() const {
+    return M_;
   }
 
-  /**
-   * @brief Measure correlation functions with shifting two of the four operators on the interval [0,beta]
-   * @param average_pert_order average perturbation order, which is used for determining the number of shifts
-   */
-  template<typename SlidingWindow>
-  void measure(MonteCarloConfiguration<SCALAR> &mc_config,
-               alps::accumulators::accumulator_set &measurements,
-                   alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str);
+  const std::vector<psi>& creation_ops() const {
+    return creation_ops_;
+  }
 
- private:
-  /** Measure correlation functions for a single configuration */
-  void measure_impl(const std::vector<psi> &worm_ops, SCALAR weight,
-                    boost::multi_array<std::complex<double>,5> &data);
-  int num_flavors_;
-  double beta_;
-  LegendreTransformer legendre_trans_;
-  boost::multi_array<std::complex<double>, 5> data_;
-};
+  const std::vector<psi>& annihilation_ops() const {
+    return annihilation_ops_;
+  }
 
-void init_work_space(boost::multi_array<std::complex<double>, 3> &data, int num_flavors, int num_legendre, int num_freq);
-void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_flavors, int num_legendre, int num_freq);
+  SCALAR weight_rat_intermediate_state() const {
+    return weight_rat_intermediate_state_;
+  }
 
-/**
- * @brief Helper struct for measurement of Green's function using Legendre basis in G space
- */
-template<typename SCALAR, int RANK>
-struct MeasureGHelper {
-  static void perform(double beta,
-                      LegendreTransformer &legendre_trans,
-                      int n_freq,
-                      SCALAR sign, SCALAR weight_rat_intermediate_state,
-                      const std::vector<psi> &creation_ops,
-                      const std::vector<psi> &annihilation_ops,
-                      const alps::fastupdate::ResizableMatrix<SCALAR> &M,
-                      boost::multi_array<std::complex<double>, 4 * RANK -1> &data
-  );
-};
-
-/**
- * @brief Specialization for measureing G1
- */
-template<typename SCALAR>
-struct MeasureGHelper<SCALAR, 1> {
-  static void perform(double beta,
-                      LegendreTransformer &legendre_trans,
-                      int n_freq,
-                      SCALAR sign, SCALAR weight_rat_intermediate_state,
-                      const std::vector<psi> &creation_ops,
-                      const std::vector<psi> &annihilation_ops,
-                      const alps::fastupdate::ResizableMatrix<SCALAR> &M,
-                      boost::multi_array<std::complex<double>, 3> &data
-  );
-};
-
-/**
- * @brief Specialization for measureing G2
- */
-template<typename SCALAR>
-struct MeasureGHelper<SCALAR, 2> {
-  static void perform(double beta,
-                      LegendreTransformer &legendre_trans,
-                      int n_freq,
-                      SCALAR sign, SCALAR weight_rat_intermediate_state,
-                      const std::vector<psi> &creation_ops,
-                      const std::vector<psi> &annihilation_ops,
-                      const alps::fastupdate::ResizableMatrix<SCALAR> &M,
-                      boost::multi_array<std::complex<double>, 7> &data
-  );
+private:
+  alps::fastupdate::ResizableMatrix<SCALAR> M_;
+  SCALAR weight_rat_intermediate_state_;
+  std::vector<psi> creation_ops_;
+  std::vector<psi> annihilation_ops_;
 };
 
 /**
  * @brief Class for measurement of Green's function using Legendre basis
  */
-template<typename SCALAR, int Rank>
+template<typename SCALAR>
 class GMeasurement {
- public:
-  /**
-   * Constructor
-   *
-   * @param num_flavors    the number of flavors
-   * @param num_legendre   the number of legendre coefficients
-   * @param num_freq       the number of bosonic frequencies
-   * @param beta           inverse temperature
-   */
-  GMeasurement(int num_flavors, int num_legendre, int num_freq, double beta, int max_num_data = 1) :
-      str_("G"+boost::lexical_cast<std::string>(Rank)),
-      num_flavors_(num_flavors),
-      num_freq_(num_freq),
-      beta_(beta),
-      legendre_trans_(1, num_legendre),
-      num_data_(0),
-      max_num_data_(max_num_data) {
-    init_work_space(data_, num_flavors, num_legendre, num_freq);
-  };
+public:
+    /**
+     * Constructor
+     *
+     * @param num_flavors    the number of flavors
+     */
+    GMeasurement(int num_flavors, const IRbasis& basis, int max_num_data = 1) :
+            str_("G1"),
+            num_flavors_(num_flavors),
+            data_(boost::extents[num_flavors][num_flavors][basis.dim_F()]),
+            num_data_(0),
+            max_num_data_(max_num_data) {
+        std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0);
+    };
 
-  /**
-   * @brief Create ALPS observable
-   */
-  void create_alps_observable(alps::accumulators::accumulator_set &measurements) const {
-    create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, str_.c_str());
-  }
+    /**
+     * @brief Create ALPS observable
+     */
+    void create_alps_observable(alps::accumulators::accumulator_set &measurements) const {
+      create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, str_.c_str());
+    }
 
-  /**
-   * @brief Measure Green's function via hybridization function
-   */
-  void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-               alps::accumulators::accumulator_set &measurements,
-               alps::random01 &random, int max_matrix_size, double eps = 1E-5);
+    /**
+     * @brief Measure Green's function via hybridization function
+     */
+    void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
+                         const IRbasis& basis,
+                         alps::accumulators::accumulator_set &measurements,
+                         alps::random01 &random, int max_matrix_size, double eps = 1E-5);
 
- private:
-  std::string str_;
-  int num_flavors_, num_freq_;
-  double beta_;
-  LegendreTransformer legendre_trans_;
-  //flavor, ..., flavor, legendre, legendre, ..., legendre
-  boost::multi_array<std::complex<double>, 4 * Rank - 1> data_;
-  int num_data_;
-  int max_num_data_;//max number of data accumlated before passing data to ALPS
+private:
+    std::string str_;
+    int num_flavors_;
+    boost::multi_array<std::complex<double>, 3> data_; //flavor, flavor, IR
+    int num_data_;
+    int max_num_data_;//max number of data accumlated before passing data to ALPS
 };
+
 
 /**
  * @brief Class for measurement of equal-time Green's function
