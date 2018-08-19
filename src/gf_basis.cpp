@@ -7,11 +7,33 @@ double tau_to_x(double tau, double beta) {
     );
 }
 
-IRbasis::IRbasis(double Lambda, double beta)
+IRbasis::IRbasis(double Lambda, double beta, const std::string& file_name)
     : Lambda_(Lambda),
       beta_(beta),
-      basis_f_(irbasis::load("F", Lambda, "__INSTALL_PREFIX__"+std::string("/share/irbasis.h5"))),
-      basis_b_(irbasis::load("B", Lambda, "__INSTALL_PREFIX__"+std::string("/share/irbasis.h5"))) {
+      basis_f_(),
+      basis_b_() {
+
+    //auto file_name = "__INSTALL_PREFIX__" + std::string("/share/irbasis.h5");
+
+    {
+        std::ifstream ifs(file_name);
+        if (!ifs.is_open()) {
+            throw std::runtime_error(file_name + " does not exist!");
+        }
+    }
+
+    //std::vector<double> Lambda_supported{10, 100, 1000, 10000};
+    //if (std::find(Lambda_supported.begin(), Lambda_supported.end(), Lambda) == Lambda_supported.end()) {
+        //throw std::runtime_error("Specified value of Lambda is not supported!");
+    //}
+
+    try {
+        basis_f_ = irbasis::load("F", Lambda, file_name);
+        basis_b_ = irbasis::load("B", Lambda, file_name);
+    } catch (const std::exception& e) {
+        std::cerr << "Error occured during reading a database file for IR basis at " + file_name + "!";
+        throw std::runtime_error("Error occured during reading a database file for IR basis at " + file_name + "!");
+    }
 
 };
 

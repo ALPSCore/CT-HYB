@@ -12,8 +12,6 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<double>("thermalization_time",
                       -1,
                       "Thermalization time (in units of second). The default value is 10 % of timelimit.")
-      //.define<int>("Tmin", 1, "The scheduler checks longer than every Tmin seconds if the simulation is finished.")
-      //.define<int>("Tmax", 60, "The scheduler checks shorter than every Tmax seconds if the simulation is finished.")
       .define<std::string>("outputfile",
                            alps::fs::remove_extensions(origin_name(parameters)) + ".out.h5",
                            "name of the output file")
@@ -36,8 +34,9 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.n_non_worm_meas",
                    10,
                    "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
-          //Single-particle GF
       .define<double>("measurement.Lambda", 1000.0, "Parameter for IR basis (Lambda=10, 100, 1000, 10000 are supported)")
+      .define<std::string>("measurement.IRbasis_database_file", "./irbasis.h5", "Relative/absolute path to a HDF5 database file of IR basis")
+          //Single-particle GF
       .define<int>("measurement.G1.n_tau",
                    2000,
                    "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
@@ -101,6 +100,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
           BETA, N, FLAVORS, p_model->get_F()
         )
       ),
+      irbasis(parameters["measurement.Lambda"], BETA, parameters["measurement.IRbasis_database_file"]),
 #ifdef ALPS_HAVE_MPI
       comm(),
 #endif
@@ -113,7 +113,6 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       single_op_shift_updater(BETA, FLAVORS, N),
       worm_insertion_removers(0),
       sliding_window(p_model.get(), BETA),
-      g_meas_legendre(FLAVORS, p["measurement.G1.n_legendre"], p["measurement.G1.n_matsubara"], BETA),
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
@@ -260,7 +259,6 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
 
   switch (mc_config.current_config_space()) {
     case Z_FUNCTION:
-      g_meas_legendre.measure(mc_config);//measure Green's function by removal
       measure_scalar_observable<SCALAR>(measurements, "kLkR",
                                         static_cast<double>(measure_kLkR(mc_config.operators, BETA,
                                                                          0.5 * BETA * random())) * mc_config.sign);
@@ -270,24 +268,28 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       break;
 
     case G1:
-      p_G1_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G1.max_matrix_size"],
+      p_G1_meas->measure_via_hyb(mc_config, irbasis, measurements, random, par["measurement.G1.max_matrix_size"],
                                  par["measurement.G1.aux_field"]
       );
       break;
 
     case G2:
-      p_G2_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G2.max_matrix_size"],
+      /*
+       * p_G2_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G2.max_matrix_size"],
                                  par["measurement.G2.aux_field"]
       );
+       */
       break;
 
     case Two_time_G2:
+      /*
       p_two_time_G2_meas->measure(mc_config,
                                   measurements,
                                   random,
                                   sliding_window,
                                   N_win_standard,
                                   "Two_time_G2");
+                                  */
       break;
 
     case Equal_time_G1:
@@ -411,24 +413,6 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
 
   //Measure <n>
   measure_two_time_correlation_functions();
-
-  //Measure Legendre coefficients of single-particle Green's function
-  if (g_meas_legendre.has_samples()) {
-    measure_simple_vector_observable<COMPLEX>(measurements, "Greens_legendre",
-                                              to_std_vector(
-                                                  g_meas_legendre.get_measured_legendre_coefficients(p_model->get_rotmat_Delta())
-                                              )
-    );
-    measure_simple_vector_observable<COMPLEX>(measurements, "Greens_legendre_rotated",
-                                              to_std_vector(
-                                                  g_meas_legendre.get_measured_legendre_coefficients(Eigen::Matrix<
-                                                      SCALAR,
-                                                      Eigen::Dynamic,
-                                                      Eigen::Dynamic>::Identity(FLAVORS, FLAVORS))
-                                              )
-    );
-    g_meas_legendre.reset();
-  }
 
   measurements["Sign"] << mycast<double>(mc_config.sign);
 
@@ -741,7 +725,6 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
 /////////////////////////////////////////////////
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
-  g_meas_legendre.reset();
   single_op_shift_updater.finalize_learning();
   for (int k = 1; k < par["update.multi_pair_ins_rem"].template as<int>() + 1; ++k) {
     ins_rem_updater[k - 1]->finalize_learning();

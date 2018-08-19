@@ -120,7 +120,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
   double beta(parms["model.beta"]);
-  IRbasis basis(params["measurement.Lambda"], beta);
+  IRbasis basis(parms["measurement.Lambda"], beta, parms["measurement.IRbasis_database_file"]);
   int dim_F = basis.dim_F();
   int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   double sign = results["Sign"].template mean<double>();

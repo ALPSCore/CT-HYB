@@ -32,7 +32,7 @@ convert_to_eigen_matrix(const std::vector<std::vector<T>>& array) {
 
 class IRbasis {
  public:
-  IRbasis(double Lambda, double beta);
+  IRbasis(double Lambda, double beta, const std::string& file_name);
 
  private:
   double Lambda_, beta_;

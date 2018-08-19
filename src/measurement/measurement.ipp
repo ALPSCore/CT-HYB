@@ -265,7 +265,7 @@ Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_c
           if (!is_row_active[i]) {
             continue;
           }
-          M_reduced(i_reduced, j_reduced) = M(i, j);
+          M_reduced(i_reduced, j_reduced) = M_(i, j);
           ++ i_reduced;
         }
         ++ j_reduced;
@@ -297,7 +297,7 @@ Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_c
 template<typename SCALAR>
 void compute_G1(const IRbasis &basis,
                 SCALAR sign,
-                const Reconnections& reconnect,
+                const Reconnections<SCALAR>& reconnect,
                 boost::multi_array<std::complex<double>, 3> &result) {
   double beta = basis.beta();
   double temperature = 1. / beta;
@@ -363,7 +363,7 @@ void GMeasurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR>
                                            int max_num_ops,
                                            double eps) {
 
-  Reconnections reconnection(mc_config, random, max_num_ops, 2);
+  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 1);
 
   compute_G1<SCALAR>(basis, mc_config.sign, reconnection, data_);
   ++ num_data_;
