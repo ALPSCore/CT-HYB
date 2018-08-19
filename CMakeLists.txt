@@ -127,7 +127,7 @@ add_custom_command(TARGET hybmat POST_BUILD
 
 #installation
 install (TARGETS hybmat RUNTIME DESTINATION bin)
-install (FILES data/irbasis.h5 DESTINATION share)
+#install (FILES data/irbasis.h5 DESTINATION share)
 
 install (TARGETS alpscore_cthyb
         EXPORT ALPSCoreCTHYB-export
