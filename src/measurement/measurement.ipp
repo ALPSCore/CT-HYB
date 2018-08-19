@@ -168,6 +168,11 @@ Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_c
   M_.destructive_resize(pert_order + Rank + n_aux_lines, pert_order + Rank + n_aux_lines);
 
   M_.conservative_resize(pert_order, pert_order);
+  for (int i=0; i<pert_order; ++i) {
+    for (int j=0; j<pert_order; ++j) {
+        M_(i, j) = 0;
+    }
+  }
   int offset = 0;
   for (int ib = 0; ib < mc_config.M.num_blocks(); ++ib) {
     const int block_size = mc_config.M.block_matrix_size(ib);
