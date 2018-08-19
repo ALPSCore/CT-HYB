@@ -71,7 +71,12 @@ set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH} ${MP
 include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
 #source files
-set(LIB_FILES ./src/solver_real.cpp ./src/solver_complex.cpp ./src/sliding_window/sliding_window.cpp src/gf_basis.cpp ./src/util.cpp ./src/model/model_real.cpp ./src/model/model_complex.cpp ./src/model/clustering.cpp src/operator_util.cpp src/moves/moves.cpp src/measurement/measurement.cpp src/measurement/measurement.ipp)
+file(GLOB_RECURSE CPP_FILES RELATIVE ${PROJECT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE IPP_FILES RELATIVE ${PROJECT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src/*.ipp")
+set(LIB_FILES ${CPP_FILES} ${IPP_FILES})
+message(STATUS ${LIB_FILES})
+
+
 add_library(alpscore_cthyb SHARED ${LIB_FILES})
 set_target_properties(alpscore_cthyb PROPERTIES PUBLIC_HEADER src/solver.hpp)
 

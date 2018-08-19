@@ -28,7 +28,7 @@ void MatrixSolver<Scalar>::define_parameters(alps::params &parameters) {
 
 template<typename Scalar>
 int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
-  try {
+  //try {
     alps::mpi::communicator c;
     const int my_rank = c.rank();
     const int verbose = Base::parameters_["verbose"];
@@ -105,10 +105,10 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
       }
     }
 
-  } catch (const std::exception& e) {
-      std::cerr << "Thrown exception " << e.what() << std::endl;
-      return 1;
-  }
+  //} catch (const std::exception& e) {
+      //std::cerr << "Thrown exception " << e.what() << std::endl;
+      //return 1;
+  //}
 
   return 0;
 }

@@ -30,9 +30,6 @@
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
 #include <boost/array.hpp>
-#ifdef MEASURE_TIMING
-#include <boost/timer/timer.hpp>
-#endif
 
 //Eigen3
 #include<Eigen/Dense>
@@ -168,6 +165,8 @@ class HybridizationSimulation: public alps::mcbase {
 
   boost::shared_ptr<HybridizationFunction<SCALAR> > F;
 
+  IRbasis irbasis;
+
   //ALPS MPI communicator
 #ifdef ALPS_HAVE_MPI
   alps::mpi::communicator comm;
@@ -231,16 +230,16 @@ class HybridizationSimulation: public alps::mcbase {
   SW_TYPE sliding_window;
 
   //for measuring Green's function (by removal)
-  GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
+  //GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
 
   //Measurement of two-time correlation functions by worm sampling
-  boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
+  //boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
 
   //Measurement of single-particle Green's functions by worm sampling
-  boost::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_meas;
+  boost::shared_ptr<GMeasurement<SCALAR> > p_G1_meas;
 
   //Measurement of two-particle Green's functions by worm sampling
-  boost::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_meas;
+  //boost::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_meas;
 
   //Measurement of equal-time two-particle Green's function
   boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 2> > p_equal_time_G2_meas;
@@ -289,7 +288,3 @@ void
                                        const MAT &rotmat_Delta,
                                        const MAT &inv_rotmat_Delta,
                                        std::vector<COMPLEX> &G);
-
-#include "./impurity.ipp"
-#include "./impurity_init.ipp"
-#include "./impurity_postprocess.ipp"

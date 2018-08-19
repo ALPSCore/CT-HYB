@@ -36,9 +36,11 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   if (p_G1_meas) {
     p_G1_meas->create_alps_observable(measurements);
   }
+  /*
   if (p_G2_meas) {
     p_G2_meas->create_alps_observable(measurements);
   }
+  */
 
   if (par["measurement.equal_time_G1.on"] != 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G1");
@@ -68,9 +70,7 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
     it->second->create_measurement_acc_rate(measurements);
   }
 
-#ifdef MEASURE_TIMING
   measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >("TimingsSecPerNMEAS");
-#endif
 }
 
 template<typename IMP_MODEL>
@@ -112,8 +112,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
           )
       );
   p_G1_meas.reset(
-      new GMeasurement<SCALAR, 1>(FLAVORS, par["measurement.G1.n_legendre"], 0, BETA,
-                                  par["measurement.G1.max_num_data_accumulated"])
+      new GMeasurement<SCALAR>(FLAVORS, irbasis, par["measurement.G1.max_num_data_accumulated"])
   );
 
   /*
@@ -131,12 +130,14 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         )
     );
+    /*
     p_G2_meas.reset(
         new GMeasurement<SCALAR, 2>(FLAVORS,
                                     par["measurement.G2.n_legendre"], par["measurement.G2.n_bosonic_freq"], BETA,
                                     par["measurement.G2.max_num_data_accumulated"]
         )
     );
+    */
     specialized_updaters["G2_ins_rem_hyb"] =
         boost::shared_ptr<LocalUpdaterType>(
             new G2WormInsertionRemoverType(
@@ -148,6 +149,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   /*
    * Two-time G2
    */
+  /*
   if (par["measurement.two_time_G2.on"] != 0) {
     worm_types.push_back(Two_time_G2);
     add_worm_mover<WormMoverType>(Two_time_G2, "Two_time_G2_mover");
@@ -164,6 +166,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         new TwoTimeG2Measurement<SCALAR>(FLAVORS, par["measurement.two_time_G2.n_legendre"], BETA)
     );
   }
+   */
 
   /*
    * Equal-time G1
