@@ -290,6 +290,7 @@ Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_c
 
   creation_ops_ = cdagg_ops_new;
   annihilation_ops_ = c_ops_new;
+  weight_rat_intermediate_state_ = weight_rat;
 }
 
 
