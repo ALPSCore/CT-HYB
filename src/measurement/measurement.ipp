@@ -302,7 +302,7 @@ Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_c
 //Compute G1 by removal in G1 space
 template<typename SCALAR>
 void compute_G1(const IRbasis &basis,
-                SCALAR sign,
+                const MonteCarloConfiguration<SCALAR>& mc_config,
                 const Reconnections<SCALAR>& reconnect,
                 boost::multi_array<std::complex<double>, 3> &result
 ) {
@@ -312,6 +312,7 @@ void compute_G1(const IRbasis &basis,
   const auto& M = reconnect.M();
   const auto& creation_ops = reconnect.creation_ops();
   const auto& annihilation_ops = reconnect.annihilation_ops();
+  SCALAR sign = mc_config.sign;
 
   std::vector<psi>::const_iterator it1, it2;
   const int mat_size = M.size1();
@@ -332,7 +333,7 @@ void compute_G1(const IRbasis &basis,
 
       wprimes[k][l] = (M(l, k) * M(mat_size - 1, mat_size - 1) - M(l, mat_size - 1) * M(mat_size - 1, k))
           * bubble_sign * sign * reconnect.weight_rat_intermediate_state();
-      wprimes[k][l] *= GWorm<1>::get_weight_correction(it1->time().time(), it2->time().time());
+      wprimes[k][l] *= GWorm<1>::get_weight_correction(it1->time().time(), it2->time().time(), mc_config.p_irbasis);
 
       sum_wprime += std::abs(wprimes[k][l]);
     }
@@ -350,7 +351,7 @@ void compute_G1(const IRbasis &basis,
         continue;
       }
       double argument = it1->time() - it2->time();
-      double rw_corr = GWorm<1>::get_weight_correction(it1->time().time(), it2->time().time());
+      double rw_corr = GWorm<1>::get_weight_correction(it1->time().time(), it2->time().time(), mc_config.p_irbasis);
       if (argument < 0) {
         argument += beta;
         // Note: sign change is already included in the definition of coeffs as "bubble sign".
@@ -378,7 +379,19 @@ void GMeasurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR>
 
   Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 1);
 
-  compute_G1<SCALAR>(basis, mc_config.sign, reconnection, data_);
+  {
+    std::vector<double> histogram(mc_config.p_irbasis->bin_edges().size()-1, 0.0);
+    auto p_worm_G1 = dynamic_cast<const GWorm<1>* >(mc_config.p_worm.get());
+    histogram[p_worm_G1->get_bin_index()] = 1;
+    //std::cout << "debug " << p_worm_G1->get_bin_index()
+              //<< " " << p_worm_G1->get_time(0)
+            //<< " " << p_worm_G1->get_time(1)
+            //<< " " << p_worm_G1->get_time(0) - p_worm_G1->get_time(1)
+              //<< std::endl;
+    measurements[(str_ + "_bin_histogram").c_str()] << histogram;
+  }
+
+  compute_G1<SCALAR>(basis, mc_config, reconnection, data_);
   ++ num_data_;
 
   if (num_data_ == max_num_data_) {
