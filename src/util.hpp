@@ -30,6 +30,14 @@ inline double myabs(std::complex<double> x) {
   return std::abs(x);
 }
 
+inline double mymod(double x, double beta) {
+  if (x >= 0) {
+    return x - beta * static_cast<int>(x / beta);
+  } else {
+    return x + beta * (static_cast<int>(-x / beta) + 1);
+  }
+}
+
 template<typename T>
 bool my_isnan(T x);
 

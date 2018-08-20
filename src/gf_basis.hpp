@@ -13,6 +13,8 @@
 
 #include "./thirdparty/irbasis.hpp"
 
+#include "util.hpp"
+
 template<typename T>
 Eigen::Matrix<T,Eigen::Dynamic,Eigen::Dynamic>
 convert_to_eigen_matrix(const std::vector<std::vector<T>>& array) {
@@ -34,11 +36,6 @@ class IRbasis {
  public:
   IRbasis(double Lambda, double beta, const std::string& file_name);
 
- private:
-  double Lambda_, beta_;
-  irbasis::basis basis_f_, basis_b_;
-
- public:
   double beta() const {return beta_;}
   int dim_F() const {return basis_f_.dim();}
   int dim_B() const {return basis_b_.dim();}
@@ -48,4 +45,20 @@ class IRbasis {
 
   void compute_Utau_F(double tau, std::vector<double> &val) const;
   void compute_Utau_B(double tau, std::vector<double> &val) const;
+
+  const std::vector<double>& bin_edges() const {return bin_edges_;}
+
+  int get_bin_index(double tau) const {
+    auto tau_bounded = mymod(tau, beta_);
+    std::size_t idx = std::distance(
+            std::upper_bound(bin_edges_.begin(), bin_edges_.end(), tau_bounded),
+            bin_edges_.begin()) - 1;
+
+    return std::min(idx, bin_edges_.size() - 2);
+  }
+
+private:
+    double Lambda_, beta_;
+    irbasis::basis basis_f_, basis_b_;
+    std::vector<double> bin_edges_;
 };

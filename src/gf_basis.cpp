@@ -56,7 +56,9 @@ IRbasis::IRbasis(double Lambda, double beta, const std::string& file_name)
     : Lambda_(Lambda),
       beta_(beta),
       basis_f_(),
-      basis_b_() {
+      basis_b_(),
+      bin_edges_()
+{
 
     //auto file_name = "__INSTALL_PREFIX__" + std::string("/share/irbasis.h5");
 
@@ -80,10 +82,15 @@ IRbasis::IRbasis(double Lambda, double beta, const std::string& file_name)
         throw std::runtime_error("Error occured during reading a database file for IR basis at " + file_name + "!");
     }
 
-    auto zeros_x_f_ = find_zeros(
+    auto zeros_x_f = find_zeros(
             [&](double x){return basis_f_.ulx(basis_f_.dim()-1, x);}
     );
-
+    bin_edges_.push_back(0);
+    std::transform(
+            zeros_x_f.begin(), zeros_x_f.end(), std::back_inserter(bin_edges_),
+            [&](double x) {return beta_ * 0.5 * (x+1);}
+            );
+    bin_edges_.push_back(beta_);
 };
 
 Eigen::MatrixXcd

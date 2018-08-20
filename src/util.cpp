@@ -42,10 +42,4 @@ double permutation(size_t N, size_t k) {
   return r;
 }
 
-double mymod(double x, double beta) {
-  if (x >= 0) {
-    return x - beta * static_cast<int>(x / beta);
-  } else {
-    return x + beta * (static_cast<int>(-x / beta) + 1);
-  }
-}
+

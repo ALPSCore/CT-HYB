@@ -129,7 +129,6 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
       results["worm_space_volume_G1"].template mean<double>() /
           (sign * results["Z_function_space_volume"].template mean<double>());
 
-
   boost::multi_array<std::complex<double>, 3>
       Gl_org_basis(boost::extents[n_flavors][n_flavors][dim_F]);
   {

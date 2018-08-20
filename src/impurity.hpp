@@ -165,7 +165,7 @@ class HybridizationSimulation: public alps::mcbase {
 
   boost::shared_ptr<HybridizationFunction<SCALAR> > F;
 
-  IRbasis irbasis;
+  std::shared_ptr<IRbasis> p_irbasis;
 
   //ALPS MPI communicator
 #ifdef ALPS_HAVE_MPI

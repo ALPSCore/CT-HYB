@@ -81,7 +81,7 @@ class LocalUpdater {
   /** To be implemented in a derived class */
   virtual bool propose(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   ) {
@@ -170,7 +170,7 @@ class InsertionRemovalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLID
 
   virtual bool propose(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
@@ -191,13 +191,13 @@ class InsertionRemovalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLID
  * Propose insertion update
  */
   bool propose_insertion(alps::random01 &rng,
-                         MonteCarloConfiguration<SCALAR> &mc_config);
+                         const MonteCarloConfiguration<SCALAR> &mc_config);
 
 /**
  * Propose removal update
  */
   bool propose_removal(alps::random01 &rng,
-                       MonteCarloConfiguration<SCALAR> &mc_config);
+                       const MonteCarloConfiguration<SCALAR> &mc_config);
 };
 
 /**
@@ -215,7 +215,7 @@ class OperatorPairFlavorUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SL
 
   virtual bool propose(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
@@ -241,7 +241,7 @@ class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, S
 
   virtual bool propose(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
@@ -297,7 +297,7 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
 
   virtual bool propose(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   ) = 0;
@@ -333,7 +333,7 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
  private:
   virtual bool propose(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
@@ -360,7 +360,7 @@ class WormFlavorChanger: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WIN
  private:
   virtual bool propose(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
@@ -391,21 +391,21 @@ class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_
  private:
   virtual bool propose(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
 
   bool propose_by_trace_impl(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
 
   bool propose_by_trace_hyb_impl(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
@@ -437,7 +437,7 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
  private:
   virtual bool propose(
       alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpace, double> &config_space_weight
   );
