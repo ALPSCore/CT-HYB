@@ -132,9 +132,11 @@ public:
             str_("G1"),
             num_flavors_(num_flavors),
             data_(boost::extents[num_flavors][num_flavors][basis.dim_F()]),
+            bin_data_(boost::extents[num_flavors][num_flavors][basis.bin_edges().size()-1]),
             num_data_(0),
             max_num_data_(max_num_data) {
         std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0);
+        std::fill(bin_data_.origin(), bin_data_.origin() + bin_data_.num_elements(), 0);
     };
 
     /**
@@ -142,7 +144,7 @@ public:
      */
     void create_alps_observable(alps::accumulators::accumulator_set &measurements) const {
       create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, str_.c_str());
-      //create_observable<double, SimpleRealVectorObservable>(measurements, (str_ + "_bin_histogram").c_str());
+      create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, (str_ + "_bin").c_str());
       measurements << alps::accumulators::NoBinningAccumulator<std::vector<double>>(str_ + "_bin_histogram");
     }
 
@@ -158,7 +160,7 @@ private:
     std::string str_;
     int num_flavors_;
     boost::multi_array<std::complex<double>, 3> data_; //flavor, flavor, IR
-    double rw_factor_data_;
+    boost::multi_array<std::complex<double>, 3> bin_data_; //flavor, flavor, bins
     int num_data_;
     int max_num_data_;//max number of data accumlated before passing data to ALPS
 };

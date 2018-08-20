@@ -55,6 +55,8 @@ inline void save(
   cnt += detail::save_if_match<double>::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
   cnt += detail::save_if_match<dcomplex_>::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
 
+  cnt += detail::save_if_match<std::vector<double> >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+
   cnt += detail::save_if_match<boost::multi_array<double,1 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
   cnt += detail::save_if_match<boost::multi_array<double,2 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
   cnt += detail::save_if_match<boost::multi_array<double,3 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;

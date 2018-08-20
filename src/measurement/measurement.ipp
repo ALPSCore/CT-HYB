@@ -304,7 +304,8 @@ template<typename SCALAR>
 void compute_G1(const IRbasis &basis,
                 const MonteCarloConfiguration<SCALAR>& mc_config,
                 const Reconnections<SCALAR>& reconnect,
-                boost::multi_array<std::complex<double>, 3> &result
+                boost::multi_array<std::complex<double>, 3> &result,
+                boost::multi_array<std::complex<double>, 3> &bin_result
 ) {
   double beta = basis.beta();
 
@@ -365,6 +366,10 @@ void compute_G1(const IRbasis &basis,
       for (int il = 0; il < basis.dim_F(); ++il) {
         result[flavor_a][flavor_c][il] += Ultau_vals[il] * coeff;
       }
+
+      auto idx = mc_config.p_irbasis->get_bin_index(argument);
+      auto bin_length = mc_config.p_irbasis->bin_edges()[idx+1] - mc_config.p_irbasis->bin_edges()[idx];
+      bin_result[flavor_a][flavor_c][idx] += coeff/bin_length;
     }
   }
 }
@@ -383,15 +388,10 @@ void GMeasurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR>
     std::vector<double> histogram(mc_config.p_irbasis->bin_edges().size()-1, 0.0);
     auto p_worm_G1 = dynamic_cast<const GWorm<1>* >(mc_config.p_worm.get());
     histogram[p_worm_G1->get_bin_index()] = 1;
-    //std::cout << "debug " << p_worm_G1->get_bin_index()
-              //<< " " << p_worm_G1->get_time(0)
-            //<< " " << p_worm_G1->get_time(1)
-            //<< " " << p_worm_G1->get_time(0) - p_worm_G1->get_time(1)
-              //<< std::endl;
     measurements[(str_ + "_bin_histogram").c_str()] << histogram;
   }
 
-  compute_G1<SCALAR>(basis, mc_config, reconnection, data_);
+  compute_G1<SCALAR>(basis, mc_config, reconnection, data_, bin_data_);
   ++ num_data_;
 
   if (num_data_ == max_num_data_) {
@@ -400,8 +400,13 @@ void GMeasurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR>
                    std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
     measure_simple_vector_observable<std::complex<double> >(measurements, str_.c_str(), to_std_vector(data_));
 
+    std::transform(bin_data_.origin(), bin_data_.origin() + bin_data_.num_elements(), bin_data_.origin(),
+                   std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
+    measure_simple_vector_observable<std::complex<double> >(measurements, (str_+"_bin").c_str(), to_std_vector(bin_data_));
+
     num_data_ = 0;
     std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
+    std::fill(bin_data_.origin(), bin_data_.origin() + bin_data_.num_elements(), 0.0);
   }
 }
 

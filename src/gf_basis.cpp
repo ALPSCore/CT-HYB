@@ -82,8 +82,19 @@ IRbasis::IRbasis(double Lambda, double beta, const std::string& file_name)
         throw std::runtime_error("Error occured during reading a database file for IR basis at " + file_name + "!");
     }
 
+    auto count_basis = [&](const irbasis::basis& basis, double cutoff) {
+        int dim = 0;
+        for (int l=0; l<basis.dim(); ++l) {
+            if (basis.sl(l)/basis.sl(0) > cutoff)
+            dim += 1;
+        }
+        return dim;
+    };
+    dim_F_ = count_basis(basis_f_, 1e-5);
+    dim_B_ = count_basis(basis_b_, 1e-5);
+
     auto zeros_x_f = find_zeros(
-            [&](double x){return basis_f_.ulx(basis_f_.dim()-1, x);}
+            [&](double x){return basis_f_.ulx(dim_F_-1, x);}
     );
     bin_edges_.push_back(0);
     std::transform(

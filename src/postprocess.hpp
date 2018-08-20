@@ -162,6 +162,39 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
     //correct_G1_tail(beta, Gl_org_basis);
   }
   ar["G1_IR"] = Gl_org_basis;
+
+  auto num_bins = basis.bin_edges().size()-1;
+  boost::multi_array<std::complex<double>, 3>
+          Gb_org_basis(boost::extents[n_flavors][n_flavors][num_bins]);
+  {
+    const std::vector<double> Gb_Re = results["G1_bin_Re"].template mean<std::vector<double> >();
+    const std::vector<double> Gb_Im = results["G1_bin_Im"].template mean<std::vector<double> >();
+    assert(Gb_Re.size() == n_flavors * n_flavors * num_bins);
+    boost::multi_array<std::complex<double>, 3>
+            Gb(boost::extents[n_flavors][n_flavors][dim_F]);
+    std::transform(Gb_Re.begin(), Gb_Re.end(), Gb_Im.begin(), Gb.origin(), to_complex<double>());
+    std::transform(Gb.origin(), Gb.origin() + Gb.num_elements(), Gb.origin(),
+                   std::bind1st(std::multiplies<std::complex<double> >(), coeff));
+
+    //rotate back to the original basis
+    complex_matrix_t mattmp(n_flavors, n_flavors), mattmp2(n_flavors, n_flavors);
+    const matrix_t inv_rotmat_Delta = rotmat_Delta.inverse();
+    for (int ib = 0; ib < num_bins; ++ib) {
+      for (int flavor1 = 0; flavor1 < n_flavors; ++flavor1) {
+        for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
+          mattmp(flavor1, flavor2) = Gb[flavor1][flavor2][ib];
+        }
+      }
+      mattmp2 = rotmat_Delta * mattmp * inv_rotmat_Delta;
+      for (int flavor1 = 0; flavor1 < n_flavors; ++flavor1) {
+        for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
+          Gb_org_basis[flavor1][flavor2][ib] = mattmp2(flavor1, flavor2);
+        }
+      }
+    }
+  }
+  ar["G1_bin_edges"] = basis.bin_edges();
+  ar["G1_bin"] = Gb_org_basis;
 }
 
 //very crapy way to implement ...
