@@ -2,7 +2,7 @@ template class LocalUpdater<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 
 template class InsertionRemovalUpdater<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 
-template class InsertionRemovalDiagonalUpdater<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
+//template class InsertionRemovalDiagonalUpdater<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 
 template class OperatorPairFlavorUpdater<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 
@@ -24,7 +24,7 @@ template class GWormInsertionRemover<PP_REAL, 2, PP_EXTENDED_SCALAR, PP_SW>;
 
 //template class GWormShifter<PP_REAL, 2, PP_EXTENDED_SCALAR, PP_SW>;
 
-template class EqualTimeG1_TwoTimeG2_Connector<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
+//template class EqualTimeG1_TwoTimeG2_Connector<PP_REAL, PP_EXTENDED_SCALAR, PP_SW>;
 
 template bool
 global_update<PP_REAL, PP_EXTENDED_SCALAR, alps::random01, PP_SW, ExchangeFlavor, WormExchangeFlavor>(

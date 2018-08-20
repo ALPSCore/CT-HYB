@@ -62,6 +62,13 @@ class Worm {
   /** Return a time index */
   virtual double get_time(int index) const = 0;
 
+  /**
+   * Return correction of weight for reweighting
+   */
+  virtual double get_weight_correction() const {
+    return 1.0;
+  }
+
   /** Set a new value to a time index */
   virtual void set_time(int index, double new_time) = 0;
 

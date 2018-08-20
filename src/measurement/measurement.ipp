@@ -306,8 +306,8 @@ void compute_G1(const IRbasis &basis,
                 const Reconnections<SCALAR>& reconnect,
                 boost::multi_array<std::complex<double>, 3> &result) {
   double beta = basis.beta();
-  double temperature = 1. / beta;
-  int num_flavors = static_cast<int>(result.shape()[0]);
+  //double temperature = 1. / beta;
+  //int num_flavors = static_cast<int>(result.shape()[0]);
 
   std::vector<double> Ultau_vals(static_cast<int>(basis.dim_F()));
   const auto& M = reconnect.M();
@@ -329,7 +329,7 @@ void compute_G1(const IRbasis &basis,
         continue;
       }
 
-      const double bubble_sign = it1->time() - it2->time() > 0.0 ? 1.0 : -1.0;
+      double bubble_sign = it1->time() - it2->time() > 0.0 ? 1.0 : -1.0;
 
       coeffs[k][l] = (M(l, k) * M(mat_size - 1, mat_size - 1) - M(l, mat_size - 1) * M(mat_size - 1, k))
           * bubble_sign * sign * reconnect.weight_rat_intermediate_state();
@@ -337,6 +337,9 @@ void compute_G1(const IRbasis &basis,
     }
   }
 
+  // Ingredients of scale_fact.
+  // beta is due to the degree of freedom of origin of the relative times.
+  // The "minus" is from the definition of the Green's function. G(tau) = - <T c^dagger(tau) c(0)>.
   double scale_fact = -1.0/(norm * beta);
   for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
     (k == 0 ? it1 = annihilation_ops.begin() : it1++);
@@ -348,6 +351,7 @@ void compute_G1(const IRbasis &basis,
       double argument = it1->time() - it2->time();
       if (argument < 0) {
         argument += beta;
+        // Note: sign change is already included in the definition of coeffs as "bubble sign".
       }
       assert(-0.01 < argument && argument < beta + 0.01);
 
