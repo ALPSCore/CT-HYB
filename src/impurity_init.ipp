@@ -100,7 +100,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       boost::shared_ptr<WormInsertionRemoverType>(
           new WormInsertionRemoverType(
               "G1_ins_rem", BETA, FLAVORS, 0.0, BETA,
-              boost::shared_ptr<Worm>(new GWorm<1>())
+              boost::shared_ptr<Worm>(new GWorm<1>(p_irbasis))
           )
       )
   );
@@ -108,11 +108,11 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   specialized_updaters["G1_ins_rem_hyb"] =
       boost::shared_ptr<LocalUpdaterType>(
           new G1WormInsertionRemoverType(
-              "G1_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>())
+              "G1_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>(p_irbasis))
           )
       );
   p_G1_meas.reset(
-      new GMeasurement<SCALAR>(FLAVORS, irbasis, par["measurement.G1.max_num_data_accumulated"])
+      new GMeasurement<SCALAR>(FLAVORS, *p_irbasis, par["measurement.G1.max_num_data_accumulated"])
   );
 
   /*
@@ -126,7 +126,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
                 "G2_ins_rem", BETA, FLAVORS, 0.0, BETA,
-                boost::shared_ptr<Worm>(new GWorm<2>())
+                boost::shared_ptr<Worm>(new GWorm<2>(p_irbasis))
             )
         )
     );
@@ -141,7 +141,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     specialized_updaters["G2_ins_rem_hyb"] =
         boost::shared_ptr<LocalUpdaterType>(
             new G2WormInsertionRemoverType(
-                "G2_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<2>())
+                "G2_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<2>(p_irbasis))
             )
         );
   }

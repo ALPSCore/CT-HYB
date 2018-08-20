@@ -304,10 +304,9 @@ template<typename SCALAR>
 void compute_G1(const IRbasis &basis,
                 SCALAR sign,
                 const Reconnections<SCALAR>& reconnect,
-                boost::multi_array<std::complex<double>, 3> &result) {
+                boost::multi_array<std::complex<double>, 3> &result
+) {
   double beta = basis.beta();
-  //double temperature = 1. / beta;
-  //int num_flavors = static_cast<int>(result.shape()[0]);
 
   std::vector<double> Ultau_vals(static_cast<int>(basis.dim_F()));
   const auto& M = reconnect.M();
@@ -318,29 +317,31 @@ void compute_G1(const IRbasis &basis,
   const int mat_size = M.size1();
 
   //First, we compute relative weights
-  boost::multi_array<SCALAR,2> coeffs(boost::extents[mat_size-1][mat_size-1]);
-  double norm = 0.0;
+  boost::multi_array<SCALAR,2> wprimes(boost::extents[mat_size-1][mat_size-1]);
+  double sum_wprime = 0.0;
   for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
     (k == 0 ? it1 = annihilation_ops.begin() : it1++);
     for (int l = 0; l < mat_size - 1; l++) {
       (l == 0 ? it2 = creation_ops.begin() : it2++);
       if (M(l, k) == 0.0) {
-        coeffs[k][l] = 0.0;
+        wprimes[k][l] = 0.0;
         continue;
       }
 
       double bubble_sign = it1->time() - it2->time() > 0.0 ? 1.0 : -1.0;
 
-      coeffs[k][l] = (M(l, k) * M(mat_size - 1, mat_size - 1) - M(l, mat_size - 1) * M(mat_size - 1, k))
+      wprimes[k][l] = (M(l, k) * M(mat_size - 1, mat_size - 1) - M(l, mat_size - 1) * M(mat_size - 1, k))
           * bubble_sign * sign * reconnect.weight_rat_intermediate_state();
-      norm += std::abs(coeffs[k][l]);
+      wprimes[k][l] *= GWorm<1>::get_weight_correction(it1->time().time(), it2->time().time());
+
+      sum_wprime += std::abs(wprimes[k][l]);
     }
   }
 
   // Ingredients of scale_fact.
   // beta is due to the degree of freedom of origin of the relative times.
   // The "minus" is from the definition of the Green's function. G(tau) = - <T c^dagger(tau) c(0)>.
-  double scale_fact = -1.0/(norm * beta);
+  double scale_fact = -1.0/(sum_wprime * beta);
   for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
     (k == 0 ? it1 = annihilation_ops.begin() : it1++);
     for (int l = 0; l < mat_size - 1; l++) {
@@ -349,6 +350,7 @@ void compute_G1(const IRbasis &basis,
         continue;
       }
       double argument = it1->time() - it2->time();
+      double rw_corr = GWorm<1>::get_weight_correction(it1->time().time(), it2->time().time());
       if (argument < 0) {
         argument += beta;
         // Note: sign change is already included in the definition of coeffs as "bubble sign".
@@ -358,8 +360,9 @@ void compute_G1(const IRbasis &basis,
       const int flavor_a = it1->flavor();
       const int flavor_c = it2->flavor();
       basis.compute_Utau_F(argument, Ultau_vals);
+      SCALAR coeff = wprimes[k][l] * scale_fact / rw_corr;
       for (int il = 0; il < basis.dim_F(); ++il) {
-        result[flavor_a][flavor_c][il] += scale_fact * coeffs[k][l] * Ultau_vals[il];
+        result[flavor_a][flavor_c][il] += Ultau_vals[il] * coeff;
       }
     }
   }

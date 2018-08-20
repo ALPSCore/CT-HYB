@@ -266,7 +266,7 @@ void LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::finalize_update() {
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
+    const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
@@ -302,7 +302,7 @@ bool InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_insertion(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config) {
+    const MonteCarloConfiguration<SCALAR> &mc_config) {
   namespace bll = boost::lambda;
   typedef operator_container_t::iterator it_t;
 
@@ -353,7 +353,7 @@ bool InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_i
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_removal(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config) {
+    const MonteCarloConfiguration<SCALAR> &mc_config) {
 
   const int num_blocks = mc_config.M.num_blocks();
   std::vector<int> num_pairs_rem(num_blocks);
@@ -404,150 +404,10 @@ bool InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_r
   return true;
 };
 
-/*
-template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-bool InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
-    alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
-    const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
-) {
-  namespace bll = boost::lambda;
-  typedef operator_container_t::iterator IteratorType;
-
-  tau_low_ = sliding_window.get_tau_low();
-  tau_high_ = sliding_window.get_tau_high();
-
-  flavor_ = static_cast<int>(rng() * num_flavors_);
-  const int block = mc_config.M.block_belonging_to(flavor_);
-
-  //count creation operators
-  {
-    std::pair<IteratorType, IteratorType> ops_range = mc_config.M.get_cdagg_ops_set(block).range(
-        tau_low_ <= bll::_1, bll::_1 <= tau_high_
-    );
-    cdagg_ops_in_range_.resize(0);
-    for (IteratorType it = ops_range.first; it != ops_range.second; ++it) {
-      if (it->flavor() == flavor_) {
-        cdagg_ops_in_range_.push_back(*it);
-      }
-    }
-  }
-
-  //count annihilation operators
-  {
-    c_ops_in_range_.resize(0);
-    std::pair<IteratorType, IteratorType> ops_range = mc_config.M.get_c_ops_set(block).range(
-        tau_low_ <= bll::_1, bll::_1 <= tau_high_
-    );
-    for (IteratorType it = ops_range.first; it != ops_range.second; ++it) {
-      if (it->flavor() == flavor_) {
-        c_ops_in_range_.push_back(*it);
-      }
-    }
-  }
-
-  if (rng() < 0.5) {
-    for (int iop = 0; iop < update_rank_; ++iop) {
-      BaseType::cdagg_ops_add_.push_back(
-          psi(open_random(rng, tau_low_, tau_high_),
-              CREATION_OP,
-              flavor_)
-      );
-      BaseType::c_ops_add_.push_back(
-          psi(open_random(rng, tau_low_, tau_high_),
-              ANNIHILATION_OP,
-              flavor_)
-      );
-    }
-    BaseType::acceptance_rate_correction_ =
-        std::pow(tau_high_ - tau_low_, 2. * update_rank_) / (
-            boost::math::binomial_coefficient<double>(cdagg_ops_in_range_.size() + update_rank_, update_rank_)
-                * boost::math::binomial_coefficient<double>(c_ops_in_range_.size() + update_rank_, update_rank_)
-                * boost::math::factorial<double>(update_rank_)
-        );
-
-    std::sort(BaseType::cdagg_ops_add_.begin(), BaseType::cdagg_ops_add_.end());
-    std::sort(BaseType::c_ops_add_.begin(), BaseType::c_ops_add_.end());
-    distance_ = std::max(BaseType::cdagg_ops_add_.back().time().time(), BaseType::c_ops_add_.back().time().time())
-        - std::min(BaseType::cdagg_ops_add_[0].time().time(), BaseType::c_ops_add_[0].time().time());
-    return true;
-  } else {
-    if (cdagg_ops_in_range_.size() < update_rank_ || c_ops_in_range_.size() < update_rank_) {
-      return false;
-    }
-    const std::vector<int> &idx_c = pickup_a_few_numbers(cdagg_ops_in_range_.size(), update_rank_, rng);
-    const std::vector<int> &idx_a = pickup_a_few_numbers(c_ops_in_range_.size(), update_rank_, rng);
-    for (int iop = 0; iop < update_rank_; ++iop) {
-      BaseType::cdagg_ops_rem_.push_back(
-          cdagg_ops_in_range_[idx_c[iop]]
-      );
-      BaseType::c_ops_rem_.push_back(
-          c_ops_in_range_[idx_a[iop]]
-      );
-    }
-    BaseType::acceptance_rate_correction_ =
-        (boost::math::binomial_coefficient<double>(cdagg_ops_in_range_.size(), update_rank_)
-            * boost::math::binomial_coefficient<double>(c_ops_in_range_.size(), update_rank_)
-            * boost::math::factorial<double>(update_rank_)
-        )
-            / std::pow(tau_high_ - tau_low_, 2. * update_rank_);
-    std::sort(BaseType::cdagg_ops_rem_.begin(), BaseType::cdagg_ops_rem_.end());
-    std::sort(BaseType::c_ops_rem_.begin(), BaseType::c_ops_rem_.end());
-    distance_ = std::max(BaseType::cdagg_ops_rem_.back().time().time(), BaseType::c_ops_rem_.back().time().time())
-        - std::min(BaseType::cdagg_ops_rem_[0].time().time(), BaseType::c_ops_rem_[0].time().time());
-    return true;
-  }
-}
-
-template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-void InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::call_back() {
-  if (!BaseType::valid_move_generated_) {
-    return;
-  }
-
-  if (BaseType::accepted_) {
-    acc_rate_.add_sample(std::min(distance_, beta_ - distance_), 1.0, flavor_);
-  } else {
-    acc_rate_.add_sample(std::min(distance_, beta_ - distance_), 0.0, flavor_);
-  }
-};
-
-template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-void InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
-create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements) {
-  BaseType::create_measurement_acc_rate(measurements);
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >(
-      "InsertionRemovalDiagonalRank"
-          + boost::lexical_cast<std::string>(update_rank_)
-          + "_attempted");
-
-  measurements << alps::accumulators::NoBinningAccumulator<std::vector<double> >(
-      "InsertionRemovalDiagonalRank"
-          + boost::lexical_cast<std::string>(update_rank_)
-          + "_accepted");
-}
-
-template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-void InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::
-measure_acc_rate(alps::accumulators::accumulator_set &measurements) {
-  BaseType::measure_acc_rate(measurements);
-  measurements[
-      "InsertionRemovalDiagonalRank"
-          + boost::lexical_cast<std::string>(update_rank_)
-          + "_attempted"
-  ] << to_std_vector(acc_rate_.get_counter());
-  measurements["InsertionRemovalDiagonalRank"
-      + boost::lexical_cast<std::string>(update_rank_)
-      + "_accepted"] << to_std_vector(acc_rate_.get_sumval());
-  acc_rate_.reset();
-}
-*/
-
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
+    const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
@@ -593,7 +453,7 @@ bool OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
+    const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
@@ -831,8 +691,10 @@ global_update(R &rng,
   operators_new.insert(annihilation_operators_new.begin(), annihilation_operators_new.end());
   //worm
   boost::shared_ptr<Worm> p_new_worm;
+  double worm_weight_corr_ratio = 1.0;//for reweighting of worm
   if (mc_config.p_worm) {
     boost::shared_ptr<Worm> p_w = worm_transformer(*(mc_config.p_worm));
+    worm_weight_corr_ratio = p_w->get_weight_correction()/mc_config.p_worm->get_weight_correction();
     p_new_worm.swap(p_w);
     std::vector<psi> new_worm_ops = p_new_worm->get_operators();
     operators_new.insert(new_worm_ops.begin(), new_worm_ops.end());
@@ -860,6 +722,7 @@ global_update(R &rng,
       det_vec, mc_config.M, det_vec_new);
 
   const SCALAR prob =
+      worm_weight_corr_ratio *
       convert_to_scalar(
           EXTENDED_SCALAR(
               EXTENDED_SCALAR(det_rat) *
@@ -932,13 +795,14 @@ void WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update_parameters() {
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
+    const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
   if (!mc_config.p_worm) {
     return false;
   }
+
 
   BaseType::p_new_worm_.reset();
 
@@ -966,7 +830,7 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   }
 
   if (BaseType::p_new_worm_) {
-    BaseType::acceptance_rate_correction_ = 1.0;
+    BaseType::acceptance_rate_correction_ = BaseType::p_new_worm_->get_weight_correction()/mc_config.p_worm->get_weight_correction();
     return true;
   } else {
     return false;
@@ -976,7 +840,7 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool WormFlavorChanger<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
+    const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
@@ -1003,7 +867,7 @@ bool WormFlavorChanger<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   }
 
   if (*mc_config.p_worm != *BaseType::p_new_worm_) {
-    BaseType::acceptance_rate_correction_ = 1.0;
+    BaseType::acceptance_rate_correction_ = BaseType::p_new_worm_->get_weight_correction()/mc_config.p_worm->get_weight_correction();
     return true;
   } else {
     BaseType::p_new_worm_.reset();
@@ -1014,7 +878,7 @@ bool WormFlavorChanger<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
+    const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
@@ -1042,7 +906,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_trace_impl(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
+    const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
@@ -1080,6 +944,8 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
               BaseType::num_flavors_);
     }
     BaseType::p_new_worm_.reset();
+    //for reweighting
+    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_)/mc_config.p_worm->get_weight_correction();
   } else {
     //propose insertion
     BaseType::p_new_worm_ = p_worm_template_->clone();
@@ -1104,6 +970,9 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
       BaseType::acceptance_rate_correction_ = weight_scaled *
           std::pow(tau_high - tau_low, 1. * num_time_indices) * BaseType::num_flavors_;
     }
+    //for reweighting
+    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_)
+            *BaseType::p_new_worm_->get_weight_correction();
   }
   return true;
 }
@@ -1111,7 +980,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_trace_hyb_impl(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
+    const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
@@ -1185,6 +1054,9 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
             std::pow(tau_high - tau_low, 1. * num_time_indices) *
             std::pow(1. * BaseType::num_flavors_, 1. * num_flavor_indices)));
 
+    //for reweighting
+    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_) / mc_config.p_worm->get_weight_correction();
+
     BaseType::p_new_worm_.reset();
   } else {
     //insert a worm
@@ -1237,6 +1109,8 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
     BaseType::acceptance_rate_correction_ = (p_prop_worm_rem / p_prop_worm_ins) * weight_scaled *
         std::pow(tau_high - tau_low, 1. * num_time_indices) *
         std::pow(1. * BaseType::num_flavors_, 1. * num_flavor_indices);
+
+    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_) * BaseType::p_new_worm_->get_weight_correction();
   }
   return true;
 }
@@ -1244,7 +1118,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
 template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
+    const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
     const std::map<ConfigSpace, double> &config_space_weight
 ) {
@@ -1268,6 +1142,7 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
     BaseType::acceptance_rate_correction_ = 1.0 /
         (worm_space_weight
             * std::pow(safe_falling_factorial<double>(mc_config.pert_order() + RANK, RANK), 2.0));
+    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_) /mc_config.p_worm->get_weight_correction();
     BaseType::p_new_worm_.reset();
   } else {
     //propose insertion by cutting hybridization lines
@@ -1295,6 +1170,7 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
 
     BaseType::acceptance_rate_correction_ =
         worm_space_weight * std::pow(safe_falling_factorial<double>(mc_config.pert_order(), RANK), 2.0);
+    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_) * BaseType::p_new_worm_->get_weight_correction();
   }
   return true;
 }

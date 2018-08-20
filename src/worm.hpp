@@ -5,6 +5,8 @@
 #include <boost/operators.hpp>
 
 #include "operator.hpp"
+#include "util.hpp"
+#include "gf_basis.hpp"
 
 enum ConfigSpace {
   Z_FUNCTION,
@@ -213,7 +215,7 @@ class CorrelationWorm: public Worm, private boost::equality_comparable<Correlati
 template<unsigned int Rank>
 class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
  public:
-  GWorm() : time_index_(2 * Rank) {
+  GWorm(std::shared_ptr<IRbasis> p_irbasis) : time_index_(2 * Rank), p_irbasis_(p_irbasis) {
     for (int f = 0; f < 2 * Rank; ++f) {
       time_index_[f].push_back(f);
     }
@@ -232,6 +234,21 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
   virtual double get_time(int index) const {
     assert(index >= 0 && index < 2 * Rank);
     return times_[index];
+  }
+
+  static
+  double get_weight_correction(double t1, double t2) {
+    return 10.0;
+  }
+
+  virtual double get_weight_correction() const {
+    if (Rank == 1) {
+      //auto idx = p_irbasis_->get_bin_index(get_time(0), get_time(1));
+      //return 1/(p_irbasis_->bin_edges()[idx+1] - p_irbasis_->bin_edges()[idx]);
+      //return 10.0;
+      return get_weight_correction(get_time(0), get_time(1));
+    }
+    return 1.0;
   }
 
   virtual void set_time(int index, double new_time) {
@@ -274,6 +291,7 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
   boost::array<double, 2 * Rank> times_;
   boost::array<int, 2 * Rank> flavors_;
   std::vector<std::vector<int> > time_index_;
+  std::shared_ptr<IRbasis> p_irbasis_;
 };
 
 /**

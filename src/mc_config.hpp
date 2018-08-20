@@ -9,6 +9,7 @@
 #include "wide_scalar.hpp"
 #include "./sliding_window/sliding_window.hpp"
 #include "worm.hpp"
+#include "gf_basis.hpp"
 
 template<typename SCALAR>
 class HybridizationFunction {
@@ -70,12 +71,14 @@ struct MonteCarloConfiguration {
       DeterminantMatrixType;
 
 
-  MonteCarloConfiguration(boost::shared_ptr<HybridizationFunction<SCALAR> > F) :
+  MonteCarloConfiguration(boost::shared_ptr<HybridizationFunction<SCALAR> > F, std::shared_ptr<IRbasis> p_irbasis_) :
       sign(1.0),
       trace(std::numeric_limits<double>::max()),
       M(F),
       operators(),
-      perm_sign(1) {
+      perm_sign(1),
+      p_irbasis(p_irbasis_)
+  {
   }
 
   ConfigSpace current_config_space() const {
@@ -111,6 +114,7 @@ struct MonteCarloConfiguration {
   operator_container_t operators; //all c and c^dagger operators hybridized with bath and those from the worm
   boost::shared_ptr<Worm> p_worm;
   int perm_sign;
+  std::shared_ptr<IRbasis> p_irbasis;
 };
 
 template<typename SCALAR>

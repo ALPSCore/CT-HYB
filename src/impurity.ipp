@@ -100,13 +100,13 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
           BETA, N, FLAVORS, p_model->get_F()
         )
       ),
-      irbasis(parameters["measurement.Lambda"], BETA, parameters["measurement.IRbasis_database_file"]),
+      p_irbasis(new IRbasis(parameters["measurement.Lambda"], BETA, parameters["measurement.IRbasis_database_file"])),
 #ifdef ALPS_HAVE_MPI
       comm(),
 #endif
       N_win_standard(1),
       sweeps(0),                                                                 //sweeps done up to now
-      mc_config(F),
+      mc_config(F, p_irbasis),
       config_space_extra_weight(0),
       worm_space_extra_weight_map(),
       operator_pair_flavor_updater(FLAVORS),
@@ -268,7 +268,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       break;
 
     case G1:
-      p_G1_meas->measure_via_hyb(mc_config, irbasis, measurements, random, par["measurement.G1.max_matrix_size"],
+      p_G1_meas->measure_via_hyb(mc_config, *p_irbasis, measurements, random, par["measurement.G1.max_matrix_size"],
                                  par["measurement.G1.aux_field"]
       );
       break;

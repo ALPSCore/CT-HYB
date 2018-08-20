@@ -156,6 +156,7 @@ private:
     std::string str_;
     int num_flavors_;
     boost::multi_array<std::complex<double>, 3> data_; //flavor, flavor, IR
+    double rw_factor_data_;
     int num_data_;
     int max_num_data_;//max number of data accumlated before passing data to ALPS
 };
