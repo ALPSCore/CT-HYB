@@ -142,6 +142,8 @@ public:
      */
     void create_alps_observable(alps::accumulators::accumulator_set &measurements) const {
       create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, str_.c_str());
+      //create_observable<double, SimpleRealVectorObservable>(measurements, (str_ + "_bin_histogram").c_str());
+      measurements << alps::accumulators::NoBinningAccumulator<std::vector<double>>(str_ + "_bin_histogram");
     }
 
     /**

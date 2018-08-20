@@ -51,8 +51,8 @@ class IRbasis {
   int get_bin_index(double tau) const {
     auto tau_bounded = mymod(tau, beta_);
     std::size_t idx = std::distance(
-            std::upper_bound(bin_edges_.begin(), bin_edges_.end(), tau_bounded),
-            bin_edges_.begin()) - 1;
+            bin_edges_.begin(),
+            std::upper_bound(bin_edges_.begin(), bin_edges_.end(), tau_bounded)) - 1;
 
     return std::min(idx, bin_edges_.size() - 2);
   }
