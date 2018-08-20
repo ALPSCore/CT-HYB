@@ -59,10 +59,14 @@ void
 IRbasis::compute_Utau_F(double tau, std::vector<double> &val) const {
     assert(0 <= tau && tau <= beta_);
     basis_f_.ulx_all_l(tau_to_x(tau, beta_), val);
+    auto trans = [&](double x){return std::sqrt(2/beta_) * x;};
+    std::transform(val.begin(), val.end(), val.begin(), trans);
 }
 
 void
 IRbasis::compute_Utau_B(double tau, std::vector<double> &val) const {
     assert(0 <= tau && tau <= beta_);
     basis_b_.ulx_all_l(tau_to_x(tau, beta_), val);
+    auto trans = [&](double x){return std::sqrt(2/beta_) * x;};
+    std::transform(val.begin(), val.end(), val.begin(), trans);
 }
