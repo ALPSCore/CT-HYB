@@ -37,8 +37,9 @@ class IRbasis {
   IRbasis(double Lambda, double beta, const std::string& file_name);
 
   double beta() const {return beta_;}
-  int dim_F() const {return basis_f_.dim();}
-  int dim_B() const {return basis_b_.dim();}
+  int dim_F() const {return dim_F_;}
+  int dim_B() const {return dim_B_;}
+  double sl_F(int l) const {return basis_f_.sl(l);}
 
   Eigen::MatrixXcd compute_Unl_F(int niw) const;
   Eigen::MatrixXcd compute_Unl_B(int niw) const;
@@ -60,5 +61,6 @@ class IRbasis {
 private:
     double Lambda_, beta_;
     irbasis::basis basis_f_, basis_b_;
+    int dim_F_, dim_B_;
     std::vector<double> bin_edges_;
 };
