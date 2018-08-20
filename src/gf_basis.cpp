@@ -7,6 +7,51 @@ double tau_to_x(double tau, double beta) {
     );
 }
 
+std::vector<double> linspace(double minval, double maxval, int N, bool include_last_point = true) {
+    int end = include_last_point ? N : N-1;
+    std::vector<double> r(end);
+    for (int i = 0; i < end; ++i) {
+        r[i] = i * (maxval - minval) / (N - 1.0) + minval;
+    }
+    return r;
+}
+
+std::vector<double> find_zeros(
+        const std::function<double(double)>& f,
+        double delta = 1e-12
+) {
+    int N = 10000;
+    double de_cutoff = 3.0;
+
+    std::vector<double> tx_vec = linspace(-de_cutoff, de_cutoff, N);
+    std::vector<double> x_vec(N), zeros;
+    for (int i = 0; i < N; ++i) {
+        x_vec[i] = tanh(0.5 * M_PI * sinh(tx_vec[i]));
+    }
+
+    for (int i = 0; i < N-1; ++i) {
+        if (f(x_vec[i]) * f(x_vec[i+1]) < 0) {
+            double x_left = x_vec[i];
+            double fx_left = f(x_vec[i]);
+
+            double x_right = x_vec[i+1];
+            double fx_right = f(x_vec[i+1]);
+
+            while (x_right-x_left > delta) {
+                double x_mid = (x_left+x_right)/2;
+                if (fx_left * f(x_mid) > 0) {
+                    x_left = x_mid;
+                } else {
+                    x_right = x_mid;
+                }
+            }
+            zeros.push_back((x_left+x_right)/2);
+        }
+    }
+
+    return zeros;
+};
+
 IRbasis::IRbasis(double Lambda, double beta, const std::string& file_name)
     : Lambda_(Lambda),
       beta_(beta),
@@ -34,6 +79,10 @@ IRbasis::IRbasis(double Lambda, double beta, const std::string& file_name)
         std::cerr << "Error occured during reading a database file for IR basis at " + file_name + "!";
         throw std::runtime_error("Error occured during reading a database file for IR basis at " + file_name + "!");
     }
+
+    auto zeros_x_f_ = find_zeros(
+            [&](double x){return basis_f_.ulx(basis_f_.dim()-1, x);}
+    );
 
 };
 

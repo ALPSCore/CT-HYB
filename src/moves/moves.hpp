@@ -201,54 +201,6 @@ class InsertionRemovalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLID
 };
 
 /**
- * Update creation and annihilation operators hybridized with the bath (the same flavor)
- * Do not update the worm
- */
-template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-class InsertionRemovalDiagonalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
- public:
-  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
-  InsertionRemovalDiagonalUpdater(int update_rank, int num_flavors, double beta, int num_bins)
-      : BaseType(
-      boost::lexical_cast<std::string>(update_rank) + std::string("-pair_insertion_remover_flavor_diagonal")),
-        update_rank_(update_rank),
-        num_flavors_(num_flavors),
-        beta_(beta),
-        tau_low_(-1.0),
-        tau_high_(-1.0),
-        acc_rate_(num_bins, 0.5 * beta, num_flavors, 0.5 * beta) {}
-
-  virtual bool propose(
-      alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
-  );
-
-  virtual void call_back();
-
-  virtual void finalize_learning() { acc_rate_.reset(); }
-
-  virtual void create_measurement_acc_rate(alps::accumulators::accumulator_set &measurements);
-
-  virtual void measure_acc_rate(alps::accumulators::accumulator_set &measurements);
-
- private:
-  const int num_flavors_;
-  const double beta_;
-  double tau_low_, tau_high_;
-  int flavor_;
-
-  std::vector<psi> cdagg_ops_in_range_, c_ops_in_range_;
-
-  /** 1 for two-operator update, 2 for four-operator update, ..., N for 2N-operator update*/
-  const int update_rank_;
-
-  StepSizeOptimizer acc_rate_;
-  double distance_;
-};
-
-/**
  * Change the flavors of a pair of the creation and annihilation operators hybridized with the bath
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
@@ -492,63 +444,6 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
 
   boost::shared_ptr<Worm> p_worm_template_;
 };
-
-/**
- * @brief Connect equal-time G1 space and two-time G2 space
- */
-template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-class EqualTimeG1_TwoTimeG2_Connector: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
-  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
-
- public:
-  EqualTimeG1_TwoTimeG2_Connector(const std::string &str,
-                                  double beta,
-                                  int num_flavors) : BaseType(str), num_flavors_(num_flavors) {
-  }
-
- private:
-  virtual bool propose(
-      alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
-  );
-
-  int num_flavors_;
-  std::vector<std::pair<psi, psi> > pairs_;
-};
-
-/**
- * @brief Shift updater a Green's function worm by reconnecting hybridization lines
- * WARNING : There is a bug in GWormShifter.
- */
-/*
-template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-class GWormShifter: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
-  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
-
- public:
-  GWormShifter(const std::string &str,
-               double beta,
-               int num_flavors,
-               boost::shared_ptr<Worm> p_worm_template
-  ) : BaseType(str), beta_(beta), num_flavors_(num_flavors), p_worm_template_(p_worm_template) {}
-
- private:
-  virtual bool propose(
-      alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
-  );
-
-  double beta_;
-  int num_flavors_;
-  boost::shared_ptr<Worm> p_worm_template_;
-  std::vector<psi> ops_work_;
-};
-*/
-
 
 /**
  * @brief Exchange flavors of a worm

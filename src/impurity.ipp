@@ -176,7 +176,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   }
   for (int k = 1; k < rank_ins_rem + 1; ++k) {
     typedef InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> TypeOffDiag;
-    typedef InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> TypeDiag;
+    //typedef InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> TypeDiag;
     ins_rem_updater.push_back(
         boost::shared_ptr<TypeOffDiag>(
             new TypeOffDiag(k, FLAVORS)

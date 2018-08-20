@@ -171,6 +171,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   /*
    * Equal-time G1
    */
+  /*
   if (par["measurement.equal_time_G1.on"] != 0) {
     const std::string name("Equal_time_G1");
     worm_types.push_back(Equal_time_G1);
@@ -188,10 +189,12 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         new EqualTimeGMeasurement<SCALAR, 1>(FLAVORS)
     );
   }
+   */
 
   /*
    * Equal-time G2
    */
+  /*
   if (par["measurement.equal_time_G2.on"] != 0) {
     const std::string name("Equal_time_G2");
     worm_types.push_back(Equal_time_G2);
@@ -209,10 +212,12 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         new EqualTimeGMeasurement<SCALAR, 2>(FLAVORS)
     );
   }
+   */
 
   /*
    * Connect Equal_time_G1 and Two_time_G2 spaces
    */
+  /*
   if (std::find(worm_types.begin(), worm_types.end(), Equal_time_G1) != worm_types.end() &&
       std::find(worm_types.begin(), worm_types.end(), Two_time_G2) != worm_types.end()) {
     specialized_updaters["Connect_Equal_time_G1_and_Two_time_G2"] =
@@ -222,6 +227,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         );
   }
+   */
 
 /*
   DO NOT ACTIVATE GwormShifter. There is a bug.
