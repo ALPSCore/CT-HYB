@@ -774,6 +774,7 @@ WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::WormUpdater(
 }
 
 
+/*
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::call_back() {
   if (!BaseType::valid_move_generated_) {
@@ -791,6 +792,7 @@ template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 void WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update_parameters() {
   max_distance_ = acc_rate_.update_cutoff(0.1, 1.05);
 }
+ */
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
@@ -811,14 +813,14 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   const double tau_high = std::min(sliding_window.get_tau_high(), BaseType::tau_upper_limit_);
   const int num_times = mc_config.p_worm->num_independent_times();
   distance_ = 0.0;
+  double max_distance_ = tau_high - tau_low;
   for (int itry = 0; itry < mc_config.p_worm->num_independent_times(); ++ itry) {
     const int t = static_cast<int>(rng() * mc_config.p_worm->num_independent_times());
     if (!InRange<OperatorTime>(tau_low, tau_high)(mc_config.p_worm->get_time(t))) {
       continue;
     }
-    const double new_time = rng() < 0.9 ?
-                            (2 * rng() - 1.0) * max_distance_ + mc_config.p_worm->get_time(t) :
-                            open_random(rng, tau_low, tau_high);
+    // 10^{-3} to 1
+    double new_time = mc_config.p_worm->get_time(t) + std::copysign(std::pow(10, open_random(rng, -3.0, 0.0)) * max_distance_, rng()-0.5);
     if (new_time < tau_low || new_time > tau_high) {
       continue;
     }

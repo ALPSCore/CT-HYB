@@ -249,9 +249,6 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
 
   virtual double get_weight_correction() const {
     if (Rank == 1) {
-      //auto idx = p_irbasis_->get_bin_index(get_time(0), get_time(1));
-      //return 1/(p_irbasis_->bin_edges()[idx+1] - p_irbasis_->bin_edges()[idx]);
-      //return 10.0;
       return get_weight_correction(get_time(0), get_time(1), p_irbasis_);
     }
     return 1.0;

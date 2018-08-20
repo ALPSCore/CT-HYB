@@ -319,16 +319,16 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
 
   WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
       : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit),
-        acc_rate_(100, 0.5 * beta, 1, 0.5 * beta),
+        //acc_rate_(100, 0.5 * beta, 1, 0.5 * beta),
         beta_(beta),
         max_distance_(0.5 * beta),
         distance_(-1.0) {}
 
-  virtual void call_back();
+  //virtual void call_back();
 
-  virtual void update_parameters();
+  //virtual void update_parameters();
 
-  virtual void finalize_learning() { acc_rate_.reset(); }
+  //virtual void finalize_learning() { acc_rate_.reset(); }
 
  private:
   virtual bool propose(
@@ -338,7 +338,7 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
       const std::map<ConfigSpace, double> &config_space_weight
   );
 
-  StepSizeOptimizer acc_rate_;
+  //StepSizeOptimizer acc_rate_;
   double beta_, max_distance_, distance_;
 };
 
