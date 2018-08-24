@@ -445,9 +445,9 @@ void compute_G2(const IRbasis &basis,
 
       auto rat = std::exp(std::complex<double>(0.0, 2 * M_PI * tau_diff / beta));
 
-      exp_f[k][l][0] = std::exp(std::complex<double>(0, min_freq_f * tau_diff));
+      exp_f[k][l][0] = sign_mod * std::exp(std::complex<double>(0, min_freq_f * tau_diff));
       for (int freq = 1; freq < num_freq_f; ++freq) {
-        exp_f[k][l][freq] = rat * exp_f[k][l][freq - 1] * sign_mod;
+        exp_f[k][l][freq] = rat * exp_f[k][l][freq - 1];
       }
 
       exp_b[k][l][0] = 1.0;
