@@ -452,7 +452,7 @@ void compute_G2(const IRbasis &basis,
 
       exp_b[k][l][0] = 1.0;
       for (int freq = 1; freq < num_freq_b; ++freq) {
-        exp_b[k][l][freq] = rat * exp_b[k][l][freq - 1] * sign_mod;
+        exp_b[k][l][freq] = rat * exp_b[k][l][freq - 1];
       }
     }
   }
