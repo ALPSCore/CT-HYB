@@ -502,6 +502,7 @@ void compute_G2(const IRbasis &basis,
                   creation_ops[d].time().time(),
                   mc_config.p_irbasis
                   );
+          auto coeff = wprime/rw_corr;
 
           auto fa = annihilation_ops[a].flavor();
           auto fb = creation_ops[b].flavor();
@@ -510,7 +511,7 @@ void compute_G2(const IRbasis &basis,
           for (int freq_f1 = 0; freq_f1 < num_freq_f; ++freq_f1) {
             for (int freq_f2 = 0; freq_f2 < num_freq_f; ++freq_f2) {
               for (int freq_b = 0; freq_b < num_freq_b; ++freq_b) {
-                  result_tmp[fa][fb][fc][fd][freq_f1][freq_f2][freq_b] += exp_f[a][b][freq_f1] * exp_f[c][d][freq_f2] * exp_b[a][d][freq_b] / rw_corr;
+                  result_tmp[fa][fb][fc][fd][freq_f1][freq_f2][freq_b] += coeff * exp_f[a][b][freq_f1] * exp_f[c][d][freq_f2] * exp_b[a][d][freq_b];
               }
             }
           }
