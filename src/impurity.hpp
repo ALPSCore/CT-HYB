@@ -236,10 +236,10 @@ class HybridizationSimulation: public alps::mcbase {
   //boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
 
   //Measurement of single-particle Green's functions by worm sampling
-  boost::shared_ptr<GMeasurement<SCALAR> > p_G1_meas;
+  boost::shared_ptr<G1Measurement<SCALAR> > p_G1_meas;
 
   //Measurement of two-particle Green's functions by worm sampling
-  //boost::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_meas;
+  boost::shared_ptr<G2Measurement<SCALAR> > p_G2_meas;
 
   //Measurement of equal-time two-particle Green's function
   boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 2> > p_equal_time_G2_meas;

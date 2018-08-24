@@ -9,7 +9,9 @@ template void TwoTimeG2Measurement<PP_SCALAR >::measure<PP_SW >(MonteCarloConfig
                                            const std::string &str);
                                            */
 
-template class GMeasurement<PP_SCALAR>;
+template class G1Measurement<PP_SCALAR>;
+
+template class G2Measurement<PP_SCALAR>;
 
 //template struct MeasureGHelper<PP_SCALAR, 1>;
 

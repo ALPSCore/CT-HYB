@@ -238,10 +238,17 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
 
   static
   double get_weight_correction(double t1, double t2, std::shared_ptr<IRbasis> p_irbasis) {
-    //return 10.0;
     auto idx = p_irbasis->get_bin_index(t1-t2);
     return 1/(p_irbasis->bin_edges()[idx+1] - p_irbasis->bin_edges()[idx]);
   }
+
+  static
+  double get_weight_correction(double t1, double t2, double t3, double t4, std::shared_ptr<IRbasis> p_irbasis) {
+    //auto idx = p_irbasis->get_bin_index(t1-t2);
+    //return 1/(p_irbasis->bin_edges()[idx+1] - p_irbasis->bin_edges()[idx]);
+    return 1.0;
+  }
+
 
   int get_bin_index() const {
     return p_irbasis_->get_bin_index(get_time(0) - get_time(1));

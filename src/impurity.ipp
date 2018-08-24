@@ -51,7 +51,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
           //Two-particle GF
       .define<int>("measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
       .define<int>("measurement.G2.n_legendre", 20, "Number of legendre polynomials for measurement")
-      .define<int>("measurement.G2.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
+      .define<int>("measurement.G2.n_fermionic_freq", 20, "Number of fermionic frequencies for measurement")
+      .define<int>("measurement.G2.n_bosonic_freq", 2, "Number of bosonic frequencies for measurement")
       .define<int>("measurement.G2.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
       .define<int>("measurement.G2.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>("measurement.G2.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
@@ -274,11 +275,9 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       break;
 
     case G2:
-      /*
-       * p_G2_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G2.max_matrix_size"],
+      p_G2_meas->measure_via_hyb(mc_config, *p_irbasis, measurements, random, par["measurement.G2.max_matrix_size"],
                                  par["measurement.G2.aux_field"]
       );
-       */
       break;
 
     case Two_time_G2:

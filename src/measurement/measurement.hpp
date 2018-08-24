@@ -121,14 +121,14 @@ private:
  * @brief Class for measurement of Green's function using Legendre basis
  */
 template<typename SCALAR>
-class GMeasurement {
+class G1Measurement {
 public:
     /**
      * Constructor
      *
      * @param num_flavors    the number of flavors
      */
-    GMeasurement(int num_flavors, const IRbasis& basis, int max_num_data = 1) :
+    G1Measurement(int num_flavors, const IRbasis& basis, int max_num_data = 1) :
             str_("G1"),
             num_flavors_(num_flavors),
             data_(boost::extents[num_flavors][num_flavors][basis.dim_F()]),
@@ -161,6 +161,50 @@ private:
     int num_flavors_;
     boost::multi_array<std::complex<double>, 3> data_; //flavor, flavor, IR
     boost::multi_array<std::complex<double>, 3> bin_data_; //flavor, flavor, bins
+    int num_data_;
+    int max_num_data_;//max number of data accumlated before passing data to ALPS
+};
+
+template<typename SCALAR>
+class G2Measurement {
+public:
+    /**
+     * Constructor
+     *
+     * @param num_flavors    the number of flavors
+     */
+    G2Measurement(int num_flavors, const IRbasis& basis, int num_freq_f, int num_freq_b, int max_num_data = 1) :
+            str_("G2"),
+            num_flavors_(num_flavors),
+            num_freq_f_(num_freq_f),
+            num_freq_b_(num_freq_b),
+            matsubara_data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_freq_f][num_freq_f][num_freq_b]),
+            num_data_(0),
+            max_num_data_(max_num_data) {
+        std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0);
+    };
+
+    /**
+     * @brief Create ALPS observable
+     */
+    void create_alps_observable(alps::accumulators::accumulator_set &measurements) const {
+        create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, (str_ + "_matsubara").c_str());
+    }
+
+    /**
+     * @brief Measure Green's function via hybridization function
+     */
+    void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
+                         const IRbasis& basis,
+                         alps::accumulators::accumulator_set &measurements,
+                         alps::random01 &random, int max_matrix_size, double eps = 1E-5);
+
+private:
+    std::string str_;
+    int num_flavors_;
+    int num_freq_f_, num_freq_b_;
+    boost::multi_array<std::complex<double>, 7> matsubara_data_; //flavor, flavor, flavor, flavor, IR_F, IR_F, boson_freq.
+    //boost::multi_array<std::complex<double>, 7> bin_data_; //flavor, flavor, bins
     int num_data_;
     int max_num_data_;//max number of data accumlated before passing data to ALPS
 };

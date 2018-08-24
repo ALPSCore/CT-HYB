@@ -147,6 +147,17 @@ void TwoTimeG2Measurement<SCALAR>::measure_impl(const std::vector<psi> &worm_ops
 }
 */
 
+std::pair<double,double>
+mod_beta(double tau, double beta) {
+  if (tau > 0 && tau < beta) {
+      return std::make_pair(tau, 1.0);
+  } else if (tau < 0 && tau > -beta) {
+    return std::make_pair(tau + beta, -1.0);
+  } else {
+    throw std::runtime_error("error in mod_beta!");
+  }
+};
+
 template<typename SCALAR>
 Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_config,
                                                  alps::random01 &random,
@@ -226,8 +237,6 @@ Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_c
     std::vector<bool> is_row_active(num_ops + n_aux_lines, false), is_col_active(num_ops + n_aux_lines, false);
     //always choose the original worm position for detailed balance condition
     for (int i = 0; i < Rank + n_aux_lines; ++i) {
-      //is_row_active[num_ops - i] = true;
-      //is_col_active[num_ops - i] = true;
       is_row_active[is_row_active.size() - 1 - i] = true;
       is_col_active[is_col_active.size() - 1 - i] = true;
     }
@@ -374,8 +383,153 @@ void compute_G1(const IRbasis &basis,
   }
 }
 
+//Compute G2 by removal in G2 space
 template<typename SCALAR>
-void GMeasurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
+void compute_G2(const IRbasis &basis,
+                int num_freq_f,
+                int num_freq_b,
+                const MonteCarloConfiguration<SCALAR>& mc_config,
+                const Reconnections<SCALAR>& reconnect,
+                boost::multi_array<std::complex<double>, 7> &result
+) {
+  double beta = basis.beta();
+
+  const auto &M = reconnect.M();
+  const auto &creation_ops = reconnect.creation_ops();
+  const auto &annihilation_ops = reconnect.annihilation_ops();
+  SCALAR sign = mc_config.sign;
+
+  const int mat_size = M.size1();
+
+  if (num_freq_f%2 == 1) {
+    throw std::runtime_error("num_freq_f must be even!");
+  }
+
+  //First, we compute relative weights
+  const double temperature = 1. / beta;
+  const int num_flavors = result.shape()[0];
+  const int num_phys_rows = creation_ops.size();
+  const int n_aux_lines = 2;
+  if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.size1() - n_aux_lines) {
+    throw std::runtime_error("Fatal error in compute_G2");
+  }
+
+  //naive way to evaluate
+  //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
+
+  //First, compute relative weights
+  const int rank = 2;
+  const int det_size = rank + n_aux_lines;
+  Eigen::Matrix<SCALAR,det_size,det_size> tmp_mat;
+  boost::array<int,det_size> rows3, cols3;
+  const int last = M.size1() - 1;
+  for (int i = 0; i < n_aux_lines; ++i) {
+    cols3[rank+i] = rows3[rank+i] = i + M.size1() - n_aux_lines;
+  }
+  assert(cols3.back()==last);
+
+  // List of fermion frequencies
+  auto iwn_f_min = - num_freq_f/2;
+  double min_freq_f = M_PI * (2*iwn_f_min + 1)/beta;
+
+  boost::multi_array<std::complex<double>, 3>
+          exp_f(boost::extents[num_phys_rows][num_phys_rows][num_freq_f]);//annihilator, creator, freq_f
+  boost::multi_array<std::complex<double>, 3>
+          exp_b(boost::extents[num_phys_rows][num_phys_rows][num_freq_b]);//annihilator, creator, freq_b
+  double tau_diff, sign_mod;
+  for (int k = 0; k < num_phys_rows; k++) {
+    for (int l = 0; l < num_phys_rows; l++) {
+      double argument = annihilation_ops[k].time() - creation_ops[l].time();
+
+      std::tie(tau_diff, sign_mod) = mod_beta(argument, beta);
+
+      auto rat = std::exp(std::complex<double>(0.0, 2 * M_PI * tau_diff / beta));
+
+      exp_f[k][l][0] = std::exp(std::complex<double>(0, min_freq_f * tau_diff));
+      for (int freq = 1; freq < num_freq_f; ++freq) {
+        exp_f[k][l][freq] = rat * exp_f[k][l][freq - 1] * sign_mod;
+      }
+
+      exp_b[k][l][0] = 1.0;
+      for (int freq = 1; freq < num_freq_b; ++freq) {
+        exp_b[k][l][freq] = rat * exp_b[k][l][freq - 1] * sign_mod;
+      }
+    }
+  }
+
+  double sum_wprime = 0.0;
+  auto extents = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_freq_f][num_freq_f][num_freq_b];
+  boost::multi_array<std::complex<double>,7> result_tmp(extents);
+  std::fill(result_tmp.origin(), result_tmp.origin() + result_tmp.num_elements(), 0.0);
+  for (int a = 0; a < num_phys_rows; ++a) {
+    for (int b = 0; b < num_phys_rows; ++b) {
+      for (int c = 0; c < num_phys_rows; ++c) {
+        if (a==c) {
+          continue;
+        }
+        for (int d = 0; d < num_phys_rows; ++d) {
+          if (b==d) {
+            continue;
+          }
+          /*
+           * Delta convention
+           * M_ab  M_ad  M_a*
+           * M_cb  M_cd  M_c*
+           * M_*b  M_*d  M_**
+           */
+          rows3[0] = b;
+          rows3[1] = d;
+          cols3[0] = a;
+          cols3[1] = c;
+          for (int j = 0; j < det_size; ++j) {
+            for (int i = 0; i < det_size; ++i) {
+              tmp_mat(i,j) = M(rows3[i], cols3[j]);
+            }
+          }
+          // Here, wprime does not include signs arising from mod beta.
+          SCALAR wprime = mc_config.sign * reconnect.weight_rat_intermediate_state() * tmp_mat.determinant();
+          sum_wprime += std::abs(wprime);
+
+          if (wprime == 0.0) {
+            continue;
+          }
+
+          double rw_corr =
+                  GWorm<2>::get_weight_correction(
+                  annihilation_ops[a].time().time(),
+                  creation_ops[b].time().time(),
+                  annihilation_ops[c].time().time(),
+                  creation_ops[d].time().time(),
+                  mc_config.p_irbasis
+                  );
+
+          auto fa = annihilation_ops[a].flavor();
+          auto fb = creation_ops[b].flavor();
+          auto fc = annihilation_ops[c].flavor();
+          auto fd = creation_ops[d].flavor();
+          for (int freq_f1 = 0; freq_f1 < num_freq_f; ++freq_f1) {
+            for (int freq_f2 = 0; freq_f2 < num_freq_f; ++freq_f2) {
+              for (int freq_b = 0; freq_b < num_freq_b; ++freq_b) {
+                  result_tmp[fa][fb][fc][fd][freq_f1][freq_f2][freq_b] += exp_f[a][b][freq_f1] * exp_f[c][d][freq_f2] * exp_b[a][d][freq_b] / rw_corr;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Multiplied by 1/(sum_wprime * beta)
+  // The origin of "beta" term is the same as G1.
+  auto it2 = result.origin();
+  for (auto it=result_tmp.origin(); it != result_tmp.origin() + result_tmp.num_elements(); ++it) {
+    *it2 += (*it)/(sum_wprime * beta);
+    ++it2;
+  }
+}
+
+template<typename SCALAR>
+void G1Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                                            const IRbasis& basis,
                                            alps::accumulators::accumulator_set &measurements,
                                            alps::random01 &random,
@@ -407,6 +561,30 @@ void GMeasurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR>
     num_data_ = 0;
     std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
     std::fill(bin_data_.origin(), bin_data_.origin() + bin_data_.num_elements(), 0.0);
+  }
+}
+
+template<typename SCALAR>
+void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
+                                            const IRbasis& basis,
+                                            alps::accumulators::accumulator_set &measurements,
+                                            alps::random01 &random,
+                                            int max_num_ops,
+                                            double eps) {
+
+  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 2);
+
+  compute_G2<SCALAR>(basis, num_freq_f_, num_freq_b_, mc_config, reconnection, matsubara_data_);
+  ++ num_data_;
+
+  if (num_data_ == max_num_data_) {
+    //pass the data to ALPS libraries
+    std::transform(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), matsubara_data_.origin(),
+                   std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
+    measure_simple_vector_observable<std::complex<double> >(measurements, (str_ + "_matsubara").c_str(), to_std_vector(matsubara_data_));
+
+    num_data_ = 0;
+    std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0.0);
   }
 }
 

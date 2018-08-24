@@ -36,11 +36,9 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   if (p_G1_meas) {
     p_G1_meas->create_alps_observable(measurements);
   }
-  /*
   if (p_G2_meas) {
     p_G2_meas->create_alps_observable(measurements);
   }
-  */
 
   if (par["measurement.equal_time_G1.on"] != 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G1");
@@ -112,7 +110,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
           )
       );
   p_G1_meas.reset(
-      new GMeasurement<SCALAR>(FLAVORS, *p_irbasis, par["measurement.G1.max_num_data_accumulated"])
+      new G1Measurement<SCALAR>(FLAVORS, *p_irbasis, par["measurement.G1.max_num_data_accumulated"])
   );
 
   /*
@@ -130,14 +128,13 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         )
     );
-    /*
     p_G2_meas.reset(
-        new GMeasurement<SCALAR, 2>(FLAVORS,
-                                    par["measurement.G2.n_legendre"], par["measurement.G2.n_bosonic_freq"], BETA,
+        new G2Measurement<SCALAR>(FLAVORS,
+                                    *p_irbasis,
+                                    par["measurement.G2.n_fermionic_freq"], par["measurement.G2.n_bosonic_freq"],
                                     par["measurement.G2.max_num_data_accumulated"]
         )
     );
-    */
     specialized_updaters["G2_ins_rem_hyb"] =
         boost::shared_ptr<LocalUpdaterType>(
             new G2WormInsertionRemoverType(
