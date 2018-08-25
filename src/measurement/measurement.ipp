@@ -469,6 +469,8 @@ void compute_G2(const IRbasis &basis,
     }
   }
 
+  std::cout << "bin " << dynamic_cast<GWorm<2>*>(mc_config.p_worm.get())->get_bin_index() << std::endl;
+
   double sum_wprime = 0.0;
   auto extents = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_freq_f][num_freq_f][num_freq_b];
   boost::multi_array<std::complex<double>, 7> result_tmp(extents);

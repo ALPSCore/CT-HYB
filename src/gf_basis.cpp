@@ -110,10 +110,13 @@ IRbasis::IRbasis(const alps::params &params)
 
     bin_volume_4pt_.resize(num_bins_4pt_);
     bin_index_4pt_.resize(num_bins_4pt_);
+    bin_centroid_4pt_.resize(num_bins_4pt_);
 
     std::vector<int> index_tmp(6);
     norm_const_4pt_ = 0;
     auto vol_ratio = std::pow(beta_/2, 3);//x -> tau
+    std::vector<double> tmp_array;
+    alps::numerics::tensor<double,2> t;
     for (int ib = 0; ib < num_bins_4pt_; ++ib) {
       auto path = ss.str() + "/bin" + std::to_string(ib);
       f_4pt[path + "/volume"] >> bin_volume_4pt_[ib];
@@ -124,12 +127,32 @@ IRbasis::IRbasis(const alps::params &params)
       }
       norm_const_4pt_ += 1 / bin_volume_4pt_[ib];
       bin_index_map_4pt_[bin_index_4pt_[ib]] = ib;
-      //std::cout << " ib " << ib << " " << std::setprecision(20) << bin_volume_4pt_[ib] << std::endl;
-    }
-    std::cout << "sum_inv " << norm_const_4pt_ << std::endl;
+      f_4pt[path + "/coords"] >> t;
 
+      std::fill(bin_centroid_4pt_[ib].begin(), bin_centroid_4pt_[ib].end(), 0.0);
+      auto nv = t.shape()[0];
+      for (int v=0; v<nv; ++v) {
+        for (int i=0; i<3; ++i) {
+          bin_centroid_4pt_[ib][i] += 0.5*beta_*(t(v, i)+1)/nv;
+        }
+      }
+    }
   }
+
+  check();
 };
+
+void
+IRbasis::check() const {
+  // Check bins for 4pt Green's function
+  for (int ib=0; ib < num_bins_4pt(); ++ib) {
+    auto centroid = bin_centroid_4pt(ib);
+    auto ib_centroid = get_bin_index(centroid[0], centroid[1], centroid[2], 0);
+    if (ib != ib_centroid) {
+      throw std::runtime_error("Something went wrong with bins for 4pt Green's function!");
+    }
+  }
+}
 
 Eigen::MatrixXcd
 IRbasis::compute_Unl_F(int niw) const {

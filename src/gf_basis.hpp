@@ -14,6 +14,7 @@
 #include<Eigen/Dense>
 #include <alps/params.hpp>
 #include <alps/hdf5.hpp>
+#include <alps/numeric/tensors.hpp>
 
 #include "./thirdparty/irbasis.hpp"
 
@@ -108,6 +109,12 @@ class IRbasis {
     return bin_volume_4pt_.size();
   }
 
+  const std::array<double,3>& bin_centroid_4pt(int bin_index) const {
+    return bin_centroid_4pt_[bin_index];
+  };
+
+  void check() const;
+
 private:
     double Lambda_, beta_;
     irbasis::basis basis_f_, basis_b_;
@@ -118,6 +125,7 @@ private:
     int num_bins_4pt_;
     std::vector<double> bin_volume_4pt_;
     std::vector<std::array<int,6>> bin_index_4pt_;
+    std::vector<std::array<double,3>> bin_centroid_4pt_;
     std::unordered_map<std::array<int,6>,int,detail::Hash> bin_index_map_4pt_;
     double norm_const_4pt_;
 };

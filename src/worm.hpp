@@ -244,6 +244,7 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
 
   static
   double get_weight_correction(double t1, double t2, double t3, double t4, std::shared_ptr<IRbasis> p_irbasis) {
+    //return 1.0;
     auto index = p_irbasis->get_index_4pt(t1, t2, t3, t4);
     auto pos = p_irbasis->get_bin_position_4pt(index);
     return 1/(p_irbasis->bin_volume_4pt(pos) * p_irbasis->sum_inverse_bin_volume_4pt());
