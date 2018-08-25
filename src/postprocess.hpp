@@ -120,7 +120,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
 
   double beta(parms["model.beta"]);
-  IRbasis basis(parms["measurement.Lambda"], beta, parms["measurement.IRbasis_database_file"]);
+  IRbasis basis(parms);
   int dim_F = basis.dim_F();
   int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   double sign = results["Sign"].template mean<double>();
@@ -316,8 +316,8 @@ void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &
                 const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
                 std::map<std::string,boost::any> &ar,
                 bool verbose = false) {
-  const int n_freq_f(parms["measurement.G2.n_fermionic_freq"]);
-  const int n_freq_b(parms["measurement.G2.n_bosonic_freq"]);
+  const int n_freq_f(parms["measurement.G2.matsubara.n_fermionic_freq"]);
+  const int n_freq_b(parms["measurement.G2.matsubara.n_bosonic_freq"]);
   const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   const double sign = results["Sign"].template mean<double>();
 
@@ -337,6 +337,32 @@ void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &
   rotate_back_G2_impl(G2iwn, rotmat_Delta);
 
   ar["G2_matsubara"] = G2iwn;
+}
+
+template<typename SOLVER_TYPE>
+void compute_G2_IR(const typename alps::results_type<SOLVER_TYPE>::type &results,
+                          const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
+                          const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
+                          std::map<std::string,boost::any> &ar,
+                          bool verbose = false) {
+  IRbasis basis(parms);
+  int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
+  double sign = results["Sign"].template mean<double>();
+
+  //The factor of temperature below comes from the extra degree of freedom for beta in the worm
+  double coeff =
+      results["worm_space_volume_G2"].template mean<double>() /
+      (sign * results["Z_function_space_volume"].template mean<double>());
+
+  std::vector<double> G2bin_Re = results["G2_bin_Re"].template mean<std::vector<double> >();
+  std::vector<double> G2bin_Im = results["G2_bin_Im"].template mean<std::vector<double> >();
+  boost::multi_array<std::complex<double>, 5>
+      G2bin(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][basis.num_bins_4pt()]);
+  std::transform(G2bin_Re.begin(), G2bin_Re.end(), G2bin_Im.begin(), G2bin.origin(), to_complex<double>());
+  std::transform(G2bin.origin(), G2bin.origin() + G2bin.num_elements(), G2bin.origin(),
+                 std::bind1st(std::multiplies<std::complex<double> >(), coeff));
+
+  ar["G2_bin"] = G2bin;
 }
 
 

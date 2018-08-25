@@ -5,11 +5,15 @@
 #include <vector>
 #include <assert.h>
 #include <algorithm>
+#include <sstream>
+#include <unordered_map>
 
-#include "boost/math/special_functions/bessel.hpp"
-#include "boost/multi_array.hpp"
+#include <boost/multi_array.hpp>
+#include <boost/functional/hash.hpp>
 
 #include<Eigen/Dense>
+#include <alps/params.hpp>
+#include <alps/hdf5.hpp>
 
 #include "./thirdparty/irbasis.hpp"
 
@@ -32,9 +36,21 @@ convert_to_eigen_matrix(const std::vector<std::vector<T>>& array) {
   return mat;
 }
 
+namespace detail {
+    class Hash
+    {
+    public:
+        std::size_t operator()(const std::array<int,6>& oid) const
+        {
+          return boost::hash_range(oid.begin(), oid.end());
+        }
+    };
+}
+
 class IRbasis {
  public:
-  IRbasis(double Lambda, double beta, const std::string& file_name);
+  //IRbasis(double Lambda, double beta, const std::string& file_name, const std::string& file_name_4pt);
+  IRbasis(const alps::params& params);
 
   double beta() const {return beta_;}
   int dim_F() const {return dim_F_;}
@@ -58,9 +74,50 @@ class IRbasis {
     return std::min(idx, bin_edges_.size() - 2);
   }
 
+  int get_bin_index(double t1, double t2, double t3, double t4) const {
+      return get_bin_position_4pt(get_index_4pt(t1, t2, t3, t4));
+  }
+
+  double sum_inverse_bin_volume_4pt() const {
+    return norm_const_4pt_;
+  }
+
+  double bin_volume_4pt(int position) const {
+    return bin_volume_4pt_[position];
+  }
+
+  int get_bin_position_4pt(const std::array<int,6>& index) const {
+    return bin_index_map_4pt_.at(index);
+  }
+
+  std::array<int,6>
+  get_index_4pt(double t1, double t2, double t3, double t4) const {
+    std::array<double,4> taus{t1, t2, t3, t4};
+    std::array<int,6> index;
+    int k = 0;
+    for (int i = 0; i < 4; ++i) {
+      for (int j = i+1; j < 4; ++j) {
+        index[k] = get_bin_index(taus[i] - taus[j]);
+        ++ k;
+      }
+    }
+    return index;
+  }
+
+  int num_bins_4pt() const {
+    return bin_volume_4pt_.size();
+  }
+
 private:
     double Lambda_, beta_;
     irbasis::basis basis_f_, basis_b_;
     int dim_F_, dim_B_;
     std::vector<double> bin_edges_;
+
+    // 4pt
+    int num_bins_4pt_;
+    std::vector<double> bin_volume_4pt_;
+    std::vector<std::array<int,6>> bin_index_4pt_;
+    std::unordered_map<std::array<int,6>,int,detail::Hash> bin_index_map_4pt_;
+    double norm_const_4pt_;
 };

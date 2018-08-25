@@ -39,6 +39,9 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   if (p_G2_meas) {
     p_G2_meas->create_alps_observable(measurements);
   }
+  if (p_G2IR_meas) {
+    p_G2IR_meas->create_alps_observable(measurements);
+  }
 
   if (par["measurement.equal_time_G1.on"] != 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G1");
@@ -130,9 +133,16 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     );
     p_G2_meas.reset(
         new G2Measurement<SCALAR>(FLAVORS,
-                                    *p_irbasis,
-                                    par["measurement.G2.n_fermionic_freq"], par["measurement.G2.n_bosonic_freq"],
-                                    par["measurement.G2.max_num_data_accumulated"]
+                                  *p_irbasis,
+                                  par["measurement.G2.matsubara.n_fermionic_freq"],
+                                  par["measurement.G2.matsubara.n_bosonic_freq"],
+                                  par["measurement.G2.matsubara.max_num_data_accumulated"]
+        )
+    );
+    p_G2IR_meas.reset(
+        new G2IRMeasurement<SCALAR>(FLAVORS,
+                                  *p_irbasis,
+                                  par["measurement.G2.IR.max_num_data_accumulated"]
         )
     );
     specialized_updaters["G2_ins_rem_hyb"] =
