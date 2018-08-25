@@ -500,13 +500,6 @@ void compute_G2(const IRbasis &basis,
               tmp_mat(i, j) = M(rows3[i], cols3[j]);
             }
           }
-          // Here, wprime does not include signs arising from mod beta.
-          SCALAR wprime = mc_config.sign * reconnect.weight_rat_intermediate_state() * tmp_mat.determinant();
-          sum_wprime += std::abs(wprime);
-
-          if (wprime == 0.0) {
-            continue;
-          }
 
           double rw_corr =
               GWorm<2>::get_weight_correction(
@@ -516,7 +509,16 @@ void compute_G2(const IRbasis &basis,
                   creation_ops[d].time().time(),
                   mc_config.p_irbasis
               );
-          auto coeff = wprime / rw_corr;
+
+          // Here, wprime does not include signs arising from mod beta.
+          // wprime is the weight of a Monte Carlo state with a reweighting facter being included
+          SCALAR w_org = mc_config.sign * reconnect.weight_rat_intermediate_state() * tmp_mat.determinant();
+          SCALAR wprime = w_org * rw_corr;
+          sum_wprime += std::abs(wprime);
+
+          if (wprime == 0.0) {
+            continue;
+          }
 
           auto fa = annihilation_ops[a].flavor();
           auto fb = creation_ops[b].flavor();
@@ -525,8 +527,9 @@ void compute_G2(const IRbasis &basis,
           for (int freq_f1 = 0; freq_f1 < num_freq_f; ++freq_f1) {
             for (int freq_f2 = 0; freq_f2 < num_freq_f; ++freq_f2) {
               for (int freq_b = 0; freq_b < num_freq_b; ++freq_b) {
+                // Here, we need to accumulate w_org.
                 result_tmp[fa][fb][fc][fd][freq_f1][freq_f2][freq_b] +=
-                    coeff * exp_f[a][b][freq_f1] * exp_f[c][d][freq_f2] * exp_b[a][d][freq_b];
+                    w_org * exp_f[a][b][freq_f1] * exp_f[c][d][freq_f2] * exp_b[a][d][freq_b];
               }
             }
           }
@@ -623,13 +626,27 @@ void compute_G2_IR(const IRbasis &basis,
               tmp_mat(i, j) = M(rows3[i], cols3[j]);
             }
           }
-          // Here, wprime does not include signs arising from mod beta.
-          SCALAR wprime = mc_config.sign * reconnect.weight_rat_intermediate_state() * tmp_mat.determinant();
-          sum_wprime += std::abs(wprime);
 
-          if (wprime == 0.0) {
+
+          // Here, wprime does not include signs arising from mod beta.
+          // wprime is the weight of a Monte Carlo state with a reweighting facter being included
+          // w_org is the Monte Carlo weight without reweighting factor.
+          SCALAR w_org = mc_config.sign * reconnect.weight_rat_intermediate_state() * tmp_mat.determinant();
+
+          if (w_org == 0.0) {
             continue;
           }
+
+          double rw_corr =
+              GWorm<2>::get_weight_correction(
+                  annihilation_ops[a].time().time(),
+                  creation_ops[b].time().time(),
+                  annihilation_ops[c].time().time(),
+                  creation_ops[d].time().time(),
+                  mc_config.p_irbasis
+              );
+          SCALAR wprime = wprime * rw_corr;
+          sum_wprime += std::abs(wprime);
 
           auto fa = annihilation_ops[a].flavor();
           auto fb = creation_ops[b].flavor();
@@ -644,9 +661,8 @@ void compute_G2_IR(const IRbasis &basis,
           int bin_index = basis.get_bin_position_4pt(basis.get_index_4pt(t1, t2, t3, t4));
           SCALAR mod_signs = mod_sign(t1-t4, beta) * mod_sign(t2-t4, beta) * mod_sign(t3-t4, beta);
 
-          // Here, we do not divide the contribution by reweighting factor.
-          // Thus, the data will be the two-particle GF "averaged" (not integrated) in bins.
-          result_tmp[fa][fb][fc][fd][bin_index] += wprime * mod_signs;
+          // Here, we accumulate the two-particle GF "averaged" (not integrated) in bins.
+          result_tmp[fa][fb][fc][fd][bin_index] += (w_org * mod_signs)/basis.bin_volume_4pt(bin_index);
         }
       }
     }

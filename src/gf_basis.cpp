@@ -145,12 +145,18 @@ IRbasis::IRbasis(const alps::params &params)
 void
 IRbasis::check() const {
   // Check bins for 4pt Green's function
+  double vol_sum = 0.0;
   for (int ib=0; ib < num_bins_4pt(); ++ib) {
     auto centroid = bin_centroid_4pt(ib);
     auto ib_centroid = get_bin_index(centroid[0], centroid[1], centroid[2], 0);
+    vol_sum += bin_volume_4pt(ib);
     if (ib != ib_centroid) {
       throw std::runtime_error("Something went wrong with bins for 4pt Green's function!");
     }
+  }
+
+  if (std::abs(vol_sum - std::pow(beta(), 3)) > 1e-5) {
+    throw std::runtime_error("Something went wrong with bins for 4pt Green's function!");
   }
 }
 
