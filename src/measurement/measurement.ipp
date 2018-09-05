@@ -395,6 +395,256 @@ void compute_G1(const IRbasis &basis,
   }
 }
 
+template<typename SCALAR>
+void measure_G2_k4_PH(
+    double beta,
+    int num_flavors,
+    int num_phys_rows,
+    SCALAR overall_coeff,
+    const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>& M_prime,
+    const std::vector<psi>& creation_ops,
+    const std::vector<psi>& annihilation_ops,
+    const std::vector<int>& freq_index_f,
+    const std::vector<int>& freq_index_b,
+    boost::multi_array<std::complex<double>, 7> &result
+) {
+  // List of fermion frequencies
+  auto iwn_f_min = freq_index_f[0];
+  double min_freq_f = M_PI * (2 * iwn_f_min + 1) / beta;
+  auto num_freq_f = freq_index_f.size();
+  auto num_freq_b = freq_index_b.size();
+
+  boost::multi_array<std::complex<double>, 3>
+      exp_f(boost::extents[num_phys_rows][num_phys_rows][num_freq_f]);//annihilator, creator, freq_f
+  boost::multi_array<std::complex<double>, 3>
+      exp_b(boost::extents[num_phys_rows][num_phys_rows][num_freq_b]);//annihilator, creator, freq_b
+  double tau_diff, sign_mod;
+  for (int k = 0; k < num_phys_rows; k++) {
+    for (int l = 0; l < num_phys_rows; l++) {
+      double argument = annihilation_ops[k].time() - creation_ops[l].time();
+
+      std::tie(tau_diff, sign_mod) = mod_beta(argument, beta);
+
+      for (int freq = 0; freq < num_freq_f; ++freq) {
+        auto wn =  M_PI * (2 * freq_index_f[freq] + 1) / beta;
+        exp_f[k][l][freq] = sign_mod * std::exp(std::complex<double>(0, wn * tau_diff));
+      }
+
+      for (int freq = 0; freq < num_freq_b; ++freq) {
+        auto wn =  M_PI * (2 * freq_index_b[freq]) / beta;
+        exp_b[k][l][freq] = std::exp(std::complex<double>(0, wn * tau_diff));
+      }
+    }
+  }
+
+  auto extents = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_freq_f][num_freq_f][num_freq_b];
+  boost::multi_array<std::complex<double>, 7> result_tmp(extents);
+  std::fill(result_tmp.origin(), result_tmp.origin() + result_tmp.num_elements(), 0.0);
+  for (int a = 0; a < num_phys_rows; ++a) {
+    for (int b = 0; b < num_phys_rows; ++b) {
+      for (int c = 0; c < num_phys_rows; ++c) {
+        if (a == c) {
+          continue;
+        }
+        for (int d = 0; d < num_phys_rows; ++d) {
+          if (b == d) {
+            continue;
+          }
+          /*
+           * Delta convention
+           * M_ab  M_ad  M_a*
+           * M_cb  M_cd  M_c*
+           * M_*b  M_*d  M_**
+           *
+           * Here, M is in F convention. Rows and columns must be swapped.
+           */
+          SCALAR det = (M_prime(b,a) * M_prime(d,c) - M_prime(d,a) * M_prime(b,c));
+
+          if (det == 0.0) {
+            continue;
+          }
+
+          auto fa = annihilation_ops[a].flavor();
+          auto fb = creation_ops[b].flavor();
+          auto fc = annihilation_ops[c].flavor();
+          auto fd = creation_ops[d].flavor();
+          for (int freq_f1 = 0; freq_f1 < num_freq_f; ++freq_f1) {
+            for (int freq_f2 = 0; freq_f2 < num_freq_f; ++freq_f2) {
+              for (int freq_b = 0; freq_b < num_freq_b; ++freq_b) {
+                result_tmp[fa][fb][fc][fd][freq_f1][freq_f2][freq_b] +=
+                    det * exp_f[a][b][freq_f1] * exp_f[c][d][freq_f2] * exp_b[a][d][freq_b];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  auto it2 = result.origin();
+  for (auto it = result_tmp.origin(); it != result_tmp.origin() + result_tmp.num_elements(); ++it) {
+    *it2 += (*it) * overall_coeff;
+    ++it2;
+  }
+}
+
+/*
+ * Compute intermediate single-particle object for measuring two-particle GF
+ * g_{f1,f2}(omega, omega') = sum_{ij} M'_{ji} exp(i omega tau_i - i omega' tau_j) delta_{f1, i} delta_{f2, j}
+ */
+template<typename SCALAR>
+Eigen::Tensor<std::complex<double>,4>
+    compute_g(
+        double beta,
+        int num_flavors,
+        int num_phys_rows,
+        const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>& M_prime,
+        const std::vector<int>& index_freqs_f,
+        const std::vector<psi>& creation_ops,
+        const std::vector<psi>& annihilation_ops
+    ) {
+
+  auto num_freqs = index_freqs_f.size();
+
+  auto to_fermion_freq = [&](int n) {
+      return (2 * n + 1) * M_PI / beta;
+  };
+
+  std::vector<double> freqs_f(num_freqs);
+  for (int i=0; i<num_freqs; ++i) {
+    freqs_f[i] = to_fermion_freq(index_freqs_f[i]);
+  }
+
+  Eigen::Tensor<std::complex<double>,4> g(num_freqs, num_freqs, num_flavors, num_flavors);
+  g.setZero();
+
+  Eigen::Tensor<std::complex<double>,3> exp_1(num_freqs, 1, num_phys_rows), exp_2_conj(1, num_freqs, num_phys_rows);
+
+  auto expix = [](double x) {
+      return std::complex<double>(std::cos(x), std::sin(x));
+  };
+
+  for (int i=0; i<num_phys_rows; ++i) {
+    auto tau_i = annihilation_ops[i].time().time();
+    for (int f=0; f<num_freqs; ++f) {
+      exp_1(f, 0, i) = expix(freqs_f[f] * tau_i);
+    }
+  }
+
+  for (int j=0; j<num_phys_rows; ++j) {
+    auto tau_j = creation_ops[j].time().time();
+    for (int f=0; f<num_freqs; ++f) {
+      exp_2_conj(0, f, j) = expix(-freqs_f[f] * tau_j);
+    }
+  }
+
+  for (int i=0; i<num_phys_rows; ++i) {
+    auto f_i = annihilation_ops[i].flavor();
+    for (int j=0; j<num_phys_rows; ++j) {
+      auto f_j = creation_ops[j].flavor();
+
+      Eigen::array<Eigen::IndexPair<int>, 1> product_dim = { Eigen::IndexPair<int>(1, 0) };
+      g.chip(f_j, 3).chip(f_i, 2) += M_prime(j,i) * exp_1.chip(i,2).contract(exp_2_conj.chip(j,2), product_dim);
+    }
+  }
+
+  return g;
+}
+
+
+/**
+ * Does the same job as measure_G2_k4_PH. But computational cost scales as O(k^2) where k is the matrix size for reconnection
+ * @tparam SCALAR
+ * @param beta
+ * @param num_flavors
+ * @param num_phys_rows
+ * @param overall_coeff
+ * @param M_prime
+ * @param creation_ops
+ * @param annihilation_ops
+ * @param freq_index_f
+ * @param freq_index_b
+ * @param result
+ */
+template<typename SCALAR>
+void measure_G2_k2_PH(
+    double beta,
+    int num_flavors,
+    int num_phys_rows,
+    SCALAR overall_coeff,
+    const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>& M_prime,
+    const std::vector<psi>& creation_ops,
+    const std::vector<psi>& annihilation_ops,
+    const std::vector<int>& freq_index_f,
+    const std::vector<int>& freq_index_b,
+    boost::multi_array<std::complex<double>, 7> &result
+) {
+  using dcomplex = std::complex<double>;
+
+  // List of fermion frequencies
+  auto iwn_f_min = freq_index_f[0];
+  auto num_freq_f = freq_index_f.size();
+  auto num_freq_b = freq_index_b.size();
+
+  std::set<int> all_index_f;
+  for (auto index_f : freq_index_f) {
+    for (auto index_b : freq_index_b) {
+      all_index_f.insert(index_f);
+      all_index_f.insert(index_f + index_b);
+    }
+  }
+
+  std::vector<int> all_index_f_vec(all_index_f.begin(), all_index_f.end());
+
+  Eigen::Tensor<std::complex<double>,4> g = compute_g(
+      beta, num_flavors, num_phys_rows,
+      M_prime, all_index_f_vec,
+      creation_ops, annihilation_ops);
+
+  auto find_freq_index = [&](int index_f) {
+    auto it = std::lower_bound(all_index_f_vec.begin(), all_index_f_vec.end(), index_f);
+    auto idx = std::distance(all_index_f_vec.begin(), it);
+    assert(idx >= 0 && idx < all_index_f_vec.size());
+    return idx;
+  };
+
+  // g_trans (flavor, flavor, freq_f, freq_f)
+  Eigen::array<int, 4> shuffle {2, 3, 0, 1};
+  Eigen::Tensor<std::complex<double>,4> g_trans = g.shuffle(shuffle);
+
+  for (int ifreq1 = 0; ifreq1 < num_freq_f; ++ifreq1) {
+    auto freq_f1 = freq_index_f[ifreq1];
+    for (int ifreq2 = 0; ifreq2 < num_freq_f; ++ifreq2) {
+      auto freq_f2 = freq_index_f[ifreq2];
+      for (int ifreq_b = 0; ifreq_b < num_freq_b; ++ifreq_b) {
+        auto freq_b = freq_index_b[ifreq_b];
+
+        Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g1_H(&g_trans(0, 0, find_freq_index(freq_f1+freq_b), find_freq_index(freq_f1)), num_flavors, num_flavors, 1);
+        Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g2_H(&g_trans(0, 0, find_freq_index(freq_f2), find_freq_index(freq_f2+freq_b)), 1, num_flavors, num_flavors);
+        Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g1_F(&g_trans(0, 0, find_freq_index(freq_f1+freq_b), find_freq_index(freq_f2+freq_b)), num_flavors, num_flavors, 1);
+        Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g2_F(&g_trans(0, 0, find_freq_index(freq_f2), find_freq_index(freq_f1)), 1, num_flavors, num_flavors);
+
+        Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 0) };
+        Eigen::Tensor<std::complex<double>,4> G_H = g1_H.contract(g2_H, product_dims);
+        //(f1, f4, 1) * (1, f3, f2) => G_F(f1, f4, f3, f2)
+        Eigen::Tensor<std::complex<double>,4> G_F = - g1_F.contract(g2_F, product_dims);
+
+        for(int f1=0; f1<num_flavors; ++f1) {
+          for(int f2=0; f2<num_flavors; ++f2) {
+            for(int f3=0; f3<num_flavors; ++f3) {
+              for(int f4=0; f4<num_flavors; ++f4) {
+                result[f1][f2][f3][f4][ifreq1][ifreq2][ifreq_b] += overall_coeff * (G_H(f1, f2, f3, f4) + G_F(f1, f4, f3, f2));
+              }//f4
+            }//f3
+          }//f2
+        }//f1
+
+      }
+    }
+  }
+
+};
+
 //Compute G2 by removal in G2 space
 template<typename SCALAR>
 void compute_G2(const IRbasis &basis,
@@ -440,41 +690,21 @@ void compute_G2(const IRbasis &basis,
   }
   assert(cols3.back() == last);
 
-  // List of fermion frequencies
-  auto iwn_f_min = -num_freq_f / 2;
-  double min_freq_f = M_PI * (2 * iwn_f_min + 1) / beta;
-
-  boost::multi_array<std::complex<double>, 3>
-      exp_f(boost::extents[num_phys_rows][num_phys_rows][num_freq_f]);//annihilator, creator, freq_f
-  boost::multi_array<std::complex<double>, 3>
-      exp_b(boost::extents[num_phys_rows][num_phys_rows][num_freq_b]);//annihilator, creator, freq_b
-  double tau_diff, sign_mod;
-  for (int k = 0; k < num_phys_rows; k++) {
-    for (int l = 0; l < num_phys_rows; l++) {
-      double argument = annihilation_ops[k].time() - creation_ops[l].time();
-
-      std::tie(tau_diff, sign_mod) = mod_beta(argument, beta);
-
-      auto rat = std::exp(std::complex<double>(0.0, 2 * M_PI * tau_diff / beta));
-
-      exp_f[k][l][0] = sign_mod * std::exp(std::complex<double>(0, min_freq_f * tau_diff));
-      for (int freq = 1; freq < num_freq_f; ++freq) {
-        exp_f[k][l][freq] = rat * exp_f[k][l][freq - 1];
-      }
-
-      exp_b[k][l][0] = 1.0;
-      for (int freq = 1; freq < num_freq_b; ++freq) {
-        exp_b[k][l][freq] = rat * exp_b[k][l][freq - 1];
-      }
-    }
-  }
-
-  std::cout << "bin " << dynamic_cast<GWorm<2>*>(mc_config.p_worm.get())->get_bin_index() << std::endl;
+  /*
+   * M = (A B)
+   *     (C D)
+   * |M| = |D| |A - BD^{-1} C| = |D| |M_prime|,
+   * where M_prime = A - B D^{-1} C.
+   */
+  using matrix_type = Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>;
+  matrix_type A = M.block(0, 0, num_phys_rows, num_phys_rows);
+  matrix_type B = M.block(0, num_phys_rows, num_phys_rows, n_aux_lines);
+  matrix_type C = M.block(num_phys_rows, 0, n_aux_lines, num_phys_rows);
+  matrix_type D = M.block(num_phys_rows, num_phys_rows, n_aux_lines, n_aux_lines);
+  SCALAR det_D = D.determinant();
+  matrix_type M_prime = A - B * D.inverse() * C;
 
   double sum_wprime = 0.0;
-  auto extents = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_freq_f][num_freq_f][num_freq_b];
-  boost::multi_array<std::complex<double>, 7> result_tmp(extents);
-  std::fill(result_tmp.origin(), result_tmp.origin() + result_tmp.num_elements(), 0.0);
   for (int a = 0; a < num_phys_rows; ++a) {
     for (int b = 0; b < num_phys_rows; ++b) {
       for (int c = 0; c < num_phys_rows; ++c) {
@@ -490,16 +720,10 @@ void compute_G2(const IRbasis &basis,
            * M_ab  M_ad  M_a*
            * M_cb  M_cd  M_c*
            * M_*b  M_*d  M_**
+           *
+           * Here, M is in F convention. Rows and columns must be swapped.
            */
-          rows3[0] = b;
-          rows3[1] = d;
-          cols3[0] = a;
-          cols3[1] = c;
-          for (int j = 0; j < det_size; ++j) {
-            for (int i = 0; i < det_size; ++i) {
-              tmp_mat(i, j) = M(rows3[i], cols3[j]);
-            }
-          }
+          SCALAR det = det_D * (M_prime(b,a) * M_prime(d,c) - M_prime(d,a) * M_prime(b,c));
 
           double rw_corr =
               GWorm<2>::get_weight_correction(
@@ -512,39 +736,32 @@ void compute_G2(const IRbasis &basis,
 
           // Here, wprime does not include signs arising from mod beta.
           // wprime is the weight of a Monte Carlo state with a reweighting facter being included
-          SCALAR w_org = mc_config.sign * reconnect.weight_rat_intermediate_state() * tmp_mat.determinant();
+          SCALAR w_org = mc_config.sign * reconnect.weight_rat_intermediate_state() * det;
           SCALAR wprime = w_org * rw_corr;
           sum_wprime += std::abs(wprime);
-
-          if (wprime == 0.0) {
-            continue;
-          }
-
-          auto fa = annihilation_ops[a].flavor();
-          auto fb = creation_ops[b].flavor();
-          auto fc = annihilation_ops[c].flavor();
-          auto fd = creation_ops[d].flavor();
-          for (int freq_f1 = 0; freq_f1 < num_freq_f; ++freq_f1) {
-            for (int freq_f2 = 0; freq_f2 < num_freq_f; ++freq_f2) {
-              for (int freq_b = 0; freq_b < num_freq_b; ++freq_b) {
-                // Here, we need to accumulate w_org.
-                result_tmp[fa][fb][fc][fd][freq_f1][freq_f2][freq_b] +=
-                    w_org * exp_f[a][b][freq_f1] * exp_f[c][d][freq_f2] * exp_b[a][d][freq_b];
-              }
-            }
-          }
         }
       }
     }
   }
 
+  // List of fermion frequencies
+  std::vector<int> freq_index_f(num_freq_f);
+  for (int i=0; i<num_freq_f; ++i) {
+    freq_index_f[i] = i - num_freq_f / 2;
+  }
+
+  // List of boson frequencies
+  std::vector<int> freq_index_b(num_freq_b);
+  for (int i=0; i<num_freq_b; ++i) {
+    freq_index_b[i] = i;
+  }
+
   // Multiplied by 1/(sum_wprime * beta)
   // The origin of "beta" term is the same as G1.
-  auto it2 = result.origin();
-  for (auto it = result_tmp.origin(); it != result_tmp.origin() + result_tmp.num_elements(); ++it) {
-    *it2 += (*it) / (sum_wprime * beta);
-    ++it2;
-  }
+  SCALAR overall_coeff = mc_config.sign * reconnect.weight_rat_intermediate_state() * det_D/ (sum_wprime * beta);
+
+  measure_G2_k2_PH(beta, num_flavors, num_phys_rows, overall_coeff,
+                   M_prime, creation_ops, annihilation_ops, freq_index_f, freq_index_b, result);
 }
 
 //Compute G2 by removal in G2 space
@@ -645,7 +862,7 @@ void compute_G2_IR(const IRbasis &basis,
                   creation_ops[d].time().time(),
                   mc_config.p_irbasis
               );
-          SCALAR wprime = wprime * rw_corr;
+          SCALAR wprime = w_org * rw_corr;
           sum_wprime += std::abs(wprime);
 
           auto fa = annihilation_ops[a].flavor();

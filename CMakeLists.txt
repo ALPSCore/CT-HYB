@@ -106,7 +106,7 @@ list(APPEND LINK_ALL alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} $
 
 #testing source files
 set(unittest_src
-unittest_solver unittest_fu
+unittest_solver unittest_fu g2
 )
 
 enable_testing(test)

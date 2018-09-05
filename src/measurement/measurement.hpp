@@ -7,6 +7,7 @@
 #include <boost/range/algorithm.hpp>
 
 #include <Eigen/Dense>
+#include <unsupported/Eigen/CXX11/Tensor>
 
 #include <alps/fastupdate/resizable_matrix.hpp>
 #include <alps/mc/random01.hpp>
