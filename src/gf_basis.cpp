@@ -85,28 +85,54 @@ IRbasis::IRbasis(const alps::params &params)
       }
       return dim;
   };
-  dim_F_ = count_basis(basis_f_, 1e-2);
-  dim_B_ = count_basis(basis_b_, 1e-2);
+  dim_F_ = count_basis(basis_f_, 1e-5);
+  dim_B_ = count_basis(basis_b_, 1e-5);
 
-  auto zeros_x_f = find_zeros(
-      [&](double x) { return basis_f_.ulx(dim_F_ - 1, x); }
-  );
-  bin_edges_.push_back(0);
-  std::transform(
-      zeros_x_f.begin(), zeros_x_f.end(), std::back_inserter(bin_edges_),
-      [&](double x) { return beta_ * 0.5 * (x + 1); }
-  );
-  bin_edges_.push_back(beta_);
+  std::string bin_file(params["measurement.G2.IRbasis_4pt_database_file"].template as<std::string>());
+  if (bin_file == "") {
+    bin_edges_.push_back(0);
+    bin_edges_.push_back(beta_);
 
-  // Load bins for measuring G4pt
-  {
-    alps::hdf5::archive f_4pt(params["measurement.G2.IRbasis_4pt_database_file"], "r");
+    num_bins_4pt_ = 1;
+    bin_volume_4pt_.resize(num_bins_4pt_);
+    bin_index_4pt_.resize(num_bins_4pt_);
+    bin_centroid_4pt_.resize(num_bins_4pt_);
+
+    bin_volume_4pt_[0] = beta_ * beta_ * beta_;
+    for (int i = 0; i < 6; ++i) {
+      bin_index_4pt_[0][i] = 0;
+    }
+    for (int i = 0; i < 3; ++i) {
+      bin_centroid_4pt_[0][i] = 0.5 * beta_;
+    }
+
+    bin_index_map_4pt_[bin_index_4pt_[0]] = 0;
+
+    norm_const_4pt_ = 1 / bin_volume_4pt_[0];
+
+  } else {
+    /*
+    auto zeros_x_f = find_zeros(
+        [&](double x) { return basis_f_.ulx(dim_F_ - 1, x); }
+    );
+    bin_edges_.push_back(0);
+    bin_edges_.push_back(beta_);
+    */
+
+    // Load bins for measuring G4pt
+    alps::hdf5::archive f_4pt(bin_file, "r");
     std::stringstream ss;
     ss << "/Lambda";
     ss << std::fixed << std::setprecision(1) << Lambda_;
-    ss << "-dim";
-    ss << std::fixed << std::setprecision(0) << dim_F_;
+    //ss << "-dim";
+    //ss << std::fixed << std::setprecision(0) << dim_F_;
     f_4pt[ss.str() + "/num_bins"] >> num_bins_4pt_;
+
+    f_4pt[ss.str() + "/bin_edges"] >> bin_edges_;
+    std::transform(
+        bin_edges_.begin(), bin_edges_.end(), bin_edges_.begin(),
+        [&](double x) { return beta_ * 0.5 * (x + 1); }
+    );
 
     bin_volume_4pt_.resize(num_bins_4pt_);
     bin_index_4pt_.resize(num_bins_4pt_);
@@ -150,11 +176,14 @@ IRbasis::check() const {
     auto centroid = bin_centroid_4pt(ib);
     auto ib_centroid = get_bin_index(centroid[0], centroid[1], centroid[2], 0);
     vol_sum += bin_volume_4pt(ib);
+    std::cout << "vol " << ib << " " << bin_volume_4pt(ib) << std::endl;
+    std::cout << "ibb " << ib << " " << ib_centroid << std::endl;
     if (ib != ib_centroid) {
       throw std::runtime_error("Something went wrong with bins for 4pt Green's function!");
     }
   }
 
+  std::cout << "debug " << vol_sum << " " << std::pow(beta(), 3) << std::endl;
   if (std::abs(vol_sum - std::pow(beta(), 3)) > 1e-5) {
     throw std::runtime_error("Something went wrong with bins for 4pt Green's function!");
   }

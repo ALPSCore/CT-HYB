@@ -267,42 +267,35 @@ void rotate_back_G2(int n_flavors, boost::multi_array<std::complex<double>, 4> &
 }
 
 template<typename T, typename T2>
-void rotate_back_G2_impl(boost::multi_array<T,7>& G2,
+void rotate_back_G2_impl(boost::multi_array<T,5>& G2,
                          const Eigen::Matrix<T2, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta
 ) {
   auto n_flavors = G2.shape()[0];
   auto N1 = G2.shape()[4];
-  auto N2 = G2.shape()[5];
-  auto N3 = G2.shape()[6];
 
   boost::multi_array<T, 4>
           work(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors]);
 
   for (int i1 = 0; i1 < N1; ++i1) {
-    for (int i2 = 0; i2 < N2; ++i2) {
-      for (int i3 = 0; i3 < N3; ++i3) {
-
-        //copy data to work1
-        for (int f1 = 0; f1 < n_flavors; ++f1) {
-          for (int f2 = 0; f2 < n_flavors; ++f2) {
-            for (int f3 = 0; f3 < n_flavors; ++f3) {
-              for (int f4 = 0; f4 < n_flavors; ++f4) {
-                work[f1][f2][f3][f4] = G2[f1][f2][f3][f4][i1][i2][i3];
-              }
-            }
+    //copy data to work1
+    for (int f1 = 0; f1 < n_flavors; ++f1) {
+      for (int f2 = 0; f2 < n_flavors; ++f2) {
+        for (int f3 = 0; f3 < n_flavors; ++f3) {
+          for (int f4 = 0; f4 < n_flavors; ++f4) {
+            work[f1][f2][f3][f4] = G2[f1][f2][f3][f4][i1];
           }
         }
+      }
+    }
 
-        rotate_back_G2(n_flavors, work, rotmat_Delta);
+    rotate_back_G2(n_flavors, work, rotmat_Delta);
 
-        //copy result to G2iwn
-        for (int f1 = 0; f1 < n_flavors; ++f1) {
-          for (int f2 = 0; f2 < n_flavors; ++f2) {
-            for (int f3 = 0; f3 < n_flavors; ++f3) {
-              for (int f4 = 0; f4 < n_flavors; ++f4) {
-                G2[f1][f2][f3][f4][i1][i2][i3] = work[f1][f2][f3][f4];
-              }
-            }
+    //copy result to G2iwn
+    for (int f1 = 0; f1 < n_flavors; ++f1) {
+      for (int f2 = 0; f2 < n_flavors; ++f2) {
+        for (int f3 = 0; f3 < n_flavors; ++f3) {
+          for (int f4 = 0; f4 < n_flavors; ++f4) {
+            G2[f1][f2][f3][f4][i1] = work[f1][f2][f3][f4];
           }
         }
       }
@@ -316,8 +309,7 @@ void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &
                 const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
                 std::map<std::string,boost::any> &ar,
                 bool verbose = false) {
-  const int n_freq_f(parms["measurement.G2.matsubara.n_fermionic_freq"]);
-  const int n_freq_b(parms["measurement.G2.matsubara.n_bosonic_freq"]);
+  auto freqs = read_matsubara_points(parms["measurement.G2.matsubara.frequencies_PH"]);
   const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   const double sign = results["Sign"].template mean<double>();
 
@@ -328,15 +320,23 @@ void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &
 
   const std::vector<double> G2iwn_Re = results["G2_matsubara_Re"].template mean<std::vector<double> >();
   const std::vector<double> G2iwn_Im = results["G2_matsubara_Im"].template mean<std::vector<double> >();
-  boost::multi_array<std::complex<double>, 7>
-      G2iwn(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][n_freq_f][n_freq_f][n_freq_b]);
+  boost::multi_array<std::complex<double>, 5>
+      G2iwn(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][freqs.size()]);
   std::transform(G2iwn_Re.begin(), G2iwn_Re.end(), G2iwn_Im.begin(), G2iwn.origin(), to_complex<double>());
   std::transform(G2iwn.origin(), G2iwn.origin() + G2iwn.num_elements(), G2iwn.origin(),
                  std::bind1st(std::multiplies<std::complex<double> >(), coeff));
 
   rotate_back_G2_impl(G2iwn, rotmat_Delta);
 
-  ar["G2_matsubara"] = G2iwn;
+  boost::multi_array<int,2> freqs_array(boost::extents[freqs.size()][3]);
+  for (int i=0; i<freqs.size(); ++i) {
+    freqs_array[i][0] = std::get<0>(freqs[i]);
+    freqs_array[i][1] = std::get<1>(freqs[i]);
+    freqs_array[i][2] = std::get<2>(freqs[i]);
+  }
+
+  ar["G2/matsubara/freqs_PH"] = freqs_array;
+  ar["G2/matsubara/data"] = G2iwn;
 }
 
 template<typename SOLVER_TYPE>

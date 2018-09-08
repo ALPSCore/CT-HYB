@@ -66,6 +66,11 @@ inline void save(
   cnt += detail::save_if_match<boost::multi_array<double,7 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
   cnt += detail::save_if_match<boost::multi_array<double,8 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
 
+  cnt += detail::save_if_match<boost::multi_array<int,1 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+  cnt += detail::save_if_match<boost::multi_array<int,2 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+  cnt += detail::save_if_match<boost::multi_array<int,3 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+  cnt += detail::save_if_match<boost::multi_array<int,4 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+
   cnt += detail::save_if_match<boost::multi_array<dcomplex_,1 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
   cnt += detail::save_if_match<boost::multi_array<dcomplex_,2 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
   cnt += detail::save_if_match<boost::multi_array<dcomplex_,3 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;

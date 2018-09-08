@@ -166,6 +166,8 @@ private:
     int max_num_data_;//max number of data accumlated before passing data to ALPS
 };
 
+using matsubara_freq_point_PH = std::tuple<int,int,int>;
+
 template<typename SCALAR>
 class G2Measurement {
 public:
@@ -174,12 +176,11 @@ public:
      *
      * @param num_flavors    the number of flavors
      */
-    G2Measurement(int num_flavors, const IRbasis& basis, int num_freq_f, int num_freq_b, int max_num_data = 1) :
+    G2Measurement(int num_flavors, const IRbasis& basis, const std::vector<matsubara_freq_point_PH>& freqs, int num_freq_b, int max_num_data = 1) :
             str_("G2"),
             num_flavors_(num_flavors),
-            num_freq_f_(num_freq_f),
-            num_freq_b_(num_freq_b),
-            matsubara_data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_freq_f][num_freq_f][num_freq_b]),
+            freqs_(freqs),
+            matsubara_data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][freqs_.size()]),
             num_data_(0),
             max_num_data_(max_num_data) {
         std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0);
@@ -203,8 +204,8 @@ public:
 private:
     std::string str_;
     int num_flavors_;
-    int num_freq_f_, num_freq_b_;
-    boost::multi_array<std::complex<double>, 7> matsubara_data_; //flavor, flavor, flavor, flavor, IR_F, IR_F, boson_freq.
+    std::vector<matsubara_freq_point_PH> freqs_;
+    boost::multi_array<std::complex<double>, 5> matsubara_data_; //flavor, flavor, flavor, flavor, freq
     int num_data_;
     int max_num_data_;//max number of data accumlated before passing data to ALPS
 };
@@ -283,5 +284,7 @@ class EqualTimeGMeasurement {
  private:
   int num_flavors_;
 };
+
+std::vector<matsubara_freq_point_PH> read_matsubara_points(const std::string& file);
 
 //#include "measurement.ipp"

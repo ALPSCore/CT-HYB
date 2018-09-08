@@ -12,6 +12,29 @@ void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_
   data.resize(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_legendre][num_legendre][num_freq]);
 }
 
+std::vector<matsubara_freq_point_PH> read_matsubara_points(const std::string& file) {
+  std::ifstream f(file);
+
+  if (!f.is_open()) {
+    throw std::runtime_error("File at " + file + ", which should contain the list of Matsubara frequencies for G2 measurement cannot be read or does not exit.");
+  }
+
+  int num_freqs;
+  f >> num_freqs;
+
+  std::vector<matsubara_freq_point_PH> data(num_freqs);
+  for (int i=0; i<num_freqs; ++i) {
+    int j, n, np, m;
+    f >> j >> n >> np >> m;
+    if (i != j) {
+      std::runtime_error("The first column has a wrong value in " + file + ".");
+    }
+    data[i] = matsubara_freq_point_PH(n, np, m);
+  }
+
+  return data;
+}
+
 #undef PP_SCALAR
 #undef PP_EXTENDED_SCALAR
 #undef PP_SW

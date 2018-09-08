@@ -35,7 +35,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
                    10,
                    "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
       .define<double>("measurement.Lambda", 1000.0, "Parameter for IR basis (Lambda=10, 100, 1000, 10000 are supported)")
-      .define<std::string>("measurement.IRbasis_database_file", "./irbasis.h5", "Relative/absolute path to a HDF5 database file of IR basis")
+      .define<std::string>("measurement.IRbasis_database_file", "", "Relative/absolute path to a HDF5 database file of IR basis")
           //Single-particle GF
       .define<int>("measurement.G1.n_tau",
                    2000,
@@ -51,8 +51,9 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
           //Two-particle GF
       .define<int>("measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
       //.define<int>("measurement.G2.n_legendre", 20, "Number of legendre polynomials for measurement")
-      .define<int>("measurement.G2.matsubara.n_fermionic_freq", 20, "Number of fermionic frequencies for measurement")
-      .define<int>("measurement.G2.matsubara.n_bosonic_freq", 2, "Number of bosonic frequencies for measurement")
+      //.define<int>("measurement.G2.matsubara.n_fermionic_freq", 20, "Number of fermionic frequencies for measurement")
+      //.define<int>("measurement.G2.matsubara.n_bosonic_freq", 2, "Number of bosonic frequencies for measurement")
+      .define<std::string>("measurement.G2.matsubara.frequencies_PH", "", "Text file containing a list of frequencies on which G2 is measured (in particle-hole convention)")
       .define<int>("measurement.G2.matsubara.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
       .define<int>("measurement.G2.matsubara.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<int>("measurement.G2.IR.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
