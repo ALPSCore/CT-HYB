@@ -176,14 +176,11 @@ IRbasis::check() const {
     auto centroid = bin_centroid_4pt(ib);
     auto ib_centroid = get_bin_index(centroid[0], centroid[1], centroid[2], 0);
     vol_sum += bin_volume_4pt(ib);
-    std::cout << "vol " << ib << " " << bin_volume_4pt(ib) << std::endl;
-    std::cout << "ibb " << ib << " " << ib_centroid << std::endl;
     if (ib != ib_centroid) {
       throw std::runtime_error("Something went wrong with bins for 4pt Green's function!");
     }
   }
 
-  std::cout << "debug " << vol_sum << " " << std::pow(beta(), 3) << std::endl;
   if (std::abs(vol_sum - std::pow(beta(), 3)) > 1e-5) {
     throw std::runtime_error("Something went wrong with bins for 4pt Green's function!");
   }
