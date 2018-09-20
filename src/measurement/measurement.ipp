@@ -1,5 +1,7 @@
 #include "./measurement.hpp"
 
+#include <boost/functional/hash.hpp>
+
 /*
 template<typename SCALAR>
 template<typename SlidingWindow>
@@ -606,6 +608,89 @@ Eigen::Tensor<std::complex<double>,4>
   return g;
 }
 
+template<typename SCALAR>
+Eigen::Tensor<std::complex<double>,3>
+compute_g_new(
+    double beta,
+    int num_flavors,
+    int num_phys_rows,
+    const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>& M_prime,
+    const std::vector<std::pair<int,int>>& two_freqs,
+    const std::vector<psi>& creation_ops,
+    const std::vector<psi>& annihilation_ops
+) {
+
+  using dcomplex = std::complex<double>;
+
+  auto to_fermion_freq = [&](int n) {
+      return (2 * n + 1) * M_PI / beta;
+  };
+
+  //std::vector<double> freqs_f(num_freqs);
+  //for (int i=0; i<num_freqs; ++i) {
+    //freqs_f[i] = to_fermion_freq(index_freqs_f[i]);
+  //}
+
+  Eigen::Tensor<dcomplex,3> g(two_freqs.size(), num_flavors, num_flavors);
+  g.setZero();
+
+  Eigen::Tensor<dcomplex,2> exp_1(two_freqs.size(), num_phys_rows), exp_2_conj(two_freqs.size(), num_phys_rows);
+
+  auto expix = [](double x) {
+      return std::complex<double>(std::cos(x), std::sin(x));
+  };
+
+  for (int i=0; i<num_phys_rows; ++i) {
+    auto tau_i = annihilation_ops[i].time().time();
+    for (int f=0; f<two_freqs.size(); ++f) {
+      exp_1(f, i) = expix(to_fermion_freq(two_freqs[f].first) * tau_i);
+    }
+  }
+
+  for (int j=0; j<num_phys_rows; ++j) {
+    auto tau_j = creation_ops[j].time().time();
+    for (int f=0; f<two_freqs.size(); ++f) {
+      exp_2_conj(f, j) = expix(-to_fermion_freq(two_freqs[f].second) * tau_j);
+    }
+  }
+
+  // O(k^2 * num_freqs * num_flavors^2)
+  // Typical case:
+  //    k = 10 (per flavor)
+  //    num_freqs = 10^4
+  //    num_flavors = 2
+  //  => 4 x 10^6
+  // The following loops may be vectorized...
+  for (int j=0; j<num_phys_rows; ++j) {
+    auto f_j = creation_ops[j].flavor();
+    for (int i=0; i<num_phys_rows; ++i) {
+      auto f_i = annihilation_ops[i].flavor();
+
+      for (int f = 0; f < two_freqs.size(); ++f) {
+        g(f, f_i, f_j) += M_prime(j, i) * exp_1(f, i) * exp_2_conj(f, j);
+      }
+
+    }//i
+  }//j
+
+
+  return g;
+}
+
+namespace detail {
+    class HashIntPair
+    {
+    public:
+        std::size_t operator()(const std::pair<int,int>& p) const
+        {
+          std::size_t seed = 0;
+          boost::hash_combine(seed, p.first);
+          boost::hash_combine(seed, p.second);
+          return seed;
+        }
+    };
+}
+
 
 /**
  * Does the same job as measure_G2_k4_PH. But computational cost scales as O(k^2) where k is the matrix size for reconnection
@@ -636,6 +721,7 @@ void measure_G2_k2_PH_impl(
 
   // List of fermion frequencies that appears in the indices of the intermediate objects for measuring
   // two-particle GF
+      /*
   std::set<int> all_index_f;
   for (const auto& freq : meas_freqs_list) {
     auto n = std::get<0>(freq);
@@ -647,27 +733,56 @@ void measure_G2_k2_PH_impl(
     all_index_f.insert(np + m);
   }
   std::vector<int> all_index_f_vec(all_index_f.begin(), all_index_f.end());
+       */
   //std::cout << "debug " << all_index_f_vec.size() << std::endl;
 
   //std::cout << "A " << std::endl;
-  Eigen::Tensor<std::complex<double>,4> g = compute_g(
-      beta, num_flavors, num_phys_rows,
-      M_prime, all_index_f_vec,
-      creation_ops, annihilation_ops);
+  //Eigen::Tensor<std::complex<double>,4> g = compute_g(
+      //beta, num_flavors, num_phys_rows,
+      //M_prime, all_index_f_vec,
+      //creation_ops, annihilation_ops);
 
-  auto find_freq_index = [&](int index_f) {
-    auto it = std::lower_bound(all_index_f_vec.begin(), all_index_f_vec.end(), index_f);
-    auto idx = std::distance(all_index_f_vec.begin(), it);
-    assert(idx >= 0 && idx < all_index_f_vec.size());
+  //auto t1 = std::chrono::system_clock::now();
+
+  std::vector<std::pair<int,int>> two_freqs_vec;
+  for (const auto& freq: meas_freqs_list) {
+    auto freq_f1 = std::get<0>(freq);
+    auto freq_f2 = std::get<1>(freq);
+    auto freq_b = std::get<2>(freq);
+    two_freqs_vec.emplace_back(freq_f1+freq_b, freq_f1);
+    two_freqs_vec.emplace_back(freq_f2, freq_f2+freq_b);
+    two_freqs_vec.emplace_back(freq_f1+freq_b, freq_f2+freq_b);
+    two_freqs_vec.emplace_back(freq_f2, freq_f1);
+  }
+  std::sort(two_freqs_vec.begin(), two_freqs_vec.end());
+  std::unordered_map<std::pair<int,int>, int, detail::HashIntPair> two_freqs_map;
+  for (int f = 0; f < two_freqs_vec.size(); ++f) {
+    two_freqs_map.emplace(two_freqs_vec[f], f);
+  }
+
+  //std::cout << "A " << std::endl;
+  Eigen::Tensor<std::complex<double>,3> g = compute_g_new(
+      beta, num_flavors, num_phys_rows,
+      M_prime, two_freqs_vec,
+      creation_ops, annihilation_ops);
+  //std::cout << "B " << std::endl;
+
+  auto find_freq_index = [&](int freq1, int freq2) {
+    //auto it = std::lower_bound(two_freqs.begin(), two_freqs.end(), std::make_pair(freq1,freq2));
+    //auto idx = std::distance(two_freqs.begin(), it);
+    auto idx = two_freqs_map[std::make_pair(freq1,freq2)];
+    assert(idx >= 0 && idx < two_freqs_vec.size());
     return idx;
   };
 
-  //std::cout << "B " << std::endl;
-  // g_trans (flavor, flavor, freq_f, freq_f)
-  Eigen::array<int, 4> shuffle {2, 3, 0, 1};
-  Eigen::Tensor<std::complex<double>,4> g_trans = g.shuffle(shuffle);
-  //std::cout << "C " << std::endl;
+  // g (freq, flavor, flavor)
+  // g_trans (flavor, flavor, freq)
+  Eigen::array<int, 3> shuffle {1, 2, 0};
+  Eigen::Tensor<std::complex<double>,3> g_trans = g.shuffle(shuffle);
 
+  //auto t2 = std::chrono::system_clock::now();
+
+  //std::cout << "C " << std::endl;
   // O(num of freqs * N_f**4)
   auto idx = 0;
   for (const auto& freq: meas_freqs_list) {
@@ -675,10 +790,11 @@ void measure_G2_k2_PH_impl(
     auto freq_f2 = std::get<1>(freq);
     auto freq_b = std::get<2>(freq);
 
-    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g1_H(&g_trans(0, 0, find_freq_index(freq_f1+freq_b), find_freq_index(freq_f1)), num_flavors, num_flavors, 1);
-    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g2_H(&g_trans(0, 0, find_freq_index(freq_f2), find_freq_index(freq_f2+freq_b)), 1, num_flavors, num_flavors);
-    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g1_F(&g_trans(0, 0, find_freq_index(freq_f1+freq_b), find_freq_index(freq_f2+freq_b)), num_flavors, num_flavors, 1);
-    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g2_F(&g_trans(0, 0, find_freq_index(freq_f2), find_freq_index(freq_f1)), 1, num_flavors, num_flavors);
+
+    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g1_H(&g_trans(0, 0, find_freq_index(freq_f1+freq_b, freq_f1)), num_flavors, num_flavors, 1);
+    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g2_H(&g_trans(0, 0, find_freq_index(freq_f2, freq_f2+freq_b)), 1, num_flavors, num_flavors);
+    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g1_F(&g_trans(0, 0, find_freq_index(freq_f1+freq_b, freq_f2+freq_b)), num_flavors, num_flavors, 1);
+    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g2_F(&g_trans(0, 0, find_freq_index(freq_f2, freq_f1)), 1, num_flavors, num_flavors);
 
     Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 0) };
     Eigen::Tensor<std::complex<double>,4> G_H = g1_H.contract(g2_H, product_dims);
@@ -695,9 +811,14 @@ void measure_G2_k2_PH_impl(
       }//f2
     }//f1
 
+
     ++idx;
   }
   //std::cout << "D " << std::endl;
+  //std::cout << "D " << std::endl;
+  //auto t3 = std::chrono::system_clock::now();
+
+  //std::cout << " time " << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " " << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << std::endl;
 };
 
 /**
