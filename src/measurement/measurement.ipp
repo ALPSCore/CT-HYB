@@ -504,21 +504,24 @@ Eigen::Tensor<std::complex<double>,4>
         const std::vector<psi>& annihilation_ops
     ) {
 
+  using dcomplex = std::complex<double>;
+
   auto num_freqs = index_freqs_f.size();
 
   auto to_fermion_freq = [&](int n) {
       return (2 * n + 1) * M_PI / beta;
   };
 
+  //std::cout << "debug a" << std::endl;
   std::vector<double> freqs_f(num_freqs);
   for (int i=0; i<num_freqs; ++i) {
     freqs_f[i] = to_fermion_freq(index_freqs_f[i]);
   }
 
-  Eigen::Tensor<std::complex<double>,4> g(num_freqs, num_freqs, num_flavors, num_flavors);
+  Eigen::Tensor<dcomplex,4> g(num_freqs, num_freqs, num_flavors, num_flavors);
   g.setZero();
 
-  Eigen::Tensor<std::complex<double>,3> exp_1(num_freqs, 1, num_phys_rows), exp_2_conj(1, num_freqs, num_phys_rows);
+  Eigen::Tensor<dcomplex,3> exp_1(num_freqs, 1, num_phys_rows), exp_2_conj(1, num_freqs, num_phys_rows);
 
   auto expix = [](double x) {
       return std::complex<double>(std::cos(x), std::sin(x));
@@ -537,16 +540,68 @@ Eigen::Tensor<std::complex<double>,4>
       exp_2_conj(0, f, j) = expix(-freqs_f[f] * tau_j);
     }
   }
+  //std::cout << "debug b " << num_phys_rows << std::endl;
 
-  for (int i=0; i<num_phys_rows; ++i) {
-    auto f_i = annihilation_ops[i].flavor();
-    for (int j=0; j<num_phys_rows; ++j) {
-      auto f_j = creation_ops[j].flavor();
-
-      Eigen::array<Eigen::IndexPair<int>, 1> product_dim = { Eigen::IndexPair<int>(1, 0) };
-      g.chip(f_j, 3).chip(f_i, 2) += M_prime(j,i) * exp_1.chip(i,2).contract(exp_2_conj.chip(j,2), product_dim);
+  // O( k^2 * num_freqs_f + k^2 * num_freqs_f^2 * num_flavors^2)
+  // k is expansion order per flavor
+  // Typical case:
+  //    k = 10
+  //    num_freqs_f = 10^3
+  //    num_flavors = 2
+  //  => 10^5 + 4 * 10^8
+  auto max_num_ops = 0;
+  for (int f_i = 0; f_i < num_flavors; ++f_i) {
+    for (int f_j = 0; f_j < num_flavors; ++f_j) {
+      int idx = 0;
+      for (int i = 0; i < num_phys_rows; ++i) {
+        if (annihilation_ops[i].flavor() != f_i) {
+          continue;
+        }
+        for (int j = 0; j < num_phys_rows; ++j) {
+          if (creation_ops[j].flavor() != f_j) {
+            continue;
+          }
+          ++ idx;
+        }
+      }
+      max_num_ops = std::max(max_num_ops, idx);
     }
   }
+
+  Eigen::MatrixXcd exp_1_mat(num_freqs, max_num_ops), exp_2_conj_mat(num_freqs, max_num_ops), tmp_mat(num_freqs, num_freqs);
+  for (int f_i = 0; f_i < num_flavors; ++f_i) {
+    for (int f_j = 0; f_j < num_flavors; ++f_j) {
+
+      int idx = 0;
+      for (int i=0; i<num_phys_rows; ++i) {
+        if (annihilation_ops[i].flavor() != f_i) {
+          continue;
+        }
+        for (int j=0; j<num_phys_rows; ++j) {
+          if (creation_ops[j].flavor() != f_j) {
+            continue;
+          }
+
+          for (int f=0; f < num_freqs; ++f) {
+            exp_1_mat(f, idx) = M_prime(j,i) * exp_1(f, 0, i);
+            exp_2_conj_mat(f, idx) = exp_2_conj(0, f, j);
+          }
+
+          ++idx;
+        }//i
+      }//j
+
+      if (idx > 0) {
+        //std::cout << " f_i " << f_i  << " " << f_j << " " << idx << std::endl;
+        tmp_mat = exp_1_mat.block(0,0,num_freqs,idx) * exp_2_conj_mat.block(0,0,num_freqs,idx).transpose();
+        //std::cout << " f_i " << f_i  << " " << f_j << " " << idx << std::endl;
+        g.chip(f_j, 3).chip(f_i, 2) = Eigen::TensorMap<Eigen::Tensor<dcomplex,2>>(&tmp_mat(0,0), num_freqs, num_freqs);
+        //std::cout << " f_i " << f_i  << " " << f_j << " " << idx << std::endl;
+      }
+    }
+  }
+
+  //std::cout << "debug c " << num_phys_rows << std::endl;
 
   return g;
 }
@@ -592,7 +647,9 @@ void measure_G2_k2_PH_impl(
     all_index_f.insert(np + m);
   }
   std::vector<int> all_index_f_vec(all_index_f.begin(), all_index_f.end());
+  //std::cout << "debug " << all_index_f_vec.size() << std::endl;
 
+  //std::cout << "A " << std::endl;
   Eigen::Tensor<std::complex<double>,4> g = compute_g(
       beta, num_flavors, num_phys_rows,
       M_prime, all_index_f_vec,
@@ -605,10 +662,13 @@ void measure_G2_k2_PH_impl(
     return idx;
   };
 
+  //std::cout << "B " << std::endl;
   // g_trans (flavor, flavor, freq_f, freq_f)
   Eigen::array<int, 4> shuffle {2, 3, 0, 1};
   Eigen::Tensor<std::complex<double>,4> g_trans = g.shuffle(shuffle);
+  //std::cout << "C " << std::endl;
 
+  // O(num of freqs * N_f**4)
   auto idx = 0;
   for (const auto& freq: meas_freqs_list) {
     auto freq_f1 = std::get<0>(freq);
@@ -637,6 +697,7 @@ void measure_G2_k2_PH_impl(
 
     ++idx;
   }
+  //std::cout << "D " << std::endl;
 };
 
 /**
