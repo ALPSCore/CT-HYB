@@ -14,7 +14,7 @@ def read_param(h5, name):
 def compute_Tnl(n_matsubara, n_legendre):
     Tnl = np.zeros((n_matsubara, n_legendre), dtype=complex)
     for n in xrange(n_matsubara):
-        sph_jn = scipy.special.sph_jn(n_legendre, (n+0.5)*np.pi)[0]
+        sph_jn = numpy.array([scipy.special.spherical_jn(l, (n+0.5)*numpy.pi) for l in range(n_legendre)])
         for il in xrange(n_legendre):
             Tnl[n,il] = ((-1)**n) * ((1J)**(il+1)) * np.sqrt(2*il + 1.0) * sph_jn[il]
     return Tnl
