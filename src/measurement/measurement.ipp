@@ -742,7 +742,7 @@ void measure_G2_k2_PH_impl(
       //M_prime, all_index_f_vec,
       //creation_ops, annihilation_ops);
 
-  //auto t1 = std::chrono::system_clock::now();
+  auto t1 = std::chrono::system_clock::now();
 
   std::vector<std::pair<int,int>> two_freqs_vec;
   for (const auto& freq: meas_freqs_list) {
@@ -780,7 +780,7 @@ void measure_G2_k2_PH_impl(
   Eigen::array<int, 3> shuffle {1, 2, 0};
   Eigen::Tensor<std::complex<double>,3> g_trans = g.shuffle(shuffle);
 
-  //auto t2 = std::chrono::system_clock::now();
+  auto t2 = std::chrono::system_clock::now();
 
   //std::cout << "C " << std::endl;
   // O(num of freqs * N_f**4)
@@ -816,9 +816,9 @@ void measure_G2_k2_PH_impl(
   }
   //std::cout << "D " << std::endl;
   //std::cout << "D " << std::endl;
-  //auto t3 = std::chrono::system_clock::now();
+  auto t3 = std::chrono::system_clock::now();
 
-  //std::cout << " time " << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " " << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << std::endl;
+  std::cout << " time " << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " " << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << std::endl;
 };
 
 /**
