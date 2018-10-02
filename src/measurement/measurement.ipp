@@ -608,6 +608,36 @@ Eigen::Tensor<std::complex<double>,4>
   return g;
 }
 
+template<typename SCALAR, typename MAT>
+void
+compute_g_flavor(
+    double beta,
+    const MAT& M_prime,
+    const std::vector<std::pair<int,int>>& two_freqs,
+    const Eigen::Tensor<std::complex<double>,2>& exp_creation_ops,
+    const Eigen::Tensor<std::complex<double>,2>& exp_annihilation_ops,
+    std::complex<double>* output_buffer
+) {
+  using dcomplex = std::complex<double>;
+
+  if (exp_creation_ops.size() * exp_annihilation_ops.size() == 0) {
+    return;
+  }
+
+  /*
+  *output_buffer = 0;
+  for (int j=0; j<creation_ops.size(); ++j) {
+    for (int i=0; i<annihilation_ops.size(); ++i) {
+      for (int f = 0; f < two_freqs.size(); ++f) {
+        *(output_buffer + f) += M_prime(j, i) * exp_annihilation_ops(f, i) * exp_creation_ops(f, j).conjg();
+      }
+    }//i
+  }//j
+   */
+
+  //return g;
+}
+
 template<typename SCALAR>
 Eigen::Tensor<std::complex<double>,3>
 compute_g_new(
@@ -634,45 +664,92 @@ compute_g_new(
   Eigen::Tensor<dcomplex,3> g(two_freqs.size(), num_flavors, num_flavors);
   g.setZero();
 
-  Eigen::Tensor<dcomplex,2> exp_1(two_freqs.size(), num_phys_rows), exp_2_conj(two_freqs.size(), num_phys_rows);
-
   auto expix = [](double x) {
       return std::complex<double>(std::cos(x), std::sin(x));
   };
 
-  for (int i=0; i<num_phys_rows; ++i) {
-    auto tau_i = annihilation_ops[i].time().time();
-    for (int f=0; f<two_freqs.size(); ++f) {
-      exp_1(f, i) = expix(to_fermion_freq(two_freqs[f].first) * tau_i);
+  auto pick_up_one_flavor = [&](const std::vector<psi>& ops, int flavor, const std::vector<int>& freqs) {
+    std::vector<int> pos;
+    for (int i=0; i<ops.size(); ++i) {
+      if (ops[i].flavor() == flavor) {
+        pos.push_back(i);
+      }
     }
+    auto nr = pos.size();
+
+    auto exp_tensor = Eigen::Tensor<dcomplex,2>(freqs.size(), nr);
+    for (int i=0; i<nr; ++i) {
+      auto p = pos[i];
+      auto tau = ops[p].time().time();
+      assert(ops[p].flavor() == flavor);
+      for (int f=0; f<freqs.size(); ++f) {
+        exp_tensor(f, i) = expix(to_fermion_freq(freqs[f]) * tau);
+      }
+    }
+
+    return std::make_pair(pos, exp_tensor);
+  };
+
+  std::vector<Eigen::Tensor<dcomplex,2>> exp_cr(num_flavors), exp_ann(num_flavors);
+  std::vector<std::vector<int>> cr_rows(num_flavors), ann_rows(num_flavors);
+  std::vector<int> freqs_cr, freqs_ann;
+  std::transform(two_freqs.begin(), two_freqs.end(), std::back_inserter(freqs_cr), [](std::pair<int,int> p) {return p.second;});
+  std::transform(two_freqs.begin(), two_freqs.end(), std::back_inserter(freqs_ann), [](std::pair<int,int> p) {return p.first;});
+  for (int flavor=0; flavor<num_flavors; ++flavor) {
+    std::tie(cr_rows[flavor], exp_cr[flavor]) = pick_up_one_flavor(creation_ops, flavor, freqs_cr);
+    std::tie(ann_rows[flavor], exp_ann[flavor]) = pick_up_one_flavor(annihilation_ops, flavor, freqs_ann);
   }
 
-  for (int j=0; j<num_phys_rows; ++j) {
-    auto tau_j = creation_ops[j].time().time();
-    for (int f=0; f<two_freqs.size(); ++f) {
-      exp_2_conj(f, j) = expix(-to_fermion_freq(two_freqs[f].second) * tau_j);
+  for (int f_ann = 0; f_ann < num_flavors; ++f_ann) {
+    auto n_ann = ann_rows[f_ann].size();
+    if (n_ann == 0) {
+      continue;
     }
-  }
 
-  // O(k^2 * num_freqs * num_flavors^2)
-  // Typical case:
-  //    k = 10 (per flavor)
-  //    num_freqs = 10^4
-  //    num_flavors = 2
-  //  => 4 x 10^6
-  // The following loops may be vectorized...
-  for (int j=0; j<num_phys_rows; ++j) {
-    auto f_j = creation_ops[j].flavor();
-    for (int i=0; i<num_phys_rows; ++i) {
-      auto f_i = annihilation_ops[i].flavor();
-
-      for (int f = 0; f < two_freqs.size(); ++f) {
-        g(f, f_i, f_j) += M_prime(j, i) * exp_1(f, i) * exp_2_conj(f, j);
+    // O(k^2 * num_freqs * num_flavors^2)
+    // Typical case:
+    //    k = 10 (per flavor)
+    //    num_freqs = 10^4
+    //    num_flavors = 2
+    //  => 4 x 10^6
+    for (int f_cr = 0; f_cr < num_flavors; ++f_cr) {
+      auto n_cr = cr_rows[f_cr].size();
+      if (n_cr == 0) {
+        continue;
       }
 
-    }//i
-  }//j
 
+      Eigen::Tensor<dcomplex,2> M_prime_tmp(n_cr, n_ann);
+
+      for (int i=0; i < n_ann; ++i) {
+        for (int j=0; j < n_cr; ++j) {
+          M_prime_tmp(j, i) = M_prime(cr_rows[f_cr][j], ann_rows[f_ann][i]);
+        }
+      }
+
+      //M_prime(j,i) * exp_ann(f,i) => (j,f)
+      Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(1, 1) };
+      Eigen::Tensor<dcomplex,2> Mprime_exp_ann = M_prime_tmp.contract(exp_ann[f_ann], product_dims);
+
+      // (j,f) * (f,j) => (f, j) => (f)
+      std::array<int,2> shuffle {1, 0};
+      Eigen::TensorMap<Eigen::Tensor<dcomplex,1>> obuff(&g(0, f_ann, f_cr), two_freqs.size());
+      std::array<int,1> sum_dims {1};
+      obuff = (Mprime_exp_ann.shuffle(shuffle) * exp_cr[f_cr].conjugate()).sum(sum_dims);
+
+      //The following does the same job as the above code.
+      /*
+      for (int j=0; j<n_cr; ++j) {
+        for (int i=0; i<n_ann; ++i) {
+          for (int f = 0; f < two_freqs.size(); ++f) {
+            g(f, f_ann, f_cr) += M_prime_tmp(j, i) * exp_ann[f_ann](f, i) * std::conj(exp_cr[f_cr](f, j));
+          }
+        }//i
+      }//j
+       */
+
+    }
+  }
 
   return g;
 }
@@ -742,7 +819,7 @@ void measure_G2_k2_PH_impl(
       //M_prime, all_index_f_vec,
       //creation_ops, annihilation_ops);
 
-  auto t1 = std::chrono::system_clock::now();
+  //auto t1 = std::chrono::system_clock::now();
 
   std::vector<std::pair<int,int>> two_freqs_vec;
   for (const auto& freq: meas_freqs_list) {
@@ -780,7 +857,7 @@ void measure_G2_k2_PH_impl(
   Eigen::array<int, 3> shuffle {1, 2, 0};
   Eigen::Tensor<std::complex<double>,3> g_trans = g.shuffle(shuffle);
 
-  auto t2 = std::chrono::system_clock::now();
+  //auto t2 = std::chrono::system_clock::now();
 
   //std::cout << "C " << std::endl;
   // O(num of freqs * N_f**4)
@@ -816,9 +893,9 @@ void measure_G2_k2_PH_impl(
   }
   //std::cout << "D " << std::endl;
   //std::cout << "D " << std::endl;
-  auto t3 = std::chrono::system_clock::now();
+  //auto t3 = std::chrono::system_clock::now();
 
-  std::cout << " time " << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " " << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << std::endl;
+  //std::cout << " time " << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " " << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << std::endl;
 };
 
 /**
