@@ -14,8 +14,8 @@ TEST(G2, MeasureByHyb) {
 
   double beta = 1.0;
 
-  int num_freq_f = 4;
-  int num_freq_b = 3;
+  int num_freq_f = 10;
+  int num_freq_b = 10;
 
   // List of fermion frequencies
   std::vector<int> freq_index_f(num_freq_f);
@@ -75,24 +75,43 @@ TEST(G2, MeasureByHyb) {
         freq_index_b,
         result_k2);
 
-    /*
-    for (int k=0; k<num_freq_b; ++k) {
-      for (int j=0; j<num_freq_f; ++j) {
-        for (int i=0; i<num_freq_f; ++i) {
-          auto k4 = result_k4[0][0][0][0][i][j][k];
-          auto k2 = result_k2[0][0][0][0][i][j][k];
-          std::cout << i << " " << j << " " << k << " " << k2 << " " << k4 << std::endl;
-        }
-      }
-    }
-    */
-
     auto it_k2 = result_k2.origin();
     for (auto it_k4 = result_k4.origin(); it_k4 != result_k4.origin() + result_k4.num_elements(); ++it_k4) {
       auto diff = std::abs(*it_k2 - *it_k4);
       ASSERT_TRUE(diff < 1E-10);
       ++it_k2;
     }
+
+    std::vector<std::tuple <int,int,int> > freqs;
+    for (int i=0; i<num_freq_f; i+=3) {
+      for (int j=0; j<num_freq_f; j+=3) {
+        for (int k=0; k<num_freq_b; k+=3) {
+          freqs.push_back(std::make_tuple(freq_index_f[i], freq_index_f[j], freq_index_b[k]));
+        }
+      }
+    }
+    auto extents_general = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][freqs.size()];
+    boost::multi_array<std::complex<double>,5> result_k2_general(extents_general);
+    std::fill(result_k2_general.origin(), result_k2_general.origin() + result_k2_general.num_elements(), 0.0);
+    measure_G2_k2_PH_impl(beta, num_flavors, k, 1.0, M,
+                          creation_ops,
+                          annihilation_ops,
+                          freqs,
+                          result_k2_general);
+    int index = 0;
+    for (int i=0; i<num_freq_f; i+=3) {
+      for (int j = 0; j < num_freq_f; j += 3) {
+        for (int k = 0; k < num_freq_b; k += 3) {
+          auto diff = std::abs(
+              result_k2[0][0][0][0][i][j][k] - result_k2_general[0][0][0][0][index]
+          );
+          //std::cout << freq_index_f[i] << " " << freq_index_f[j] << " " << freq_index_b[k] << result_k4[0][0][0][0][i][j][k] << " " << result_k2_general[0][0][0][0][index] << std::endl;
+          ASSERT_TRUE(diff < 1E-10);
+          ++ index;
+        }
+      }
+    }
+
 
     //Eigen::Tensor<SCALAR,7> r = measure_g2(beta, num_flavors, p_basis_f, p_basis_b, creation_ops, annihilation_ops, M);
     //Eigen::Tensor<SCALAR,7> r_ref = measure_g2_ref(beta, num_flavors, p_basis_f, p_basis_b, creation_ops, annihilation_ops, M);

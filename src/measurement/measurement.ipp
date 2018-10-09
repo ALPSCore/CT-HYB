@@ -849,6 +849,9 @@ void measure_G2_k2_PH_impl(
     //auto idx = std::distance(two_freqs.begin(), it);
     auto idx = two_freqs_map[std::make_pair(freq1,freq2)];
     assert(idx >= 0 && idx < two_freqs_vec.size());
+    if(idx < 0 || idx >= two_freqs_vec.size()) {
+      throw std::logic_error("Something went wrong in find_freq_index.");
+    }
     return idx;
   };
 
