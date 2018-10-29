@@ -796,30 +796,7 @@ void measure_G2_k2_PH_impl(
 ) {
   using dcomplex = std::complex<double>;
 
-  // List of fermion frequencies that appears in the indices of the intermediate objects for measuring
-  // two-particle GF
-      /*
-  std::set<int> all_index_f;
-  for (const auto& freq : meas_freqs_list) {
-    auto n = std::get<0>(freq);
-    auto np = std::get<1>(freq);
-    auto m = std::get<2>(freq);
-    all_index_f.insert(n);
-    all_index_f.insert(np);
-    all_index_f.insert(n + m);
-    all_index_f.insert(np + m);
-  }
-  std::vector<int> all_index_f_vec(all_index_f.begin(), all_index_f.end());
-       */
-  //std::cout << "debug " << all_index_f_vec.size() << std::endl;
-
-  //std::cout << "A " << std::endl;
-  //Eigen::Tensor<std::complex<double>,4> g = compute_g(
-      //beta, num_flavors, num_phys_rows,
-      //M_prime, all_index_f_vec,
-      //creation_ops, annihilation_ops);
-
-  //auto t1 = std::chrono::system_clock::now();
+  auto t1 = std::chrono::system_clock::now();
 
   std::vector<std::pair<int,int>> two_freqs_vec;
   for (const auto& freq: meas_freqs_list) {
@@ -837,68 +814,77 @@ void measure_G2_k2_PH_impl(
     two_freqs_map.emplace(two_freqs_vec[f], f);
   }
 
-  //std::cout << "A " << std::endl;
+  auto t2 = std::chrono::system_clock::now();
+
   Eigen::Tensor<std::complex<double>,3> g = compute_g_new(
       beta, num_flavors, num_phys_rows,
       M_prime, two_freqs_vec,
       creation_ops, annihilation_ops);
-  //std::cout << "B " << std::endl;
 
-  auto find_freq_index = [&](int freq1, int freq2) {
-    //auto it = std::lower_bound(two_freqs.begin(), two_freqs.end(), std::make_pair(freq1,freq2));
-    //auto idx = std::distance(two_freqs.begin(), it);
-    auto idx = two_freqs_map[std::make_pair(freq1,freq2)];
-    assert(idx >= 0 && idx < two_freqs_vec.size());
-    if(idx < 0 || idx >= two_freqs_vec.size()) {
-      throw std::logic_error("Something went wrong in find_freq_index.");
-    }
-    return idx;
-  };
+  auto t3 = std::chrono::system_clock::now();
 
-  // g (freq, flavor, flavor)
-  // g_trans (flavor, flavor, freq)
+  // g (freq, flavor, flavor) => // g_trans (flavor, flavor, freq)
   Eigen::array<int, 3> shuffle {1, 2, 0};
   Eigen::Tensor<std::complex<double>,3> g_trans = g.shuffle(shuffle);
 
-  //auto t2 = std::chrono::system_clock::now();
+  auto find_freq_index = [&](int freq1, int freq2) {
+      auto idx = two_freqs_map[std::make_pair(freq1,freq2)];
+      assert(idx >= 0 && idx < two_freqs_vec.size());
+      if(idx < 0 || idx >= two_freqs_vec.size()) {
+        throw std::logic_error("Something went wrong in find_freq_index.");
+      }
+      return idx;
+  };
 
-  //std::cout << "C " << std::endl;
-  // O(num of freqs * N_f**4)
+  // Assembly: O(num of freqs * N_f**4)
+  auto nfreqs = meas_freqs_list.size();
+  Eigen::Tensor<dcomplex,3> g1_H(num_flavors, num_flavors, nfreqs);
+  Eigen::Tensor<dcomplex,3> g2_H(num_flavors, num_flavors, nfreqs);
+  Eigen::Tensor<dcomplex,3> g1_F(num_flavors, num_flavors, nfreqs);
+  Eigen::Tensor<dcomplex,3> g2_F(num_flavors, num_flavors, nfreqs);
+
+  auto copy_elem = [&](int src_freq_idx,  Eigen::Tensor<dcomplex,3>& g1_out, int dst_freq_idx) {
+      std::copy(
+          &g_trans(0, 0, src_freq_idx),
+          &g_trans(0, 0, src_freq_idx) + num_flavors * num_flavors,
+          &g1_out(0, 0, dst_freq_idx)
+      );
+      return;
+  };
+
   auto idx = 0;
   for (const auto& freq: meas_freqs_list) {
     auto freq_f1 = std::get<0>(freq);
     auto freq_f2 = std::get<1>(freq);
     auto freq_b = std::get<2>(freq);
 
+    copy_elem(find_freq_index(freq_f1+freq_b, freq_f1), g1_H, idx);
+    copy_elem(find_freq_index(freq_f2, freq_f2+freq_b), g2_H, idx);
+    copy_elem(find_freq_index(freq_f1+freq_b, freq_f2+freq_b), g1_F, idx);
+    copy_elem(find_freq_index(freq_f2, freq_f1), g2_F, idx);
 
-    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g1_H(&g_trans(0, 0, find_freq_index(freq_f1+freq_b, freq_f1)), num_flavors, num_flavors, 1);
-    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g2_H(&g_trans(0, 0, find_freq_index(freq_f2, freq_f2+freq_b)), 1, num_flavors, num_flavors);
-    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g1_F(&g_trans(0, 0, find_freq_index(freq_f1+freq_b, freq_f2+freq_b)), num_flavors, num_flavors, 1);
-    Eigen::TensorMap<const Eigen::Tensor<dcomplex,3>> g2_F(&g_trans(0, 0, find_freq_index(freq_f2, freq_f1)), 1, num_flavors, num_flavors);
-
-    Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(2, 0) };
-    Eigen::Tensor<std::complex<double>,4> G_H = g1_H.contract(g2_H, product_dims);
-    //(f1, f4, 1) * (1, f3, f2) => G_F(f1, f4, f3, f2)
-    Eigen::Tensor<std::complex<double>,4> G_F = - g1_F.contract(g2_F, product_dims);
-
-    for(int f1=0; f1<num_flavors; ++f1) {
-      for(int f2=0; f2<num_flavors; ++f2) {
-        for(int f3=0; f3<num_flavors; ++f3) {
-          for(int f4=0; f4<num_flavors; ++f4) {
-            result[f1][f2][f3][f4][idx] += overall_coeff * (G_H(f1, f2, f3, f4) + G_F(f1, f4, f3, f2));
-          }//f4
-        }//f3
-      }//f2
-    }//f1
-
-
-    ++idx;
+    ++ idx;
   }
-  //std::cout << "D " << std::endl;
-  //std::cout << "D " << std::endl;
-  //auto t3 = std::chrono::system_clock::now();
 
-  //std::cout << " time " << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " " << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << std::endl;
+  for(int f1=0; f1<num_flavors; ++f1) {
+    for (int f2 = 0; f2 < num_flavors; ++f2) {
+      for (int f3 = 0; f3 < num_flavors; ++f3) {
+        for (int f4 = 0; f4 < num_flavors; ++f4) {
+          for (auto idx = 0; idx < nfreqs; ++idx) {
+            result[f1][f2][f3][f4][idx] += overall_coeff * (g1_H(f1, f2, idx) * g2_H(f3, f4, idx) - g1_F(f1, f4, idx) * g2_F(f3, f2, idx));
+          }
+        }
+      }
+    }
+  }
+
+  auto t4 = std::chrono::system_clock::now();
+
+  std::cout << " time "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "  "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << "  "
+                                                                                       << std::endl;
 };
 
 /**
