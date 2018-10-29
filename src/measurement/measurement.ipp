@@ -690,6 +690,8 @@ compute_g_new(
     return std::make_pair(pos, exp_tensor);
   };
 
+  double M_prime_abs_sum = M_prime.cwiseAbs().sum();
+
   std::vector<Eigen::Tensor<dcomplex,2>> exp_cr(num_flavors), exp_ann(num_flavors);
   std::vector<std::vector<int>> cr_rows(num_flavors), ann_rows(num_flavors);
   std::vector<int> freqs_cr, freqs_ann;
@@ -700,38 +702,41 @@ compute_g_new(
     std::tie(ann_rows[flavor], exp_ann[flavor]) = pick_up_one_flavor(annihilation_ops, flavor, freqs_ann);
   }
 
+  // O(k^2 * num_freqs * num_flavors^2)
+  // Typical case:
+  //    k = 10 (per flavor)
+  //    num_freqs = 10^4
+  //    num_flavors = 2
+  //  => 4 x 10^6
   for (int f_ann = 0; f_ann < num_flavors; ++f_ann) {
     auto n_ann = ann_rows[f_ann].size();
     if (n_ann == 0) {
       continue;
     }
-
-    // O(k^2 * num_freqs * num_flavors^2)
-    // Typical case:
-    //    k = 10 (per flavor)
-    //    num_freqs = 10^4
-    //    num_flavors = 2
-    //  => 4 x 10^6
     for (int f_cr = 0; f_cr < num_flavors; ++f_cr) {
       auto n_cr = cr_rows[f_cr].size();
       if (n_cr == 0) {
         continue;
       }
 
-
       Eigen::Tensor<dcomplex,2> M_prime_tmp(n_cr, n_ann);
-
       for (int i=0; i < n_ann; ++i) {
         for (int j=0; j < n_cr; ++j) {
           M_prime_tmp(j, i) = M_prime(cr_rows[f_cr][j], ann_rows[f_ann][i]);
         }
       }
 
-      //M_prime(j,i) * exp_ann(f,i) => (j,f)
+      double abs_sum = Eigen::TensorFixedSize<double, Eigen::Sizes<>>(M_prime_tmp.abs().sum())(0);
+      //std::cout << f_ann << " " << f_cr << " " <<  abs_sum/M_prime_abs_sum << std::endl;
+      if (abs_sum < 1e-8 * M_prime_abs_sum) {
+        continue;
+      }
+
+      //M_prime(k, kp) * exp_ann(freq, kp) => (k, freq)
       Eigen::array<Eigen::IndexPair<int>, 1> product_dims = { Eigen::IndexPair<int>(1, 1) };
       Eigen::Tensor<dcomplex,2> Mprime_exp_ann = M_prime_tmp.contract(exp_ann[f_ann], product_dims);
 
-      // (j,f) * (f,j) => (f, j) => (f)
+      // [M_prime * exp_ann](k, freq) * exp_cr(freq, k) => (freq)
       std::array<int,2> shuffle {1, 0};
       Eigen::TensorMap<Eigen::Tensor<dcomplex,1>> obuff(&g(0, f_ann, f_cr), two_freqs.size());
       std::array<int,1> sum_dims {1};
@@ -880,11 +885,11 @@ void measure_G2_k2_PH_impl(
 
   auto t4 = std::chrono::system_clock::now();
 
-  std::cout << " time "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "  "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << "  "
-                                                                                       << std::endl;
+  //std::cout << " time "
+            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
+            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "  "
+            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << "  "
+                                                                                       //<< std::endl;
 };
 
 /**

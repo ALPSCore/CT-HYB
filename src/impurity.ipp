@@ -45,7 +45,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
                    "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
       .define<int>("measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
       .define<int>("measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
-      .define<double>("measurement.G1.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
+      .define<double>("measurement.G1.aux_field", 1.0, "Auxially field for avoiding a singular matrix")
           //Equal-time single-particle GF
       .define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
           //Two-particle GF
@@ -58,7 +58,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.G2.matsubara.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<int>("measurement.G2.IR.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
       .define<int>("measurement.G2.IR.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
-      .define<double>("measurement.G2.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
+      .define<double>("measurement.G2.aux_field", 1.0, "Auxially field for avoiding a singular matrix")
       .define<std::string>("measurement.G2.IRbasis_4pt_database_file", "", "Relative/absolute path to a HDF5 database file of IR basis of 4pt Green's function")
           //Two-time two-particle GF
       .define<int>("measurement.two_time_G2.on", 0, "Set a non-zero value to activate measurement.")
