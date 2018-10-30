@@ -803,6 +803,7 @@ void measure_G2_k2_PH_impl(
 
   auto t1 = std::chrono::system_clock::now();
 
+  // two_freqs_vec contains a list of fermionic frequencies of one-particle-GF-like object
   std::vector<std::pair<int,int>> two_freqs_vec;
   for (const auto& freq: meas_freqs_list) {
     auto freq_f1 = std::get<0>(freq);
@@ -813,11 +814,16 @@ void measure_G2_k2_PH_impl(
     two_freqs_vec.emplace_back(freq_f1+freq_b, freq_f2+freq_b);
     two_freqs_vec.emplace_back(freq_f2, freq_f1);
   }
+
+  // remove duplicate elements from two_freqs_vec
   std::sort(two_freqs_vec.begin(), two_freqs_vec.end());
+  two_freqs_vec.erase(std::unique(two_freqs_vec.begin(), two_freqs_vec.end()), two_freqs_vec.end());
+
   std::unordered_map<std::pair<int,int>, int, detail::HashIntPair> two_freqs_map;
   for (int f = 0; f < two_freqs_vec.size(); ++f) {
     two_freqs_map.emplace(two_freqs_vec[f], f);
   }
+  //std::cout << " linear dim of one-particle-GF-like object is " << two_freqs_vec.size() << " " << two_freqs_map.size() << std::endl;
 
   auto t2 = std::chrono::system_clock::now();
 
@@ -843,18 +849,17 @@ void measure_G2_k2_PH_impl(
 
   // Assembly: O(num of freqs * N_f**4)
   auto nfreqs = meas_freqs_list.size();
-  Eigen::Tensor<dcomplex,3> g1_H(num_flavors, num_flavors, nfreqs);
-  Eigen::Tensor<dcomplex,3> g2_H(num_flavors, num_flavors, nfreqs);
-  Eigen::Tensor<dcomplex,3> g1_F(num_flavors, num_flavors, nfreqs);
-  Eigen::Tensor<dcomplex,3> g2_F(num_flavors, num_flavors, nfreqs);
+  Eigen::Tensor<dcomplex,3> g1_H(nfreqs, num_flavors, num_flavors);
+  Eigen::Tensor<dcomplex,3> g2_H(nfreqs, num_flavors, num_flavors);
+  Eigen::Tensor<dcomplex,3> g1_F(nfreqs, num_flavors, num_flavors);
+  Eigen::Tensor<dcomplex,3> g2_F(nfreqs, num_flavors, num_flavors);
 
   auto copy_elem = [&](int src_freq_idx,  Eigen::Tensor<dcomplex,3>& g1_out, int dst_freq_idx) {
-      std::copy(
-          &g_trans(0, 0, src_freq_idx),
-          &g_trans(0, 0, src_freq_idx) + num_flavors * num_flavors,
-          &g1_out(0, 0, dst_freq_idx)
-      );
-      return;
+      for (int f2 = 0; f2 < num_flavors; ++f2) {
+        for(int f1=0; f1 < num_flavors; ++f1) {
+          g1_out(dst_freq_idx, f1, f2) = g_trans(f1, f2, src_freq_idx);
+        }
+      }
   };
 
   auto idx = 0;
@@ -871,25 +876,44 @@ void measure_G2_k2_PH_impl(
     ++ idx;
   }
 
+  auto t4 = std::chrono::system_clock::now();
+
+  // Multiply g1_H and g1_F by overall_coeff (This part is a bottleneck for multi-orbital systems)
+  g1_H = overall_coeff * g1_H;
+  g1_F = overall_coeff * g1_F;
+
   for(int f1=0; f1<num_flavors; ++f1) {
     for (int f2 = 0; f2 < num_flavors; ++f2) {
       for (int f3 = 0; f3 < num_flavors; ++f3) {
         for (int f4 = 0; f4 < num_flavors; ++f4) {
-          for (auto idx = 0; idx < nfreqs; ++idx) {
-            result[f1][f2][f3][f4][idx] += overall_coeff * (g1_H(f1, f2, idx) * g2_H(f3, f4, idx) - g1_F(f1, f4, idx) * g2_F(f3, f2, idx));
-          }
+          /**
+           * The following code works like this:
+           *   for (auto idx = 0; idx < nfreqs; ++idx) {
+           *       result[f1][f2][f3][f4][idx] += (g1_H(idx, f1, f2) * g2_H(idx, f3, f4) - g1_F(idx, f1, f4) * g2_F(idx, f3, f2));
+           *   }
+           */
+          Eigen::Map<Eigen::VectorXcd> result_map(&result[f1][f2][f3][f4][0], nfreqs);
+          Eigen::Map<Eigen::VectorXcd> g1_H_map(&g1_H(0, f1, f2), nfreqs);
+          Eigen::Map<Eigen::VectorXcd> g2_H_map(&g2_H(0, f3, f4), nfreqs);
+          Eigen::Map<Eigen::VectorXcd> g1_F_map(&g1_F(0, f1, f4), nfreqs);
+          Eigen::Map<Eigen::VectorXcd> g2_F_map(&g2_F(0, f3, f2), nfreqs);
+          result_map += g1_H_map.cwiseProduct(g2_H_map) - g1_F_map.cwiseProduct(g2_F_map);
         }
       }
     }
   }
 
-  auto t4 = std::chrono::system_clock::now();
+  auto t5 = std::chrono::system_clock::now();
 
-  //std::cout << " time "
-            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
-            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "  "
-            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << "  "
-                                                                                       //<< std::endl;
+  /*
+   std::cout << " time "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "  "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << "  "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t4).count() << "  "
+                                                                                       << " k = " << M_prime.rows()
+                                                                                       << std::endl;
+                                                                                       */
 };
 
 /**
