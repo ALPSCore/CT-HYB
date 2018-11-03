@@ -905,7 +905,6 @@ void measure_G2_k2_PH_impl(
 
   auto t5 = std::chrono::system_clock::now();
 
-  /*
    std::cout << " time "
             << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
             << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "  "
@@ -913,7 +912,6 @@ void measure_G2_k2_PH_impl(
             << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t4).count() << "  "
                                                                                        << " k = " << M_prime.rows()
                                                                                        << std::endl;
-                                                                                       */
 };
 
 /**

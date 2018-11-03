@@ -96,7 +96,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       SPINS(parameters["model.spins"]),          //number of spins
       FLAVORS(SPINS * SITES),                             //flavors, i.e. #spins * #sites
       N(parameters["model.n_tau_hyb"]),                  //time slices
-      N_meas(parameters["measurement.n_non_worm_meas"]),
+      N_non_worm_meas(parameters["measurement.n_non_worm_meas"]),
       thermalization_time(parameters["thermalization_time"]),
       start_time(time(NULL)),
       p_model(new IMP_MODEL(p, rank == 0)),//impurity model
@@ -212,7 +212,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
   //////////////////////////////////
   // Monte Carlo updates
   //////////////////////////////////
-  for (int imeas = 0; imeas < N_meas; imeas++) {    // accumulate measurements from N_meas updates before storing
+  for (int imeas = 0; imeas < N_non_worm_meas; imeas++) {    // accumulate measurements from N_non_worm_meas updates before storing
     sweeps++;
 
     pert_order_recorder << mc_config.pert_order();
@@ -255,7 +255,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     timings[2] += time4 - time3;
 
     sanity_check();
-  }//loop up to N_meas
+  }//loop up to N_non_worm_meas
 }
 
 template<typename IMP_MODEL>
