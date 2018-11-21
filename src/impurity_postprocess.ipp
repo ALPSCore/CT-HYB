@@ -15,7 +15,8 @@ void HybridizationSimulation<IMP_MODEL>::show_statistics(const alps::accumulator
   std::cout << " Local updates (insertion/removal/shift of operators/worm: " << timings[0] * 1e-9 << std::endl;
   std::cout << " Global updates (global shift etc.): " << timings[1] * 1e-9 << std::endl;
   std::cout << " Worm measurement: " << timings[2] * 1e-9 << std::endl;
-  std::cout << " Non worm measurement: " << timings[3] * 1e-9 << std::endl;
+  std::cout << " Rebuild inverse of determinat matrix : " << timings[3] * 1e-9 << std::endl;
+  std::cout << " Non worm measurement: " << timings[4] * 1e-9 << std::endl;
 
   std::cout << std::endl << "==== Thermalization analysis ====" << std::endl;
   std::cout << boost::format("Perturbation orders just before and after measurement steps are %1% and %2%.") %

@@ -905,13 +905,15 @@ void measure_G2_k2_PH_impl(
 
   auto t5 = std::chrono::system_clock::now();
 
-   std::cout << " time "
+  /*
+  std::cout << " time "
             << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
             << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "  "
             << std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << "  "
             << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t4).count() << "  "
                                                                                        << " k = " << M_prime.rows()
                                                                                        << std::endl;
+                                                                                       */
 };
 
 /**
@@ -1206,7 +1208,7 @@ void G1Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR
                                             int max_num_ops,
                                             double eps) {
 
-  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 1);
+  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 1, eps);
 
   {
     std::vector<double> histogram(mc_config.p_irbasis->bin_edges().size() - 1, 0.0);
@@ -1243,7 +1245,7 @@ void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR
                                             int max_num_ops,
                                             double eps) {
 
-  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 2);
+  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 2, eps);
 
   compute_G2<SCALAR>(basis, freqs_, mc_config, reconnection, matsubara_data_);
   ++num_data_;
@@ -1269,7 +1271,7 @@ void G2IRMeasurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCAL
                                             int max_num_ops,
                                             double eps) {
 
-  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 2);
+  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 2, eps);
 
   compute_G2_IR<SCALAR>(basis, mc_config, reconnection, data_);
   ++num_data_;

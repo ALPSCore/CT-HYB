@@ -93,7 +93,7 @@ template<typename SCALAR>
 class Reconnections {
  public:
   Reconnections(const MonteCarloConfiguration<SCALAR> &mc_config,
-               alps::random01 &random, int max_matrix_size, int Rank, double eps = 1E-5);
+               alps::random01 &random, int max_matrix_size, int Rank, double eps);
 
   const alps::fastupdate::ResizableMatrix<SCALAR>& M() const {
     return M_;

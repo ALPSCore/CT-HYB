@@ -30,6 +30,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<std::string>("update.swap_vector", "", "Definition of global flavor-exchange updates.")
       .define<int>("update.single_operator_shift", 1, "Perform shifts of a single operator if a non-zero value is specified.")
       .define<int>("update.operator_pair_flavor_update", 1, "Perform changes of flavors of a pair of operators if a non-zero value is specified.")
+      .define<int>("update.rebuild_inverse_matrix", 10, "Inverse of inverse matrix is rebuild from scratch to avoid accumulation of numerical errors. This specifies the interval in units of MC steps.")
           //Measurement
       .define<int>("measurement.n_non_worm_meas",
                    10,
@@ -45,7 +46,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
                    "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
       .define<int>("measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
       .define<int>("measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
-      .define<double>("measurement.G1.aux_field", 1.0, "Auxially field for avoiding a singular matrix")
+      .define<double>("measurement.G1.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
           //Equal-time single-particle GF
       .define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
           //Two-particle GF
@@ -58,7 +59,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.G2.matsubara.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<int>("measurement.G2.IR.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
       .define<int>("measurement.G2.IR.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
-      .define<double>("measurement.G2.aux_field", 1.0, "Auxially field for avoiding a singular matrix")
+      .define<double>("measurement.G2.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
       .define<std::string>("measurement.G2.IRbasis_4pt_database_file", "", "Relative/absolute path to a HDF5 database file of IR basis of 4pt Green's function")
           //Two-time two-particle GF
       .define<int>("measurement.two_time_G2.on", 0, "Set a non-zero value to activate measurement.")
@@ -121,7 +122,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
-      timings(4, 0.0),
+      timings(5, 0.0),
       verbose(p["verbose"].template as<int>() != 0),
       thermalized(false),
       pert_order_recorder(),
@@ -207,8 +208,6 @@ double HybridizationSimulation<IMP_MODEL>::fraction_completed() const {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::update() {
-  auto start = std::chrono::high_resolution_clock::now();
-
   //////////////////////////////////
   // Monte Carlo updates
   //////////////////////////////////
@@ -217,45 +216,48 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 
     pert_order_recorder << mc_config.pert_order();
 
-    const double time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::high_resolution_clock::now()-start
-    ).count();
+    std::vector<std::chrono::high_resolution_clock::time_point> times;
+
+    times.push_back(std::chrono::high_resolution_clock::now());
 
     /** one sweep of the window */
     do_one_sweep();
 
-    const double time2 = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::high_resolution_clock::now()-start
-    ).count();
-    timings[0] += time2 - time1;
+    times.push_back(std::chrono::high_resolution_clock::now());
 
-    //Perform global updates which might cost O(beta)
-    //Ex: flavor exchanges, global shift
+    /** Perform global updates which might cost O(beta)
+    Ex: flavor exchanges, global shift */
     if (sweeps % par["update.n_global_updates"].template as<int>() == 0) {
       global_updates();
     }
 
-    //update parameters for MC moves and window size
+    /** update parameters for MC moves and window size */
     if (!is_thermalized()) {
       update_MC_parameters();
     }
 
-    const double time3 = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::high_resolution_clock::now()-start
-    ).count();
-    timings[1] += time3 - time2;
+    times.push_back(std::chrono::high_resolution_clock::now());
 
     if (is_thermalized()) {
       measure_every_step();
     }
 
-    const double time4 = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::high_resolution_clock::now()-start
-    ).count();
-    timings[2] += time4 - time3;
+    times.push_back(std::chrono::high_resolution_clock::now());
+
+    if (sweeps % par["update.rebuild_inverse_matrix"].template as<int>() == 0) {
+      mc_config.M.rebuild_inverse_matrix();
+    }
+
+    times.push_back(std::chrono::high_resolution_clock::now());
+
+    for(auto i=0; i<times.size()-1; ++i) {
+      timings[i] += std::chrono::duration_cast<std::chrono::nanoseconds>(times[i+1] - times[i]).count();
+    }
 
     sanity_check();
   }//loop up to N_non_worm_meas
+
+//times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()).count());
 }
 
 template<typename IMP_MODEL>
@@ -370,7 +372,7 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   }
 
   auto end = std::chrono::high_resolution_clock::now();
-  timings[3] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
+  timings.back() = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
   measurements["TimingsSecPerNMEAS"] << timings;
   std::fill(timings.begin(), timings.end(), 0.0);
 }
