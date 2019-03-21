@@ -168,6 +168,25 @@ private:
 
 using matsubara_freq_point_PH = std::tuple<int,int,int>;
 
+namespace detail {
+    class HashIntPair
+    {
+    public:
+        std::size_t operator()(const std::pair<int,int>& p) const
+        {
+          std::size_t seed = 0;
+          boost::hash_combine(seed, p.first);
+          boost::hash_combine(seed, p.second);
+          return seed;
+        }
+    };
+}
+
+void make_two_freqs_list(
+    const std::vector<matsubara_freq_point_PH>& freqs,
+    std::vector<std::pair<int,int>>& two_freqs_vec,
+    std::unordered_map<std::pair<int,int>, int, detail::HashIntPair>& two_freqs_map);
+
 template<typename SCALAR>
 class G2Measurement {
 public:
@@ -176,15 +195,8 @@ public:
      *
      * @param num_flavors    the number of flavors
      */
-    G2Measurement(int num_flavors, const IRbasis& basis, const std::vector<matsubara_freq_point_PH>& freqs, int num_freq_b, int max_num_data = 1) :
-            str_("G2"),
-            num_flavors_(num_flavors),
-            freqs_(freqs),
-            matsubara_data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][freqs_.size()]),
-            num_data_(0),
-            max_num_data_(max_num_data) {
-        std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0);
-    };
+    G2Measurement(int num_flavors, const IRbasis& basis, const std::vector<matsubara_freq_point_PH>& freqs, int num_freq_b, int max_num_data = 1);
+
 
     /**
      * @brief Create ALPS observable
@@ -208,6 +220,8 @@ private:
     boost::multi_array<std::complex<double>, 5> matsubara_data_; //flavor, flavor, flavor, flavor, freq
     int num_data_;
     int max_num_data_;//max number of data accumlated before passing data to ALPS
+    std::vector<std::pair<int,int>> two_freqs_vec_;
+    std::unordered_map<std::pair<int,int>, int, detail::HashIntPair> two_freqs_map_;
 };
 
 template<typename SCALAR>

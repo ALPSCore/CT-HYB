@@ -35,6 +35,37 @@ std::vector<matsubara_freq_point_PH> read_matsubara_points(const std::string& fi
   return data;
 }
 
+
+// make a list of fermionic frequencies of one-particle-GF-like object
+void make_two_freqs_list(
+    const std::vector<matsubara_freq_point_PH>& freqs,
+    std::vector<std::pair<int,int>>& two_freqs_vec,
+    std::unordered_map<std::pair<int,int>, int, detail::HashIntPair>& two_freqs_map) {
+
+  // two_freqs_vec contains a list of fermionic frequencies of one-particle-GF-like object
+  std::set<std::pair<int,int>> two_freqs_set;
+  two_freqs_vec.resize(0);
+  auto add = [&](int f1, int f2) {
+    auto key = std::pair<int,int>(f1, f2);
+    if (two_freqs_set.find(key) == two_freqs_set.end()) {
+      two_freqs_vec.push_back(key);
+      two_freqs_set.insert(key);
+    };
+  };
+  for (auto& freq: freqs) {
+    auto freq_f1 = std::get<0>(freq);
+    auto freq_f2 = std::get<1>(freq);
+    auto freq_b = std::get<2>(freq);
+    add(freq_f1+freq_b, freq_f1);
+    add(freq_f2, freq_f2+freq_b);
+  }
+
+  two_freqs_map.clear();
+  for (int f = 0; f < two_freqs_vec.size(); ++f) {
+    two_freqs_map.emplace(two_freqs_vec[f], f);
+  }
+}
+
 #undef PP_SCALAR
 #undef PP_EXTENDED_SCALAR
 #undef PP_SW

@@ -149,6 +149,7 @@ void TwoTimeG2Measurement<SCALAR>::measure_impl(const std::vector<psi> &worm_ops
 }
 */
 
+inline
 std::pair<double, double>
 mod_beta(double tau, double beta) {
   if (tau > 0 && tau < beta) {
@@ -160,6 +161,7 @@ mod_beta(double tau, double beta) {
   }
 };
 
+inline
 int
 mod_sign(double tau, double beta) {
   if (tau > 0 && tau < beta) {
@@ -322,6 +324,19 @@ Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_c
 }
 
 
+template<typename SCALAR>
+G2Measurement<SCALAR>::G2Measurement(int num_flavors, const IRbasis& basis, const std::vector<matsubara_freq_point_PH>& freqs, int num_freq_b, int max_num_data) :
+    str_("G2"),
+    num_flavors_(num_flavors),
+    freqs_(freqs),
+    matsubara_data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][freqs_.size()]),
+    num_data_(0),
+    max_num_data_(max_num_data) {
+  std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0);
+
+  make_two_freqs_list(freqs, two_freqs_vec_, two_freqs_map_);
+};
+
 //Compute G1 by removal in G1 space
 template<typename SCALAR>
 void compute_G1(const IRbasis &basis,
@@ -397,98 +412,6 @@ void compute_G1(const IRbasis &basis,
   }
 }
 
-template<typename SCALAR>
-void measure_G2_k4_PH(
-    double beta,
-    int num_flavors,
-    int num_phys_rows,
-    SCALAR overall_coeff,
-    const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>& M_prime,
-    const std::vector<psi>& creation_ops,
-    const std::vector<psi>& annihilation_ops,
-    const std::vector<int>& freq_index_f,
-    const std::vector<int>& freq_index_b,
-    boost::multi_array<std::complex<double>, 7> &result
-) {
-  // List of fermion frequencies
-  auto iwn_f_min = freq_index_f[0];
-  double min_freq_f = M_PI * (2 * iwn_f_min + 1) / beta;
-  auto num_freq_f = freq_index_f.size();
-  auto num_freq_b = freq_index_b.size();
-
-  boost::multi_array<std::complex<double>, 3>
-      exp_f(boost::extents[num_phys_rows][num_phys_rows][num_freq_f]);//annihilator, creator, freq_f
-  boost::multi_array<std::complex<double>, 3>
-      exp_b(boost::extents[num_phys_rows][num_phys_rows][num_freq_b]);//annihilator, creator, freq_b
-  double tau_diff, sign_mod;
-  for (int k = 0; k < num_phys_rows; k++) {
-    for (int l = 0; l < num_phys_rows; l++) {
-      double argument = annihilation_ops[k].time() - creation_ops[l].time();
-
-      std::tie(tau_diff, sign_mod) = mod_beta(argument, beta);
-
-      for (int freq = 0; freq < num_freq_f; ++freq) {
-        auto wn =  M_PI * (2 * freq_index_f[freq] + 1) / beta;
-        exp_f[k][l][freq] = sign_mod * std::exp(std::complex<double>(0, wn * tau_diff));
-      }
-
-      for (int freq = 0; freq < num_freq_b; ++freq) {
-        auto wn =  M_PI * (2 * freq_index_b[freq]) / beta;
-        exp_b[k][l][freq] = std::exp(std::complex<double>(0, wn * tau_diff));
-      }
-    }
-  }
-
-  auto extents = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_freq_f][num_freq_f][num_freq_b];
-  boost::multi_array<std::complex<double>, 7> result_tmp(extents);
-  std::fill(result_tmp.origin(), result_tmp.origin() + result_tmp.num_elements(), 0.0);
-  for (int a = 0; a < num_phys_rows; ++a) {
-    for (int b = 0; b < num_phys_rows; ++b) {
-      for (int c = 0; c < num_phys_rows; ++c) {
-        if (a == c) {
-          continue;
-        }
-        for (int d = 0; d < num_phys_rows; ++d) {
-          if (b == d) {
-            continue;
-          }
-          /*
-           * Delta convention
-           * M_ab  M_ad  M_a*
-           * M_cb  M_cd  M_c*
-           * M_*b  M_*d  M_**
-           *
-           * Here, M is in F convention. Rows and columns must be swapped.
-           */
-          SCALAR det = (M_prime(b,a) * M_prime(d,c) - M_prime(d,a) * M_prime(b,c));
-
-          if (det == 0.0) {
-            continue;
-          }
-
-          auto fa = annihilation_ops[a].flavor();
-          auto fb = creation_ops[b].flavor();
-          auto fc = annihilation_ops[c].flavor();
-          auto fd = creation_ops[d].flavor();
-          for (int freq_f1 = 0; freq_f1 < num_freq_f; ++freq_f1) {
-            for (int freq_f2 = 0; freq_f2 < num_freq_f; ++freq_f2) {
-              for (int freq_b = 0; freq_b < num_freq_b; ++freq_b) {
-                result_tmp[fa][fb][fc][fd][freq_f1][freq_f2][freq_b] +=
-                    det * exp_f[a][b][freq_f1] * exp_f[c][d][freq_f2] * exp_b[a][d][freq_b];
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  auto it2 = result.origin();
-  for (auto it = result_tmp.origin(); it != result_tmp.origin() + result_tmp.num_elements(); ++it) {
-    *it2 += (*it) * overall_coeff;
-    ++it2;
-  }
-}
 
 /*
  * Compute intermediate single-particle object for measuring two-particle GF
@@ -608,36 +531,10 @@ Eigen::Tensor<std::complex<double>,4>
   return g;
 }
 
-template<typename SCALAR, typename MAT>
-void
-compute_g_flavor(
-    double beta,
-    const MAT& M_prime,
-    const std::vector<std::pair<int,int>>& two_freqs,
-    const Eigen::Tensor<std::complex<double>,2>& exp_creation_ops,
-    const Eigen::Tensor<std::complex<double>,2>& exp_annihilation_ops,
-    std::complex<double>* output_buffer
-) {
-  using dcomplex = std::complex<double>;
-
-  if (exp_creation_ops.size() * exp_annihilation_ops.size() == 0) {
-    return;
-  }
-
-  /*
-  *output_buffer = 0;
-  for (int j=0; j<creation_ops.size(); ++j) {
-    for (int i=0; i<annihilation_ops.size(); ++i) {
-      for (int f = 0; f < two_freqs.size(); ++f) {
-        *(output_buffer + f) += M_prime(j, i) * exp_annihilation_ops(f, i) * exp_creation_ops(f, j).conjg();
-      }
-    }//i
-  }//j
-   */
-
-  //return g;
-}
-
+/*
+ * Compute intermediate single-particle object for measuring two-particle GF
+ * g_{f1,f2}(omega, omega') = sum_{ij} M'_{ji} exp(i omega tau_i - i omega' tau_j) delta_{f1, i} delta_{f2, j}
+ */
 template<typename SCALAR>
 Eigen::Tensor<std::complex<double>,3>
 compute_g_new(
@@ -759,23 +656,12 @@ compute_g_new(
   return g;
 }
 
-namespace detail {
-    class HashIntPair
-    {
-    public:
-        std::size_t operator()(const std::pair<int,int>& p) const
-        {
-          std::size_t seed = 0;
-          boost::hash_combine(seed, p.first);
-          boost::hash_combine(seed, p.second);
-          return seed;
-        }
-    };
-}
 
 
 /**
- * Does the same job as measure_G2_k4_PH. But computational cost scales as O(k^2) where k is the matrix size for reconnection
+ * Measure two-particle Green's function
+ * Computational cost scales as O(k^2) where k is the matrix size for reconnection.
+ * Only straight diagrams (denoted as [H}artree) is measured.
  * @tparam SCALAR
  * @param beta
  * @param num_flavors
@@ -797,6 +683,8 @@ void measure_G2_k2_PH_impl(
     const std::vector<psi>& creation_ops,
     const std::vector<psi>& annihilation_ops,
     const std::vector<matsubara_freq_point_PH>& meas_freqs_list,
+    const std::vector<std::pair<int,int>>& two_freqs_vec,
+    const std::unordered_map<std::pair<int,int>, int, detail::HashIntPair>& two_freqs_map,
     MULTI_ARRAY_DIM5 &result
 ) {
   using dcomplex = std::complex<double>;
@@ -804,62 +692,33 @@ void measure_G2_k2_PH_impl(
   auto t1 = std::chrono::system_clock::now();
 
   // two_freqs_vec contains a list of fermionic frequencies of one-particle-GF-like object
-  std::vector<std::pair<int,int>> two_freqs_vec;
-  for (const auto& freq: meas_freqs_list) {
-    auto freq_f1 = std::get<0>(freq);
-    auto freq_f2 = std::get<1>(freq);
-    auto freq_b = std::get<2>(freq);
-    two_freqs_vec.emplace_back(freq_f1+freq_b, freq_f1);
-    two_freqs_vec.emplace_back(freq_f2, freq_f2+freq_b);
-    two_freqs_vec.emplace_back(freq_f1+freq_b, freq_f2+freq_b);
-    two_freqs_vec.emplace_back(freq_f2, freq_f1);
-  }
-
-  // remove duplicate elements from two_freqs_vec
-  std::sort(two_freqs_vec.begin(), two_freqs_vec.end());
-  two_freqs_vec.erase(std::unique(two_freqs_vec.begin(), two_freqs_vec.end()), two_freqs_vec.end());
-
-  std::unordered_map<std::pair<int,int>, int, detail::HashIntPair> two_freqs_map;
-  for (int f = 0; f < two_freqs_vec.size(); ++f) {
-    two_freqs_map.emplace(two_freqs_vec[f], f);
-  }
-  //std::cout << " linear dim of one-particle-GF-like object is " << two_freqs_vec.size() << " " << two_freqs_map.size() << std::endl;
-
-  auto t2 = std::chrono::system_clock::now();
-
   Eigen::Tensor<std::complex<double>,3> g = compute_g_new(
       beta, num_flavors, num_phys_rows,
       M_prime, two_freqs_vec,
       creation_ops, annihilation_ops);
 
-  auto t3 = std::chrono::system_clock::now();
+  auto t2 = std::chrono::system_clock::now();
 
   // g (freq, flavor, flavor) => // g_trans (flavor, flavor, freq)
   Eigen::array<int, 3> shuffle {1, 2, 0};
   Eigen::Tensor<std::complex<double>,3> g_trans = g.shuffle(shuffle);
 
   auto find_freq_index = [&](int freq1, int freq2) {
-      auto idx = two_freqs_map[std::make_pair(freq1,freq2)];
-      assert(idx >= 0 && idx < two_freqs_vec.size());
-      if(idx < 0 || idx >= two_freqs_vec.size()) {
-        throw std::logic_error("Something went wrong in find_freq_index.");
-      }
-      return idx;
+      auto key = std::make_pair(freq1,freq2);
+      return two_freqs_map.at(key);
   };
 
   // Assembly: O(num of freqs * N_f**4)
   auto nfreqs = meas_freqs_list.size();
   Eigen::Tensor<dcomplex,3> g1_H(nfreqs, num_flavors, num_flavors);
   Eigen::Tensor<dcomplex,3> g2_H(nfreqs, num_flavors, num_flavors);
-  Eigen::Tensor<dcomplex,3> g1_F(nfreqs, num_flavors, num_flavors);
-  Eigen::Tensor<dcomplex,3> g2_F(nfreqs, num_flavors, num_flavors);
 
   auto copy_elem = [&](int src_freq_idx,  Eigen::Tensor<dcomplex,3>& g1_out, int dst_freq_idx) {
-      for (int f2 = 0; f2 < num_flavors; ++f2) {
-        for(int f1=0; f1 < num_flavors; ++f1) {
-          g1_out(dst_freq_idx, f1, f2) = g_trans(f1, f2, src_freq_idx);
-        }
+    for (int f2 = 0; f2 < num_flavors; ++f2) {
+      for(int f1=0; f1 < num_flavors; ++f1) {
+        g1_out(dst_freq_idx, f1, f2) = g_trans(f1, f2, src_freq_idx);
       }
+    }
   };
 
   auto idx = 0;
@@ -870,34 +729,28 @@ void measure_G2_k2_PH_impl(
 
     copy_elem(find_freq_index(freq_f1+freq_b, freq_f1), g1_H, idx);
     copy_elem(find_freq_index(freq_f2, freq_f2+freq_b), g2_H, idx);
-    copy_elem(find_freq_index(freq_f1+freq_b, freq_f2+freq_b), g1_F, idx);
-    copy_elem(find_freq_index(freq_f2, freq_f1), g2_F, idx);
 
     ++ idx;
   }
 
+  auto t3 = std::chrono::system_clock::now();
+
   auto t4 = std::chrono::system_clock::now();
 
-  // Multiply g1_H and g1_F by overall_coeff (This part is a bottleneck for multi-orbital systems)
-  g1_H = overall_coeff * g1_H;
-  g1_F = overall_coeff * g1_F;
-
-  for(int f1=0; f1<num_flavors; ++f1) {
-    for (int f2 = 0; f2 < num_flavors; ++f2) {
-      for (int f3 = 0; f3 < num_flavors; ++f3) {
-        for (int f4 = 0; f4 < num_flavors; ++f4) {
+  for (int f4 = 0; f4 < num_flavors; ++f4) {
+    for (int f3 = 0; f3 < num_flavors; ++f3) {
+      for (int f2 = 0; f2 < num_flavors; ++f2) {
+        for(int f1=0; f1<num_flavors; ++f1) {
           /**
            * The following code works like this:
            *   for (auto idx = 0; idx < nfreqs; ++idx) {
-           *       result[f1][f2][f3][f4][idx] += (g1_H(idx, f1, f2) * g2_H(idx, f3, f4) - g1_F(idx, f1, f4) * g2_F(idx, f3, f2));
+           *       result[f1][f2][f3][f4][idx] += (g1_H(idx, f1, f2) * g2_H(idx, f3, f4);
            *   }
            */
           Eigen::Map<Eigen::VectorXcd> result_map(&result[f1][f2][f3][f4][0], nfreqs);
           Eigen::Map<Eigen::VectorXcd> g1_H_map(&g1_H(0, f1, f2), nfreqs);
           Eigen::Map<Eigen::VectorXcd> g2_H_map(&g2_H(0, f3, f4), nfreqs);
-          Eigen::Map<Eigen::VectorXcd> g1_F_map(&g1_F(0, f1, f4), nfreqs);
-          Eigen::Map<Eigen::VectorXcd> g2_F_map(&g2_F(0, f3, f2), nfreqs);
-          result_map += g1_H_map.cwiseProduct(g2_H_map) - g1_F_map.cwiseProduct(g2_F_map);
+          result_map += overall_coeff * g1_H_map.cwiseProduct(g2_H_map);
         }
       }
     }
@@ -905,7 +758,6 @@ void measure_G2_k2_PH_impl(
 
   auto t5 = std::chrono::system_clock::now();
 
-  /*
   std::cout << " time "
             << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
             << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "  "
@@ -913,65 +765,16 @@ void measure_G2_k2_PH_impl(
             << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t4).count() << "  "
                                                                                        << " k = " << M_prime.rows()
                                                                                        << std::endl;
-                                                                                       */
 };
 
-/**
- * Does the same job as measure_G2_k4_PH. But computational cost scales as O(k^2) where k is the matrix size for reconnection
- * @tparam SCALAR
- * @param beta
- * @param num_flavors
- * @param num_phys_rows
- * @param overall_coeff
- * @param M_prime
- * @param creation_ops
- * @param annihilation_ops
- * @param freq_index_f
- * @param freq_index_b
- * @param result
- */
-template<typename SCALAR>
-void measure_G2_k2_PH(
-    double beta,
-    int num_flavors,
-    int num_phys_rows,
-    SCALAR overall_coeff,
-    const Eigen::Matrix<SCALAR,Eigen::Dynamic,Eigen::Dynamic>& M_prime,
-    const std::vector<psi>& creation_ops,
-    const std::vector<psi>& annihilation_ops,
-    const std::vector<int>& freq_index_f,
-    const std::vector<int>& freq_index_b,
-    boost::multi_array<std::complex<double>, 7> &result
-) {
-  using dcomplex = std::complex<double>;
-
-  // List of fermion frequencies
-  auto num_freq_f = freq_index_f.size();
-  auto num_freq_b = freq_index_b.size();
-
-  std::vector<matsubara_freq_point_PH> freqs(num_freq_f * num_freq_f * num_freq_b);
-
-  auto idx = 0;
-  for (auto idx_f1 = 0; idx_f1<num_freq_f; ++idx_f1) {
-    for (auto idx_f2 = 0; idx_f2<num_freq_f; ++idx_f2) {
-      for (auto idx_b = 0; idx_b<num_freq_b; ++idx_b) {
-        freqs[idx] = matsubara_freq_point_PH(freq_index_f[idx_f1], freq_index_f[idx_f2], freq_index_b[idx_b]);
-        ++ idx;
-      }
-    }
-  }
-
-  auto extents_out = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][freqs.size()];
-  boost::multi_array_ref<dcomplex,5> out_buffer(result.origin(), extents_out);
-  measure_G2_k2_PH_impl(beta, num_flavors, num_phys_rows, overall_coeff, M_prime,
-      creation_ops, annihilation_ops, freqs, out_buffer);
-}
 
 
 //Compute G2 by removal in G2 space
 template<typename SCALAR>
 void compute_G2(const IRbasis &basis,
                 const std::vector<matsubara_freq_point_PH>& freqs,
+                const std::vector<std::pair<int,int>>& two_freqs_vec,
+                const std::unordered_map<std::pair<int,int>, int, detail::HashIntPair>& two_freqs_map,
                 const MonteCarloConfiguration<SCALAR> &mc_config,
                 const Reconnections<SCALAR> &reconnect,
                 boost::multi_array<std::complex<double>, 5> &result
@@ -1067,7 +870,7 @@ void compute_G2(const IRbasis &basis,
   SCALAR overall_coeff = mc_config.sign * reconnect.weight_rat_intermediate_state() * det_D/ (sum_wprime * beta);
 
   measure_G2_k2_PH_impl(beta, num_flavors, num_phys_rows, overall_coeff,
-                   M_prime, creation_ops, annihilation_ops, freqs, result);
+                   M_prime, creation_ops, annihilation_ops, freqs, two_freqs_vec, two_freqs_map, result);
 }
 
 //Compute G2 by removal in G2 space
@@ -1247,7 +1050,7 @@ void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR
 
   Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 2, eps);
 
-  compute_G2<SCALAR>(basis, freqs_, mc_config, reconnection, matsubara_data_);
+  compute_G2<SCALAR>(basis, freqs_, two_freqs_vec_, two_freqs_map_, mc_config, reconnection, matsubara_data_);
   ++num_data_;
 
   if (num_data_ == max_num_data_) {

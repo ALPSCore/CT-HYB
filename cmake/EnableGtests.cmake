@@ -7,22 +7,18 @@
 option(TestXMLOutput "Output tests to xml" OFF)
 
 # custom function to add gtest with xml output
-# arg0 - test (assume the source is ${test}.cpp
-function(add_gtest test)
+# arg0 - test (assume the source is ${test_name}.cpp
+function(add_gtest test_name)
     if (TestXMLOutput)
-        set (test_xml_output --gtest_output=xml:${test}.xml)
+        set (test_xml_output --gtest_output=xml:${test_name}.xml)
     endif(TestXMLOutput)
 
-    if(${ARGC} EQUAL 2)
-        set(source "${ARGV1}/${test}.cpp")
-        set(gtest_src "${ARGV1}/gtest_main.cc;${ARGV1}/gtest-all.cc")
-    else(${ARGC} EQUAL 2)
-        set(source "${test}.cpp")
-        set(gtest_src "gtest/gtest_main.cc;gtest/gtest-all.cc")
-    endif(${ARGC} EQUAL 2)
+    set(source "test/${test_name}.cpp")
+    set(gtest_src "test/gtest_main.cc;test/gtest-all.cc")
+    #message(status ${ARGV1})
 
-    add_executable(${test} ${source} ${gtest_src})
-    target_link_libraries(${test} ${LINK_ALL})
-    add_test(NAME ${test} COMMAND ${test} ${test_xml_output})
+    add_executable(${test_name} ${source} ${gtest_src} ${ARGV1})
+    target_link_libraries(${test_name} ${LINK_ALL})
+    add_test(NAME ${test_name} COMMAND ${test_name} ${test_xml_output})
 endfunction(add_gtest)
 

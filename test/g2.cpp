@@ -3,6 +3,7 @@
 #include "../src/measurement/measurement.ipp"
 
 #include <gtest.h>
+#include "g2.hpp"
 
 TEST(G2, MeasureByHyb) {
   boost::random::mt19937 gen(100);
@@ -81,43 +82,6 @@ TEST(G2, MeasureByHyb) {
       ASSERT_TRUE(diff < 1E-10);
       ++it_k2;
     }
-
-    std::vector<std::tuple <int,int,int> > freqs;
-    for (int i=0; i<num_freq_f; i+=3) {
-      for (int j=0; j<num_freq_f; j+=3) {
-        for (int k=0; k<num_freq_b; k+=3) {
-          freqs.push_back(std::make_tuple(freq_index_f[i], freq_index_f[j], freq_index_b[k]));
-        }
-      }
-    }
-    auto extents_general = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][freqs.size()];
-    boost::multi_array<std::complex<double>,5> result_k2_general(extents_general);
-    std::fill(result_k2_general.origin(), result_k2_general.origin() + result_k2_general.num_elements(), 0.0);
-    measure_G2_k2_PH_impl(beta, num_flavors, k, 1.0, M,
-                          creation_ops,
-                          annihilation_ops,
-                          freqs,
-                          result_k2_general);
-    int index = 0;
-    for (int i=0; i<num_freq_f; i+=3) {
-      for (int j = 0; j < num_freq_f; j += 3) {
-        for (int k = 0; k < num_freq_b; k += 3) {
-          auto diff = std::abs(
-              result_k2[0][0][0][0][i][j][k] - result_k2_general[0][0][0][0][index]
-          );
-          //std::cout << freq_index_f[i] << " " << freq_index_f[j] << " " << freq_index_b[k] << result_k4[0][0][0][0][i][j][k] << " " << result_k2_general[0][0][0][0][index] << std::endl;
-          ASSERT_TRUE(diff < 1E-10);
-          ++ index;
-        }
-      }
-    }
-
-
-    //Eigen::Tensor<SCALAR,7> r = measure_g2(beta, num_flavors, p_basis_f, p_basis_b, creation_ops, annihilation_ops, M);
-    //Eigen::Tensor<SCALAR,7> r_ref = measure_g2_ref(beta, num_flavors, p_basis_f, p_basis_b, creation_ops, annihilation_ops, M);
-    //Eigen::Tensor<SCALAR,7> rdiff = (r - r_ref).abs();
-    //Eigen::Tensor<SCALAR,0> diff = rdiff.sum();
-    //ASSERT_TRUE(diff.coeff() < 1E-10);
   }
 
 }

@@ -73,12 +73,12 @@ include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 #source files
 file(GLOB_RECURSE CPP_FILES RELATIVE ${PROJECT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src/*.cpp")
 file(GLOB_RECURSE IPP_FILES RELATIVE ${PROJECT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src/*.ipp")
-set(LIB_FILES ${CPP_FILES} ${IPP_FILES})
-message(STATUS ${LIB_FILES})
+set(ALL_FILES ${CPP_FILES} ${IPP_FILES})
+message(STATUS ${ALL_FILES})
 
 
-add_library(alpscore_cthyb SHARED ${LIB_FILES})
-set_target_properties(alpscore_cthyb PROPERTIES PUBLIC_HEADER src/solver.hpp)
+#add_library(alpscore_cthyb STATIC ${ALL_FILES})
+#set_target_properties(alpscore_cthyb PROPERTIES PUBLIC_HEADER src/solver.hpp)
 
 #Compiler dependent libraries
 set(EXTRA_LIBS "")
@@ -92,32 +92,23 @@ if (USE_QUAD_PRECISION)
 endif()
 
 #Set link libraries
-target_link_libraries(alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+#target_link_libraries(alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS} ${ALL_FILESLIB_FILES})
 
 #executable
-ADD_EXECUTABLE(hybmat ./src/main.cpp)
-target_link_libraries(hybmat alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+ADD_EXECUTABLE(hybmat ./src/main.cpp ${ALL_FILES})
+target_link_libraries(hybmat ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 #testing setup
 option(Testing "Enable testing" ON)
 include(EnableGtests) #defined in ./cmake
 include_directories("test")
-list(APPEND LINK_ALL alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
-
-#testing source files
-set(unittest_src
-unittest_solver unittest_fu g2
-)
+list(APPEND LINK_ALL ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 enable_testing(test)
 
-foreach(test ${unittest_src})
-    add_gtest(${test} test)
-endforeach(test)
-
-### Configuration file
-#configure_file("./cmake/ALPSCoreCTHYBConfig.cmake.in" "./ALPSCoreCTHYBConfig.cmake" @ONLY)
-#configure_file("./cmake/ALPSCoreCTHYBConfig.cmake.in" "./ALPSCoreCTHYBConfig.cmake")
+add_gtest(unittest_solver "${ALL_FILES}")
+add_gtest(unittest_fu "${ALL_FILES}")
+add_gtest(g2 "src/measurement/measurement.cpp;src/gf_basis.cpp")
 
 add_custom_command(TARGET hybmat POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -127,23 +118,3 @@ add_custom_command(TARGET hybmat POST_BUILD
 
 #installation
 install (TARGETS hybmat RUNTIME DESTINATION bin)
-#install (FILES data/irbasis.h5 DESTINATION share)
-
-install (TARGETS alpscore_cthyb
-        EXPORT ALPSCoreCTHYB-export
-        LIBRARY        DESTINATION lib
-        INCLUDES       DESTINATION include
-        PUBLIC_HEADER  DESTINATION include/alps/cthyb
-        )
-
-install(EXPORT ALPSCoreCTHYB-export
-        FILE alpscorecthyb-config.cmake
-        DESTINATION share/cmake/ALPSCoreCTHYB/
-        EXPORT_LINK_INTERFACE_LIBRARIES)
-
-#install (TARGETS hybmat alpscore_cthyb
-#RUNTIME DESTINATION bin
-#LIBRARY DESTINATION lib
-#)
-#install (FILES "./src/solver.hpp" DESTINATION "include/alps/cthyb")
-#install (FILES "${CMAKE_BINARY_DIR}/ALPSCoreCTHYBConfig.cmake" DESTINATION "./share/ALPSCoreCTHYB/")
