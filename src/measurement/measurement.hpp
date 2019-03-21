@@ -182,7 +182,7 @@ public:
      *
      * @param num_flavors    the number of flavors
      */
-    G2Measurement(int num_flavors, const IRbasis& basis, const std::vector<matsubara_freq_point_PH>& freqs, int num_freq_b, int max_num_data = 1);
+    G2Measurement(int num_flavors, const IRbasis& basis, const std::vector<matsubara_freq_point_PH>& freqs);
 
 
     /**
@@ -200,6 +200,8 @@ public:
                          alps::accumulators::accumulator_set &measurements,
                          alps::random01 &random, int max_matrix_size, double eps = 1E-5);
 
+    void finalize(const std::string& output_file);
+
 private:
     std::string str_;
     int num_flavors_;
@@ -210,6 +212,22 @@ private:
     std::vector<std::pair<int,int>> two_freqs_vec_;
     std::unordered_map<std::pair<int,int>, int, HashIntPair> two_freqs_map_;
 };
+
+
+inline
+matsubara_freq_point_PH
+from_H_to_F(const matsubara_freq_point_PH& freq_PH) {
+  int freq_f1 = std::get<0>(freq_PH);
+  int freq_f2 = std::get<1>(freq_PH);
+  int freq_b = std::get<2>(freq_PH);
+  return matsubara_freq_point_PH(freq_f2+freq_b, freq_f2, freq_f1-freq_f2);
+}
+
+inline
+matsubara_freq_point_PH
+from_H_to_F(int freq_f1, int freq_f2, int freq_b) {
+  return from_H_to_F(matsubara_freq_point_PH(freq_f1, freq_f2, freq_b));
+}
 
 template<typename SCALAR>
 class G2IRMeasurement {

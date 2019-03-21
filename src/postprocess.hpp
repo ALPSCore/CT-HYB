@@ -309,8 +309,10 @@ template<typename SOLVER_TYPE>
 void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &results,
                 const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
                 const Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> &rotmat_Delta,
-                std::map<std::string,boost::any> &ar,
                 bool verbose = false) {
+
+  const std::string output_file = parms["outputfile"];
+
   auto freqs = read_matsubara_points(parms["measurement.G2.matsubara.frequencies_PH"]);
   const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
   const double sign = results["Sign"].template mean<double>();
@@ -320,60 +322,65 @@ void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &
       results["worm_space_volume_G2"].template mean<double>() /
           (sign * results["Z_function_space_volume"].template mean<double>());
 
-  boost::multi_array<std::complex<double>, 5>
-      G2iwn_H(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][freqs.size()]);
-  {
-    std::vector<double> G2iwn_Re = results["G2_matsubara_Re"].template mean<std::vector<double> >();
-    std::vector<double> G2iwn_Im = results["G2_matsubara_Im"].template mean<std::vector<double> >();
-    std::transform(G2iwn_Re.begin(), G2iwn_Re.end(), G2iwn_Im.begin(), G2iwn_H.origin(), to_complex<double>());
-    std::transform(G2iwn_H.origin(), G2iwn_H.origin() + G2iwn_H.num_elements(), G2iwn_H.origin(),
-                   std::bind1st(std::multiplies<std::complex<double> >(), coeff));
-  }
+
+  boost::multi_array<std::complex<double>, 5> G2iwn_H;
+  boost::multi_array<int,2> freqs_meas;
+  alps::hdf5::archive ar(output_file, "rw");
+  ar["/simulation/results/G2H_matsubara/data"] >> G2iwn_H;
+  ar["/simulation/results/G2H_matsubara/freqs_PH"] >> freqs_meas;
+  std::transform(G2iwn_H.origin(), G2iwn_H.origin() + G2iwn_H.num_elements(), G2iwn_H.origin(),
+                 std::bind1st(std::multiplies<std::complex<double> >(), coeff));
 
   rotate_back_G2_impl(G2iwn_H, rotmat_Delta);
 
-  boost::multi_array<int,2> freqs_array(boost::extents[freqs.size()][3]);
+  // Loop over frequencies actually measured
   std::unordered_map<std::tuple<int,int,int>, int, HashIntTuple3> freqs_map;
-  for (int i=0; i<freqs.size(); ++i) {
-    int freq_f1 = std::get<0>(freqs[i]);
-    int freq_f2 = std::get<1>(freqs[i]);
-    int freq_b = std::get<2>(freqs[i]);
-    freqs_array[i][0] = freq_f1;
-    freqs_array[i][1] = freq_f2;
-    freqs_array[i][2] = freq_b;
-    freqs_map[std::make_tuple(freq_f1,freq_f2,freq_b)] = i;
+  for (int i=0; i<freqs_meas.size(); ++i) {
+    int freq_f1 = freqs_meas[i][0];
+    int freq_f2 = freqs_meas[i][1];
+    int freq_b = freqs_meas[i][2];
+    freqs_map[matsubara_freq_point_PH(freq_f1,freq_f2,freq_b)] = i;
   }
 
   // Since we measured only the Hartree term, we have to recover the contribution of the Fock term.
   boost::multi_array<std::complex<double>, 5>
       G2iwn(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][freqs.size()]);
+
+  // Loop over frequencies that are requested to measure by the user
+  boost::multi_array<int,2> freqs_array(boost::extents[freqs.size()][3]);
   for (int ifreq=0; ifreq<freqs.size(); ++ifreq) {
-    int freq_f1 = freqs_array[ifreq][0];
-    int freq_f2 = freqs_array[ifreq][1];
-    int freq_b = freqs_array[ifreq][2];
-    auto key = std::make_tuple(freq_f2+freq_b, freq_f2, freq_f1-freq_f2);
-    if (freqs_map.find(key) == freqs_map.end()) {
+    int freq_f1 = std::get<0>(freqs[ifreq]);
+    int freq_f2 = std::get<1>(freqs[ifreq]);
+    int freq_b = std::get<2>(freqs[ifreq]);
+
+    freqs_array[ifreq][0] = freq_f1;
+    freqs_array[ifreq][1] = freq_f2;
+    freqs_array[ifreq][2] = freq_b;
+
+    auto freq_H = matsubara_freq_point_PH(freq_f1, freq_f2, freq_b);
+    auto freq_F = from_H_to_F(freq_H);
+    if (freqs_map.find(freq_H) == freqs_map.end()) {
        std::cerr << "Not found: "
-           << std::get<0>(key) << " "
-           << std::get<1>(key) << " "
-           << std::get<2>(key) << std::endl;
-       //throw std::runtime_error("Not found: " + );
+           << std::get<0>(freq_H) << " "
+           << std::get<1>(freq_H) << " "
+           << std::get<2>(freq_H) << std::endl;
     }
-    auto ifreq_F = freqs_map.at(key);
+    auto ifreq_H = freqs_map.at(freq_H);
+    auto ifreq_F = freqs_map.at(freq_F);
 
     for (int f1 = 0; f1 < n_flavors; ++f1) {
       for (int f2 = 0; f2 < n_flavors; ++f2) {
         for (int f3 = 0; f3 < n_flavors; ++f3) {
           for (int f4 = 0; f4 < n_flavors; ++f4) {
-            G2iwn[f1][f2][f3][f4][ifreq] = G2iwn_H[f1][f2][f3][f4][ifreq] - G2iwn_H[f1][f4][f3][f2][ifreq_F];
+            G2iwn[f1][f2][f3][f4][ifreq] = G2iwn_H[f1][f2][f3][f4][ifreq_H] - G2iwn_H[f1][f4][f3][f2][ifreq_F];
           }
         }
       }
     }
   }
 
-  ar["G2/matsubara/freqs_PH"] = freqs_array;
-  ar["G2/matsubara/data"] = G2iwn;
+  ar["/G2/matsubara/freqs_PH"] << freqs_array;
+  ar["/G2/matsubara/data"] << G2iwn;
 }
 
 template<typename SOLVER_TYPE>

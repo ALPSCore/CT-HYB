@@ -56,7 +56,6 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       //.define<int>("measurement.G2.matsubara.n_bosonic_freq", 2, "Number of bosonic frequencies for measurement")
       .define<std::string>("measurement.G2.matsubara.frequencies_PH", "", "Text file containing a list of frequencies on which G2 is measured (in particle-hole convention)")
       .define<int>("measurement.G2.matsubara.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
-      .define<int>("measurement.G2.matsubara.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<int>("measurement.G2.IR.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
       .define<int>("measurement.G2.IR.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>("measurement.G2.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
@@ -808,6 +807,8 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
       throw std::runtime_error("Some configuration space was not visited in measurement steps. Thermalization time may be too short.");
     }
   }
+
+  p_G2_meas->finalize(par["outputfile"].template as<std::string>());
 }
 
 /**

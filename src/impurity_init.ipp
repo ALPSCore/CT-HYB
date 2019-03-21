@@ -134,8 +134,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     p_G2_meas.reset(
         new G2Measurement<SCALAR>(FLAVORS,
                                   *p_irbasis,
-                                  read_matsubara_points(par["measurement.G2.matsubara.frequencies_PH"]),
-                                  par["measurement.G2.matsubara.max_num_data_accumulated"]
+                                  read_matsubara_points(par["measurement.G2.matsubara.frequencies_PH"])
         )
     );
     p_G2IR_meas.reset(

@@ -1,6 +1,9 @@
 #include "./measurement.hpp"
 
 #include <boost/functional/hash.hpp>
+#include <alps/hdf5/tuple.hpp>
+#include <alps/hdf5/vector.hpp>
+#include <alps/hdf5/multi_array.hpp>
 
 /*
 template<typename SCALAR>
@@ -324,18 +327,6 @@ Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_c
 }
 
 
-template<typename SCALAR>
-G2Measurement<SCALAR>::G2Measurement(int num_flavors, const IRbasis& basis, const std::vector<matsubara_freq_point_PH>& freqs, int num_freq_b, int max_num_data) :
-    str_("G2"),
-    num_flavors_(num_flavors),
-    freqs_(freqs),
-    matsubara_data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][freqs_.size()]),
-    num_data_(0),
-    max_num_data_(max_num_data) {
-  std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0);
-
-  make_two_freqs_list(freqs, two_freqs_vec_, two_freqs_map_);
-};
 
 //Compute G1 by removal in G1 space
 template<typename SCALAR>
@@ -1036,6 +1027,33 @@ void G1Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR
   }
 }
 
+
+template<typename SCALAR>
+G2Measurement<SCALAR>::G2Measurement(int num_flavors, const IRbasis& basis, const std::vector<matsubara_freq_point_PH>& freqs) :
+    str_("G2"),
+    num_flavors_(num_flavors),
+    freqs_(),
+    num_data_(0) {
+
+  // Make sure that Fock term can be reconstructed.
+  std::set<matsubara_freq_point_PH > freqs_PH_set;
+  auto add = [&](matsubara_freq_point_PH key) {
+      if (freqs_PH_set.find(key) == freqs_PH_set.end()) {
+        freqs_.push_back(key);
+        freqs_PH_set.insert(key);
+      };
+  };
+  for (auto freq_PH : freqs) {
+    add(freq_PH);
+    add(from_H_to_F(freq_PH));
+  }
+
+  make_two_freqs_list(freqs_, two_freqs_vec_, two_freqs_map_);
+
+  matsubara_data_.resize(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][freqs_.size()]);
+  std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0);
+};
+
 template<typename SCALAR>
 void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                                             const IRbasis &basis,
@@ -1049,6 +1067,7 @@ void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR
   compute_G2<SCALAR>(basis, freqs_, two_freqs_vec_, two_freqs_map_, mc_config, reconnection, matsubara_data_);
   ++num_data_;
 
+  /*
   if (num_data_ == max_num_data_) {
     //pass the data to ALPS libraries
     std::transform(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(),
@@ -1059,6 +1078,62 @@ void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR
 
     num_data_ = 0;
     std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0.0);
+  }
+  */
+}
+
+template<typename SCALAR>
+void G2Measurement<SCALAR>::finalize(const std::string& output_file) {
+  alps::mpi::communicator comm;
+
+  comm.barrier();
+  int num_tot_data;
+  MPI_Reduce(
+      &num_data_,
+      &num_tot_data,
+      1,
+      alps::mpi::get_mpi_datatype(num_data_),
+      MPI_SUM,
+      0,
+      comm
+  );
+
+  if (comm.rank() == 0) {
+    MPI_Reduce(
+        MPI_IN_PLACE,
+        matsubara_data_.origin(),
+        matsubara_data_.num_elements(),
+        MPI_CXX_DOUBLE_COMPLEX,
+        MPI_SUM,
+          0,
+        comm
+    );
+  } else {
+    MPI_Reduce(
+        matsubara_data_.origin(),
+        matsubara_data_.origin(),
+        matsubara_data_.num_elements(),
+        MPI_CXX_DOUBLE_COMPLEX,
+        MPI_SUM,
+        0,
+        comm
+    );
+  }
+
+  if (comm.rank() == 0) {
+    std::transform(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(),
+                   matsubara_data_.origin(),
+                   std::bind2nd(std::divides<std::complex<double> >(), 1. * num_tot_data));
+
+    alps::hdf5::archive oar(output_file, "w");
+    oar["/simulation/results/G2H_matsubara/data"] = matsubara_data_;
+    boost::multi_array<int,2> freqs_tmp(boost::extents[freqs_.size()][3]);
+    for (int i=0; i<freqs_.size(); ++i) {
+      freqs_tmp[i][0] = std::get<0>(freqs_[i]);
+      freqs_tmp[i][1] = std::get<1>(freqs_[i]);
+      freqs_tmp[i][2] = std::get<2>(freqs_[i]);
+    }
+    oar["/simulation/results/G2H_matsubara/freqs_PH"] = freqs_tmp;
   }
 }
 

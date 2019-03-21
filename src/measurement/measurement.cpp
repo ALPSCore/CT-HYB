@@ -52,30 +52,12 @@ void make_two_freqs_list(
       two_freqs_set.insert(key);
     };
   };
-  auto add_PH = [&](const matsubara_freq_point_PH& freq_PH) {
+  for (auto& freq_PH: freqs_PH) {
     auto freq_f1 = std::get<0>(freq_PH);
     auto freq_f2 = std::get<1>(freq_PH);
     auto freq_b = std::get<2>(freq_PH);
     add(freq_f1+freq_b, freq_f1);
     add(freq_f2, freq_f2+freq_b);
-  };
-  for (auto& freq_PH: freqs_PH) {
-    // For measuring Hartree term
-    add_PH(freq_PH);
-
-    // For measuring Fock term
-    auto freq_f1 = std::get<0>(freq_PH);
-    auto freq_f2 = std::get<1>(freq_PH);
-    auto freq_b = std::get<2>(freq_PH);
-    matsubara_freq_point_PH freq_PH_F;
-    std::get<0>(freq_PH_F) = freq_f2 + freq_b;
-    std::get<1>(freq_PH_F) = freq_f2;
-    std::get<2>(freq_PH_F) = freq_f1 - freq_f2;
-    add_PH(freq_PH_F);
-    //add(freq_f1+freq_b, freq_f1);
-    //add(freq_f2, freq_f2+freq_b);
-    //add(freq_f1+freq_b, freq_f2+freq_b);
-    //add(freq_f2, freq_f1);
   }
 
   two_freqs_map.clear();
