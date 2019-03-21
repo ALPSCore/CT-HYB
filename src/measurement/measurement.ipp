@@ -1057,7 +1057,6 @@ G2Measurement<SCALAR>::G2Measurement(int num_flavors, const IRbasis& basis, cons
 template<typename SCALAR>
 void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                                             const IRbasis &basis,
-                                            alps::accumulators::accumulator_set &measurements,
                                             alps::random01 &random,
                                             int max_num_ops,
                                             double eps) {
@@ -1066,20 +1065,6 @@ void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR
 
   compute_G2<SCALAR>(basis, freqs_, two_freqs_vec_, two_freqs_map_, mc_config, reconnection, matsubara_data_);
   ++num_data_;
-
-  /*
-  if (num_data_ == max_num_data_) {
-    //pass the data to ALPS libraries
-    std::transform(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(),
-                   matsubara_data_.origin(),
-                   std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
-    measure_simple_vector_observable<std::complex<double> >(measurements, (str_ + "_matsubara").c_str(),
-                                                            to_std_vector(matsubara_data_));
-
-    num_data_ = 0;
-    std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0.0);
-  }
-  */
 }
 
 template<typename SCALAR>
@@ -1105,7 +1090,7 @@ void G2Measurement<SCALAR>::finalize(const std::string& output_file) {
         matsubara_data_.num_elements(),
         MPI_CXX_DOUBLE_COMPLEX,
         MPI_SUM,
-          0,
+        0,
         comm
     );
   } else {

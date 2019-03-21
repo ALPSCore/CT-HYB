@@ -281,7 +281,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
 
     case G2:
       if (p_G2_meas) {
-        p_G2_meas->measure_via_hyb(mc_config, *p_irbasis, measurements, random,
+        p_G2_meas->measure_via_hyb(mc_config, *p_irbasis, random,
                                    par["measurement.G2.matsubara.max_matrix_size"],
                                    par["measurement.G2.aux_field"]
         );

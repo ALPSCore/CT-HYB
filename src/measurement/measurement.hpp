@@ -197,7 +197,6 @@ public:
      */
     void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
                          const IRbasis& basis,
-                         alps::accumulators::accumulator_set &measurements,
                          alps::random01 &random, int max_matrix_size, double eps = 1E-5);
 
     void finalize(const std::string& output_file);
