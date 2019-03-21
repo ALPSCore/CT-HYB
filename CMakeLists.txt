@@ -71,11 +71,23 @@ set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH} ${MP
 include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
 #source files
-file(GLOB_RECURSE CPP_FILES RELATIVE ${PROJECT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src/*.cpp")
-file(GLOB_RECURSE IPP_FILES RELATIVE ${PROJECT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src/*.ipp")
-set(ALL_FILES ${CPP_FILES} ${IPP_FILES})
-message(STATUS ${ALL_FILES})
-
+#file(GLOB_RECURSE CPP_FILES RELATIVE ${PROJECT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src/*.cpp")
+#file(GLOB_RECURSE IPP_FILES RELATIVE ${PROJECT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src/*.ipp")
+#set(ALL_FILES ${CPP_FILES} ${IPP_FILES})
+#message(STATUS ${ALL_FILES})
+set(ALL_CPP_FILES ./src/gf_basis.cpp
+    ./src/solver_real.cpp
+    ./src/impurity.cpp
+    ./src/operator_util.cpp
+    ./src/model/clustering.cpp
+    ./src/model/model_complex.cpp
+    ./src/model/model_real.cpp
+    ./src/sliding_window/sliding_window.cpp
+    ./src/solver_complex.cpp
+    ./src/moves/moves.cpp
+    ./src/util.cpp
+    ./src/measurement/measurement.cpp)
+message(STATUS ${ALL_CPP_FILES})
 
 #add_library(alpscore_cthyb STATIC ${ALL_FILES})
 #set_target_properties(alpscore_cthyb PROPERTIES PUBLIC_HEADER src/solver.hpp)
@@ -95,7 +107,7 @@ endif()
 #target_link_libraries(alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS} ${ALL_FILESLIB_FILES})
 
 #executable
-ADD_EXECUTABLE(hybmat ./src/main.cpp ${ALL_FILES})
+ADD_EXECUTABLE(hybmat ./src/main.cpp ${ALL_CPP_FILES})
 target_link_libraries(hybmat ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 #testing setup
@@ -106,8 +118,8 @@ list(APPEND LINK_ALL ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIE
 
 enable_testing(test)
 
-add_gtest(unittest_solver "${ALL_FILES}")
-add_gtest(unittest_fu "${ALL_FILES}")
+add_gtest(unittest_solver "${ALL_CPP_FILES}")
+add_gtest(unittest_fu "${ALL_CPP_FILES}")
 add_gtest(g2 "src/measurement/measurement.cpp;src/gf_basis.cpp")
 
 add_custom_command(TARGET hybmat POST_BUILD

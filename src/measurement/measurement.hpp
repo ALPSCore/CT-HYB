@@ -18,6 +18,7 @@
 #include "../sliding_window/sliding_window.hpp"
 #include "src/gf_basis.hpp"
 #include "../operator.hpp"
+#include "../hash.hpp"
 
 
 /**
@@ -168,24 +169,10 @@ private:
 
 using matsubara_freq_point_PH = std::tuple<int,int,int>;
 
-namespace detail {
-    class HashIntPair
-    {
-    public:
-        std::size_t operator()(const std::pair<int,int>& p) const
-        {
-          std::size_t seed = 0;
-          boost::hash_combine(seed, p.first);
-          boost::hash_combine(seed, p.second);
-          return seed;
-        }
-    };
-}
-
 void make_two_freqs_list(
     const std::vector<matsubara_freq_point_PH>& freqs,
     std::vector<std::pair<int,int>>& two_freqs_vec,
-    std::unordered_map<std::pair<int,int>, int, detail::HashIntPair>& two_freqs_map);
+    std::unordered_map<std::pair<int,int>, int, HashIntPair>& two_freqs_map);
 
 template<typename SCALAR>
 class G2Measurement {
@@ -221,7 +208,7 @@ private:
     int num_data_;
     int max_num_data_;//max number of data accumlated before passing data to ALPS
     std::vector<std::pair<int,int>> two_freqs_vec_;
-    std::unordered_map<std::pair<int,int>, int, detail::HashIntPair> two_freqs_map_;
+    std::unordered_map<std::pair<int,int>, int, HashIntPair> two_freqs_map_;
 };
 
 template<typename SCALAR>

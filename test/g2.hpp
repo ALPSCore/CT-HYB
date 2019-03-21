@@ -149,7 +149,7 @@ void measure_G2_k2_PH(
   }
 
   std::vector<std::pair<int,int>> two_freqs_vec;
-  std::unordered_map<std::pair<int,int>, int, detail::HashIntPair> two_freqs_map;
+  std::unordered_map<std::pair<int,int>, int, HashIntPair> two_freqs_map;
   make_two_freqs_list(freqs, two_freqs_vec, two_freqs_map);
 
   auto extents_out = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][freqs.size()];

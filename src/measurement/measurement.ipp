@@ -437,7 +437,6 @@ Eigen::Tensor<std::complex<double>,4>
       return (2 * n + 1) * M_PI / beta;
   };
 
-  //std::cout << "debug a" << std::endl;
   std::vector<double> freqs_f(num_freqs);
   for (int i=0; i<num_freqs; ++i) {
     freqs_f[i] = to_fermion_freq(index_freqs_f[i]);
@@ -465,7 +464,6 @@ Eigen::Tensor<std::complex<double>,4>
       exp_2_conj(0, f, j) = expix(-freqs_f[f] * tau_j);
     }
   }
-  //std::cout << "debug b " << num_phys_rows << std::endl;
 
   // O( k^2 * num_freqs_f + k^2 * num_freqs_f^2 * num_flavors^2)
   // k is expansion order per flavor
@@ -525,8 +523,6 @@ Eigen::Tensor<std::complex<double>,4>
       }
     }
   }
-
-  //std::cout << "debug c " << num_phys_rows << std::endl;
 
   return g;
 }
@@ -684,7 +680,7 @@ void measure_G2_k2_PH_impl(
     const std::vector<psi>& annihilation_ops,
     const std::vector<matsubara_freq_point_PH>& meas_freqs_list,
     const std::vector<std::pair<int,int>>& two_freqs_vec,
-    const std::unordered_map<std::pair<int,int>, int, detail::HashIntPair>& two_freqs_map,
+    const std::unordered_map<std::pair<int,int>, int, HashIntPair>& two_freqs_map,
     MULTI_ARRAY_DIM5 &result
 ) {
   using dcomplex = std::complex<double>;
@@ -774,7 +770,7 @@ template<typename SCALAR>
 void compute_G2(const IRbasis &basis,
                 const std::vector<matsubara_freq_point_PH>& freqs,
                 const std::vector<std::pair<int,int>>& two_freqs_vec,
-                const std::unordered_map<std::pair<int,int>, int, detail::HashIntPair>& two_freqs_map,
+                const std::unordered_map<std::pair<int,int>, int, HashIntPair>& two_freqs_map,
                 const MonteCarloConfiguration<SCALAR> &mc_config,
                 const Reconnections<SCALAR> &reconnect,
                 boost::multi_array<std::complex<double>, 5> &result

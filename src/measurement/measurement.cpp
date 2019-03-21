@@ -38,9 +38,9 @@ std::vector<matsubara_freq_point_PH> read_matsubara_points(const std::string& fi
 
 // make a list of fermionic frequencies of one-particle-GF-like object
 void make_two_freqs_list(
-    const std::vector<matsubara_freq_point_PH>& freqs,
+    const std::vector<matsubara_freq_point_PH>& freqs_PH,
     std::vector<std::pair<int,int>>& two_freqs_vec,
-    std::unordered_map<std::pair<int,int>, int, detail::HashIntPair>& two_freqs_map) {
+    std::unordered_map<std::pair<int,int>, int, HashIntPair>& two_freqs_map) {
 
   // two_freqs_vec contains a list of fermionic frequencies of one-particle-GF-like object
   std::set<std::pair<int,int>> two_freqs_set;
@@ -52,12 +52,30 @@ void make_two_freqs_list(
       two_freqs_set.insert(key);
     };
   };
-  for (auto& freq: freqs) {
-    auto freq_f1 = std::get<0>(freq);
-    auto freq_f2 = std::get<1>(freq);
-    auto freq_b = std::get<2>(freq);
+  auto add_PH = [&](const matsubara_freq_point_PH& freq_PH) {
+    auto freq_f1 = std::get<0>(freq_PH);
+    auto freq_f2 = std::get<1>(freq_PH);
+    auto freq_b = std::get<2>(freq_PH);
     add(freq_f1+freq_b, freq_f1);
     add(freq_f2, freq_f2+freq_b);
+  };
+  for (auto& freq_PH: freqs_PH) {
+    // For measuring Hartree term
+    add_PH(freq_PH);
+
+    // For measuring Fock term
+    auto freq_f1 = std::get<0>(freq_PH);
+    auto freq_f2 = std::get<1>(freq_PH);
+    auto freq_b = std::get<2>(freq_PH);
+    matsubara_freq_point_PH freq_PH_F;
+    std::get<0>(freq_PH_F) = freq_f2 + freq_b;
+    std::get<1>(freq_PH_F) = freq_f2;
+    std::get<2>(freq_PH_F) = freq_f1 - freq_f2;
+    add_PH(freq_PH_F);
+    //add(freq_f1+freq_b, freq_f1);
+    //add(freq_f2, freq_f2+freq_b);
+    //add(freq_f1+freq_b, freq_f2+freq_b);
+    //add(freq_f2, freq_f1);
   }
 
   two_freqs_map.clear();

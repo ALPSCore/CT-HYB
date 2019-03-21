@@ -1,6 +1,7 @@
 #pragma once
 
 #include <complex>
+#include <unordered_map>
 
 #include <Eigen/Dense>
 #include <Eigen/LU>
@@ -9,6 +10,7 @@
 #include <alps/gf/tail.hpp>
 
 #include "gf_basis.hpp"
+#include "hash.hpp"
 
 template<typename T>
 struct to_complex {
@@ -331,25 +333,33 @@ void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &
   rotate_back_G2_impl(G2iwn_H, rotmat_Delta);
 
   boost::multi_array<int,2> freqs_array(boost::extents[freqs.size()][3]);
-  std::unordered_map<std::tuple<int,int,int>, int> freqs_map;
+  std::unordered_map<std::tuple<int,int,int>, int, HashIntTuple3> freqs_map;
   for (int i=0; i<freqs.size(); ++i) {
-    auto freq1 = std::get<0>(freqs[i]);
-    auto freq2 = std::get<1>(freqs[i]);
-    auto freq3 = std::get<2>(freqs[i]);
-    freqs_array[i][0] = freq1;
-    freqs_array[i][1] = freq2;
-    freqs_array[i][2] = freq3;
-    freqs_map[std::make_tuple(freq1,freq2,freq3)] = i;
+    int freq_f1 = std::get<0>(freqs[i]);
+    int freq_f2 = std::get<1>(freqs[i]);
+    int freq_b = std::get<2>(freqs[i]);
+    freqs_array[i][0] = freq_f1;
+    freqs_array[i][1] = freq_f2;
+    freqs_array[i][2] = freq_b;
+    freqs_map[std::make_tuple(freq_f1,freq_f2,freq_b)] = i;
   }
 
   // Since we measured only the Hartree term, we have to recover the contribution of the Fock term.
   boost::multi_array<std::complex<double>, 5>
       G2iwn(boost::extents[n_flavors][n_flavors][n_flavors][n_flavors][freqs.size()]);
   for (int ifreq=0; ifreq<freqs.size(); ++ifreq) {
-    auto freq1 = freqs_array[ifreq][0];
-    auto freq2 = freqs_array[ifreq][1];
-    auto freq3 = freqs_array[ifreq][2];
-    auto ifreq_F = freqs_map.at(std::make_tuple(freq2+freq3, freq2, freq1-freq2));
+    int freq_f1 = freqs_array[ifreq][0];
+    int freq_f2 = freqs_array[ifreq][1];
+    int freq_b = freqs_array[ifreq][2];
+    auto key = std::make_tuple(freq_f2+freq_b, freq_f2, freq_f1-freq_f2);
+    if (freqs_map.find(key) == freqs_map.end()) {
+       std::cerr << "Not found: "
+           << std::get<0>(key) << " "
+           << std::get<1>(key) << " "
+           << std::get<2>(key) << std::endl;
+       //throw std::runtime_error("Not found: " + );
+    }
+    auto ifreq_F = freqs_map.at(key);
 
     for (int f1 = 0; f1 < n_flavors; ++f1) {
       for (int f2 = 0; f2 < n_flavors; ++f2) {
