@@ -11,7 +11,7 @@ template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::show_statistics(const alps::accumulators::result_set &results) {
   const std::vector<double> timings = results["TimingsSecPerNMEAS"].template mean<std::vector<double> >();
   std::cout << std::endl << "==== Timings analysis ====" << std::endl;
-  std::cout << " The following are the timings per window sweep (in units of second): " << std::endl;
+  std::cout << " The following are the timings per n_non_worm_meas window sweeps (in units of second): " << std::endl;
   std::cout << " Local updates (insertion/removal/shift of operators/worm: " << timings[0] * 1e-9 << std::endl;
   std::cout << " Global updates (global shift etc.): " << timings[1] * 1e-9 << std::endl;
   std::cout << " Worm measurement: " << timings[2] * 1e-9 << std::endl;
