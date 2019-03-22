@@ -152,8 +152,29 @@ void measure_G2_k2_PH(
   std::unordered_map<std::pair<int,int>, int, HashIntPair> two_freqs_map;
   make_two_freqs_list(freqs, two_freqs_vec, two_freqs_map);
 
-  auto extents_out = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][freqs.size()];
-  boost::multi_array_ref<dcomplex,5> out_buffer(result.origin(), extents_out);
+  boost::multi_array<dcomplex,5> result_tmp(boost::extents[freqs.size()][num_flavors][num_flavors][num_flavors][num_flavors]);
+  std::fill(result_tmp.origin(), result_tmp.origin()+result_tmp.num_elements(), 0.0);
   measure_G2_k2_PH_impl(beta, num_flavors, num_phys_rows, overall_coeff, M_prime,
-                        creation_ops, annihilation_ops, freqs, two_freqs_vec, two_freqs_map, out_buffer);
+                        creation_ops, annihilation_ops, freqs, two_freqs_vec, two_freqs_map, result_tmp);
+
+  for(int f1 = 0; f1 < num_flavors; ++f1) {
+    for (int f2 = 0; f2 < num_flavors; ++f2) {
+      for (int f3 = 0; f3 < num_flavors; ++f3) {
+        for (int f4 = 0; f4 < num_flavors; ++f4) {
+
+          idx = 0;
+          for (auto idx_f1 = 0; idx_f1 < num_freq_f; ++idx_f1) {
+            for (auto idx_f2 = 0; idx_f2 < num_freq_f; ++idx_f2) {
+              for (auto idx_b = 0; idx_b < num_freq_b; ++idx_b) {
+                result[f1][f2][f3][f4][idx_f1][idx_f2][idx_b] = result_tmp[idx][f1][f2][f3][f4];
+                ++idx;
+              }
+            }
+          }
+
+        }
+      }
+    }
+  }
+
 }

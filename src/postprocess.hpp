@@ -331,8 +331,6 @@ void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &
   std::transform(G2iwn_H.origin(), G2iwn_H.origin() + G2iwn_H.num_elements(), G2iwn_H.origin(),
                  std::bind1st(std::multiplies<std::complex<double> >(), coeff));
 
-  rotate_back_G2_impl(G2iwn_H, rotmat_Delta);
-
   // Loop over frequencies actually measured
   std::unordered_map<std::tuple<int,int,int>, int, HashIntTuple3> freqs_map;
   for (int i=0; i<freqs_meas.size(); ++i) {
@@ -372,12 +370,14 @@ void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &
       for (int f2 = 0; f2 < n_flavors; ++f2) {
         for (int f3 = 0; f3 < n_flavors; ++f3) {
           for (int f4 = 0; f4 < n_flavors; ++f4) {
-            G2iwn[f1][f2][f3][f4][ifreq] = G2iwn_H[f1][f2][f3][f4][ifreq_H] - G2iwn_H[f1][f4][f3][f2][ifreq_F];
+            G2iwn[f1][f2][f3][f4][ifreq] = G2iwn_H[ifreq_H][f1][f2][f3][f4] - G2iwn_H[ifreq_F][f1][f4][f3][f2];
           }
         }
       }
     }
   }
+
+  rotate_back_G2_impl(G2iwn, rotmat_Delta);
 
   ar["/G2/matsubara/freqs_PH"] << freqs_array;
   ar["/G2/matsubara/data"] << G2iwn;
