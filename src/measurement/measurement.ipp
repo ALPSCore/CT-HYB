@@ -713,12 +713,12 @@ void measure_G2_k2_PH_impl(
 
   auto t4 = std::chrono::system_clock::now();
 
-  std::cout << " time "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "  "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << "  "
-                                                                                       << " k = " << M_prime.rows()
-                                                                                       << std::endl;
+  //std::cout << " time "
+            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
+            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "  "
+            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t4-t3).count() << "  "
+                                                                                       //<< " k = " << M_prime.rows()
+                                                                                       //<< std::endl;
 };
 
 
@@ -1028,9 +1028,15 @@ void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR
                                             int max_num_ops,
                                             double eps) {
 
+  auto t1 = std::chrono::system_clock::now();
   Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 2, eps);
+  auto t2 = std::chrono::system_clock::now();
 
   compute_G2<SCALAR>(basis, num_flavors_, freqs_, two_freqs_vec_, two_freqs_map_, mc_config, reconnection, matsubara_data_);
+  auto t3 = std::chrono::system_clock::now();
+  //std::cout << " debug time "
+            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
+            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << std::endl;
   ++num_data_;
 }
 
