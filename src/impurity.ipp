@@ -45,10 +45,11 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
           //Equal-time single-particle GF
       .define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
           //Two-particle GF
-      .define<int>(           "measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
       .define<double>(        "measurement.G2.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
+      .define<int>(           "measurement.G2.matsubara.on", 0, "Set a non-zero value to activate Matsubara measurement of G2.")
       .define<std::string>(   "measurement.G2.matsubara.frequencies_PH", "", "Text file containing a list of frequencies on which G2 is measured (in particle-hole convention)")
       .define<int>(           "measurement.G2.matsubara.max_matrix_size", 20, "Max size of inverse matrix for measurement.")
+      .define<int>(           "measurement.G2.legendre.on", 0, "Set a non-zero value to activate Legendre measurement of G2.")
       .define<int>(           "measurement.G2.legendre.n_legendre", 0, "Number of legendre polynomials for measurement")
       .define<int>(           "measurement.G2.legendre.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
       .define<int>(           "measurement.G2.legendre.max_matrix_size", 5, "Max size of inverse matrix for measurement.")

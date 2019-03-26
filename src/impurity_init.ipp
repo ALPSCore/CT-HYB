@@ -120,7 +120,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   /*
    * G2
    */
-  if (par["measurement.G2.on"] != 0) {
+  if (par["measurement.G2.matsubara.on"] != 0 || par["measurement.G2.legendre.on"]) {
     worm_types.push_back(G2);
     add_worm_mover<WormMoverType>(G2, "G2_mover");
     add_worm_mover<WormFlavorChangerType>(G2, "G2_flavor_changer");
@@ -132,18 +132,22 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         )
     );
-    p_G2_meas.reset(
-        new G2Measurement<SCALAR>(FLAVORS, BETA,
-                                  read_matsubara_points(par["measurement.G2.matsubara.frequencies_PH"])
-        )
-    );
-    p_G2_legendre_meas.reset(
-        new GMeasurement<SCALAR, 2>(FLAVORS,
-                                    par["measurement.G2.legendre.n_legendre"],
-                                    par["measurement.G2.legendre.n_bosonic_freq"], BETA,
-                                    par["measurement.G2.legendre.max_num_data_accumulated"]
-        )
-    );
+    if (par["measurement.G2.matsubara.on"].template as<int>() > 0) {
+      p_G2_meas.reset(
+          new G2Measurement<SCALAR>(FLAVORS, BETA,
+                                    read_matsubara_points(par["measurement.G2.matsubara.frequencies_PH"])
+          )
+      );
+    }
+    if (par["measurement.G2.legendre.on"].template as<int>() > 0) {
+      p_G2_legendre_meas.reset(
+          new GMeasurement<SCALAR, 2>(FLAVORS,
+                                      par["measurement.G2.legendre.n_legendre"],
+                                      par["measurement.G2.legendre.n_bosonic_freq"], BETA,
+                                      par["measurement.G2.legendre.max_num_data_accumulated"]
+          )
+      );
+    }
     specialized_updaters["G2_ins_rem_hyb"] =
         boost::shared_ptr<LocalUpdaterType>(
             new G2WormInsertionRemoverType(

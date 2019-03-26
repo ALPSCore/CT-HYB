@@ -792,6 +792,10 @@ void G2Measurement<SCALAR>::finalize(const std::string& output_file) {
       comm
   );
 
+  if (num_data_ == 0) {
+    std::cout << "Warning G2 has not been measured on node " << comm.rank() << "! This may cause a problem such as dead lock. Run longer!" << std::endl;
+  }
+
   if (comm.rank() == 0) {
     MPI_Reduce(
         MPI_IN_PLACE,

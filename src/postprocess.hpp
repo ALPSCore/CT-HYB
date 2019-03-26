@@ -513,7 +513,7 @@ void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type 
 }
 
 template<typename SOLVER_TYPE>
-void compute_euqal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
+void compute_equal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
                            const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
                            const Eigen::Matrix<typename SOLVER_TYPE::SCALAR,
                                                Eigen::Dynamic,
