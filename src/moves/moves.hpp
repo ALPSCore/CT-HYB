@@ -446,6 +446,63 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
 };
 
 /**
+ * @brief Connect equal-time G1 space and two-time G2 space
+ */
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class EqualTimeG1_TwoTimeG2_Connector: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+
+ public:
+  EqualTimeG1_TwoTimeG2_Connector(const std::string &str,
+                                  double beta,
+                                  int num_flavors) : BaseType(str), num_flavors_(num_flavors) {
+  }
+
+ private:
+  virtual bool propose(
+      alps::random01 &rng,
+      const MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
+  );
+
+  int num_flavors_;
+  std::vector<std::pair<psi, psi> > pairs_;
+};
+
+/**
+ * @brief Shift updater a Green's function worm by reconnecting hybridization lines
+ * WARNING : There is a bug in GWormShifter.
+ */
+/*
+template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+class GWormShifter: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
+  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
+
+ public:
+  GWormShifter(const std::string &str,
+               double beta,
+               int num_flavors,
+               boost::shared_ptr<Worm> p_worm_template
+  ) : BaseType(str), beta_(beta), num_flavors_(num_flavors), p_worm_template_(p_worm_template) {}
+
+ private:
+  virtual bool propose(
+      alps::random01 &rng,
+      MonteCarloConfiguration<SCALAR> &mc_config,
+      const SLIDING_WINDOW &sliding_window,
+      const std::map<ConfigSpace, double> &config_space_weight
+  );
+
+  double beta_;
+  int num_flavors_;
+  boost::shared_ptr<Worm> p_worm_template_;
+  std::vector<psi> ops_work_;
+};
+*/
+
+
+/**
  * @brief Exchange flavors of a worm
  */
 struct WormExchangeFlavor {

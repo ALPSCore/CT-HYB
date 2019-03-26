@@ -6,7 +6,6 @@
 
 #include "operator.hpp"
 #include "util.hpp"
-#include "gf_basis.hpp"
 
 enum ConfigSpace {
   Z_FUNCTION,
@@ -215,7 +214,7 @@ class CorrelationWorm: public Worm, private boost::equality_comparable<Correlati
 template<unsigned int Rank>
 class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
  public:
-  GWorm(std::shared_ptr<IRbasis> p_irbasis) : time_index_(2 * Rank), p_irbasis_(p_irbasis) {
+  GWorm() : time_index_(2 * Rank) {
     for (int f = 0; f < 2 * Rank; ++f) {
       time_index_[f].push_back(f);
     }
@@ -234,35 +233,6 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
   virtual double get_time(int index) const {
     assert(index >= 0 && index < 2 * Rank);
     return times_[index];
-  }
-
-  static
-  double get_weight_correction(double t1, double t2, std::shared_ptr<IRbasis> p_irbasis) {
-    auto idx = p_irbasis->get_bin_index(t1-t2);
-    return 1/(p_irbasis->bin_edges()[idx+1] - p_irbasis->bin_edges()[idx]);
-  }
-
-  static
-  double get_weight_correction(double t1, double t2, double t3, double t4, std::shared_ptr<IRbasis> p_irbasis) {
-    auto index = p_irbasis->get_index_4pt(t1, t2, t3, t4);
-    auto pos = p_irbasis->get_bin_position_4pt(index);
-    return 1/(p_irbasis->bin_volume_4pt(pos) * p_irbasis->sum_inverse_bin_volume_4pt());
-  }
-
-  int get_bin_index() const {
-    if (Rank == 1) {
-      return p_irbasis_->get_bin_index(get_time(0) - get_time(1));
-    } else {
-      return p_irbasis_->get_bin_index(get_time(0), get_time(1), get_time(2), get_time(3));
-    }
-  }
-
-  virtual double get_weight_correction() const {
-    if (Rank == 1) {
-      return get_weight_correction(get_time(0), get_time(1), p_irbasis_);
-    } else if (Rank == 2) {
-      return get_weight_correction(get_time(0), get_time(1), get_time(2), get_time(3), p_irbasis_);
-    }
   }
 
   virtual void set_time(int index, double new_time) {
@@ -305,7 +275,6 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
   boost::array<double, 2 * Rank> times_;
   boost::array<int, 2 * Rank> flavors_;
   std::vector<std::vector<int> > time_index_;
-  std::shared_ptr<IRbasis> p_irbasis_;
 };
 
 /**

@@ -1,22 +1,25 @@
-//template class TwoTimeG2Measurement<PP_SCALAR >;
+template class TwoTimeG2Measurement<PP_SCALAR >;
 
-/*
 template void TwoTimeG2Measurement<PP_SCALAR >::measure<PP_SW >(MonteCarloConfiguration<PP_SCALAR > &mc_config,
                                            alps::accumulators::accumulator_set &measurements,
                                            alps::random01 &random,
                                            PP_SW &sliding_window,
                                            int average_pert_order,
                                            const std::string &str);
-                                           */
-
-template class G1Measurement<PP_SCALAR>;
 
 template class G2Measurement<PP_SCALAR>;
-
-template class G2IRMeasurement<PP_SCALAR>;
 
 template class Reconnections<PP_SCALAR>;
 
 template class EqualTimeGMeasurement<PP_SCALAR, 1>;
 
 template class EqualTimeGMeasurement<PP_SCALAR, 2>;
+
+// OLD MEASUREMENT BASED ON LEGENDRE
+template struct MeasureGHelper<PP_SCALAR, 1>;
+
+template struct MeasureGHelper<PP_SCALAR, 2>;
+
+template class GMeasurement<PP_SCALAR, 1>;
+
+template class GMeasurement<PP_SCALAR, 2>;

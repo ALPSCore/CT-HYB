@@ -1,5 +1,7 @@
 #include "measurement.hpp"
 #include "measurement.ipp"
+#include "measurement_old.hpp"
+#include "measurement_old.ipp"
 
 typedef SlidingWindowManager<REAL_EIGEN_BASIS_MODEL> SW_REAL_MATRIX;
 typedef SlidingWindowManager<COMPLEX_EIGEN_BASIS_MODEL> SW_COMPLEX_MATRIX;

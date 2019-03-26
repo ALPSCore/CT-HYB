@@ -61,6 +61,7 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
         //Two-particle Green's function
         if (Base::parameters_["measurement.G2.on"] != 0) {
           compute_G2_matsubara<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta());
+          compute_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
         }
         if (Base::parameters_["measurement.two_time_G2.on"] != 0) {
           compute_two_time_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);

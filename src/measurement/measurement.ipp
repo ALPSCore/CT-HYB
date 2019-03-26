@@ -1,11 +1,11 @@
 #include "./measurement.hpp"
 
 #include <boost/functional/hash.hpp>
+#include <alps/hdf5/complex.hpp>
 #include <alps/hdf5/tuple.hpp>
 #include <alps/hdf5/vector.hpp>
 #include <alps/hdf5/multi_array.hpp>
 
-/*
 template<typename SCALAR>
 template<typename SlidingWindow>
 void TwoTimeG2Measurement<SCALAR>::measure(MonteCarloConfiguration<SCALAR> &mc_config,
@@ -150,7 +150,6 @@ void TwoTimeG2Measurement<SCALAR>::measure_impl(const std::vector<psi> &worm_ops
     [flavors[3]][il] += weight * legendre_trans_.get_sqrt_2l_1()[il] * Pl_vals[il];
   }
 }
-*/
 
 inline
 std::pair<double, double>
@@ -325,84 +324,6 @@ Reconnections<SCALAR>::Reconnections(const MonteCarloConfiguration<SCALAR> &mc_c
   annihilation_ops_ = c_ops_new;
   weight_rat_intermediate_state_ = weight_rat;
 }
-
-
-
-//Compute G1 by removal in G1 space
-template<typename SCALAR>
-void compute_G1(const IRbasis &basis,
-                const MonteCarloConfiguration<SCALAR> &mc_config,
-                const Reconnections<SCALAR> &reconnect,
-                boost::multi_array<std::complex<double>, 3> &result,
-                boost::multi_array<std::complex<double>, 3> &bin_result
-) {
-  double beta = basis.beta();
-
-  std::vector<double> Ultau_vals(static_cast<int>(basis.dim_F()));
-  const auto &M = reconnect.M();
-  const auto &creation_ops = reconnect.creation_ops();
-  const auto &annihilation_ops = reconnect.annihilation_ops();
-  SCALAR sign = mc_config.sign;
-
-  std::vector<psi>::const_iterator it1, it2;
-  const int mat_size = M.size1();
-
-  //First, we compute relative weights
-  boost::multi_array<SCALAR, 2> wprimes(boost::extents[mat_size - 1][mat_size - 1]);
-  double sum_wprime = 0.0;
-  for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
-    (k == 0 ? it1 = annihilation_ops.begin() : it1++);
-    for (int l = 0; l < mat_size - 1; l++) {
-      (l == 0 ? it2 = creation_ops.begin() : it2++);
-      if (M(l, k) == 0.0) {
-        wprimes[k][l] = 0.0;
-        continue;
-      }
-
-      double bubble_sign = it1->time() - it2->time() > 0.0 ? 1.0 : -1.0;
-
-      wprimes[k][l] = (M(l, k) * M(mat_size - 1, mat_size - 1) - M(l, mat_size - 1) * M(mat_size - 1, k))
-                      * bubble_sign * sign * reconnect.weight_rat_intermediate_state();
-      wprimes[k][l] *= GWorm<1>::get_weight_correction(it1->time().time(), it2->time().time(), mc_config.p_irbasis);
-
-      sum_wprime += std::abs(wprimes[k][l]);
-    }
-  }
-
-  // Ingredients of scale_fact.
-  // beta is due to the degree of freedom of origin of the relative times.
-  // The "minus" is from the definition of the Green's function. G(tau) = - <T c^dagger(tau) c(0)>.
-  double scale_fact = -1.0 / (sum_wprime * beta);
-  for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
-    (k == 0 ? it1 = annihilation_ops.begin() : it1++);
-    for (int l = 0; l < mat_size - 1; l++) {
-      (l == 0 ? it2 = creation_ops.begin() : it2++);
-      if (M(l, k) == 0.0) {
-        continue;
-      }
-      double argument = it1->time() - it2->time();
-      double rw_corr = GWorm<1>::get_weight_correction(it1->time().time(), it2->time().time(), mc_config.p_irbasis);
-      if (argument < 0) {
-        argument += beta;
-        // Note: sign change is already included in the definition of coeffs as "bubble sign".
-      }
-      assert(-0.01 < argument && argument < beta + 0.01);
-
-      const int flavor_a = it1->flavor();
-      const int flavor_c = it2->flavor();
-      basis.compute_Utau_F(argument, Ultau_vals);
-      SCALAR coeff = wprimes[k][l] * scale_fact / rw_corr;
-      for (int il = 0; il < basis.dim_F(); ++il) {
-        result[flavor_a][flavor_c][il] += Ultau_vals[il] * coeff;
-      }
-
-      auto idx = mc_config.p_irbasis->get_bin_index(argument);
-      auto bin_length = mc_config.p_irbasis->bin_edges()[idx + 1] - mc_config.p_irbasis->bin_edges()[idx];
-      bin_result[flavor_a][flavor_c][idx] += coeff / bin_length;
-    }
-  }
-}
-
 
 /*
  * Compute intermediate single-particle object for measuring two-particle GF
@@ -725,7 +646,7 @@ void measure_G2_k2_PH_impl(
 
 //Compute G2 by removal in G2 space
 template<typename SCALAR>
-void compute_G2(const IRbasis &basis,
+void compute_G2(double beta,
                 int num_flavors,
                 const std::vector<matsubara_freq_point_PH>& freqs,
                 const std::vector<std::pair<int,int>>& two_freqs_vec,
@@ -734,8 +655,6 @@ void compute_G2(const IRbasis &basis,
                 const Reconnections<SCALAR> &reconnect,
                 boost::multi_array<std::complex<double>, 5> &result
 ) {
-  double beta = basis.beta();
-
   const auto &M = reconnect.M();
   const auto &creation_ops = reconnect.creation_ops();
   const auto &annihilation_ops = reconnect.annihilation_ops();
@@ -744,7 +663,6 @@ void compute_G2(const IRbasis &basis,
   const int mat_size = M.size1();
 
   //First, we compute relative weights
-  const double temperature = 1. / beta;
   const int num_phys_rows = creation_ops.size();
   const int n_aux_lines = 2;
   if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.size1() - n_aux_lines) {
@@ -800,20 +718,9 @@ void compute_G2(const IRbasis &basis,
            */
           SCALAR det = det_D * (M_prime(b,a) * M_prime(d,c) - M_prime(d,a) * M_prime(b,c));
 
-          double rw_corr =
-              GWorm<2>::get_weight_correction(
-                  annihilation_ops[a].time().time(),
-                  creation_ops[b].time().time(),
-                  annihilation_ops[c].time().time(),
-                  creation_ops[d].time().time(),
-                  mc_config.p_irbasis
-              );
-
           // Here, wprime does not include signs arising from mod beta.
-          // wprime is the weight of a Monte Carlo state with a reweighting facter being included
           SCALAR w_org = mc_config.sign * reconnect.weight_rat_intermediate_state() * det;
-          SCALAR wprime = w_org * rw_corr;
-          sum_wprime += std::abs(wprime);
+          sum_wprime += std::abs(w_org);
         }
       }
     }
@@ -827,178 +734,11 @@ void compute_G2(const IRbasis &basis,
                    M_prime, creation_ops, annihilation_ops, freqs, two_freqs_vec, two_freqs_map, result);
 }
 
-//Compute G2 by removal in G2 space
 template<typename SCALAR>
-void compute_G2_IR(const IRbasis &basis,
-                   const MonteCarloConfiguration<SCALAR> &mc_config,
-                   const Reconnections<SCALAR> &reconnect,
-                   boost::multi_array<std::complex<double>, 5> &result
-) {
-  double beta = basis.beta();
-
-  const auto &M = reconnect.M();
-  const auto &creation_ops = reconnect.creation_ops();
-  const auto &annihilation_ops = reconnect.annihilation_ops();
-  SCALAR sign = mc_config.sign;
-
-  const int mat_size = M.size1();
-
-  //First, we compute relative weights
-  const double temperature = 1. / beta;
-  const int num_flavors = result.shape()[0];
-  const int num_phys_rows = creation_ops.size();
-  const int n_aux_lines = 2;
-  if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.size1() - n_aux_lines) {
-    throw std::runtime_error("Fatal error in compute_G2_IR");
-  }
-
-  //naive way to evaluate
-  //The indices of M are reverted from (C. 24) of L. Boehnke (2011) because we're using the F convention here.
-
-  //First, compute relative weights
-  const int rank = 2;
-  const int det_size = rank + n_aux_lines;
-  Eigen::Matrix<SCALAR, det_size, det_size> tmp_mat;
-  boost::array<int, det_size> rows3, cols3;
-  const int last = M.size1() - 1;
-  for (int i = 0; i < n_aux_lines; ++i) {
-    cols3[rank + i] = rows3[rank + i] = i + M.size1() - n_aux_lines;
-  }
-  assert(cols3.back() == last);
-
-  boost::multi_array<double,2> bubble_sign(boost::extents[num_phys_rows][num_phys_rows]),
-      tau_diff(boost::extents[num_phys_rows][num_phys_rows]);
-  for (int k = 0; k < num_phys_rows; k++) {
-    for (int l = 0; l < num_phys_rows; l++) {
-      double argument = annihilation_ops[k].time() - creation_ops[l].time();
-      auto r = mod_beta(argument, beta);
-      tau_diff[k][l] = r.first;
-      bubble_sign[k][l] = r.second;
-    }
-  }
-
-  double sum_wprime = 0.0;
-  auto extents = boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][basis.num_bins_4pt()];
-  boost::multi_array<std::complex<double>, 5> result_tmp(extents);
-  std::fill(result_tmp.origin(), result_tmp.origin() + result_tmp.num_elements(), 0.0);
-  for (int a = 0; a < num_phys_rows; ++a) {
-    for (int b = 0; b < num_phys_rows; ++b) {
-      for (int c = 0; c < num_phys_rows; ++c) {
-        if (a == c) {
-          continue;
-        }
-        for (int d = 0; d < num_phys_rows; ++d) {
-          if (b == d) {
-            continue;
-          }
-          /*
-           * Delta convention
-           * M_ab  M_ad  M_a*
-           * M_cb  M_cd  M_c*
-           * M_*b  M_*d  M_**
-           */
-          rows3[0] = b;
-          rows3[1] = d;
-          cols3[0] = a;
-          cols3[1] = c;
-          for (int j = 0; j < det_size; ++j) {
-            for (int i = 0; i < det_size; ++i) {
-              tmp_mat(i, j) = M(rows3[i], cols3[j]);
-            }
-          }
-
-
-          // Here, wprime does not include signs arising from mod beta.
-          // wprime is the weight of a Monte Carlo state with a reweighting facter being included
-          // w_org is the Monte Carlo weight without reweighting factor.
-          SCALAR w_org = mc_config.sign * reconnect.weight_rat_intermediate_state() * tmp_mat.determinant();
-
-          if (w_org == 0.0) {
-            continue;
-          }
-
-          double rw_corr =
-              GWorm<2>::get_weight_correction(
-                  annihilation_ops[a].time().time(),
-                  creation_ops[b].time().time(),
-                  annihilation_ops[c].time().time(),
-                  creation_ops[d].time().time(),
-                  mc_config.p_irbasis
-              );
-          SCALAR wprime = w_org * rw_corr;
-          sum_wprime += std::abs(wprime);
-
-          auto fa = annihilation_ops[a].flavor();
-          auto fb = creation_ops[b].flavor();
-          auto fc = annihilation_ops[c].flavor();
-          auto fd = creation_ops[d].flavor();
-
-          auto t1 = annihilation_ops[a].time().time();
-          auto t2 = creation_ops[b].time().time();
-          auto t3 = annihilation_ops[c].time().time();
-          auto t4 = creation_ops[d].time().time();
-
-          int bin_index = basis.get_bin_position_4pt(basis.get_index_4pt(t1, t2, t3, t4));
-          SCALAR mod_signs = mod_sign(t1-t4, beta) * mod_sign(t2-t4, beta) * mod_sign(t3-t4, beta);
-
-          // Here, we accumulate the two-particle GF "averaged" (not integrated) in bins.
-          result_tmp[fa][fb][fc][fd][bin_index] += (w_org * mod_signs)/basis.bin_volume_4pt(bin_index);
-        }
-      }
-    }
-  }
-
-  // Multiplied by 1/(sum_wprime * beta)
-  // The origin of "beta" term is the same as G1.
-  auto it2 = result.origin();
-  for (auto it = result_tmp.origin(); it != result_tmp.origin() + result_tmp.num_elements(); ++it) {
-    *it2 += (*it) / (sum_wprime * beta);
-    ++it2;
-  }
-}
-
-template<typename SCALAR>
-void G1Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                                            const IRbasis &basis,
-                                            alps::accumulators::accumulator_set &measurements,
-                                            alps::random01 &random,
-                                            int max_num_ops,
-                                            double eps) {
-
-  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 1, eps);
-
-  {
-    std::vector<double> histogram(mc_config.p_irbasis->bin_edges().size() - 1, 0.0);
-    auto p_worm_G1 = dynamic_cast<const GWorm<1> * >(mc_config.p_worm.get());
-    histogram[p_worm_G1->get_bin_index()] = 1;
-    measurements[(str_ + "_bin_histogram").c_str()] << histogram;
-  }
-
-  compute_G1<SCALAR>(basis, mc_config, reconnection, data_, bin_data_);
-  ++num_data_;
-
-  if (num_data_ == max_num_data_) {
-    //pass the data to ALPS libraries
-    std::transform(data_.origin(), data_.origin() + data_.num_elements(), data_.origin(),
-                   std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
-    measure_simple_vector_observable<std::complex<double> >(measurements, str_.c_str(), to_std_vector(data_));
-
-    std::transform(bin_data_.origin(), bin_data_.origin() + bin_data_.num_elements(), bin_data_.origin(),
-                   std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
-    measure_simple_vector_observable<std::complex<double> >(measurements, (str_ + "_bin").c_str(),
-                                                            to_std_vector(bin_data_));
-
-    num_data_ = 0;
-    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
-    std::fill(bin_data_.origin(), bin_data_.origin() + bin_data_.num_elements(), 0.0);
-  }
-}
-
-
-template<typename SCALAR>
-G2Measurement<SCALAR>::G2Measurement(int num_flavors, const IRbasis& basis, const std::vector<matsubara_freq_point_PH>& freqs) :
+G2Measurement<SCALAR>::G2Measurement(int num_flavors, double beta, const std::vector<matsubara_freq_point_PH>& freqs) :
     str_("G2"),
     num_flavors_(num_flavors),
+    beta_(beta),
     freqs_(),
     num_data_(0) {
 
@@ -1023,7 +763,6 @@ G2Measurement<SCALAR>::G2Measurement(int num_flavors, const IRbasis& basis, cons
 
 template<typename SCALAR>
 void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                                            const IRbasis &basis,
                                             alps::random01 &random,
                                             int max_num_ops,
                                             double eps) {
@@ -1032,11 +771,8 @@ void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR
   Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 2, eps);
   auto t2 = std::chrono::system_clock::now();
 
-  compute_G2<SCALAR>(basis, num_flavors_, freqs_, two_freqs_vec_, two_freqs_map_, mc_config, reconnection, matsubara_data_);
+  compute_G2<SCALAR>(beta_, num_flavors_, freqs_, two_freqs_vec_, two_freqs_map_, mc_config, reconnection, matsubara_data_);
   auto t3 = std::chrono::system_clock::now();
-  //std::cout << " debug time "
-            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() << " "
-            //<< std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << std::endl;
   ++num_data_;
 }
 
@@ -1095,31 +831,6 @@ void G2Measurement<SCALAR>::finalize(const std::string& output_file) {
   }
 }
 
-template<typename SCALAR>
-void G2IRMeasurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                                            const IRbasis &basis,
-                                            alps::accumulators::accumulator_set &measurements,
-                                            alps::random01 &random,
-                                            int max_num_ops,
-                                            double eps) {
-
-  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 2, eps);
-
-  compute_G2_IR<SCALAR>(basis, mc_config, reconnection, data_);
-  ++num_data_;
-
-  if (num_data_ == max_num_data_) {
-    //pass the data to ALPS libraries
-    std::transform(data_.origin(), data_.origin() + data_.num_elements(),
-                   data_.origin(),
-                   std::bind2nd(std::divides<std::complex<double> >(), 1. * max_num_data_));
-    measure_simple_vector_observable<std::complex<double> >(measurements, (str_ + "_bin").c_str(),
-                                                            to_std_vector(data_));
-
-    num_data_ = 0;
-    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
-  }
-}
 
 template<typename SCALAR, int Rank>
 void

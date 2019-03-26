@@ -62,7 +62,6 @@ endif()
 #(please do not set NDEBUG for DEBUG build. That would would disable runtime checks in the solver)
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
-#set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O1 -g -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 
 add_definitions(-D__INSTALL_PREFIX__=${CMAKE_INSTALL_PREFIX})
 
@@ -71,12 +70,9 @@ set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH} ${MP
 include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
 #source files
-#file(GLOB_RECURSE CPP_FILES RELATIVE ${PROJECT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src/*.cpp")
-#file(GLOB_RECURSE IPP_FILES RELATIVE ${PROJECT_SOURCE_DIR} "${PROJECT_SOURCE_DIR}/src/*.ipp")
-#set(ALL_FILES ${CPP_FILES} ${IPP_FILES})
-#message(STATUS ${ALL_FILES})
-set(ALL_CPP_FILES ./src/gf_basis.cpp
+set(ALL_CPP_FILES
     ./src/solver_real.cpp
+    ./src/legendre.cpp
     ./src/impurity.cpp
     ./src/operator_util.cpp
     ./src/model/clustering.cpp
@@ -89,9 +85,6 @@ set(ALL_CPP_FILES ./src/gf_basis.cpp
     ./src/measurement/measurement.cpp)
 message(STATUS ${ALL_CPP_FILES})
 
-#add_library(alpscore_cthyb STATIC ${ALL_FILES})
-#set_target_properties(alpscore_cthyb PROPERTIES PUBLIC_HEADER src/solver.hpp)
-
 #Compiler dependent libraries
 set(EXTRA_LIBS "")
 if (USE_QUAD_PRECISION)
@@ -102,9 +95,6 @@ if (USE_QUAD_PRECISION)
         set(CMAKE_CXX_FLAGS " -Qoption,cpp,--extended_float_type ${CMAKE_CXX_FLAGS}")
     endif()
 endif()
-
-#Set link libraries
-#target_link_libraries(alpscore_cthyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS} ${ALL_FILESLIB_FILES})
 
 #executable
 ADD_EXECUTABLE(hybmat ./src/main.cpp ${ALL_CPP_FILES})
@@ -120,13 +110,7 @@ enable_testing(test)
 
 add_gtest(unittest_solver "${ALL_CPP_FILES}")
 add_gtest(unittest_fu "${ALL_CPP_FILES}")
-add_gtest(g2 "src/measurement/measurement.cpp;src/gf_basis.cpp")
-
-add_custom_command(TARGET hybmat POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/data/irbasis.h5
-        $<TARGET_FILE_DIR:hybmat>
-        )
+add_gtest(g2 "${ALL_CPP_FILES}")
 
 #installation
 install (TARGETS hybmat RUNTIME DESTINATION bin)

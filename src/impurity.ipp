@@ -35,31 +35,24 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.n_non_worm_meas",
                    10,
                    "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
-      .define<double>("measurement.Lambda", 1000.0, "Parameter for IR basis (Lambda=10, 100, 1000, 10000 are supported)")
-      .define<std::string>("measurement.IRbasis_database_file", "", "Relative/absolute path to a HDF5 database file of IR basis")
           //Single-particle GF
-      .define<int>("measurement.G1.n_tau",
-                   2000,
-                   "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
-      .define<int>("measurement.G1.n_matsubara",
-                   2000,
-                   "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
-      .define<int>("measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
-      .define<int>("measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
-      .define<double>("measurement.G1.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
+      .define<int>(           "measurement.G1.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
+      .define<int>(           "measurement.G1.n_tau", 2000, "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
+      .define<int>(           "measurement.G1.n_matsubara", 2000, "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
+      .define<int>(           "measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
+      .define<int>(           "measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
+      .define<double>(        "measurement.G1.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
           //Equal-time single-particle GF
       .define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
           //Two-particle GF
-      .define<int>("measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
-      //.define<int>("measurement.G2.n_legendre", 20, "Number of legendre polynomials for measurement")
-      //.define<int>("measurement.G2.matsubara.n_fermionic_freq", 20, "Number of fermionic frequencies for measurement")
-      //.define<int>("measurement.G2.matsubara.n_bosonic_freq", 2, "Number of bosonic frequencies for measurement")
-      .define<std::string>("measurement.G2.matsubara.frequencies_PH", "", "Text file containing a list of frequencies on which G2 is measured (in particle-hole convention)")
-      .define<int>("measurement.G2.matsubara.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
-      .define<int>("measurement.G2.IR.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
-      .define<int>("measurement.G2.IR.max_num_data_accumulated", 100, "Number of measurements before accumulated data are passed to ALPS library.")
-      .define<double>("measurement.G2.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
-      .define<std::string>("measurement.G2.IRbasis_4pt_database_file", "", "Relative/absolute path to a HDF5 database file of IR basis of 4pt Green's function")
+      .define<int>(           "measurement.G2.on", 0, "Set a non-zero value to activate measurement.")
+      .define<double>(        "measurement.G2.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
+      .define<std::string>(   "measurement.G2.matsubara.frequencies_PH", "", "Text file containing a list of frequencies on which G2 is measured (in particle-hole convention)")
+      .define<int>(           "measurement.G2.matsubara.max_matrix_size", 20, "Max size of inverse matrix for measurement.")
+      .define<int>(           "measurement.G2.legendre.n_legendre", 0, "Number of legendre polynomials for measurement")
+      .define<int>(           "measurement.G2.legendre.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
+      .define<int>(           "measurement.G2.legendre.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
+      .define<int>(           "measurement.G2.legendre.max_num_data_accumulated", 1, "Number of measurements before accumulated data are passed to ALPS library.")
           //Two-time two-particle GF
       .define<int>("measurement.two_time_G2.on", 0, "Set a non-zero value to activate measurement.")
       .define<int>("measurement.two_time_G2.n_legendre",
@@ -104,14 +97,12 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
           BETA, N, FLAVORS, p_model->get_F()
         )
       ),
-      //p_irbasis(new IRbasis(parameters["measurement.Lambda"], BETA, parameters["measurement.IRbasis_database_file"])),
-      p_irbasis(new IRbasis(parameters)),
 #ifdef ALPS_HAVE_MPI
       comm(),
 #endif
       N_win_standard(1),
       sweeps(0),                                                                 //sweeps done up to now
-      mc_config(F, p_irbasis),
+      mc_config(F),
       config_space_extra_weight(0),
       worm_space_extra_weight_map(),
       operator_pair_flavor_updater(FLAVORS),
@@ -274,35 +265,33 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       break;
 
     case G1:
-      p_G1_meas->measure_via_hyb(mc_config, *p_irbasis, measurements, random, par["measurement.G1.max_matrix_size"],
+      p_G1_legendre_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G1.max_matrix_size"],
                                  par["measurement.G1.aux_field"]
       );
       break;
 
     case G2:
       if (p_G2_meas) {
-        p_G2_meas->measure_via_hyb(mc_config, *p_irbasis, random,
+        p_G2_meas->measure_via_hyb(mc_config, random,
                                    par["measurement.G2.matsubara.max_matrix_size"],
                                    par["measurement.G2.aux_field"]
         );
       }
-      if (p_G2IR_meas) {
-        p_G2IR_meas->measure_via_hyb(mc_config, *p_irbasis, measurements, random,
-                                   par["measurement.G2.IR.max_matrix_size"],
+      if (p_G2_legendre_meas) {
+        p_G2_legendre_meas->measure_via_hyb(mc_config, measurements, random,
+                                   par["measurement.G2.legendre.max_matrix_size"],
                                    par["measurement.G2.aux_field"]
         );
       }
       break;
 
     case Two_time_G2:
-      /*
       p_two_time_G2_meas->measure(mc_config,
                                   measurements,
                                   random,
                                   sliding_window,
                                   N_win_standard,
                                   "Two_time_G2");
-                                  */
       break;
 
     case Equal_time_G1:

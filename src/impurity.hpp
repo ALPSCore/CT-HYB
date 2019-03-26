@@ -54,6 +54,7 @@
 #include "update_histogram.hpp"
 #include "accumulator.hpp"
 #include "measurement/measurement.hpp"
+#include "measurement/measurement_old.hpp"
 #include "wang_landau.hpp"
 
 
@@ -165,8 +166,6 @@ class HybridizationSimulation: public alps::mcbase {
 
   boost::shared_ptr<HybridizationFunction<SCALAR> > F;
 
-  std::shared_ptr<IRbasis> p_irbasis;
-
   //ALPS MPI communicator
 #ifdef ALPS_HAVE_MPI
   alps::mpi::communicator comm;
@@ -229,20 +228,17 @@ class HybridizationSimulation: public alps::mcbase {
   //sliding window for computing trace
   SW_TYPE sliding_window;
 
-  //for measuring Green's function (by removal)
-  //GreensFunctionLegendreMeasurement<SCALAR> g_meas_legendre;
-
   //Measurement of two-time correlation functions by worm sampling
-  //boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
+  boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
 
   //Measurement of single-particle Green's functions by worm sampling
-  boost::shared_ptr<G1Measurement<SCALAR> > p_G1_meas;
+  boost::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_legendre_meas;
 
   //Measurement of two-particle Green's functions by worm sampling (Matsubara freq.)
   boost::shared_ptr<G2Measurement<SCALAR> > p_G2_meas;
 
-  //Measurement of two-particle Green's functions by worm sampling (IR basis)
-  boost::shared_ptr<G2IRMeasurement<SCALAR> > p_G2IR_meas;
+  //Measurement of two-particle Green's functions by worm sampling (Legendre basis)
+  boost::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_legendre_meas;
 
   //Measurement of equal-time two-particle Green's function
   boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 2> > p_equal_time_G2_meas;

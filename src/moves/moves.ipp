@@ -691,10 +691,8 @@ global_update(R &rng,
   operators_new.insert(annihilation_operators_new.begin(), annihilation_operators_new.end());
   //worm
   boost::shared_ptr<Worm> p_new_worm;
-  double worm_weight_corr_ratio = 1.0;//for reweighting of worm
   if (mc_config.p_worm) {
     boost::shared_ptr<Worm> p_w = worm_transformer(*(mc_config.p_worm));
-    worm_weight_corr_ratio = p_w->get_weight_correction()/mc_config.p_worm->get_weight_correction();
     p_new_worm.swap(p_w);
     std::vector<psi> new_worm_ops = p_new_worm->get_operators();
     operators_new.insert(new_worm_ops.begin(), new_worm_ops.end());
@@ -722,7 +720,6 @@ global_update(R &rng,
       det_vec, mc_config.M, det_vec_new);
 
   const SCALAR prob =
-      worm_weight_corr_ratio *
       convert_to_scalar(
           EXTENDED_SCALAR(
               EXTENDED_SCALAR(det_rat) *
@@ -805,7 +802,6 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     return false;
   }
 
-
   BaseType::p_new_worm_.reset();
 
   //count independent times in the time window
@@ -813,14 +809,14 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   const double tau_high = std::min(sliding_window.get_tau_high(), BaseType::tau_upper_limit_);
   const int num_times = mc_config.p_worm->num_independent_times();
   distance_ = 0.0;
-  double max_distance_ = tau_high - tau_low;
   for (int itry = 0; itry < mc_config.p_worm->num_independent_times(); ++ itry) {
     const int t = static_cast<int>(rng() * mc_config.p_worm->num_independent_times());
     if (!InRange<OperatorTime>(tau_low, tau_high)(mc_config.p_worm->get_time(t))) {
       continue;
     }
-    // 10^{-3} to 1
-    double new_time = mc_config.p_worm->get_time(t) + std::copysign(std::pow(10, open_random(rng, -3.0, 0.0)) * max_distance_, rng()-0.5);
+    const double new_time = rng() < 0.9 ?
+                            (2 * rng() - 1.0) * max_distance_ + mc_config.p_worm->get_time(t) :
+                            open_random(rng, tau_low, tau_high);
     if (new_time < tau_low || new_time > tau_high) {
       continue;
     }
@@ -832,7 +828,7 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   }
 
   if (BaseType::p_new_worm_) {
-    BaseType::acceptance_rate_correction_ = BaseType::p_new_worm_->get_weight_correction()/mc_config.p_worm->get_weight_correction();
+    BaseType::acceptance_rate_correction_ = 1.0;
     return true;
   } else {
     return false;
@@ -869,7 +865,7 @@ bool WormFlavorChanger<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   }
 
   if (*mc_config.p_worm != *BaseType::p_new_worm_) {
-    BaseType::acceptance_rate_correction_ = BaseType::p_new_worm_->get_weight_correction()/mc_config.p_worm->get_weight_correction();
+    BaseType::acceptance_rate_correction_ = 1.0;
     return true;
   } else {
     BaseType::p_new_worm_.reset();
@@ -946,8 +942,6 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
               BaseType::num_flavors_);
     }
     BaseType::p_new_worm_.reset();
-    //for reweighting
-    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_)/mc_config.p_worm->get_weight_correction();
   } else {
     //propose insertion
     BaseType::p_new_worm_ = p_worm_template_->clone();
@@ -972,9 +966,6 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
       BaseType::acceptance_rate_correction_ = weight_scaled *
           std::pow(tau_high - tau_low, 1. * num_time_indices) * BaseType::num_flavors_;
     }
-    //for reweighting
-    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_)
-            *BaseType::p_new_worm_->get_weight_correction();
   }
   return true;
 }
@@ -1056,9 +1047,6 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
             std::pow(tau_high - tau_low, 1. * num_time_indices) *
             std::pow(1. * BaseType::num_flavors_, 1. * num_flavor_indices)));
 
-    //for reweighting
-    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_) / mc_config.p_worm->get_weight_correction();
-
     BaseType::p_new_worm_.reset();
   } else {
     //insert a worm
@@ -1111,8 +1099,6 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
     BaseType::acceptance_rate_correction_ = (p_prop_worm_rem / p_prop_worm_ins) * weight_scaled *
         std::pow(tau_high - tau_low, 1. * num_time_indices) *
         std::pow(1. * BaseType::num_flavors_, 1. * num_flavor_indices);
-
-    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_) * BaseType::p_new_worm_->get_weight_correction();
   }
   return true;
 }
@@ -1144,7 +1130,6 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
     BaseType::acceptance_rate_correction_ = 1.0 /
         (worm_space_weight
             * std::pow(safe_falling_factorial<double>(mc_config.pert_order() + RANK, RANK), 2.0));
-    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_) /mc_config.p_worm->get_weight_correction();
     BaseType::p_new_worm_.reset();
   } else {
     //propose insertion by cutting hybridization lines
@@ -1172,7 +1157,6 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
 
     BaseType::acceptance_rate_correction_ =
         worm_space_weight * std::pow(safe_falling_factorial<double>(mc_config.pert_order(), RANK), 2.0);
-    BaseType::acceptance_rate_correction_ = (*BaseType::acceptance_rate_correction_) * BaseType::p_new_worm_->get_weight_correction();
   }
   return true;
 }
@@ -1260,3 +1244,198 @@ int count_hyb_cdagg_c_op_pairs(InputItr op_begin,
   return cdagg_c_pairs.size();
 }
 
+template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+bool EqualTimeG1_TwoTimeG2_Connector<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
+    alps::random01 &rng,
+    const MonteCarloConfiguration<SCALAR> &mc_config,
+    const SLIDING_WINDOW &sliding_window,
+    const std::map<ConfigSpace, double> &config_space_weight
+) {
+  typedef operator_container_t::iterator it_t;
+  namespace bll = boost::lambda;
+
+  if (mc_config.current_config_space() != Equal_time_G1 && mc_config.current_config_space() != Two_time_G2) {
+    throw std::runtime_error("Error in EqualTimeG1_TwoTimeG2_Connector::propose()");
+  }
+
+  const double weight_G1 = config_space_weight.find(Equal_time_G1)->second;
+  const double weight_G2 = config_space_weight.find(Two_time_G2)->second;
+
+  const double tau_low = sliding_window.get_tau_low();
+  const double tau_high = sliding_window.get_tau_high();
+
+  const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
+
+  if (mc_config.current_config_space() == Equal_time_G1) {
+    BaseType::p_new_worm_ = boost::shared_ptr<Worm>(new CorrelationWorm<2>());
+    BaseType::p_new_worm_->set_time(0, mc_config.p_worm->get_time(0));
+    BaseType::p_new_worm_->set_time(1, open_random(rng, tau_low, tau_high));
+    for (int iop = 0; iop < 2; ++iop) {
+      BaseType::p_new_worm_->set_flavor(iop, mc_config.p_worm->get_flavor(iop));
+    }
+
+    if (rng() < 0.5) {
+      //Insert new operators into the trace
+      for (int iop = 2; iop < 4; ++iop) {
+        BaseType::p_new_worm_->set_flavor(iop, static_cast<int>(num_flavors_ * rng()));
+      }
+
+      BaseType::acceptance_rate_correction_ = (weight_G2 / weight_G1) *
+          num_flavors_ * num_flavors_ * (tau_high - tau_low);
+    } else {
+      return false;
+      //Insert new operators into the trace and remove hybridized operators
+      std::pair<it_t, it_t> op_range = mc_config.operators.range(
+          tau_low <= bll::_1, bll::_1 <= tau_high
+      );
+      std::pair<psi, psi> cdagg_c_pair;
+      const int num_cdagg_c_pair =
+          count_hyb_cdagg_c_op_pairs(op_range.first, op_range.second, worm_ops, rng, cdagg_c_pair);
+      if (num_cdagg_c_pair == 0) {
+        return false;
+      }
+
+      //remove cdagger and c operators from the determinant
+      BaseType::cdagg_ops_rem_.push_back(cdagg_c_pair.first);
+      BaseType::c_ops_rem_.push_back(cdagg_c_pair.second);
+
+      BaseType::p_new_worm_->set_flavor(2, cdagg_c_pair.first.flavor());
+      BaseType::p_new_worm_->set_flavor(3, cdagg_c_pair.second.flavor());
+
+      boost::optional<psi> hyb_op_upper_bound, hyb_op_lower_bound;
+      //tau_max: the time of the first operator which has a larger time than the operator pair under consideration.
+      // If there is no such operator, tau_max = tau_high = upper end point of the sliding window.
+      //tau_min: defined in a similar way
+      double tau_max, tau_min;
+      tau_max = get_tau_first_hyb_op_larger_than(mc_config.operators, cdagg_c_pair.first, tau_high, worm_ops, hyb_op_lower_bound);
+      tau_min = get_tau_first_hyb_op_smaller_than(mc_config.operators, cdagg_c_pair.second, tau_low, worm_ops, hyb_op_upper_bound);
+      BaseType::p_new_worm_->set_time(1, open_random(rng, tau_min, tau_max));
+
+      BaseType::acceptance_rate_correction_ = (weight_G2 / weight_G1) * (2. * num_cdagg_c_pair) / (tau_max - tau_min);
+      assert(tau_min < tau_max);
+      assert(tau_low <= tau_min);
+      assert(tau_max <= tau_high);
+    }
+  } else {
+    if (mc_config.p_worm->get_time(1) < tau_low || mc_config.p_worm->get_time(1) > tau_high) {
+      return false;
+    }
+
+    BaseType::p_new_worm_ = boost::shared_ptr<Worm>(new EqualTimeGWorm<1>());
+    BaseType::p_new_worm_->set_time(0, mc_config.p_worm->get_time(0));
+    for (int iop = 0; iop < 2; ++iop) {
+      BaseType::p_new_worm_->set_flavor(iop, mc_config.p_worm->get_flavor(iop));
+    }
+
+    if (rng() < 0.5) {
+      //Remove worm operators
+      BaseType::acceptance_rate_correction_ = (weight_G1 / weight_G2) / (
+          num_flavors_ * num_flavors_ * (tau_high - tau_low)
+      );
+    } else {
+      return false;
+      //Remove worm operators and insert operators into the determinant to cancel out changes in quantum numbers
+      boost::optional<psi> hyb_op_upper_bound, hyb_op_lower_bound;
+      const double tau_max = get_tau_first_hyb_op_larger_than(mc_config.operators, worm_ops[2], tau_high, worm_ops, hyb_op_lower_bound);
+      const double tau_min = get_tau_first_hyb_op_smaller_than(mc_config.operators, worm_ops[3], tau_low, worm_ops, hyb_op_upper_bound);
+      assert(tau_min < tau_max);
+      assert(tau_low <= tau_min);
+      assert(tau_max <= tau_high);
+
+      double tau_cdagg_op = open_random(rng, tau_max, tau_min), tau_c_op = open_random(rng, tau_max, tau_min);
+      if (tau_cdagg_op == tau_c_op) {
+        return false;
+      } else if (tau_cdagg_op < tau_c_op) {
+        std::swap(tau_cdagg_op, tau_c_op);
+      }
+
+      //add cdagger and c operators into to the determinant
+      BaseType::cdagg_ops_add_.push_back(psi(tau_cdagg_op, CREATION_OP, worm_ops[2].flavor()));
+      BaseType::c_ops_add_.push_back(psi(tau_c_op, ANNIHILATION_OP, worm_ops[3].flavor()));
+
+      //count the number of cdagger and c pairs after the update
+      //(A)  cdagger   n   cdagger   => cdagger  cdagger c  cdagger   num_pairs_after_update = num_pairs_before_update+1
+      //(B)  cdagger   n         c   => cdagger  cdagger c  c         num_pairs_after_update = num_pairs_before_update
+      //(C)  cdagger   n   cdagger   => cdagger  cdagger c  cdagger   num_pairs_after_update = num_pairs_before_update+1
+      //(D)  c         n   c         => c        cdagger c  c         num_pairs_after_update = num_pairs_before_update+1
+      //(E)  Otherwise                                                num_pairs_after_update = num_pairs_before_update+1
+      std::pair<it_t, it_t> op_range = mc_config.operators.range(
+          tau_low <= bll::_1, bll::_1 <= tau_high
+      );
+      std::pair<psi, psi> hyb_op_pair;
+      const int num_hyb_op_pairs =
+          count_hyb_cdagg_c_op_pairs(op_range.first, op_range.second, worm_ops, rng, hyb_op_pair);
+
+      int num_pairs_after_update;
+      if (hyb_op_lower_bound && hyb_op_upper_bound && hyb_op_lower_bound->type() == CREATION_OP
+          && hyb_op_upper_bound->type() == ANNIHILATION_OP) {
+        num_pairs_after_update = num_hyb_op_pairs;
+      } else {
+        num_pairs_after_update = num_hyb_op_pairs + 1;
+      }
+
+      BaseType::acceptance_rate_correction_ =
+          (weight_G1 / weight_G2) * (tau_max - tau_min) / (2. * num_pairs_after_update);
+    }
+  }
+  return true;
+}
+
+/*
+template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
+bool GWormShifter<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
+    alps::random01 &rng,
+    MonteCarloConfiguration<SCALAR> &mc_config,
+    const SLIDING_WINDOW &sliding_window,
+    const std::map<ConfigSpace, double> &config_space_weight
+) {
+  namespace bll = boost::lambda;
+  typedef operator_container_t::iterator it_t;
+
+  if (typeid(mc_config.p_worm.get()) != typeid(p_worm_template_.get())) {
+    throw std::logic_error("Type is wrong in GWormShifter::update()");
+  }
+
+  const int iop_shifted = static_cast<int>(rng() * 2 * RANK);
+  double tau_range_max, tau_range_min;
+  if (rng() < 0.5) {
+    tau_range_max = beta_;
+    tau_range_min = 0.0;
+  } else {
+    double tau_old = mc_config.p_worm->get_time(iop_shifted);
+    tau_range_max = tau_old + (beta_/mc_config.pert_order()) * num_flavors_;
+    tau_range_min = tau_old - (beta_/mc_config.pert_order()) * num_flavors_;
+  }
+
+  const int block = mc_config.M.block_belonging_to(mc_config.p_worm->get_flavor(iop_shifted));
+  const operator_container_t *p_ops = iop_shifted % 2 == 0 ?
+    &mc_config.M.get_c_ops_set(block) :
+     &mc_config.M.get_cdagg_ops_set(block);
+  std::pair<it_t,it_t> ops_range = p_ops->range(
+    tau_range_min <= bll::_1, bll::_1 <= tau_range_max
+  );
+  ops_work_.resize(0);
+  std::copy(ops_range.first, ops_range.second, std::back_inserter(ops_work_));
+
+  if (ops_work_.size() == 0) {
+    return false;
+  }
+
+  BaseType::p_new_worm_ = mc_config.p_worm->clone();
+  psi new_op = ops_work_[static_cast<int>(rng() * ops_work_.size())];
+  BaseType::p_new_worm_->set_flavor(iop_shifted, new_op.flavor());
+  BaseType::p_new_worm_->set_time(iop_shifted, new_op.time().time());
+
+  const psi old_op = mc_config.p_worm->get_operators()[iop_shifted];
+  if (iop_shifted % 2 == 0) {
+    BaseType::c_ops_rem_.push_back(new_op);
+    BaseType::c_ops_add_.push_back(old_op);
+  } else {
+    BaseType::cdagg_ops_rem_.push_back(new_op);
+    BaseType::cdagg_ops_add_.push_back(old_op);
+  }
+
+  BaseType::acceptance_rate_correction_ = 1.0;
+  return true;
+}
+*/

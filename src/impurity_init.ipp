@@ -33,14 +33,14 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   if (par["measurement.two_time_G2.on"] != 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Two_time_G2");
   }
-  if (p_G1_meas) {
-    p_G1_meas->create_alps_observable(measurements);
+  if (p_G1_legendre_meas) {
+    p_G1_legendre_meas->create_alps_observable(measurements);
+  }
+  if (p_G2_legendre_meas) {
+    p_G2_legendre_meas->create_alps_observable(measurements);
   }
   if (p_G2_meas) {
     p_G2_meas->create_alps_observable(measurements);
-  }
-  if (p_G2IR_meas) {
-    p_G2IR_meas->create_alps_observable(measurements);
   }
 
   if (par["measurement.equal_time_G1.on"] != 0) {
@@ -101,7 +101,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       boost::shared_ptr<WormInsertionRemoverType>(
           new WormInsertionRemoverType(
               "G1_ins_rem", BETA, FLAVORS, 0.0, BETA,
-              boost::shared_ptr<Worm>(new GWorm<1>(p_irbasis))
+              boost::shared_ptr<Worm>(new GWorm<1>())
           )
       )
   );
@@ -109,11 +109,12 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   specialized_updaters["G1_ins_rem_hyb"] =
       boost::shared_ptr<LocalUpdaterType>(
           new G1WormInsertionRemoverType(
-              "G1_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>(p_irbasis))
+              "G1_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>())
           )
       );
-  p_G1_meas.reset(
-      new G1Measurement<SCALAR>(FLAVORS, *p_irbasis, par["measurement.G1.max_num_data_accumulated"])
+  p_G1_legendre_meas.reset(
+      new GMeasurement<SCALAR, 1>(FLAVORS, par["measurement.G1.n_legendre"], 0, BETA,
+                                  par["measurement.G1.max_num_data_accumulated"])
   );
 
   /*
@@ -127,26 +128,26 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         boost::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
                 "G2_ins_rem", BETA, FLAVORS, 0.0, BETA,
-                boost::shared_ptr<Worm>(new GWorm<2>(p_irbasis))
+                boost::shared_ptr<Worm>(new GWorm<2>())
             )
         )
     );
     p_G2_meas.reset(
-        new G2Measurement<SCALAR>(FLAVORS,
-                                  *p_irbasis,
+        new G2Measurement<SCALAR>(FLAVORS, BETA,
                                   read_matsubara_points(par["measurement.G2.matsubara.frequencies_PH"])
         )
     );
-    p_G2IR_meas.reset(
-        new G2IRMeasurement<SCALAR>(FLAVORS,
-                                  *p_irbasis,
-                                  par["measurement.G2.IR.max_num_data_accumulated"]
+    p_G2_legendre_meas.reset(
+        new GMeasurement<SCALAR, 2>(FLAVORS,
+                                    par["measurement.G2.legendre.n_legendre"],
+                                    par["measurement.G2.legendre.n_bosonic_freq"], BETA,
+                                    par["measurement.G2.legendre.max_num_data_accumulated"]
         )
     );
     specialized_updaters["G2_ins_rem_hyb"] =
         boost::shared_ptr<LocalUpdaterType>(
             new G2WormInsertionRemoverType(
-                "G2_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<2>(p_irbasis))
+                "G2_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<2>())
             )
         );
   }
@@ -154,7 +155,6 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   /*
    * Two-time G2
    */
-  /*
   if (par["measurement.two_time_G2.on"] != 0) {
     worm_types.push_back(Two_time_G2);
     add_worm_mover<WormMoverType>(Two_time_G2, "Two_time_G2_mover");
@@ -171,12 +171,10 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         new TwoTimeG2Measurement<SCALAR>(FLAVORS, par["measurement.two_time_G2.n_legendre"], BETA)
     );
   }
-   */
 
   /*
    * Equal-time G1
    */
-  /*
   if (par["measurement.equal_time_G1.on"] != 0) {
     const std::string name("Equal_time_G1");
     worm_types.push_back(Equal_time_G1);
@@ -194,12 +192,10 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         new EqualTimeGMeasurement<SCALAR, 1>(FLAVORS)
     );
   }
-   */
 
   /*
    * Equal-time G2
    */
-  /*
   if (par["measurement.equal_time_G2.on"] != 0) {
     const std::string name("Equal_time_G2");
     worm_types.push_back(Equal_time_G2);
@@ -217,12 +213,10 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         new EqualTimeGMeasurement<SCALAR, 2>(FLAVORS)
     );
   }
-   */
 
   /*
    * Connect Equal_time_G1 and Two_time_G2 spaces
    */
-  /*
   if (std::find(worm_types.begin(), worm_types.end(), Equal_time_G1) != worm_types.end() &&
       std::find(worm_types.begin(), worm_types.end(), Two_time_G2) != worm_types.end()) {
     specialized_updaters["Connect_Equal_time_G1_and_Two_time_G2"] =
@@ -232,30 +226,6 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         );
   }
-   */
-
-/*
-  DO NOT ACTIVATE GwormShifter. There is a bug.
-  if (std::find(worm_types.begin(), worm_types.end(), G1) != worm_types.end()) {
-    specialized_updaters["G1_shifter_hyb"] =
-        boost::shared_ptr<LocalUpdaterType>(
-            new GWormShifter<SCALAR, 1, EXTENDED_SCALAR, SW_TYPE>(
-                "G1_shifter_hyb", BETA, FLAVORS,
-                boost::shared_ptr<Worm>(new GWorm<1>())
-            )
-        );
-  }
-
-  if (std::find(worm_types.begin(), worm_types.end(), G2) != worm_types.end()) {
-    specialized_updaters["G2_shifter_hyb"] =
-        boost::shared_ptr<LocalUpdaterType>(
-            new GWormShifter<SCALAR, 2, EXTENDED_SCALAR, SW_TYPE>(
-                "G2_shifter_hyb", BETA, FLAVORS,
-                boost::shared_ptr<Worm>(new GWorm<2>())
-            )
-        );
-  }
-*/
 
   //Proposal probability of worm insertion is smaller than that of removal by the number of active worm spaces.
   //We correct this here.

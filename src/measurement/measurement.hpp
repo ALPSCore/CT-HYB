@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <unordered_map>
 
 #include <boost/multi_array.hpp>
 #include <boost/range/algorithm.hpp>
@@ -16,10 +17,49 @@
 #include "../accumulator.hpp"
 #include "../mc_config.hpp"
 #include "../sliding_window/sliding_window.hpp"
-#include "src/gf_basis.hpp"
+#include "../legendre.hpp"
 #include "../operator.hpp"
 #include "../hash.hpp"
 
+/**
+ * @brief Class for measurement of two-time correlation function using Legendre basis
+ */
+template<typename SCALAR>
+class TwoTimeG2Measurement {
+ public:
+  /**
+   * Constructor
+   *
+   * @param num_flavors    the number of flavors
+   * @param num_legendre   the number of legendre coefficients
+   * @param beta           inverse temperature
+   */
+  TwoTimeG2Measurement(int num_flavors, int num_legendre, double beta) :
+      num_flavors_(num_flavors),
+      beta_(beta),
+      legendre_trans_(1, num_legendre),
+      data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_legendre]) {
+    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
+  }
+
+  /**
+   * @brief Measure correlation functions with shifting two of the four operators on the interval [0,beta]
+   * @param average_pert_order average perturbation order, which is used for determining the number of shifts
+   */
+  template<typename SlidingWindow>
+  void measure(MonteCarloConfiguration<SCALAR> &mc_config,
+               alps::accumulators::accumulator_set &measurements,
+                   alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str);
+
+ private:
+  /** Measure correlation functions for a single configuration */
+  void measure_impl(const std::vector<psi> &worm_ops, SCALAR weight,
+                    boost::multi_array<std::complex<double>,5> &data);
+  int num_flavors_;
+  double beta_;
+  LegendreTransformer legendre_trans_;
+  boost::multi_array<std::complex<double>, 5> data_;
+};
 
 /**
  * Helper for measuring kL and KR
@@ -119,54 +159,6 @@ private:
   std::vector<psi> annihilation_ops_;
 };
 
-/**
- * @brief Class for measurement of Green's function using Legendre basis
- */
-template<typename SCALAR>
-class G1Measurement {
-public:
-    /**
-     * Constructor
-     *
-     * @param num_flavors    the number of flavors
-     */
-    G1Measurement(int num_flavors, const IRbasis& basis, int max_num_data = 1) :
-            str_("G1"),
-            num_flavors_(num_flavors),
-            data_(boost::extents[num_flavors][num_flavors][basis.dim_F()]),
-            bin_data_(boost::extents[num_flavors][num_flavors][basis.bin_edges().size()-1]),
-            num_data_(0),
-            max_num_data_(max_num_data) {
-        std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0);
-        std::fill(bin_data_.origin(), bin_data_.origin() + bin_data_.num_elements(), 0);
-    };
-
-    /**
-     * @brief Create ALPS observable
-     */
-    void create_alps_observable(alps::accumulators::accumulator_set &measurements) const {
-      create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, str_.c_str());
-      create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, (str_ + "_bin").c_str());
-      measurements << alps::accumulators::NoBinningAccumulator<std::vector<double>>(str_ + "_bin_histogram");
-    }
-
-    /**
-     * @brief Measure Green's function via hybridization function
-     */
-    void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                         const IRbasis& basis,
-                         alps::accumulators::accumulator_set &measurements,
-                         alps::random01 &random, int max_matrix_size, double eps = 1E-5);
-
-private:
-    std::string str_;
-    int num_flavors_;
-    boost::multi_array<std::complex<double>, 3> data_; //flavor, flavor, IR
-    boost::multi_array<std::complex<double>, 3> bin_data_; //flavor, flavor, bins
-    int num_data_;
-    int max_num_data_;//max number of data accumlated before passing data to ALPS
-};
-
 using matsubara_freq_point_PH = std::tuple<int,int,int>;
 
 void make_two_freqs_list(
@@ -182,7 +174,7 @@ public:
      *
      * @param num_flavors    the number of flavors
      */
-    G2Measurement(int num_flavors, const IRbasis& basis, const std::vector<matsubara_freq_point_PH>& freqs);
+    G2Measurement(int num_flavors, double beta, const std::vector<matsubara_freq_point_PH>& freqs);
 
 
     /**
@@ -196,7 +188,6 @@ public:
      * @brief Measure Green's function via hybridization function
      */
     void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                         const IRbasis& basis,
                          alps::random01 &random, int max_matrix_size, double eps = 1E-5);
 
     void finalize(const std::string& output_file);
@@ -204,6 +195,7 @@ public:
 private:
     std::string str_;
     int num_flavors_;
+    double beta_;
     std::vector<matsubara_freq_point_PH> freqs_;
     boost::multi_array<std::complex<double>, 5> matsubara_data_; //flavor, flavor, flavor, flavor, freq
     int num_data_;
@@ -227,48 +219,6 @@ matsubara_freq_point_PH
 from_H_to_F(int freq_f1, int freq_f2, int freq_b) {
   return from_H_to_F(matsubara_freq_point_PH(freq_f1, freq_f2, freq_b));
 }
-
-template<typename SCALAR>
-class G2IRMeasurement {
-public:
-    /**
-     * Constructor
-     *
-     * @param num_flavors    the number of flavors
-     */
-    G2IRMeasurement(int num_flavors, const IRbasis& basis, int max_num_data = 1) :
-        str_("G2"),
-        num_flavors_(num_flavors),
-        num_bins_(basis.num_bins_4pt()),
-        data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_bins_]),
-        num_data_(0),
-        max_num_data_(max_num_data) {
-      std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0);
-    };
-
-    /**
-     * @brief Create ALPS observable
-     */
-    void create_alps_observable(alps::accumulators::accumulator_set &measurements) const {
-      create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, (str_ + "_bin").c_str());
-    }
-
-    /**
-     * @brief Measure Green's function via hybridization function
-     */
-    void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                         const IRbasis& basis,
-                         alps::accumulators::accumulator_set &measurements,
-                         alps::random01 &random, int max_matrix_size, double eps = 1E-5);
-
-private:
-    std::string str_;
-    int num_flavors_;
-    int num_bins_;
-    boost::multi_array<std::complex<double>, 5> data_; //flavor, flavor, flavor, flavor, bins
-    int num_data_;
-    int max_num_data_;//max number of data accumlated before passing data to ALPS
-};
 
 
 /**
