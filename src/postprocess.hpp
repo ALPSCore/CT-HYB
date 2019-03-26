@@ -359,7 +359,7 @@ void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &
                  std::bind1st(std::multiplies<std::complex<double> >(), coeff));
 
   // Loop over frequencies actually measured
-  std::unordered_map<std::tuple<int,int,int>, int, HashIntTuple3> freqs_map;
+  std::unordered_map<std::tuple<int,int,int>, int> freqs_map;
   for (int i=0; i<freqs_meas.size(); ++i) {
     int freq_f1 = freqs_meas[i][0];
     int freq_f2 = freqs_meas[i][1];

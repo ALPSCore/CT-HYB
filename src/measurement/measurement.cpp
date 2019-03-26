@@ -42,7 +42,7 @@ std::vector<matsubara_freq_point_PH> read_matsubara_points(const std::string& fi
 void make_two_freqs_list(
     const std::vector<matsubara_freq_point_PH>& freqs_PH,
     std::vector<std::pair<int,int>>& two_freqs_vec,
-    std::unordered_map<std::pair<int,int>, int, HashIntPair>& two_freqs_map) {
+    std::unordered_map<std::pair<int,int>, int>& two_freqs_map) {
 
   // two_freqs_vec contains a list of fermionic frequencies of one-particle-GF-like object
   std::set<std::pair<int,int>> two_freqs_set;

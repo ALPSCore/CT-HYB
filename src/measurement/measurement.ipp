@@ -586,7 +586,7 @@ void measure_G2_k2_PH_impl(
     const std::vector<psi>& annihilation_ops,
     const std::vector<matsubara_freq_point_PH>& meas_freqs_list,
     const std::vector<std::pair<int,int>>& two_freqs_vec,
-    const std::unordered_map<std::pair<int,int>, int, HashIntPair>& two_freqs_map,
+    const std::unordered_map<std::pair<int,int>, int>& two_freqs_map,
     MULTI_ARRAY_DIM5 &result
 ) {
   using dcomplex = std::complex<double>;
@@ -650,7 +650,7 @@ void compute_G2(double beta,
                 int num_flavors,
                 const std::vector<matsubara_freq_point_PH>& freqs,
                 const std::vector<std::pair<int,int>>& two_freqs_vec,
-                const std::unordered_map<std::pair<int,int>, int, HashIntPair>& two_freqs_map,
+                const std::unordered_map<std::pair<int,int>, int>& two_freqs_map,
                 const MonteCarloConfiguration<SCALAR> &mc_config,
                 const Reconnections<SCALAR> &reconnect,
                 boost::multi_array<std::complex<double>, 5> &result
