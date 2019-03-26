@@ -70,7 +70,7 @@ set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH} ${MP
 include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 
 #source files
-set(ALL_CPP_FILES
+set(ALL_LIB_FILES
     ./src/solver_real.cpp
     ./src/legendre.cpp
     ./src/impurity.cpp
@@ -83,7 +83,6 @@ set(ALL_CPP_FILES
     ./src/moves/moves.cpp
     ./src/util.cpp
     ./src/measurement/measurement.cpp)
-message(STATUS ${ALL_CPP_FILES})
 
 #Compiler dependent libraries
 set(EXTRA_LIBS "")
@@ -96,21 +95,26 @@ if (USE_QUAD_PRECISION)
     endif()
 endif()
 
+# Make static library
+add_library(hyb ${ALL_LIB_FILES})
+target_link_libraries(hyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+
 #executable
-ADD_EXECUTABLE(hybmat ./src/main.cpp ${ALL_CPP_FILES})
-target_link_libraries(hybmat ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+add_executable(hybmat ./src/main.cpp)
+target_link_libraries(hybmat hyb)
 
 #testing setup
 option(Testing "Enable testing" ON)
 include(EnableGtests) #defined in ./cmake
 include_directories("test")
-list(APPEND LINK_ALL ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+set(LINK_ALL hyb)
+message(STATUS ${LINK_ALL})
 
 enable_testing(test)
 
-add_gtest(unittest_solver "${ALL_CPP_FILES}")
-add_gtest(unittest_fu "${ALL_CPP_FILES}")
-add_gtest(g2 "${ALL_CPP_FILES}")
+add_gtest(unittest_solver)
+add_gtest(unittest_fu)
+add_gtest(g2)
 
 #installation
 install (TARGETS hybmat RUNTIME DESTINATION bin)

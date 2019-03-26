@@ -17,7 +17,7 @@ function(add_gtest test_name)
     set(gtest_src "test/gtest_main.cc;test/gtest-all.cc")
     #message(status ${ARGV1})
 
-    add_executable(${test_name} ${source} ${gtest_src} ${ARGV1})
+    add_executable(${test_name} ${source} ${gtest_src})
     target_link_libraries(${test_name} ${LINK_ALL})
     add_test(NAME ${test_name} COMMAND ${test_name} ${test_xml_output})
 endfunction(add_gtest)
