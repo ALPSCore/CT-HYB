@@ -798,7 +798,9 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
     }
   }
 
-  p_G2_meas->finalize(par["outputfile"].template as<std::string>());
+  if (p_G2_meas) {
+     p_G2_meas->finalize(par["outputfile"].template as<std::string>());
+  }
 }
 
 /**
