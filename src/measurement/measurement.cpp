@@ -29,7 +29,7 @@ std::vector<matsubara_freq_point_PH> read_matsubara_points(const std::string& fi
     int j, n, np, m;
     f >> j >> n >> np >> m;
     if (i != j) {
-      std::runtime_error("The first column has a wrong value in " + file + ".");
+      throw std::runtime_error("The first column has a wrong value in " + file + ".");
     }
     data[i] = matsubara_freq_point_PH(n, np, m);
   }
