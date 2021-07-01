@@ -45,10 +45,16 @@ class Braket {
 
   Braket() : sector_(nirvana), obj_(0, 0), coeff_(1.0) { }
 
-  Braket(int sector, const OBJ &obj) {
+  Braket(int sector, const OBJ &obj, norm_type coeff = 1.0) {
     sector_ = sector;
     obj_ = obj;
-    coeff_ = 1.0;
+    coeff_ = coeff;
+  }
+
+  Braket(const Braket<Scalar,OBJ> &bra) {
+    sector_ = bra.sector_;
+    obj_ = bra.obj_;
+    coeff_ = bra.coeff_;
   }
 
   //Accessors
@@ -234,35 +240,46 @@ class ImpurityModel {
   /**
    * The following functions to be implemented in a derived class
    **/
-  double get_reference_energy() const;
+  double get_reference_energy() const {
+      return reference_energy_;
+  }
 
   int dim_sector(int sector) const {
     return dim_sectors.at(sector);
   }
 
+  const std::vector<std::tuple<int, int, int, int, SCALAR> > &get_nonzero_U_vals() const {
+    return nonzero_U_vals;
+  }
+
+  const std::vector<std::tuple<int, int, SCALAR> > &get_nonzero_t_vals() const {
+    return nonzero_t_vals;
+  }
+
+
   //Apply d and ddag operators for hybridization function on a bra or a ket
-  void apply_op_hyb_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const;
+  virtual void apply_op_hyb_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const = 0;
 
-  void apply_op_hyb_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const;
+  virtual void apply_op_hyb_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const = 0;
 
-  typename ExtendedScalar<SCALAR>::value_type
-      product(const BRAKET_T &bra, const BRAKET_T &ket) const;
+  virtual typename ExtendedScalar<SCALAR>::value_type
+      product(const BRAKET_T &bra, const BRAKET_T &ket) const = 0;
 
   //Apply exp(-t H0) on a bra or a ket
-  void sector_propagate_bra(BRAKET_T &bra, double t) const;
+  virtual void sector_propagate_bra(BRAKET_T &bra, double t) const = 0;
 
-  void sector_propagate_ket(BRAKET_T &ket, double t) const;
+  virtual void sector_propagate_ket(BRAKET_T &ket, double t) const = 0;
 
-  int num_brakets() const;
+  virtual int num_brakets() const = 0;
 
-  typename model_traits<DERIVED>::BRAKET_T get_outer_bra(int bra) const;
+  virtual typename model_traits<DERIVED>::BRAKET_T get_outer_bra(int bra) const = 0;
 
-  typename model_traits<DERIVED>::BRAKET_T get_outer_ket(int ket) const;
+  virtual typename model_traits<DERIVED>::BRAKET_T get_outer_ket(int ket) const = 0;
 
   //Min eigenenergy in a given sector
-  double min_energy(int sector) const;//deprecated.
+  virtual double min_energy(int sector) const = 0;//deprecated.
 
-  bool translationally_invariant() const;
+  virtual bool translationally_invariant() const = 0;
 
   /**
    * @brief Apply c^dagger c on a bra from the right hand side.
@@ -366,6 +383,12 @@ class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBa
   inline int dim_sector(int sector) const {
     return eigenvals_sector.at(sector).size();
   }
+
+  inline const std::vector<std::vector<double>>&
+  get_eigenvals_sector() const {
+      return eigenvals_sector;
+  }
+
   //Apply exp(-t H0) on a bra or a ket
   void sector_propagate_bra(BRAKET_T &bra, double t) const;
   void sector_propagate_ket(BRAKET_T &ket, double t) const;
