@@ -281,10 +281,6 @@ class ImpurityModel {
   double reference_energy_;
   bool verbose_;
 
-  //for initialization
-  void hilbert_space_partioning(const alps::params &par);
-  void init_nelec_sectors();
-
   //getter
   const sparse_matrix_t &creation_operators_hyb(int flavor, int sector) {
     return ddag_ops_sectors[flavor][sector];
@@ -321,6 +317,10 @@ class ImpurityModel {
   boost::multi_array<int, 3> sector_connection, sector_connection_reverse;
 
  private:
+  //for initialization
+  void hilbert_space_partioning(const alps::params &par);
+  void init_nelec_sectors();
+
   //results of partioning of the Hilbert space
   int num_sectors_;
 
