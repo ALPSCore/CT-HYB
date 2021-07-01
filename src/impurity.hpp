@@ -95,10 +95,6 @@ class HybridizationSimulation: public alps::mcbase {
         << "This program is licensed under GPLv2.";
   }
 
-  Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> get_rotmat_Delta() const {
-    return p_model->get_rotmat_Delta();
-  }
-
   std::vector<std::string> get_active_worm_updaters() const {
     std::vector<std::string> names;
     for (int i = 0; i < worm_insertion_removers.size(); ++i) {
@@ -277,13 +273,3 @@ class HybridizationSimulation: public alps::mcbase {
   void sanity_check();
 
 };
-
-template<typename MAT, typename MAT_COMPLEX, typename COMPLEX>
-void
-    transform_G_back_to_original_basis(int FLAVORS,
-                                       int SITES,
-                                       int SPINS,
-                                       int Np1,
-                                       const MAT &rotmat_Delta,
-                                       const MAT &inv_rotmat_Delta,
-                                       std::vector<COMPLEX> &G);

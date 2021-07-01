@@ -69,6 +69,7 @@ class FermionOperator {
       cdag_ops.push_back(c_i.transpose());
     }
   }
+
   ///check all anticommutation relations
   void validate() const {
     sparse_matrix_t identity(dim_, dim_), zero(dim_, dim_);
@@ -90,6 +91,7 @@ class FermionOperator {
       }
     }
   }
+
   ///the anticommutation relations of fermion operators
   sparse_matrix_t anti_commutator(const sparse_matrix_t &i, const sparse_matrix_t &j) const { return i * j + j * i; }
   ///creation operators: one per (spin-)orbital

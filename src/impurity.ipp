@@ -803,37 +803,6 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
   }
 }
 
-/**
- * Transform the single-particle Green's function back to the original basis
- */
-template<typename MAT, typename MAT_COMPLEX, typename COMPLEX>
-void
-transform_G_back_to_original_basis(int FLAVORS,
-                                   int SITES,
-                                   int SPINS,
-                                   int Np1,
-                                   const MAT &rotmat_Delta,
-                                   const MAT &inv_rotmat_Delta,
-                                   std::vector<COMPLEX> &G) {
-  assert(FLAVORS == SITES * SPINS);
-  assert(G.size() == FLAVORS * FLAVORS * Np1);
-  assert(SPINS == 2);
-
-  MAT_COMPLEX mattmp(FLAVORS, FLAVORS), mattmp2(FLAVORS, FLAVORS);
-  for (int time = 0; time < Np1; ++time) {
-    for (int iflavor = 0; iflavor < FLAVORS; ++iflavor) {
-      for (int jflavor = 0; jflavor < FLAVORS; ++jflavor) {
-        mattmp(iflavor, jflavor) = G[(iflavor * FLAVORS + jflavor) * Np1 + time];
-      }
-    }
-    mattmp2 = rotmat_Delta * mattmp * inv_rotmat_Delta;
-    for (int iflavor = 0; iflavor < FLAVORS; ++iflavor) {
-      for (int jflavor = 0; jflavor < FLAVORS; ++jflavor) {
-        G[(iflavor * FLAVORS + jflavor) * Np1 + time] = mattmp2(iflavor, jflavor);
-      }
-    }
-  }
-}
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::sanity_check() {

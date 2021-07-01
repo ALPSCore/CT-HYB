@@ -474,3 +474,12 @@ class TwoSetViewConstIterator {
   typename Set::const_iterator it1_end_, it2_end_;
 };
 
+
+template<typename T>
+struct PruneHelper {
+  PruneHelper(double eps) : eps_(eps) { };
+  bool operator()(const int &row, const int &col, const T &value) const {
+    return (std::abs(value) > eps_);
+  }
+  const double eps_;
+};

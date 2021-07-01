@@ -91,7 +91,6 @@ class Braket {
       std::cout << "comp debug " << obj_ << " === " << std::endl;
       exit(-1);
     }
-    assert(r >= 0.0);
     return r;
   }
 
@@ -184,8 +183,9 @@ class ImpurityModel {
   //! Contruct the impurity model
   ImpurityModel(const alps::params &par, bool verbose = false);
   ImpurityModel(const alps::params &par,
-                const std::vector<boost::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
-                const std::vector<boost::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
+                const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
+                const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
+                const hybridization_container_t &F,
                 bool verbose = false);
   virtual ~ImpurityModel();
 
@@ -201,8 +201,8 @@ class ImpurityModel {
     return num_sectors_;
   }
 
-  inline const matrix_t &get_rotmat_Delta() const {
-    return rotmat_Delta;
+  inline int nelec_sector(int sector) const {
+    return nelec_sectors.at(sector);
   }
 
   inline const hybridization_container_t &get_F() const {
@@ -236,7 +236,9 @@ class ImpurityModel {
    **/
   double get_reference_energy() const;
 
-  int dim_sector(int sector) const;
+  int dim_sector(int sector) const {
+    return dim_sectors.at(sector);
+  }
 
   //Apply d and ddag operators for hybridization function on a bra or a ket
   void apply_op_hyb_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const;
@@ -280,11 +282,8 @@ class ImpurityModel {
   bool verbose_;
 
   //for initialization
-  void read_U_tensor(const alps::params &par);
-  void read_hopping(const alps::params &par);
-  void read_hybridization_function(const alps::params &par);
-  void read_rotation_hybridization_function(const alps::params &par);
   void hilbert_space_partioning(const alps::params &par);
+  void init_nelec_sectors();
 
   //getter
   const sparse_matrix_t &creation_operators_hyb(int flavor, int sector) {
@@ -301,11 +300,11 @@ class ImpurityModel {
   std::vector<sparse_matrix_t> ham_sectors;
 
   //Index: cdag, cdag, c, c
-  std::vector<boost::tuple<int, int, int, int, SCALAR> > nonzero_U_vals;
+  std::vector<std::tuple<int, int, int, int, SCALAR> > nonzero_U_vals;
 
   //Index: cdag, c
   // t_{ij} cdag_i c_j
-  std::vector<boost::tuple<int, int, SCALAR> > nonzero_t_vals;
+  std::vector<std::tuple<int, int, SCALAR> > nonzero_t_vals;
 
   boost::multi_array<SCALAR, 4> U_tensor_rot;
 
@@ -322,7 +321,7 @@ class ImpurityModel {
   boost::multi_array<int, 3> sector_connection, sector_connection_reverse;
 
  private:
-//results of partioning of the Hilbert space
+  //results of partioning of the Hilbert space
   int num_sectors_;
 
   std::vector<std::vector<int> > sector_members;
@@ -330,8 +329,9 @@ class ImpurityModel {
 
   //Hybridization function
   hybridization_container_t F; // Hybridization Function
-  matrix_t rotmat_F, inv_rotmat_F;
-  matrix_t rotmat_Delta, inv_rotmat_Delta;
+
+  // Number of particle for each sector
+  std::vector<int> nelec_sectors;
 };
 
 /**
@@ -352,9 +352,11 @@ class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBa
   using typename Base::EXTENDED_SCALAR;
 
   ImpurityModelEigenBasis(const alps::params &par, bool verbose = false);
-  ImpurityModelEigenBasis
-      (const alps::params &par, const std::vector<boost::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
-       const std::vector<boost::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list, bool verbose = false);
+  ImpurityModelEigenBasis(const alps::params &par,
+                          const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
+                          const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
+                          const boost::multi_array<SCALAR,3> &F,
+                          bool verbose = false);
   static void define_parameters(alps::params &parameters);
 
   void apply_op_hyb_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const;
@@ -362,8 +364,7 @@ class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBa
   typename ExtendedScalar<SCALAR>::value_type product(const BRAKET_T &bra, const BRAKET_T &ket) const;
 
   inline int dim_sector(int sector) const {
-    assert(sector >= 0 && sector < eigenvals_sector.size());
-    return eigenvals_sector[sector].size();
+    return eigenvals_sector.at(sector).size();
   }
   //Apply exp(-t H0) on a bra or a ket
   void sector_propagate_bra(BRAKET_T &bra, double t) const;
@@ -372,8 +373,7 @@ class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBa
   typename model_traits<ImpurityModelEigenBasis<SCALAR> >::BRAKET_T get_outer_ket(int ket) const;
 
   inline double min_energy(int sector) const {
-    assert(sector >= 0 && sector < Base::num_sectors());
-    return min_eigenval_sector[sector];
+    return min_eigenval_sector.at(sector);
   }
 
   inline int num_brakets() const {
@@ -402,15 +402,6 @@ struct model_traits<ImpurityModelEigenBasis<SCALAR> > {
   typedef SCALAR SCALAR_T;
   typedef Braket<SCALAR, Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> > BRAKET_T;
 };
-
-//inline double compute_exp(double a) {
-//const double limit = std::log(std::numeric_limits<double>::min())/2;
-//if (a < limit) {
-//return 0.0;
-//} else {
-//return std::exp(a);
-//}
-//}
 
 /**
  * Compute exp(-t*energy) in an elementray-wise fashion.

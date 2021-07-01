@@ -7,16 +7,11 @@ ImpurityModelEigenBasis<SCALAR>::ImpurityModelEigenBasis(const alps::params &par
 
 template<typename SCALAR>
 ImpurityModelEigenBasis<SCALAR>::ImpurityModelEigenBasis(const alps::params &par,
-                                                         const std::vector<boost::tuple<int,
-                                                                                        int,
-                                                                                        SCALAR> > &nonzero_t_vals_list,
-                                                         const std::vector<boost::tuple<int,
-                                                                                        int,
-                                                                                        int,
-                                                                                        int,
-                                                                                        SCALAR> > &nonzero_U_vals_list,
+                                                         const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
+                                                         const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
+                                                         const boost::multi_array<SCALAR,3> &F,
                                                          bool verbose)
-    : ImpurityModel<SCALAR, ImpurityModelEigenBasis<SCALAR> >(par, nonzero_t_vals_list, nonzero_U_vals_list, verbose) {
+    : ImpurityModel<SCALAR, ImpurityModelEigenBasis<SCALAR> >(par, nonzero_t_vals_list, nonzero_U_vals_list, F, verbose) {
   build_basis(par);
   build_outer_braket(par);
 }
@@ -57,8 +52,6 @@ void remove_high_energy_states(std::vector<std::vector<double> > &evals_sectors,
   namespace bll = boost::lambda;
 
   const int num_sectors = evals_sectors.size();
-  //std::vector<std::vector<double> > evals_sectors_new;
-  //std::vector<M>& evecs_sectors_new;
   for (int sector = 0; sector < num_sectors; ++sector) {
     const int num_e = evals_sectors[sector].size();
     const int num_e_active = std::count_if(evals_sectors[sector].begin(),
@@ -85,13 +78,9 @@ void remove_high_energy_states(std::vector<std::vector<double> > &evals_sectors,
     }
     std::swap(evals_sectors[sector], evals_new);
     std::swap(evecs_sectors[sector], evecs_new);
-    //evals_sectors_new.push_back(evals_new);
-    //evecs_sectors_new.push_back(evecs_new);
     assert(ie_active == num_e_active);
   }
   assert(evals_sectors.size() == num_sectors);
-  //std::swap(evals_sectors, evals_sectors_new);
-  //std::swap(evecs_sectors, evecs_sectors_new);
 }
 
 inline std::pair<double, double>
@@ -129,9 +118,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
   const std::vector<std::vector<int> > &sector_members = Base::get_sector_members();
   const int flavors = Base::num_flavors();
   typedef Eigen::SelfAdjointEigenSolver<dense_matrix_t> SOLVER_TYPE;
-#ifndef NDEBUG
   std::vector<dense_matrix_t> ham_sector;
-#endif
 
   //Compute eigenvectors and eigenvalues
   min_eigenval_sector.resize(num_sectors);
@@ -140,9 +127,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
   for (int sector = 0; sector < num_sectors; ++sector) {
     const int dim_sector = sector_members[sector].size();
     dense_matrix_t ham_tmp(Base::ham_sectors[sector]);
-#ifndef NDEBUG
     ham_sector.push_back(ham_tmp);
-#endif
     SOLVER_TYPE esolv(ham_tmp);
     eigenvals_sector[sector].resize(dim_sector);
     for (int ie = 0; ie < dim_sector; ++ie) {
@@ -173,10 +158,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
     std::cout << " Max eigen energy = " << eigenvalue_max << std::endl;
     std::cout << " Min eigen energy  = " << eigenvalue_min << std::endl;
   }
-
-#ifndef NDEBUG
   check_evecs(ham_sector, evecs_sector);
-#endif
 
   //modify sector_connection
   for (int op = 0; op < 2; ++op) {
@@ -200,7 +182,6 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
   } else {
     overflow_prevention = 0;
   }
-  //Base::reference_energy_ = (0.5*(eigenvalue_max+eigenvalue_min)-overflow_prevention);
   Base::reference_energy_ = eigenvalue_min;
   if (Base::verbose_) {
     std::cout << "Reference energy " << Base::reference_energy_ << std::endl;

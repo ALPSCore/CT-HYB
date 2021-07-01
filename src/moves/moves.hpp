@@ -226,8 +226,9 @@ class OperatorPairFlavorUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SL
 };
 
 /**
- * Update creation and annihilation operators hybridized with the bath (the same flavor)
- * Do not update the worm
+ * Shift a creation operator or an annihilation operator hybridized with the bath in imaginary time.
+ * With a probability of 0.5, a change in the flavor of the selected operator is proposed.
+ * The worm will not updated.
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
@@ -285,7 +286,7 @@ global_update(R &rng,
 /**
  * Template class for move/insert/remove a worm
  * This class is just a template.
- * Actual updates are managed by a derived class which implements the member function propose().
+ * Actual updates are implemented in the member function propose() in a derived class.
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
@@ -310,7 +311,7 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
 };
 
 /**
- * Class managing the move of the existing worm
+ * Moving/shifting the existing worm in imaginary time
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
@@ -319,16 +320,9 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
 
   WormMover(const std::string &str, double beta, int num_flavors, double tau_lower_limit, double tau_upper_limit)
       : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit),
-        //acc_rate_(100, 0.5 * beta, 1, 0.5 * beta),
         beta_(beta),
         max_distance_(0.5 * beta),
         distance_(-1.0) {}
-
-  //virtual void call_back();
-
-  //virtual void update_parameters();
-
-  //virtual void finalize_learning() { acc_rate_.reset(); }
 
  private:
   virtual bool propose(
@@ -338,12 +332,11 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
       const std::map<ConfigSpace, double> &config_space_weight
   );
 
-  //StepSizeOptimizer acc_rate_;
   double beta_, max_distance_, distance_;
 };
 
 /**
- * Change flavor of worm
+ * Changing the flavor of operators in a worm
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class WormFlavorChanger: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
@@ -367,7 +360,7 @@ class WormFlavorChanger: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WIN
 };
 
 /**
- * Class for the insertion and removal of a worm
+ * Inserting and removing a worm
  */
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {

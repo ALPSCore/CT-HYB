@@ -54,27 +54,27 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
 
         //Single-particle Green's function
         std::cout << "Postprocessing G1..." << std::endl;
-        compute_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
+        compute_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
         if (Base::parameters_["measurement.equal_time_G1.on"] != 0) {
-          compute_euqal_time_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
+          compute_euqal_time_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
         }
 
         //Two-particle Green's function
         if (Base::parameters_["measurement.G2.matsubara.on"] != 0) {
           std::cout << "Postprocessing G2 (matsubara)..." << std::endl;
-          compute_G2_matsubara<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta());
+          compute_G2_matsubara<SOLVER_TYPE>(mc_results_, Base::parameters_);
         }
         if (Base::parameters_["measurement.G2.legendre.on"] != 0) {
           std::cout << "Postprocessing G2 (legendre)..." << std::endl;
-          compute_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
+          compute_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
         }
         if (Base::parameters_["measurement.two_time_G2.on"] != 0) {
           std::cout << "Postprocessing two_time_G2..." << std::endl;
-          compute_two_time_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
+          compute_two_time_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
         }
         if (Base::parameters_["measurement.equal_time_G2.on"] != 0) {
           std::cout << "Postprocessing equal_time_G2..." << std::endl;
-          compute_equal_time_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, sim.get_rotmat_Delta(), results_);
+          compute_equal_time_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
         }
 
         //Density-density correlation
