@@ -483,3 +483,9 @@ struct PruneHelper {
   }
   const double eps_;
 };
+
+inline void check_true(bool b, const std::string& str="") {
+  if (!b) {
+    throw std::runtime_error("Something got wrong! " + str);
+  }
+}

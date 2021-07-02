@@ -66,20 +66,13 @@ ImpurityModel<SCALAR, DERIVED>::~ImpurityModel() { }
 
 template<typename SCALAR, typename DERIVED>
 int ImpurityModel<SCALAR, DERIVED>::get_dst_sector_ket(OPERATOR_TYPE op, int flavor, int src_sector) const {
-  assert(flavor >= 0 && flavor < num_flavors());
-  assert(src_sector >= 0 && src_sector < num_sectors());
   return sector_connection[static_cast<int>(op)][flavor][src_sector];
 }
 
 template<typename SCALAR, typename DERIVED>
 int ImpurityModel<SCALAR, DERIVED>::get_dst_sector_bra(OPERATOR_TYPE op, int flavor, int src_sector) const {
-  assert(flavor >= 0);
-  assert(flavor < num_flavors());
-  assert(src_sector >= 0);
-  assert(src_sector < num_sectors());
   return sector_connection_reverse[static_cast<int>(op)][flavor][src_sector];
 }
-
 
 template<typename M, typename M2, typename P>
 void merge_according_to_c_or_cdag(const M &mat, M2 &block_mat, const P &p, P &p2) {
@@ -243,8 +236,7 @@ void ImpurityModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params
   index_of_state_in_sector.resize(dim_);
   for (int state = 0; state < dim_; ++state) {
     int sector_tmp = cl2.get_cluster_label(cl.get_cluster_label(state));
-    assert(sector_tmp < num_sectors_);
-    index_of_state_in_sector[state] = sector_members[sector_tmp].size();
+    index_of_state_in_sector[state] = sector_members.at(sector_tmp).size();
     sector_of_state[state] = sector_tmp;
     sector_members[sector_tmp].push_back(state);
   }
@@ -253,15 +245,14 @@ void ImpurityModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params
     dim_sectors[sector] = sector_members[sector].size();
   }
 
-#ifndef NDEBUG
+  // Sanich check
   for (int k = 0; k < ham.outerSize(); ++k) {
     for (typename Eigen::SparseMatrix<SCALAR>::InnerIterator it(ham, k); it; ++it) {
       const int dst_state = it.row();
       const int src_state = it.col();
-      assert(sector_of_state[src_state] == sector_of_state[dst_state]);
+      check_true(sector_of_state[src_state] == sector_of_state[dst_state]);
     }
   }
-#endif
 
   //divide Hamiltonin by sector
   ham_sectors.resize(num_sectors_);
@@ -331,7 +322,7 @@ void ImpurityModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params
         if (count == 0) {
           dst_sector = sector_connection[0][flavor][src_sector];
         }
-        assert(dst_sector == sector_connection[0][flavor][src_sector]);
+        check_true(dst_sector == sector_connection[0][flavor][src_sector]);
       }
     }
 
@@ -343,7 +334,7 @@ void ImpurityModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params
         if (count == 0) {
           dst_sector = sector_connection[1][flavor][src_sector];
         }
-        assert(dst_sector == sector_connection[1][flavor][src_sector]);
+        check_true(dst_sector == sector_connection[1][flavor][src_sector]);
       }
     }
   }
@@ -365,9 +356,8 @@ void ImpurityModel<SCALAR, DERIVED>::init_nelec_sectors() {
     }
     double nelec_ = get_real(Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic>(nelec_op)(0,0));
     nelec_sectors[sector] = std::round(nelec_);
-    if (std::abs(nelec_sectors[sector] - nelec_) > 1e-3) {
-        throw std::runtime_error("Something got wrong in init_nelec_sector!");
-    }
+    check_true(std::abs(nelec_sectors[sector] - nelec_) < 1e-3,
+        "Something got wrong in init_nelec_sector!");
   }
 }
 

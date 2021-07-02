@@ -352,8 +352,12 @@ ImpurityModelEigenBasis<SCALAR>::product(const BRAKET_T &bra, const BRAKET_T &ke
   if (bra.invalid() || ket.invalid() || bra.sector() != ket.sector()) {
     return 0.0;
   }
-  assert(size2(bra.obj()) == size1(ket.obj()));
-  assert(size1(bra.obj()) == size2(ket.obj()));
+  if (size2(bra.obj()) != size1(ket.obj())) {
+    throw std::runtime_error("Something got wrong in product!");
+  }
+  if (size1(bra.obj()) != size2(ket.obj())) {
+    throw std::runtime_error("Something got wrong in product!");
+  }
   return static_cast<typename ExtendedScalar<SCALAR>::value_type>(bra.coeff() * ket.coeff()) * (bra.obj() * ket.obj()).trace();
 }
 

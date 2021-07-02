@@ -273,11 +273,9 @@ SlidingWindowManager<MODEL>::lazy_eval_trace(const operator_container_t &operato
     indices[braket] = std::make_pair(trace_bound[braket], braket);
   }
   std::sort(indices.begin(), indices.end(), bound_greater<EXTENDED_REAL>());
-#ifndef NDEBUG
   for (int idx = 0; idx < num_brakets - 1; ++idx) {
-    assert(indices[idx].first >= indices[idx].first);
+    check_true(indices[idx].first >= indices[idx].first);
   }
-#endif
 
   EXTENDED_SCALAR trace_sum = 0.0;
   for (int idx = 0; idx < num_brakets; ++idx) {
