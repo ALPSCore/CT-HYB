@@ -22,7 +22,7 @@ class HybridizationFunction {
       n_tau_(n_tau),
       n_flavors_(n_flavors),
       connected_(boost::extents[n_flavors_][n_flavors_]) {
-    assert(F_[0][0].size() == n_tau + 1);
+    check_true(F_[0][0].size() == n_tau + 1);
     for (int flavor = 0; flavor < n_flavors; ++flavor) {
       for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
         connected_[flavor][flavor2] = false;
