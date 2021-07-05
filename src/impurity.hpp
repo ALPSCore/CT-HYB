@@ -46,15 +46,16 @@
 #include <alps/params/convenience_params.hpp>
 
 #include "common/wide_scalar.hpp"
-#include "mc_config.hpp"
 #include "model/operator.hpp"
 #include "model/model.hpp"
 #include "moves/moves.hpp"
 #include "sliding_window/sliding_window.hpp"
-#include "update_histogram.hpp"
-#include "accumulator.hpp"
 #include "measurement/measurement.hpp"
 #include "measurement/measurement_old.hpp"
+
+#include "accumulator.hpp"
+#include "update_histogram.hpp"
+#include "mc_config.hpp"
 #include "wang_landau.hpp"
 
 

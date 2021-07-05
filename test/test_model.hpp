@@ -21,27 +21,44 @@ check_eigenes(const ImpurityModelEigenBasis<SCALAR> &model) {
       auto eigenket = braket_t(sector, evec);
       auto eigenbra = braket_t(sector, evec.transpose());
 
-      auto ene = 0.0;
+      auto ene_from_ket = 0.0, ene_from_bra = 0.0;
 
       // hopping term
       for (const auto& tij: model.get_nonzero_t_vals()) {
         auto ket = braket_t(eigenket);
         model.apply_op_hyb_ket(ANNIHILATION_OP, std::get<1>(tij), ket);
         model.apply_op_hyb_ket(CREATION_OP, std::get<0>(tij), ket);
-        ene += get_real(std::get<2>(tij) * model.product(eigenbra, ket));
+        ene_from_ket += get_real(std::get<2>(tij) * model.product(eigenbra, ket));
+
+        auto bra = braket_t(eigenbra);
+        model.apply_op_hyb_bra(CREATION_OP, std::get<0>(tij), bra);
+        model.apply_op_hyb_bra(ANNIHILATION_OP, std::get<1>(tij), bra);
+        ene_from_bra += get_real(std::get<2>(tij) * model.product(bra, eigenket));
       }
 
       // Coulomb interaction
       for (const auto& Uijkl: model.get_nonzero_U_vals()) {
-        auto ket = braket_t(eigenket);
-        model.apply_op_hyb_ket(ANNIHILATION_OP, std::get<3>(Uijkl), ket);
-        model.apply_op_hyb_ket(ANNIHILATION_OP, std::get<2>(Uijkl), ket);
-        model.apply_op_hyb_ket(CREATION_OP,     std::get<1>(Uijkl), ket);
-        model.apply_op_hyb_ket(CREATION_OP,     std::get<0>(Uijkl), ket);
-        ene += get_real(std::get<4>(Uijkl) * model.product(eigenbra, ket));
+        {
+          auto ket = braket_t(eigenket);
+          model.apply_op_hyb_ket(ANNIHILATION_OP, std::get<3>(Uijkl), ket);
+          model.apply_op_hyb_ket(ANNIHILATION_OP, std::get<2>(Uijkl), ket);
+          model.apply_op_hyb_ket(CREATION_OP,     std::get<1>(Uijkl), ket);
+          model.apply_op_hyb_ket(CREATION_OP,     std::get<0>(Uijkl), ket);
+          ene_from_ket += get_real(std::get<4>(Uijkl) * model.product(eigenbra, ket));
+        }
+
+        {
+          auto bra = braket_t(eigenbra);
+          model.apply_op_hyb_bra(CREATION_OP,     std::get<0>(Uijkl), bra);
+          model.apply_op_hyb_bra(CREATION_OP,     std::get<1>(Uijkl), bra);
+          model.apply_op_hyb_bra(ANNIHILATION_OP, std::get<2>(Uijkl), bra);
+          model.apply_op_hyb_bra(ANNIHILATION_OP, std::get<3>(Uijkl), bra);
+          ene_from_bra += get_real(std::get<4>(Uijkl) * model.product(bra, eigenket));
+        }
       }
 
-      ASSERT_NEAR(ene, model.get_eigenvals_sector()[sector][state] + model.get_reference_energy(), 1e-8);
+      ASSERT_NEAR(ene_from_ket, model.get_eigenvals_sector()[sector][state] + model.get_reference_energy(), 1e-8);
+      ASSERT_NEAR(ene_from_bra, model.get_eigenvals_sector()[sector][state] + model.get_reference_energy(), 1e-8);
     }
   }
 

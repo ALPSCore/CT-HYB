@@ -12,12 +12,13 @@
 #include <boost/range/algorithm.hpp>
 
 #include "../model/operator.hpp"
-#include "../operator_util.hpp"
 #include "../common/wide_scalar.hpp"
 #include "../update_histogram.hpp"
 #include "../accumulator.hpp"
 #include "../sliding_window/sliding_window.hpp"
 #include "../mc_config.hpp"
+
+#include "operator_util.hpp"
 
 /**
  * @brief Change flavors of operators

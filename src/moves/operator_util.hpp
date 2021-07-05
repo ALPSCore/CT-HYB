@@ -12,7 +12,7 @@
 #include <boost/lambda/lambda.hpp>
 #include <boost/lambda/if.hpp>
 
-#include "model/operator.hpp"
+#include "../model/operator.hpp"
 
 /**
 * Check consistency of operators, creation_operators, annihilation_operators

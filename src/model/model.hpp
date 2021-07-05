@@ -267,31 +267,6 @@ class ImpurityModel {
   virtual void apply_qop_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const = 0;
   virtual void apply_qop_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const = 0;
 
-  //void apply_qop_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) {
-    //BRAKET_T bra1(bra);
-    //apply_Hloc_bra(bra1);
-    //apply_op_hyb_bra(op_type, flavor, bra1);
-    //BRAKET_T bra2(bra);
-    //apply_op_hyb_bra(op_type, flavor, bra2);
-    //apply_Hloc_bra(bra2);
-    //bra = bra1 - bra2;
-  //}
-
-  //void apply_qop_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) {
-    //BRAKET_T ket1(ket);
-    //apply_Hloc_ket(ket1);
-    //apply_op_hyb_ket(op_type, flavor, ket1);
-//
-    //BRAKET_T ket2(ket);
-    //apply_op_hyb_ket(op_type, flavor, ket2);
-    //apply_Hloc_ket(ket2);
-    ////
-    //ket = ket1 - ket2;
-  //}
-
-  //virtual void apply_Hloc_bra(BRAKET_T &bra) const = 0;
-  //virtual void apply_Hloc_ket(BRAKET_T &ket) const = 0;
-
   virtual typename ExtendedScalar<SCALAR>::value_type
       product(const BRAKET_T &bra, const BRAKET_T &ket) const = 0;
 

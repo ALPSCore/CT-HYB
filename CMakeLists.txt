@@ -93,7 +93,6 @@ set(MODEL_FILES
     ./src/model/clustering.cpp
     ./src/model/model_real.cpp
     ./src/model/model_complex.cpp
-    ./src/operator_util.cpp
 )
 
 set(SW_FILES
@@ -106,6 +105,7 @@ set(MEAS_FILES
 
 set(MOVES_FILES
     ./src/moves/moves.cpp
+    ./src/moves/operator_util.cpp
 )
 
 
