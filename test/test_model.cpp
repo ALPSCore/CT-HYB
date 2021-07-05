@@ -88,5 +88,4 @@ TEST(ModelLibrary, t2gModel) {
   }
 
   // Check apply exp(- tau H)
-
 }

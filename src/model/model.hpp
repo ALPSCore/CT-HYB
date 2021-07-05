@@ -257,10 +257,40 @@ class ImpurityModel {
   }
 
 
-  //Apply d and ddag operators for hybridization function on a bra or a ket
+  //Apply d operator or ddag operator on a bra or a ket
   virtual void apply_op_hyb_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const = 0;
-
   virtual void apply_op_hyb_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const = 0;
+
+  //Apply q operator or q_dagger operator on a bra and a ket
+  // q_a = - [H_loc, d_a] = d_a H_loc - H_loc d_a
+  // q^dagger_a = [H_loc, d^dagger_a] = H_loc d^dagger_a - d^dagger_a H_loc
+  virtual void apply_qop_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const = 0;
+  virtual void apply_qop_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const = 0;
+
+  //void apply_qop_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) {
+    //BRAKET_T bra1(bra);
+    //apply_Hloc_bra(bra1);
+    //apply_op_hyb_bra(op_type, flavor, bra1);
+    //BRAKET_T bra2(bra);
+    //apply_op_hyb_bra(op_type, flavor, bra2);
+    //apply_Hloc_bra(bra2);
+    //bra = bra1 - bra2;
+  //}
+
+  //void apply_qop_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) {
+    //BRAKET_T ket1(ket);
+    //apply_Hloc_ket(ket1);
+    //apply_op_hyb_ket(op_type, flavor, ket1);
+//
+    //BRAKET_T ket2(ket);
+    //apply_op_hyb_ket(op_type, flavor, ket2);
+    //apply_Hloc_ket(ket2);
+    ////
+    //ket = ket1 - ket2;
+  //}
+
+  //virtual void apply_Hloc_bra(BRAKET_T &bra) const = 0;
+  //virtual void apply_Hloc_ket(BRAKET_T &ket) const = 0;
 
   virtual typename ExtendedScalar<SCALAR>::value_type
       product(const BRAKET_T &bra, const BRAKET_T &ket) const = 0;
@@ -380,6 +410,9 @@ class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBa
   void apply_op_hyb_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const;
   typename ExtendedScalar<SCALAR>::value_type product(const BRAKET_T &bra, const BRAKET_T &ket) const;
 
+  void apply_qop_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const;
+  void apply_qop_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const;
+
   inline int dim_sector(int sector) const {
     return eigenvals_sector.at(sector).size();
   }
@@ -408,12 +441,20 @@ class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBa
  private:
   void build_basis(const alps::params &par);
   void build_outer_braket(const alps::params &par);
+  void build_qops();
+
+  void apply_op_bra_impl(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra,
+    const std::vector<std::vector<dense_matrix_t>> &ops) const;
+  void apply_op_ket_impl(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket,
+    const std::vector<std::vector<dense_matrix_t>> &ops) const;
+
   //for debug
   void check_evecs(const std::vector<dense_matrix_t> ham_sector, const std::vector<dense_matrix_t> &evecs_sector);
   bool is_sector_active(int sector) const;
   std::vector<std::vector<double> > eigenvals_sector;
   std::vector<double> min_eigenval_sector;
   std::vector<std::vector<dense_matrix_t> > ddag_ops_eigen, d_ops_eigen;//flavor, sector
+  std::vector<std::vector<dense_matrix_t> > qdag_ops_eigen, q_ops_eigen;//flavor, sector
 
   int num_braket_;
   //equal to the number of active sectors

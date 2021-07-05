@@ -3,6 +3,7 @@ ImpurityModelEigenBasis<SCALAR>::ImpurityModelEigenBasis(const alps::params &par
     : ImpurityModel<SCALAR, ImpurityModelEigenBasis<SCALAR> >(par, verbose) {
   build_basis(par);
   build_outer_braket(par);
+  build_qops();
 }
 
 template<typename SCALAR>
@@ -14,6 +15,7 @@ ImpurityModelEigenBasis<SCALAR>::ImpurityModelEigenBasis(const alps::params &par
     : ImpurityModel<SCALAR, ImpurityModelEigenBasis<SCALAR> >(par, nonzero_t_vals_list, nonzero_U_vals_list, F, verbose) {
   build_basis(par);
   build_outer_braket(par);
+  build_qops();
 }
 
 template<typename SCALAR>
@@ -222,6 +224,51 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
   }
 }
 
+// Build matrix representations of q and q^dagger operator in eigen basis
+// q_a = - [H_loc, d_a] = d_a H_loc - H_loc d_a
+// q^dagger_a = [H_loc, d^dagger_a] = H_loc d^dagger_a - d^dagger_a H_loc
+template<typename SCALAR>
+void ImpurityModelEigenBasis<SCALAR>::build_qops() {
+  q_ops_eigen.resize(this->num_flavors());
+  qdag_ops_eigen.resize(this->num_flavors());
+  for (auto f=0; f<this->num_flavors(); ++f) {
+    q_ops_eigen[f].resize(this->num_sectors());
+    qdag_ops_eigen[f].resize(this->num_flavors());
+
+    // Build q ops
+    for (auto sector=0; sector<this->num_sectors(); ++sector) {
+      if (d_ops_eigen[f][sector].rows() == 0 || d_ops_eigen[f][sector].cols() == 0) {
+        continue;
+      }
+      dense_matrix_t q1(d_ops_eigen[f][sector]); //Hloc d
+      dense_matrix_t q2(d_ops_eigen[f][sector]); //d Hloc
+      for (auto j=0; j<q1.cols(); ++j) {
+        q1.col(j) *= eigenvals_sector[sector][j];
+      }
+      for (auto i=0; i<q2.rows(); ++i) {
+        q2.row(i) *= eigenvals_sector[sector][i];
+      }
+      q_ops_eigen[f][sector] = q1 - q2;
+    }
+
+    // Build qdagger ops
+    for (auto sector=0; sector<this->num_sectors(); ++sector) {
+      if (ddag_ops_eigen[f][sector].rows() == 0 || ddag_ops_eigen[f][sector].cols() == 0) {
+        continue;
+      }
+      dense_matrix_t qdagg1(ddag_ops_eigen[f][sector]); //Hloc d_dagg
+      dense_matrix_t qdagg2(ddag_ops_eigen[f][sector]); //d_dagg Hloc
+      for (auto j=0; j<qdagg1.cols(); ++j) {
+        qdagg1.col(j) *= eigenvals_sector[sector][j];
+      }
+      for (auto i=0; i<qdagg2.rows(); ++i) {
+        qdagg2.row(i) *= eigenvals_sector[sector][i];
+      }
+      q_ops_eigen[f][sector] = - qdagg1 + qdagg2;
+    }
+  }
+}
+
 template<typename SCALAR>
 void ImpurityModelEigenBasis<SCALAR>::build_outer_braket(const alps::params &par) {
   namespace bll = boost::lambda;
@@ -285,8 +332,9 @@ void ImpurityModelEigenBasis<SCALAR>::check_evecs(const std::vector<dense_matrix
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_ket(
-    const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const {
+void ImpurityModelEigenBasis<SCALAR>::apply_op_ket_impl(
+  const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket,
+  const std::vector<std::vector<dense_matrix_t>> &ops) const {
   using namespace std;
 
   if (ket.invalid()) {
@@ -300,13 +348,8 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_ket(
   }
 
   EXTENDED_REAL max_norm_old = ket.max_norm();
-  if (op_type == CREATION_OP) {
-    dense_matrix_t work_mat = ddag_ops_eigen[flavor][ket.sector()] * ket.obj();
-    ket.swap_obj(work_mat);
-  } else {
-    dense_matrix_t work_mat = d_ops_eigen[flavor][ket.sector()] * ket.obj();
-    ket.swap_obj(work_mat);
-  }
+  dense_matrix_t work_mat = ops[flavor][ket.sector()] * ket.obj();
+  ket.swap_obj(work_mat);
   ket.set_sector(sector_new);
 
   if (ket.max_norm() / max_norm_old < 1E-30) {
@@ -314,10 +357,12 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_ket(
   }
 }
 
+
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const {
+void ImpurityModelEigenBasis<SCALAR>::apply_op_bra_impl(
+  const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra,
+  const std::vector<std::vector<dense_matrix_t>> &ops) const {
   using std::swap;
-  assert(flavor < Base::num_flavors());
 
   if (bra.invalid()) {
     return;
@@ -331,13 +376,8 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_bra(const OPERATOR_TYPE &op_t
 
   EXTENDED_REAL max_norm_old = bra.max_norm();
 
-  if (op_type == CREATION_OP) {
-    dense_matrix_t work_mat = bra.obj() * ddag_ops_eigen[flavor][sector_new];
-    bra.swap_obj(work_mat);
-  } else {
-    dense_matrix_t work_mat = bra.obj() * d_ops_eigen[flavor][sector_new];
-    bra.swap_obj(work_mat);
-  }
+  dense_matrix_t work_mat = bra.obj() * ops[flavor][sector_new];
+  bra.swap_obj(work_mat);
   bra.set_sector(sector_new);
 
   if (bra.max_norm() / max_norm_old < 1E-30) {
@@ -345,6 +385,49 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_bra(const OPERATOR_TYPE &op_t
   }
 }
 
+template<typename SCALAR>
+void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_ket(
+    const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const {
+  check_true(op_type == CREATION_OP || op_type == ANNIHILATION_OP);
+  if (op_type == CREATION_OP) {
+    apply_op_ket_impl(op_type, flavor, ket, ddag_ops_eigen);
+  } else {
+    apply_op_ket_impl(op_type, flavor, ket, d_ops_eigen);
+  }
+}
+
+template<typename SCALAR>
+void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_bra(
+  const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const {
+  check_true(op_type == CREATION_OP || op_type == ANNIHILATION_OP);
+  if (op_type == CREATION_OP) {
+    apply_op_bra_impl(op_type, flavor, bra, ddag_ops_eigen);
+  } else {
+    apply_op_bra_impl(op_type, flavor, bra, d_ops_eigen);
+  }
+}
+
+template<typename SCALAR>
+void ImpurityModelEigenBasis<SCALAR>::apply_qop_ket(
+    const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const {
+  check_true(op_type == CREATION_OP || op_type == ANNIHILATION_OP);
+  if (op_type == CREATION_OP) {
+    apply_op_ket_impl(op_type, flavor, ket, qdag_ops_eigen);
+  } else {
+    apply_op_ket_impl(op_type, flavor, ket, q_ops_eigen);
+  }
+}
+
+template<typename SCALAR>
+void ImpurityModelEigenBasis<SCALAR>::apply_qop_bra(
+  const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const {
+  check_true(op_type == CREATION_OP || op_type == ANNIHILATION_OP);
+  if (op_type == CREATION_OP) {
+    apply_op_bra_impl(op_type, flavor, bra, qdag_ops_eigen);
+  } else {
+    apply_op_bra_impl(op_type, flavor, bra, q_ops_eigen);
+  }
+}
 
 template<typename SCALAR>
 typename ExtendedScalar<SCALAR>::value_type
