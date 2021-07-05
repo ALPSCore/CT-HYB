@@ -19,9 +19,9 @@
 
 #include "hybfermion.hpp"
 #include "clustering.hpp"
-#include "../util.hpp"
-#include "../operator.hpp"
-#include "../wide_scalar.hpp"
+#include "operator.hpp"
+#include "../common/util.hpp"
+#include "../common/wide_scalar.hpp"
 
 //forward declaration for alps::params
 namespace alps {

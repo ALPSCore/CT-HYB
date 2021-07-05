@@ -3,8 +3,8 @@
 #include <boost/tuple/tuple.hpp>
 #include <boost/multi_array.hpp>
 
-#include "../wide_scalar.hpp"
-#include "../operator.hpp"
+#include "../common/wide_scalar.hpp"
+#include "../model/operator.hpp"
 #include "../model/model.hpp"
 
 enum ITIME_AXIS_LEFT_OR_RIGHT {

@@ -22,40 +22,22 @@ T myconj(T val);
 template<typename T>
 T mysign(T x);
 
-inline double myabs(double x) {
-  return std::abs(x);
-}
+double myabs(double x);
 
-inline double myabs(std::complex<double> x) {
-  return std::abs(x);
-}
+double myabs(std::complex<double> x);
 
-inline double mymod(double x, double beta) {
-  if (x >= 0) {
-    return x - beta * static_cast<int>(x / beta);
-  } else {
-    return x + beta * (static_cast<int>(-x / beta) + 1);
-  }
-}
+double mymod(double x, double beta);
 
 template<typename T>
 bool my_isnan(T x);
 
-inline double get_real(std::complex<double> x) {
-  return x.real();
-}
+double get_real(std::complex<double> x);
 
-inline double get_imag(std::complex<double> x) {
-  return x.imag();
-}
+double get_imag(std::complex<double> x);
 
-inline double get_real(double x) {
-  return x;
-}
+double get_real(double x);
 
-inline double get_imag(double x) {
-  return 0.0;
-}
+double get_imag(double x);
 
 template<typename T>
 T mysign(T x) {
@@ -101,11 +83,7 @@ double maxAbsCoeff(const Eigen::SparseMatrix<T> &mat) {
   return maxval;
 }
 
-inline double min_distance(double dist, double BETA) {
-  const double abs_dist = std::abs(dist);
-  assert(abs_dist >= 0 && abs_dist <= BETA);
-  return std::min(abs_dist, BETA - abs_dist);
-}
+inline double min_distance(double dist, double BETA);
 
 
 template<typename SCALAR, typename M>

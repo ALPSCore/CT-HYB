@@ -4,8 +4,8 @@
 #include <boost/multi_array.hpp>
 #include <boost/operators.hpp>
 
-#include "operator.hpp"
-#include "util.hpp"
+#include "common/util.hpp"
+#include "model/operator.hpp"
 
 enum ConfigSpace {
   Z_FUNCTION,

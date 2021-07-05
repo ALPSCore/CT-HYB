@@ -1,5 +1,4 @@
 #include <alps/mc/random01.hpp>
-#include "operator.hpp"
 #include "operator_util.hpp"
 
 void check_consistency_operators(const operator_container_t &operators,

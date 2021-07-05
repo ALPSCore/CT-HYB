@@ -8,7 +8,7 @@
 
 #include <alps/accumulators.hpp>
 
-#include "util.hpp"
+#include "common/util.hpp"
 
 typedef alps::accumulators::accumulator_set observableset_t;
 

@@ -17,8 +17,8 @@
 #include "../accumulator.hpp"
 #include "../mc_config.hpp"
 #include "../sliding_window/sliding_window.hpp"
-#include "../legendre.hpp"
-#include "../operator.hpp"
+#include "../common/legendre.hpp"
+#include "../model/operator.hpp"
 #include "../hash.hpp"
 
 /**

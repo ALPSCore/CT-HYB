@@ -1,6 +1,5 @@
 #include <alps/params.hpp>
 
-#include "../operator.hpp"
 #include "model.hpp"
 #include "model.ipp"
 #include "eigenbasis.ipp"

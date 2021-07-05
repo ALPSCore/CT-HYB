@@ -13,7 +13,7 @@
  *************************************************************************************/
 #pragma once
 
-#include "util.hpp"
+#include "common/util.hpp"
 
 #include <alps/utilities/signal.hpp>
 #include <alps/mc/api.hpp>

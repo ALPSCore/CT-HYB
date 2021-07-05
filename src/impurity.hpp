@@ -45,9 +45,9 @@
 #include <alps/mc/stop_callback.hpp>
 #include <alps/params/convenience_params.hpp>
 
-#include "wide_scalar.hpp"
+#include "common/wide_scalar.hpp"
 #include "mc_config.hpp"
-#include "operator.hpp"
+#include "model/operator.hpp"
 #include "model/model.hpp"
 #include "moves/moves.hpp"
 #include "sliding_window/sliding_window.hpp"

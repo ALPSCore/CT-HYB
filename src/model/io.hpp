@@ -5,7 +5,7 @@
 
 #include <boost/multi_array.hpp>
 
-#include "../util.hpp"
+#include "../common/util.hpp"
 
 /*
  * Read nonzero elements of Coulomb tensor from a text file

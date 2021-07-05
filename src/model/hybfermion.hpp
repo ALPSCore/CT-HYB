@@ -4,7 +4,7 @@
 #include<vector>
 #include<fstream>
 
-#include "../util.hpp"
+#include "../common/util.hpp"
 
 /*
  * Constructing matrix represantation of creation and annihilation operators in occupation basis

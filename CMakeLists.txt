@@ -72,17 +72,42 @@ include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
 #source files
 set(ALL_LIB_FILES
     ./src/solver_real.cpp
-    ./src/legendre.cpp
+    #./src/legendre.cpp
     ./src/impurity.cpp
-    ./src/operator_util.cpp
-    ./src/model/clustering.cpp
-    ./src/model/model_complex.cpp
-    ./src/model/model_real.cpp
-    ./src/sliding_window/sliding_window.cpp
+    #./src/operator_util.cpp
+    #./src/model/clustering.cpp
+    #./src/model/model_complex.cpp
+    #./src/model/model_real.cpp
+    #./src/sliding_window/sliding_window.cpp
     ./src/solver_complex.cpp
+    #./src/moves/moves.cpp
+    #./src/measurement/measurement.cpp
+    )
+
+set(COMMON_LIB_FILES
+    ./src/common/util.cpp
+    ./src/common/legendre.cpp
+)
+
+set(MODEL_FILES
+    ./src/model/clustering.cpp
+    ./src/model/model_real.cpp
+    ./src/model/model_complex.cpp
+    ./src/operator_util.cpp
+)
+
+set(SW_FILES
+    ./src/sliding_window/sliding_window.cpp
+)
+
+set(MEAS_FILES
+    ./src/measurement/measurement.cpp
+)
+
+set(MOVES_FILES
     ./src/moves/moves.cpp
-    ./src/util.cpp
-    ./src/measurement/measurement.cpp)
+)
+
 
 #Compiler dependent libraries
 set(EXTRA_LIBS "")
@@ -96,18 +121,33 @@ if (USE_QUAD_PRECISION)
 endif()
 
 # Make static library
+add_library(common ${COMMON_LIB_FILES})
+target_link_libraries(common ${ALPSCore_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+
+add_library(model ${MODEL_FILES})
+target_link_libraries(model common ${ALPSCore_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+
+add_library(sw ${SW_FILES})
+target_link_libraries(sw model common ${ALPSCore_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+
+add_library(moves ${MOVES_FILES})
+target_link_libraries(moves sw model common ${ALPSCore_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+
+add_library(measurement ${MEAS_FILES})
+target_link_libraries(measurement sw model common ${ALPSCore_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+
 add_library(hyb ${ALL_LIB_FILES})
 target_link_libraries(hyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 #executable
 add_executable(hybmat ./src/main.cpp)
-target_link_libraries(hybmat hyb)
+target_link_libraries(hybmat hyb measurement moves sw model common)
 
 #testing setup
 option(Testing "Enable testing" ON)
 include(EnableGtests) #defined in ./cmake
 include_directories("test")
-set(LINK_ALL hyb)
+set(LINK_ALL hyb measurement moves sw model common)
 message(STATUS ${LINK_ALL})
 
 enable_testing(test)

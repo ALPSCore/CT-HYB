@@ -11,9 +11,9 @@
 #include <boost/math/special_functions/binomial.hpp>
 #include <boost/range/algorithm.hpp>
 
-#include "../operator.hpp"
+#include "../model/operator.hpp"
 #include "../operator_util.hpp"
-#include "../wide_scalar.hpp"
+#include "../common/wide_scalar.hpp"
 #include "../update_histogram.hpp"
 #include "../accumulator.hpp"
 #include "../sliding_window/sliding_window.hpp"
