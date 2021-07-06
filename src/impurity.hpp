@@ -47,7 +47,7 @@
 
 #include "common/wide_scalar.hpp"
 #include "model/operator.hpp"
-#include "model/model.hpp"
+#include "model/atomic_model.hpp"
 #include "moves/moves.hpp"
 #include "sliding_window/sliding_window.hpp"
 #include "measurement/measurement.hpp"

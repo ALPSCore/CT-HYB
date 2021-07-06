@@ -136,13 +136,13 @@ template<class T>
 struct model_traits { };
 
 /**
- * @brief Class for the definition of impurity model.
+ * @brief Class for the definition of atomic model.
  *
- * This class is abstract and we must use a derived class, e.g., ImpurityModelEigenBasis.
+ * This class is abstract and we must use a derived class, e.g., AtomicModelEigenBasis.
  * This class knows everything about the local Hamiltonian of your impurity model.
  * Several functions define the actual procedures of an imaginary time evolution and application of operators on a bra/ket.
  *
- * In the class ImpurityModel, we construct occupation-basis presentations of the local Hamiltonian and annihilation/creation operators.
+ * In the class AtomicModel, we construct occupation-basis presentations of the local Hamiltonian and annihilation/creation operators.
  * They are analyzed for splitting the local Hilbert space into symmetry sectors.
  *
  * For the partitioning of the Hilbert space, we use the Hoshen-Kopelman Algorithm (see https://www.ocf.berkeley.edu/~fricke/projects/hoshenkopelman/hoshenkopelman.html).
@@ -155,7 +155,7 @@ struct model_traits { };
  * which is an efficient algorithm for percolation problems.
  *
  * We achieve polymorphism with the Curiously Recurring Template Pattern (CRTP).
- * This means that the super class ImpurityModel accepts a derived class as a template argument.
+ * This means that the super class AtomicModel accepts a derived class as a template argument.
  * This allows using virtual functions, which might be expensive.
  *
  * This class holds some information about the hybridization function.
@@ -165,7 +165,7 @@ struct model_traits { };
  * @param DERIVED derived class
  */
 template<typename SCALAR, typename DERIVED>
-class ImpurityModel {
+class AtomicModel {
  public:
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
 
@@ -187,13 +187,12 @@ class ImpurityModel {
 
  public:
   //! Contruct the impurity model
-  ImpurityModel(const alps::params &par, bool verbose = false);
-  ImpurityModel(const alps::params &par,
+  AtomicModel(const alps::params &par, bool verbose = false);
+  AtomicModel(const alps::params &par,
                 const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
                 const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
-                const hybridization_container_t &F,
                 bool verbose = false);
-  virtual ~ImpurityModel();
+  virtual ~AtomicModel();
 
   static void define_parameters(alps::params &parameters);
 
@@ -211,14 +210,10 @@ class ImpurityModel {
     return nelec_sectors.at(sector);
   }
 
-  inline const hybridization_container_t &get_F() const {
-    return F;
-  }
-
   /**
    * @brief This function returns the sector that the resultant bra belongs to
    * when an annihilation/creation operator is applied to a bra in the source sector.
-   * This function is defined in model.ipp
+   * This function is defined in atomic_model.ipp
    *
    * @param op creation/annihilation operator
    * @param flavor flavor of the creation/annihilation operator
@@ -229,7 +224,7 @@ class ImpurityModel {
   /**
    * @brief This function returns the sector that the resultant bra belongs to
    * when an annihilation/creation operator is applied to a bra in the source sector from the right-hand side.
-   * This function is defined in model.ipp
+   * This function is defined in atomic_model.ipp
    *
    * @param op creation/annihilation operator
    * @param flavor flavor of the creation/annihilation operator
@@ -349,9 +344,6 @@ class ImpurityModel {
   std::vector<std::vector<int> > sector_members;
   std::vector<int> sector_of_state, index_of_state_in_sector, dim_sectors;
 
-  //Hybridization function
-  hybridization_container_t F; // Hybridization Function
-
   // Number of particle for each sector
   std::vector<int> nelec_sectors;
 };
@@ -363,9 +355,9 @@ class ImpurityModel {
  *
  */
 template<typename SCALAR>
-class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBasis<SCALAR> > {
+class AtomicModelEigenBasis: public AtomicModel<SCALAR, AtomicModelEigenBasis<SCALAR> > {
  private:
-  typedef ImpurityModel<SCALAR, ImpurityModelEigenBasis<SCALAR> > Base;
+  typedef AtomicModel<SCALAR, AtomicModelEigenBasis<SCALAR> > Base;
   typedef typename Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> dense_matrix_t;
   typedef dense_matrix_t braket_obj_t;
 
@@ -373,11 +365,10 @@ class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBa
   typedef Braket<SCALAR, Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> > BRAKET_T;
   using typename Base::EXTENDED_SCALAR;
 
-  ImpurityModelEigenBasis(const alps::params &par, bool verbose = false);
-  ImpurityModelEigenBasis(const alps::params &par,
+  AtomicModelEigenBasis(const alps::params &par, bool verbose = false);
+  AtomicModelEigenBasis(const alps::params &par,
                           const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
                           const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
-                          const boost::multi_array<SCALAR,3> &F,
                           bool verbose = false);
   static void define_parameters(alps::params &parameters);
 
@@ -400,8 +391,8 @@ class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBa
   //Apply exp(-t H0) on a bra or a ket
   void sector_propagate_bra(BRAKET_T &bra, double t) const;
   void sector_propagate_ket(BRAKET_T &ket, double t) const;
-  typename model_traits<ImpurityModelEigenBasis<SCALAR> >::BRAKET_T get_outer_bra(int bra) const;
-  typename model_traits<ImpurityModelEigenBasis<SCALAR> >::BRAKET_T get_outer_ket(int ket) const;
+  typename model_traits<AtomicModelEigenBasis<SCALAR> >::BRAKET_T get_outer_bra(int bra) const;
+  typename model_traits<AtomicModelEigenBasis<SCALAR> >::BRAKET_T get_outer_ket(int ket) const;
 
   inline double min_energy(int sector) const {
     return min_eigenval_sector.at(sector);
@@ -437,7 +428,7 @@ class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBa
 };
 
 template<typename SCALAR>
-struct model_traits<ImpurityModelEigenBasis<SCALAR> > {
+struct model_traits<AtomicModelEigenBasis<SCALAR> > {
   typedef SCALAR SCALAR_T;
   typedef Braket<SCALAR, Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> > BRAKET_T;
 };
@@ -467,5 +458,5 @@ inline double compute_exp_vector_safe(const double tau,
   return std::exp(max_val);
 }
 
-typedef ImpurityModelEigenBasis<double> REAL_EIGEN_BASIS_MODEL;
-typedef ImpurityModelEigenBasis<std::complex<double> > COMPLEX_EIGEN_BASIS_MODEL;
+typedef AtomicModelEigenBasis<double> REAL_EIGEN_BASIS_MODEL;
+typedef AtomicModelEigenBasis<std::complex<double> > COMPLEX_EIGEN_BASIS_MODEL;

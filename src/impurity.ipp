@@ -95,7 +95,9 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       start_time(time(NULL)),
       p_model(new IMP_MODEL(p, rank == 0)),//impurity model
       F(new HybridizationFunction<SCALAR>(
-          BETA, N, FLAVORS, p_model->get_F()
+          BETA,
+          parameters["model.delta_input_file"].template as<std::string>(),
+          N, FLAVORS
         )
       ),
 #ifdef ALPS_HAVE_MPI
@@ -126,6 +128,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   if (thermalization_time > 0.9 * parameters["timelimit"].template as<double>()) {
     throw std::runtime_error("timelimit is too short in comparison with thermalization_time.");
   }
+
 
   /////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////

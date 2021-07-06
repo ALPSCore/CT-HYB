@@ -28,7 +28,7 @@
 #error MPI environment is required!
 #endif
 
-template<typename T> class ImpurityModelEigenBasis;
+template<typename T> class AtomicModelEigenBasis;
 template<typename T> class HybridizationSimulation;
 template<typename T> class mymcmpiadapter;
 
@@ -66,7 +66,7 @@ template<typename Scalar>
 class MatrixSolver : public Solver {
  private:
   typedef Solver Base;
-  typedef HybridizationSimulation<ImpurityModelEigenBasis<Scalar> > SOLVER_TYPE;
+  typedef HybridizationSimulation<AtomicModelEigenBasis<Scalar> > SOLVER_TYPE;
   typedef mymcmpiadapter<SOLVER_TYPE> sim_type;
 
  public:

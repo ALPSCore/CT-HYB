@@ -1,16 +1,17 @@
 #include <tuple>
 #include <alps/params.hpp>
 
-#include "../src/model/model.hpp"
+#include "../src/model/atomic_model.hpp"
+#include "../src/model/hybridization_function.hpp"
 
 #include <gtest.h>
 
 // Check all eigen energies by applying H to an eigenstate.
 template<typename SCALAR>
 void
-check_eigenes(const ImpurityModelEigenBasis<SCALAR> &model) {
+check_eigenes(const AtomicModelEigenBasis<SCALAR> &model) {
   using dense_matrix_t = Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic>;
-  using braket_t = typename ImpurityModelEigenBasis<SCALAR>::BRAKET_T;
+  using braket_t = typename AtomicModelEigenBasis<SCALAR>::BRAKET_T;
 
   for (auto sector=0; sector<model.num_sectors(); ++sector) {
     int dim_sector = model.dim_sector(sector);
@@ -67,9 +68,9 @@ check_eigenes(const ImpurityModelEigenBasis<SCALAR> &model) {
 // Check sector_propagate_ket and sector_propagate_bra
 template<typename SCALAR>
 void
-check_sector_propagate(const ImpurityModelEigenBasis<SCALAR> &model) {
+check_sector_propagate(const AtomicModelEigenBasis<SCALAR> &model) {
   using dense_matrix_t = Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic>;
-  using braket_t = typename ImpurityModelEigenBasis<SCALAR>::BRAKET_T;
+  using braket_t = typename AtomicModelEigenBasis<SCALAR>::BRAKET_T;
 
   for (auto sector=0; sector<model.num_sectors(); ++sector) {
     int dim_sector = model.dim_sector(sector);
@@ -155,4 +156,67 @@ create_SK_Uijkl(double onsite_U, double JH) {
   }
 
   return Uval_list;
+}
+
+// Test data F_ij(tau) = (i+1) * (j+1) * exp(-tau*beta) 
+template<typename SCALAR>
+SCALAR test_F_two_flavor(double tau, double beta, int i, int j) {
+  check_true(i <= 1);
+  check_true(j <= 1);
+  std::complex<double> z;
+  auto x = 2*(tau-0.5*beta)/beta;
+  if (i == j) {
+    z = (i+1) * (x + x*x);
+  } else if (i==0 && j == 1) {
+    z = std::complex<double>(1.0, +0.1) * (x + x*x);
+  } else {
+    z = std::complex<double>(1.0, -0.1) * (x + x*x);
+  }
+  return mycast<SCALAR>(z);
+}
+
+template<typename SCALAR>
+void test_read_intpl_hyb_two_flavor() {
+    auto ntau = 1000;
+    auto beta = 2.0;
+    auto nflavors = 2;
+    auto Np1 = ntau + 1;
+    std::string fname = "delta.txt";
+
+    {
+      std::ofstream of(fname.c_str());
+      for (auto time = 0; time < Np1; time++) {
+        auto tau = beta * time / (1. * ntau);
+        for (auto i = 0; i < nflavors; i++) {
+          for (auto j = 0; j < nflavors; j++) {
+            std::complex<double> delta = - test_F_two_flavor<SCALAR>(beta-tau, beta, j, i);
+            of << time << " " << i << " " << j << " " 
+                << delta.real() << " " << delta.imag() << std::endl;;
+          }
+        }
+      }
+    }
+    
+    auto hyb = HybridizationFunction<SCALAR>(beta, fname, ntau, nflavors);
+
+    // 0 < tau < beta
+    auto atol = 1e-3;
+    std::vector<double> tau0_list {0.0, beta, 2*beta, -beta};
+    std::vector<double> sign_list {1.0, -1.0,    1.0,  -1.0};
+    for (auto time = 1; time < 2*ntau; time++) {
+      auto tau = beta * time/(2. * ntau);
+      for (auto i = 0; i < nflavors; i++) {
+        for (auto j = 0; j < nflavors; j++) {
+          for (auto ishift=0; ishift < tau0_list.size(); ++ishift) {
+            auto tau0 = tau0_list[ishift];
+            auto sign = sign_list[ishift];
+            ASSERT_NEAR(
+              std::abs(
+                hyb(tau+tau0, i, j) - sign * test_F_two_flavor<SCALAR>(tau, beta ,i, j)
+              ), 0.0, atol
+            );
+          }
+        }
+      }
+    }
 }

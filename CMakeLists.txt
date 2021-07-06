@@ -76,8 +76,8 @@ set(ALL_LIB_FILES
     ./src/impurity.cpp
     #./src/operator_util.cpp
     #./src/model/clustering.cpp
-    #./src/model/model_complex.cpp
-    #./src/model/model_real.cpp
+    #./src/model/atomic_model_complex.cpp
+    #./src/model/atomic_model_real.cpp
     #./src/sliding_window/sliding_window.cpp
     ./src/solver_complex.cpp
     #./src/moves/moves.cpp
@@ -91,8 +91,8 @@ set(COMMON_LIB_FILES
 
 set(MODEL_FILES
     ./src/model/clustering.cpp
-    ./src/model/model_real.cpp
-    ./src/model/model_complex.cpp
+    ./src/model/atomic_model_real.cpp
+    ./src/model/atomic_model_complex.cpp
 )
 
 set(SW_FILES

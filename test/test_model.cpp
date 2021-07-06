@@ -20,11 +20,9 @@ TEST(ModelLibrary, SingleOrbitalModel) {
 
   std::vector<std::tuple<int, int, int, int, SCALAR> > Uval_list{ {0, 1, 1, 0, -onsite_U} };
   std::vector<std::tuple<int, int, SCALAR> > t_list;
-  boost::multi_array<SCALAR, 3> F(boost::extents[nflavors][nflavors][ntau+1]);
-  std::fill(F.origin(), F.origin() + F.num_elements(), 0.0);
 
-  ImpurityModelEigenBasis<SCALAR>::define_parameters(par);
-  ImpurityModelEigenBasis<SCALAR> model(par, t_list, Uval_list, F);
+  AtomicModelEigenBasis<SCALAR>::define_parameters(par);
+  AtomicModelEigenBasis<SCALAR> model(par, t_list, Uval_list);
 
   check_eigenes(model);
 
@@ -66,11 +64,8 @@ TEST(ModelLibrary, t2gModel) {
   }
   auto Uval_list = create_SK_Uijkl<SCALAR>(onsite_U, JH);
 
-  boost::multi_array<SCALAR, 3> F(boost::extents[nflavors][nflavors][ntau+1]);
-  std::fill(F.origin(), F.origin() + F.num_elements(), 0.0);
-
-  ImpurityModelEigenBasis<SCALAR>::define_parameters(par);
-  ImpurityModelEigenBasis<SCALAR> model(par, t_list, Uval_list, F);
+  AtomicModelEigenBasis<SCALAR>::define_parameters(par);
+  AtomicModelEigenBasis<SCALAR> model(par, t_list, Uval_list);
 
   check_eigenes(model);
   check_sector_propagate(model);
@@ -88,4 +83,9 @@ TEST(ModelLibrary, t2gModel) {
   }
 
   // Check apply exp(- tau H)
+}
+
+TEST(Hyb, two_flavor) {
+  test_read_intpl_hyb_two_flavor<double>();
+  test_read_intpl_hyb_two_flavor<std::complex<double>>();
 }

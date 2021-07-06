@@ -5,7 +5,7 @@
 
 #include "../common/wide_scalar.hpp"
 #include "../model/operator.hpp"
-#include "../model/model.hpp"
+#include "../model/atomic_model.hpp"
 
 enum ITIME_AXIS_LEFT_OR_RIGHT {
   ITIME_LEFT = 0,
@@ -19,7 +19,7 @@ class SlidingWindowManager {
   typedef MODEL IMPURITY_MODEL;
   typedef typename model_traits<MODEL>::SCALAR_T HAM_SCALAR_TYPE;
   typedef typename model_traits<MODEL>::BRAKET_T BRAKET_TYPE;
-  //class Braket is defined in model.hpp
+  //class Braket is defined in atomic_model.hpp
   typedef typename ExtendedScalar<HAM_SCALAR_TYPE>::value_type EXTENDED_SCALAR;
   typedef typename operator_container_t::iterator op_it_t;
   typedef typename boost::tuple<int, int, ITIME_AXIS_LEFT_OR_RIGHT, int>

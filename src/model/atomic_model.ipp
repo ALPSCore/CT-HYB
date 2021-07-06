@@ -1,9 +1,9 @@
-#include "model.hpp"
+#include "atomic_model.hpp"
 #include "io.hpp"
 
 
 template<typename SCALAR, typename DERIVED>
-ImpurityModel<SCALAR, DERIVED>::ImpurityModel(const alps::params &par, bool verbose)
+AtomicModel<SCALAR, DERIVED>::AtomicModel(const alps::params &par, bool verbose)
     : sites_(par["model.sites"]),
       spins_(par["model.spins"]),
       flavors_(sites_ * spins_),
@@ -15,13 +15,12 @@ ImpurityModel<SCALAR, DERIVED>::ImpurityModel(const alps::params &par, bool verb
       U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_]) {
   read_U_tensor(par["model.coulomb_tensor_input_file"].template as<std::string>(), flavors_, nonzero_U_vals);
   read_hopping(par["model.hopping_matrix_input_file"].template as<std::string>(), flavors_, nonzero_t_vals);
-  read_hybridization_function(par["model.delta_input_file"].template as<std::string>(), flavors_, Np1_, F);
   hilbert_space_partioning(par);
   init_nelec_sectors();
 }
 
 template<typename SCALAR, typename DERIVED>
-void ImpurityModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters) {
+void AtomicModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters) {
   parameters
       .define<std::string>("model.coulomb_tensor_input_file", "Input file containing nonzero elements of U tensor")
       .define<std::string>("model.hopping_matrix_input_file", "Input file for hopping matrix")
@@ -40,10 +39,9 @@ void ImpurityModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters)
 
 //mainly for unitest
 template<typename SCALAR, typename DERIVED>
-ImpurityModel<SCALAR, DERIVED>::ImpurityModel(const alps::params &par,
+AtomicModel<SCALAR, DERIVED>::AtomicModel(const alps::params &par,
                                               const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
                                               const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
-                                              const boost::multi_array<SCALAR,3> &F,
                                               bool verbose)
     : sites_(par["model.sites"]),
       spins_(par["model.spins"]),
@@ -54,23 +52,21 @@ ImpurityModel<SCALAR, DERIVED>::ImpurityModel(const alps::params &par,
       verbose_(verbose),
       nonzero_U_vals(nonzero_U_vals_list),
       nonzero_t_vals(nonzero_t_vals_list) {
-  this->F.resize(boost::extents[flavors_][flavors_][Np1_]);
-  this->F = F;
   hilbert_space_partioning(par);
   init_nelec_sectors();
 }
 
 
 template<typename SCALAR, typename DERIVED>
-ImpurityModel<SCALAR, DERIVED>::~ImpurityModel() { }
+AtomicModel<SCALAR, DERIVED>::~AtomicModel() { }
 
 template<typename SCALAR, typename DERIVED>
-int ImpurityModel<SCALAR, DERIVED>::get_dst_sector_ket(OPERATOR_TYPE op, int flavor, int src_sector) const {
+int AtomicModel<SCALAR, DERIVED>::get_dst_sector_ket(OPERATOR_TYPE op, int flavor, int src_sector) const {
   return sector_connection[static_cast<int>(op)][flavor][src_sector];
 }
 
 template<typename SCALAR, typename DERIVED>
-int ImpurityModel<SCALAR, DERIVED>::get_dst_sector_bra(OPERATOR_TYPE op, int flavor, int src_sector) const {
+int AtomicModel<SCALAR, DERIVED>::get_dst_sector_bra(OPERATOR_TYPE op, int flavor, int src_sector) const {
   return sector_connection_reverse[static_cast<int>(op)][flavor][src_sector];
 }
 
@@ -147,7 +143,7 @@ split_op_into_sectors(int num_sectors,
 }
 
 template<typename SCALAR, typename DERIVED>
-void ImpurityModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params &par) {
+void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params &par) {
   const double eps_numerics = 1E-12;
   const double eps = par["model.cutoff_ham"];
 
@@ -343,7 +339,7 @@ void ImpurityModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params
 
 // Compute total particle number for each sector
 template<typename SCALAR, typename DERIVED>
-void ImpurityModel<SCALAR, DERIVED>::init_nelec_sectors() {
+void AtomicModel<SCALAR, DERIVED>::init_nelec_sectors() {
   nelec_sectors.resize(num_sectors_);
   for (auto sector = 0; sector < num_sectors_; ++sector) {
     sparse_matrix_t nelec_op(dim_sector(sector), dim_sector(sector));
@@ -363,7 +359,7 @@ void ImpurityModel<SCALAR, DERIVED>::init_nelec_sectors() {
 
 template<typename SCALAR, typename DERIVED>
 template<int N>
-void ImpurityModel<SCALAR, DERIVED>::apply_op_bra(const EqualTimeOperator<N> &op, BRAKET_T &bra) const {
+void AtomicModel<SCALAR, DERIVED>::apply_op_bra(const EqualTimeOperator<N> &op, BRAKET_T &bra) const {
   for (int i = 0; i < N; ++i) {
     static_cast<const DERIVED *>(this)->apply_op_hyb_bra(CREATION_OP, op.flavor(2 * i), bra);
     static_cast<const DERIVED *>(this)->apply_op_hyb_bra(ANNIHILATION_OP, op.flavor(2 * i + 1), bra);
@@ -372,7 +368,7 @@ void ImpurityModel<SCALAR, DERIVED>::apply_op_bra(const EqualTimeOperator<N> &op
 
 template<typename SCALAR, typename DERIVED>
 template<int N>
-void ImpurityModel<SCALAR, DERIVED>::apply_op_ket(const EqualTimeOperator<N> &op, BRAKET_T &ket) const {
+void AtomicModel<SCALAR, DERIVED>::apply_op_ket(const EqualTimeOperator<N> &op, BRAKET_T &ket) const {
   for (int i = 0; i < N; ++i) {
     static_cast<const DERIVED *>(this)->apply_op_hyb_ket(ANNIHILATION_OP, op.flavor(2 * N - 1 - 2 * i), ket);
     static_cast<const DERIVED *>(this)->apply_op_hyb_ket(CREATION_OP, op.flavor(2 * N - 2 - 2 * i), ket);

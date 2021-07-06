@@ -1,25 +1,24 @@
 template<typename SCALAR>
-ImpurityModelEigenBasis<SCALAR>::ImpurityModelEigenBasis(const alps::params &par, bool verbose)
-    : ImpurityModel<SCALAR, ImpurityModelEigenBasis<SCALAR> >(par, verbose) {
+AtomicModelEigenBasis<SCALAR>::AtomicModelEigenBasis(const alps::params &par, bool verbose)
+    : AtomicModel<SCALAR, AtomicModelEigenBasis<SCALAR> >(par, verbose) {
   build_basis(par);
   build_outer_braket(par);
   build_qops();
 }
 
 template<typename SCALAR>
-ImpurityModelEigenBasis<SCALAR>::ImpurityModelEigenBasis(const alps::params &par,
+AtomicModelEigenBasis<SCALAR>::AtomicModelEigenBasis(const alps::params &par,
                                                          const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
                                                          const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
-                                                         const boost::multi_array<SCALAR,3> &F,
                                                          bool verbose)
-    : ImpurityModel<SCALAR, ImpurityModelEigenBasis<SCALAR> >(par, nonzero_t_vals_list, nonzero_U_vals_list, F, verbose) {
+    : AtomicModel<SCALAR, AtomicModelEigenBasis<SCALAR> >(par, nonzero_t_vals_list, nonzero_U_vals_list, verbose) {
   build_basis(par);
   build_outer_braket(par);
   build_qops();
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::define_parameters(alps::params &parameters) {
+void AtomicModelEigenBasis<SCALAR>::define_parameters(alps::params &parameters) {
   Base::define_parameters(parameters);
 }
 
@@ -105,7 +104,7 @@ min_max_energy_sectors(const std::vector<std::vector<double> > &evals_sectors,
 }
 
 template<typename SCALAR>
-bool ImpurityModelEigenBasis<SCALAR>::is_sector_active(int sector) const {
+bool AtomicModelEigenBasis<SCALAR>::is_sector_active(int sector) const {
   if (sector == nirvana || eigenvals_sector[sector].size() == 0) {
     return false;
   } else {
@@ -114,7 +113,7 @@ bool ImpurityModelEigenBasis<SCALAR>::is_sector_active(int sector) const {
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
+void AtomicModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
   //build eigenbasis
   const int num_sectors = Base::num_sectors();
   const std::vector<std::vector<int> > &sector_members = Base::get_sector_members();
@@ -228,7 +227,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
 // q_a = - [H_loc, d_a] = d_a H_loc - H_loc d_a
 // q^dagger_a = [H_loc, d^dagger_a] = H_loc d^dagger_a - d^dagger_a H_loc
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::build_qops() {
+void AtomicModelEigenBasis<SCALAR>::build_qops() {
   q_ops_eigen.resize(this->num_flavors());
   qdag_ops_eigen.resize(this->num_flavors());
   for (auto f=0; f<this->num_flavors(); ++f) {
@@ -270,7 +269,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_qops() {
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::build_outer_braket(const alps::params &par) {
+void AtomicModelEigenBasis<SCALAR>::build_outer_braket(const alps::params &par) {
   namespace bll = boost::lambda;
   const double cutoff_outer = par["model.outer_cutoff_energy"].template as<double>()
       + *std::min_element(min_eigenval_sector.begin(), min_eigenval_sector.end());
@@ -316,7 +315,7 @@ void ImpurityModelEigenBasis<SCALAR>::build_outer_braket(const alps::params &par
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::check_evecs(const std::vector<dense_matrix_t> ham_sector,
+void AtomicModelEigenBasis<SCALAR>::check_evecs(const std::vector<dense_matrix_t> ham_sector,
                                                   const std::vector<dense_matrix_t> &evecs_sector) {
 #ifndef NDEBUG
   const int num_sectors = evecs_sector.size();
@@ -332,7 +331,7 @@ void ImpurityModelEigenBasis<SCALAR>::check_evecs(const std::vector<dense_matrix
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::apply_op_ket_impl(
+void AtomicModelEigenBasis<SCALAR>::apply_op_ket_impl(
   const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket,
   const std::vector<std::vector<dense_matrix_t>> &ops) const {
   using namespace std;
@@ -359,7 +358,7 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_ket_impl(
 
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::apply_op_bra_impl(
+void AtomicModelEigenBasis<SCALAR>::apply_op_bra_impl(
   const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra,
   const std::vector<std::vector<dense_matrix_t>> &ops) const {
   using std::swap;
@@ -386,7 +385,7 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_bra_impl(
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_ket(
+void AtomicModelEigenBasis<SCALAR>::apply_op_hyb_ket(
     const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const {
   check_true(op_type == CREATION_OP || op_type == ANNIHILATION_OP);
   if (op_type == CREATION_OP) {
@@ -397,7 +396,7 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_ket(
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_bra(
+void AtomicModelEigenBasis<SCALAR>::apply_op_hyb_bra(
   const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const {
   check_true(op_type == CREATION_OP || op_type == ANNIHILATION_OP);
   if (op_type == CREATION_OP) {
@@ -408,7 +407,7 @@ void ImpurityModelEigenBasis<SCALAR>::apply_op_hyb_bra(
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::apply_qop_ket(
+void AtomicModelEigenBasis<SCALAR>::apply_qop_ket(
     const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const {
   check_true(op_type == CREATION_OP || op_type == ANNIHILATION_OP);
   if (op_type == CREATION_OP) {
@@ -419,7 +418,7 @@ void ImpurityModelEigenBasis<SCALAR>::apply_qop_ket(
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::apply_qop_bra(
+void AtomicModelEigenBasis<SCALAR>::apply_qop_bra(
   const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const {
   check_true(op_type == CREATION_OP || op_type == ANNIHILATION_OP);
   if (op_type == CREATION_OP) {
@@ -431,7 +430,7 @@ void ImpurityModelEigenBasis<SCALAR>::apply_qop_bra(
 
 template<typename SCALAR>
 typename ExtendedScalar<SCALAR>::value_type
-ImpurityModelEigenBasis<SCALAR>::product(const BRAKET_T &bra, const BRAKET_T &ket) const {
+AtomicModelEigenBasis<SCALAR>::product(const BRAKET_T &bra, const BRAKET_T &ket) const {
   if (bra.invalid() || ket.invalid() || bra.sector() != ket.sector()) {
     return 0.0;
   }
@@ -445,7 +444,7 @@ ImpurityModelEigenBasis<SCALAR>::product(const BRAKET_T &bra, const BRAKET_T &ke
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::sector_propagate_ket(BRAKET_T &ket, double t) const {
+void AtomicModelEigenBasis<SCALAR>::sector_propagate_ket(BRAKET_T &ket, double t) const {
   if (ket.invalid()) {
     return;
   }
@@ -471,7 +470,7 @@ void ImpurityModelEigenBasis<SCALAR>::sector_propagate_ket(BRAKET_T &ket, double
 }
 
 template<typename SCALAR>
-void ImpurityModelEigenBasis<SCALAR>::sector_propagate_bra(BRAKET_T &bra, double t) const {
+void AtomicModelEigenBasis<SCALAR>::sector_propagate_bra(BRAKET_T &bra, double t) const {
   if (bra.invalid()) {
     return;
   }
@@ -495,19 +494,19 @@ void ImpurityModelEigenBasis<SCALAR>::sector_propagate_bra(BRAKET_T &bra, double
 }
 
 template<typename SCALAR>
-typename model_traits<ImpurityModelEigenBasis<SCALAR> >::BRAKET_T ImpurityModelEigenBasis<SCALAR>::get_outer_bra(int bra) const {
+typename model_traits<AtomicModelEigenBasis<SCALAR> >::BRAKET_T AtomicModelEigenBasis<SCALAR>::get_outer_bra(int bra) const {
   assert(bra >= 0 && bra < num_brakets());
   return bra_list[bra];
 }
 
 template<typename SCALAR>
-typename model_traits<ImpurityModelEigenBasis<SCALAR> >::BRAKET_T ImpurityModelEigenBasis<SCALAR>::get_outer_ket(int ket) const {
+typename model_traits<AtomicModelEigenBasis<SCALAR> >::BRAKET_T AtomicModelEigenBasis<SCALAR>::get_outer_ket(int ket) const {
   assert(ket >= 0 && ket < num_brakets());
   return ket_list[ket];
 }
 
 template<typename SCALAR>
-bool ImpurityModelEigenBasis<SCALAR>::translationally_invariant() const {
+bool AtomicModelEigenBasis<SCALAR>::translationally_invariant() const {
   namespace bll = boost::lambda;
 
   int tot_dim = 0;

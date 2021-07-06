@@ -11,7 +11,7 @@
 #include "gtest.h"
 
 #include <alps/fastupdate/detail/util.hpp>
-#include "../src/model/model.hpp"
+#include "../src/model/atomic_model.hpp"
 #include "../src/common/util.hpp"
 
 template<typename T>
