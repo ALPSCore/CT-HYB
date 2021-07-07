@@ -397,8 +397,11 @@ void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
   }
   const int num_tau_points = par["measurement.nn_corr.n_tau"];
   const int num_def = par["measurement.nn_corr.n_def"];
-  if (num_tau_points < 2 || !par.defined(fname_key)) {
-    return;
+  if (num_tau_points == 1) {
+    throw std::runtime_error("measurement.nn_corr.n_tau can be either 0 or larger than 1!");
+  }
+  if (!par.defined(fname_key)) {
+    throw std::runtime_error(fname_key + " is not defined!");
   }
 
   if (par[fname_key].template as<std::string>() == "") {
@@ -409,6 +412,8 @@ void HybridizationSimulation<IMP_MODEL>::read_two_time_correlation_functions() {
   if (!infile_f.is_open()) {
     std::cerr << "We cannot open " << par[fname_key] << "!" << std::endl;
     exit(1);
+  } else {
+    std::cout << "Reading " << par[fname_key] << "..." << std::endl;
   }
 
   int num_elem;
