@@ -52,6 +52,7 @@
 #include "sliding_window/sliding_window.hpp"
 #include "measurement/measurement.hpp"
 #include "measurement/measurement_old.hpp"
+#include "measurement/meas_correlation_static_obs.hpp"
 
 #include "accumulator.hpp"
 #include "update_histogram.hpp"

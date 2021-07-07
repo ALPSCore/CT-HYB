@@ -13,6 +13,8 @@ enum ITIME_AXIS_LEFT_OR_RIGHT {
 };
 
 //Implementation of sliding window update + lazy trace evaluation
+// right edge: tau=0
+// left  edge: tau=beta
 template<typename MODEL>
 class SlidingWindowManager {
  public:
@@ -47,7 +49,11 @@ class SlidingWindowManager {
   inline int get_num_brakets() const { return num_brakets; };
   inline double get_tau_low() const { return get_tau_edge(position_right_edge); };
   inline double get_tau_high() const { return get_tau_edge(position_left_edge); };
-  inline double get_tau_edge(int position) const { return (BETA * position) / (2.0 * n_window); }
+  inline double get_tau_edge(int position) const {
+    //check_true(position >= 0 && position <= 2 * n_window);
+    //return (BETA * position) / (2.0 * n_window);
+    return tau_edges.at(position);
+  }
   inline int get_n_window() const { return n_window; };
   inline int get_position_right_edge() const { return position_right_edge; }
   inline int get_position_left_edge() const { return position_left_edge; }
@@ -81,11 +87,6 @@ class SlidingWindowManager {
       (const MODEL &model, BRAKET_TYPE &ket, std::pair<op_it_t, op_it_t> ops_range, double tau_old, double tau_new);
 
  private:
-  const MODEL *const p_model;
-  const double BETA;
-  const int num_brakets;
-  const double norm_cutoff;
-
   inline int depth_left_states() const { return left_states[0].size(); }
   inline int depth_right_states() const { return right_states[0].size(); }
   void pop_back_bra(int num_pop_back = 1);
@@ -105,6 +106,13 @@ class SlidingWindowManager {
   inline typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type
       compute_trace_braket(int braket, std::pair<op_it_t, op_it_t> ops_range, double tau_left, double tau_right) const;
 
+  // Private member variables
+  std::vector<double> tau_edges;
+  const MODEL *const p_model;
+  const double BETA;
+  const int num_brakets;
+  const double norm_cutoff;
+
   std::vector<std::vector<BRAKET_TYPE> > left_states, right_states;
   //bra and ket, respectively
   int position_left_edge, position_right_edge, n_window;
@@ -114,45 +122,4 @@ class SlidingWindowManager {
   std::vector<std::vector<EXTENDED_REAL> > norm_left_states, norm_right_states;
 
   inline void sanity_check() const;
-};
-
-//Measurement of static observable
-template<typename SW, typename OBS>
-class MeasStaticObs {
- private:
-  typedef typename SW::HAM_SCALAR_TYPE SCALAR;
-
- public:
-  MeasStaticObs
-      (SW &sw, const operator_container_t &operators); //move the both edges to the same imaginary time in the middle
-  void perform_meas(const std::vector<OBS> &obs, std::vector<EXTENDED_COMPLEX> &result) const;
-  ~MeasStaticObs(); //restore the sliding window
-
- private:
-  int num_brakets;
-  const typename SW::state_t state_bak;
-  SW &sw_;
-  const operator_container_t &ops_;
-};
-
-//Measurement of <O1_i(tau) O2_i(0)> (i=0, ..., N)
-// N: the number of correlation functions to be computed
-template<typename SW, typename OBS>
-class MeasCorrelation {
- private:
-  typedef typename SW::HAM_SCALAR_TYPE SCALAR;
-
- public:
-  MeasCorrelation(const std::vector<std::pair<OBS, OBS> > &correlators,
-                  int num_tau_points); //move the both edges to the same imaginary time in the middle
-  void perform_meas(SW &sw, const operator_container_t &operators, boost::multi_array<EXTENDED_COMPLEX, 2> &result)
-      const;
-
-  ~MeasCorrelation(); //restore the sliding window
-
- private:
-  const int num_correlators_;
-  const int num_tau_points_, num_win_, right_edge_pos_, left_edge_pos_;
-  std::vector<std::pair<int, int> > obs_pos_in_unique_set;
-  std::vector<OBS> left_obs_unique_list, right_obs_unique_list;
 };

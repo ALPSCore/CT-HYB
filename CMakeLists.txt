@@ -149,6 +149,7 @@ add_gtest(unittest_solver)
 add_gtest(unittest_fu)
 add_gtest(g2)
 add_gtest(test_model)
+add_gtest(test_sw)
 
 #installation
 install (TARGETS hybmat RUNTIME DESTINATION bin)

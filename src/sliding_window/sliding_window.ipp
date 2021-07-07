@@ -40,6 +40,12 @@ void SlidingWindowManager<MODEL>::set_window_size(int n_window_new,
                                                   int new_position_right_edge,
                                                   ITIME_AXIS_LEFT_OR_RIGHT new_direction_move) {
   assert(n_window_new > 0);
+
+  tau_edges.resize(2*n_window_new+1);
+  for (auto w=0; w<tau_edges.size(); ++w) {
+    tau_edges[w] = (BETA * w) / (2.0 * n_window_new);
+  }
+
   sanity_check();
 
   //reset

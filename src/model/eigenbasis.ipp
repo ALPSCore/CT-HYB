@@ -1,25 +1,35 @@
 template<typename SCALAR>
 AtomicModelEigenBasis<SCALAR>::AtomicModelEigenBasis(const alps::params &par, bool verbose)
     : AtomicModel<SCALAR, AtomicModelEigenBasis<SCALAR> >(par, verbose) {
-  build_basis(par);
-  build_outer_braket(par);
+  build_basis(par["inner_outer_cutoff_energy"].template as<double>());
+  build_outer_braket(par["outer_cutoff_energy"].template as<double>());
   build_qops();
 }
 
 template<typename SCALAR>
-AtomicModelEigenBasis<SCALAR>::AtomicModelEigenBasis(const alps::params &par,
+AtomicModelEigenBasis<SCALAR>::AtomicModelEigenBasis(int nflavors,
                                                          const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
                                                          const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
-                                                         bool verbose)
-    : AtomicModel<SCALAR, AtomicModelEigenBasis<SCALAR> >(par, nonzero_t_vals_list, nonzero_U_vals_list, verbose) {
-  build_basis(par);
-  build_outer_braket(par);
+                                                         bool verbose,
+                                                         double cutoff_ham,
+                                                         double hermicity_tolerance,
+                                                         double inner_outer_cutoff_energy,
+                                                         double outer_cutoff_energy
+                                                         )
+    : AtomicModel<SCALAR, AtomicModelEigenBasis<SCALAR> >(nflavors, nonzero_t_vals_list, nonzero_U_vals_list, verbose) {
+  build_basis(inner_outer_cutoff_energy);
+  build_outer_braket(outer_cutoff_energy);
   build_qops();
 }
 
 template<typename SCALAR>
 void AtomicModelEigenBasis<SCALAR>::define_parameters(alps::params &parameters) {
   Base::define_parameters(parameters);
+  parameters
+    .define<double>("model.inner_outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
+      "Cutoff energy for inner states for computing trace (measured from the lowest eigenvalue)")
+    .define<double>("model.outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
+                      "Cutoff energy for outer states for computing trace (measured from the lowest eigenvalue)");
 }
 
 template<typename SCALAR, typename OP>
@@ -113,7 +123,7 @@ bool AtomicModelEigenBasis<SCALAR>::is_sector_active(int sector) const {
 }
 
 template<typename SCALAR>
-void AtomicModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
+void AtomicModelEigenBasis<SCALAR>::build_basis(double inner_outer_cutoff_energy) {
   //build eigenbasis
   const int num_sectors = Base::num_sectors();
   const std::vector<std::vector<int> > &sector_members = Base::get_sector_members();
@@ -152,7 +162,7 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
   }
   remove_high_energy_states(eigenvals_sector,
                             evecs_sector,
-                            eigenvalue_min + par["model.inner_outer_cutoff_energy"].template as<double>());
+                            eigenvalue_min + inner_outer_cutoff_energy);
   boost::tie(eigenvalue_max, eigenvalue_min) = min_max_energy_sectors(eigenvals_sector, min_eigenval_sector);
   if (Base::verbose_) {
     print_sectors(eigenvals_sector);
@@ -176,6 +186,8 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
   }
 
   //overflow prevention
+  Base::reference_energy_ = eigenvalue_min;
+  /*
   double overflow_prevention;
   const double BETA = par["model.beta"].template as<double>();
   if (0.5 * (eigenvalue_max - eigenvalue_min) > 200 / BETA) {
@@ -193,6 +205,7 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
     }
     min_eigenval_sector[sector] -= Base::reference_energy_;
   }
+  */
 
   //transform d, d^dagger to eigenbasis
   ddag_ops_eigen.resize(flavors);
@@ -269,10 +282,10 @@ void AtomicModelEigenBasis<SCALAR>::build_qops() {
 }
 
 template<typename SCALAR>
-void AtomicModelEigenBasis<SCALAR>::build_outer_braket(const alps::params &par) {
+void AtomicModelEigenBasis<SCALAR>::build_outer_braket(double outer_cutoff_energy) {
   namespace bll = boost::lambda;
-  const double cutoff_outer = par["model.outer_cutoff_energy"].template as<double>()
-      + *std::min_element(min_eigenval_sector.begin(), min_eigenval_sector.end());
+  const double cutoff_outer = outer_cutoff_energy + 
+    *std::min_element(min_eigenval_sector.begin(), min_eigenval_sector.end());
   int active_sector = 0;
   bra_list.resize(0);
   ket_list.resize(0);
@@ -310,8 +323,6 @@ void AtomicModelEigenBasis<SCALAR>::build_outer_braket(const alps::params &par) 
     ++active_sector;
   }
   num_braket_ = active_sector;
-  //assert(num_braket_==std::count_if(eigenvals_sector.begin(),eigenvals_sector.end(),bll::_1.size()!=0));
-  //std::cout << "num of active sector " << active_sector << std::endl;
 }
 
 template<typename SCALAR>

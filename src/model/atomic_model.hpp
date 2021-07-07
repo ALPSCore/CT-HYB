@@ -188,10 +188,13 @@ class AtomicModel {
  public:
   //! Contruct the impurity model
   AtomicModel(const alps::params &par, bool verbose = false);
-  AtomicModel(const alps::params &par,
+  AtomicModel(int nflavors,
                 const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
                 const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
-                bool verbose = false);
+                bool verbose = false,
+                double cutoff_ham = 1e-12,
+                double hermicity_tolerance = 1e-12
+                );
   virtual ~AtomicModel();
 
   static void define_parameters(alps::params &parameters);
@@ -294,7 +297,7 @@ class AtomicModel {
   void apply_op_ket(const EqualTimeOperator<N> &op, BRAKET_T &ket) const;
 
  protected:
-  const int sites_, spins_, flavors_, dim_, ntau_, Np1_;
+  const int flavors_, dim_;
   double reference_energy_;
   bool verbose_;
 
@@ -335,7 +338,7 @@ class AtomicModel {
 
  private:
   //for initialization
-  void hilbert_space_partioning(const alps::params &par);
+  void hilbert_space_partioning(double cutoff_ham, double hermicity_tolerance);
   void init_nelec_sectors();
 
   //results of partioning of the Hilbert space
@@ -366,10 +369,15 @@ class AtomicModelEigenBasis: public AtomicModel<SCALAR, AtomicModelEigenBasis<SC
   using typename Base::EXTENDED_SCALAR;
 
   AtomicModelEigenBasis(const alps::params &par, bool verbose = false);
-  AtomicModelEigenBasis(const alps::params &par,
+  AtomicModelEigenBasis(int nflavors,
                           const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
                           const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
-                          bool verbose = false);
+                          bool verbose = false,
+                          double cutoff_ham = 1e-12,
+                          double hermicity_tolerance = 1e-12,
+                          double inner_outer_cutoff_energy = 0.1 * std::numeric_limits<double>::max(),
+                          double outer_cutoff_energy = 0.1 * std::numeric_limits<double>::max()
+                          );
   static void define_parameters(alps::params &parameters);
 
   void apply_op_hyb_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const;
@@ -405,8 +413,8 @@ class AtomicModelEigenBasis: public AtomicModel<SCALAR, AtomicModelEigenBasis<SC
   bool translationally_invariant() const;
 
  private:
-  void build_basis(const alps::params &par);
-  void build_outer_braket(const alps::params &par);
+  void build_basis(double inner_outer_cutoff_energy);
+  void build_outer_braket(double outer_cutoff_energy);
   void build_qops();
 
   void apply_op_bra_impl(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra,

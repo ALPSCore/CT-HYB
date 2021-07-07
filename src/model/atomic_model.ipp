@@ -1,17 +1,16 @@
 template<typename SCALAR, typename DERIVED>
 AtomicModel<SCALAR, DERIVED>::AtomicModel(const alps::params &par, bool verbose)
-    : sites_(par["model.sites"]),
-      spins_(par["model.spins"]),
-      flavors_(sites_ * spins_),
+    : flavors_(par["model.sites"].template as<int>() * par["model.spins"].template as<int>()),
       dim_(1 << flavors_),
-      ntau_(static_cast<int>(par["model.n_tau_hyb"])),
-      Np1_(ntau_ + 1),
       reference_energy_(-1E+100),//this should be set in a derived class,
       verbose_(verbose),
       U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_]) {
   read_U_tensor(par["model.coulomb_tensor_input_file"].template as<std::string>(), flavors_, nonzero_U_vals);
   read_hopping(par["model.hopping_matrix_input_file"].template as<std::string>(), flavors_, nonzero_t_vals);
-  hilbert_space_partioning(par);
+  hilbert_space_partioning(
+      par["model.cutoff_ham"].template as<double>(),
+      par["model.hermicity_tolerance"].template as<double>()
+  );
   init_nelec_sectors();
 }
 
@@ -21,11 +20,10 @@ void AtomicModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters) {
       .define<std::string>("model.coulomb_tensor_input_file", "Input file containing nonzero elements of U tensor")
       .define<std::string>("model.hopping_matrix_input_file", "Input file for hopping matrix")
       .define<std::string>("model.delta_input_file", "", "Input file for hybridization function Delta(tau)")
-      .define<std::string>("model.basis_input_file", "", "Input file for single-particle basis for expansion")
-      .define<double>("model.inner_outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
-                      "Cutoff energy for inner states for computing trace (measured from the lowest eigenvalue)")
-      .define<double>("model.outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
-                      "Cutoff energy for outer states for computing trace (measured from the lowest eigenvalue)")
+      //.define<double>("model.inner_outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
+                      //"Cutoff energy for inner states for computing trace (measured from the lowest eigenvalue)")
+      //.define<double>("model.outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
+                      //"Cutoff energy for outer states for computing trace (measured from the lowest eigenvalue)")
       .define<double>("model.cutoff_ham", 1E-12,
                       "Cutoff for entries in the local Hamiltonian matrix")
       .define<double>("model.hermicity_tolerance", 1E-12,
@@ -35,20 +33,21 @@ void AtomicModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters) {
 
 //mainly for unitest
 template<typename SCALAR, typename DERIVED>
-AtomicModel<SCALAR, DERIVED>::AtomicModel(const alps::params &par,
+AtomicModel<SCALAR, DERIVED>::AtomicModel(int nflavors,
                                               const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
                                               const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
-                                              bool verbose)
-    : sites_(par["model.sites"]),
-      spins_(par["model.spins"]),
-      flavors_(sites_ * spins_),
+                                              bool verbose,
+                                              //double inner_outer_cutoff_energy = 0.1 * std::numeric_limits<double>::max(),
+                                              //double outer_cutoff_energy = 0.1 * std::numeric_limits<double>::max(),
+                                              double cutoff_ham,
+                                              double hermicity_tolerance
+                                              )
+    : flavors_(nflavors),
       dim_(1 << flavors_),
-      ntau_(static_cast<int>(par["model.n_tau_hyb"])),
-      Np1_(ntau_ + 1),
       verbose_(verbose),
       nonzero_U_vals(nonzero_U_vals_list),
       nonzero_t_vals(nonzero_t_vals_list) {
-  hilbert_space_partioning(par);
+  hilbert_space_partioning(cutoff_ham, hermicity_tolerance);
   init_nelec_sectors();
 }
 
@@ -139,9 +138,9 @@ split_op_into_sectors(int num_sectors,
 }
 
 template<typename SCALAR, typename DERIVED>
-void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params &par) {
+void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, double hermicity_tolerance){
   const double eps_numerics = 1E-12;
-  const double eps = par["model.cutoff_ham"];
+  const double eps = cutoff_ham;
 
 
   // Construct hopping matrix
@@ -155,7 +154,7 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(const alps::params &
   }
   for (int flavor = 0; flavor < flavors_; ++flavor) {
     for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
-      if (std::abs(hopping_mat(flavor, flavor2) - myconj<SCALAR>(hopping_mat(flavor2, flavor))) > par["model.hermicity_tolerance"].template as<double>()) {
+      if (std::abs(hopping_mat(flavor, flavor2) - myconj<SCALAR>(hopping_mat(flavor2, flavor))) > hermicity_tolerance) {
         throw std::runtime_error("Error: Hopping matrix is not hermite!");
       }
     }

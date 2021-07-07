@@ -7,22 +7,18 @@
 TEST(ModelLibrary, SingleOrbitalModel) {
   typedef std::complex<double> SCALAR;
   SCALAR tval = 0.0;
-  auto ntau = 1000;
   auto nflavors = 2;
 
   alps::params par;
   par["model.sites"] = 1;
   par["model.spins"] = 2;
-  par["model.n_tau_hyb"] = ntau;
   double onsite_U = 2.0;
-  par["model.onsite_U"] = onsite_U;
-  par["model.beta"] = 1.0;
 
   std::vector<std::tuple<int, int, int, int, SCALAR> > Uval_list{ {0, 1, 1, 0, -onsite_U} };
   std::vector<std::tuple<int, int, SCALAR> > t_list;
 
   AtomicModelEigenBasis<SCALAR>::define_parameters(par);
-  AtomicModelEigenBasis<SCALAR> model(par, t_list, Uval_list);
+  AtomicModelEigenBasis<SCALAR> model(nflavors, t_list, Uval_list);
 
   check_eigenes(model);
 
@@ -31,11 +27,11 @@ TEST(ModelLibrary, SingleOrbitalModel) {
   std::vector<int> nelec_sectors_ref = {2, 1, 1, 0};
   std::vector<int> min_enes, nelec_sectors;
   for (auto sector=0; sector<4; ++sector) {
-      min_enes.push_back(model.min_energy(sector));
+      min_enes.push_back(model.min_energy(sector) + model.get_reference_energy());
       nelec_sectors.push_back(model.nelec_sector(sector));
   }
-  ASSERT_EQ(min_enes, min_enes_ref);
-  ASSERT_EQ(nelec_sectors, nelec_sectors_ref);
+  ASSERT_EQ(min_enes_ref, min_enes);
+  ASSERT_EQ(nelec_sectors_ref, nelec_sectors);
 }
 
 
@@ -43,7 +39,6 @@ TEST(ModelLibrary, SingleOrbitalModel) {
 TEST(ModelLibrary, t2gModel) {
   typedef std::complex<double> SCALAR;
   SCALAR tval = 0.0;
-  auto ntau = 1000;
   auto nflavors = 6;
   auto norbs = nflavors / 2;
   auto onsite_U = 2.0;
@@ -54,9 +49,6 @@ TEST(ModelLibrary, t2gModel) {
   alps::params par;
   par["model.sites"] = 3;
   par["model.spins"] = 2;
-  par["model.n_tau_hyb"] = ntau;
-  par["model.onsite_U"] = onsite_U;
-  par["model.beta"] = 1.0;
 
   std::vector<std::tuple<int, int, SCALAR> > t_list;
   for (auto f=0; f<2*norbs; ++f) {
@@ -65,7 +57,7 @@ TEST(ModelLibrary, t2gModel) {
   auto Uval_list = create_SK_Uijkl<SCALAR>(onsite_U, JH);
 
   AtomicModelEigenBasis<SCALAR>::define_parameters(par);
-  AtomicModelEigenBasis<SCALAR> model(par, t_list, Uval_list);
+  AtomicModelEigenBasis<SCALAR> model(nflavors, t_list, Uval_list);
 
   check_eigenes(model);
   check_sector_propagate(model);
