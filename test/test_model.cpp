@@ -14,7 +14,8 @@ TEST(ModelLibrary, SingleOrbitalModel) {
   par["model.spins"] = 2;
   double onsite_U = 2.0;
 
-  std::vector<std::tuple<int, int, int, int, SCALAR> > Uval_list{ {0, 1, 1, 0, -onsite_U} };
+  // Repulsive onsite U
+  std::vector<std::tuple<int, int, int, int, SCALAR> > Uval_list{ {0, 1, 1, 0, onsite_U} };
   std::vector<std::tuple<int, int, SCALAR> > t_list;
 
   AtomicModelEigenBasis<SCALAR>::define_parameters(par);
@@ -23,7 +24,7 @@ TEST(ModelLibrary, SingleOrbitalModel) {
   check_eigenes(model);
 
   ASSERT_EQ(model.num_sectors(), 4);
-  std::vector<int> min_enes_ref = {0, 2, 2, 2};
+  std::vector<int> min_enes_ref = {2, 0, 0, 0};
   std::vector<int> nelec_sectors_ref = {2, 1, 1, 0};
   std::vector<int> min_enes, nelec_sectors;
   for (auto sector=0; sector<4; ++sector) {
@@ -55,6 +56,8 @@ TEST(ModelLibrary, t2gModel) {
       t_list.push_back({f, f, -mu_half});
   }
   auto Uval_list = create_SK_Uijkl<SCALAR>(onsite_U, JH);
+  //debug
+  //Uval_list.resize(0);
 
   AtomicModelEigenBasis<SCALAR>::define_parameters(par);
   AtomicModelEigenBasis<SCALAR> model(nflavors, t_list, Uval_list);

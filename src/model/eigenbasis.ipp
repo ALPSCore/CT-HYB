@@ -196,6 +196,7 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(double inner_outer_cutoff_energy
     overflow_prevention = 0;
   }
   Base::reference_energy_ = eigenvalue_min;
+  */
   if (Base::verbose_) {
     std::cout << "Reference energy " << Base::reference_energy_ << std::endl;
   }
@@ -205,7 +206,6 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(double inner_outer_cutoff_energy
     }
     min_eigenval_sector[sector] -= Base::reference_energy_;
   }
-  */
 
   //transform d, d^dagger to eigenbasis
   ddag_ops_eigen.resize(flavors);
