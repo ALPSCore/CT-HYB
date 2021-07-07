@@ -1,7 +1,3 @@
-#include "atomic_model.hpp"
-#include "io.hpp"
-
-
 template<typename SCALAR, typename DERIVED>
 AtomicModel<SCALAR, DERIVED>::AtomicModel(const alps::params &par, bool verbose)
     : sites_(par["model.sites"]),

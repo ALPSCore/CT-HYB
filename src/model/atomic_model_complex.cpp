@@ -1,6 +1,8 @@
 #include <alps/params.hpp>
 
 #include "atomic_model.hpp"
+
+#include "atomic_model_io.ipp"
 #include "atomic_model.ipp"
 #include "eigenbasis.ipp"
 
