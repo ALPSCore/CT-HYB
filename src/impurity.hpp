@@ -15,6 +15,7 @@
 
 #include <vector>
 #include <iostream>
+#include <memory>
 #include <algorithm>
 #include <cmath>
 #include <valarray>
@@ -160,7 +161,7 @@ class HybridizationSimulation: public alps::mcbase {
   const time_t start_time;
 
   //Model object
-  boost::scoped_ptr<IMP_MODEL> p_model;
+  std::shared_ptr<const IMP_MODEL> p_model;
 
   boost::shared_ptr<HybridizationFunction<SCALAR> > F;
 

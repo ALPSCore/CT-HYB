@@ -1,15 +1,21 @@
 #include "sliding_window.hpp"
 
 template<typename MODEL>
-SlidingWindowManager<MODEL>::SlidingWindowManager(MODEL *p_model_, double beta)
+SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<const MODEL> p_model_,
+  double beta, int n_window)
     : p_model(p_model_),
       BETA(beta),
       num_brakets(p_model->num_brakets()),
-      norm_cutoff(std::sqrt(std::numeric_limits<double>::min())) { };
+      norm_cutoff(std::sqrt(std::numeric_limits<double>::min())) {
+        init_tau_edges(n_window);
+      };
 
 template<typename MODEL>
 void
 SlidingWindowManager<MODEL>::init_stacks(int n_window_size, const operator_container_t &operators) {
+  check_true(n_window_size > 0);
+  init_tau_edges(n_window_size);
+
   left_states.resize(num_brakets);
   right_states.resize(num_brakets);
   norm_left_states.resize(num_brakets);//for bra
@@ -39,12 +45,8 @@ void SlidingWindowManager<MODEL>::set_window_size(int n_window_new,
                                                   const operator_container_t &operators,
                                                   int new_position_right_edge,
                                                   ITIME_AXIS_LEFT_OR_RIGHT new_direction_move) {
-  assert(n_window_new > 0);
-
-  tau_edges.resize(2*n_window_new+1);
-  for (auto w=0; w<tau_edges.size(); ++w) {
-    tau_edges[w] = (BETA * w) / (2.0 * n_window_new);
-  }
+  check_true(n_window_new > 0);
+  init_tau_edges(n_window_new);
 
   sanity_check();
 

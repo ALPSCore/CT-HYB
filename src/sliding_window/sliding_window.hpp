@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include <boost/tuple/tuple.hpp>
 #include <boost/multi_array.hpp>
 
@@ -21,15 +23,23 @@ class SlidingWindowManager {
   typedef MODEL IMPURITY_MODEL;
   typedef typename model_traits<MODEL>::SCALAR_T HAM_SCALAR_TYPE;
   typedef typename model_traits<MODEL>::BRAKET_T BRAKET_TYPE;
-  //class Braket is defined in atomic_model.hpp
   typedef typename ExtendedScalar<HAM_SCALAR_TYPE>::value_type EXTENDED_SCALAR;
   typedef typename operator_container_t::iterator op_it_t;
   typedef typename boost::tuple<int, int, ITIME_AXIS_LEFT_OR_RIGHT, int>
       state_t;//pos of left edge, pos of right edge, direction of move, num of windows
 
-  SlidingWindowManager(MODEL *p_model, double beta);
+  SlidingWindowManager(std::shared_ptr<const MODEL> p_model, double beta, int n_window=1);
 
   //Initialization
+  inline void init_tau_edges(int n_window) {
+    this->n_window = n_window;
+    tau_edges.resize(2*n_window+1);
+    tau_edges[0] = 0;
+    for (auto w=1; w<tau_edges.size()-1; ++w) {
+      tau_edges[w] = (BETA * w) / (2.0 * n_window);
+    }
+    tau_edges.back() = BETA;
+  }
   void init_stacks(int n_window_size, const operator_container_t &operators);
 
   //Change window size during MC simulation
@@ -58,7 +68,7 @@ class SlidingWindowManager {
   inline int get_position_right_edge() const { return position_right_edge; }
   inline int get_position_left_edge() const { return position_left_edge; }
   inline int get_direction_move_local_window() const { return direction_move_local_window; }
-  inline const MODEL *get_p_model() const { return p_model; }
+  inline const std::shared_ptr<const MODEL> get_p_model() const { return p_model; }
   inline const BRAKET_TYPE &get_bra(int bra) const { return left_states[bra].back(); }
   inline const BRAKET_TYPE &get_ket(int ket) const { return right_states[ket].back(); }
 
@@ -108,7 +118,7 @@ class SlidingWindowManager {
 
   // Private member variables
   std::vector<double> tau_edges;
-  const MODEL *const p_model;
+  const std::shared_ptr<const MODEL> p_model;
   const double BETA;
   const int num_brakets;
   const double norm_cutoff;

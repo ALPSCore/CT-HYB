@@ -189,8 +189,8 @@ class AtomicModel {
   //! Contruct the impurity model
   AtomicModel(const alps::params &par, bool verbose = false);
   AtomicModel(int nflavors,
-                const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
-                const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
+                const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list = {},
+                const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list = {},
                 bool verbose = false,
                 double cutoff_ham = 1e-12,
                 double hermicity_tolerance = 1e-12
@@ -370,8 +370,8 @@ class AtomicModelEigenBasis: public AtomicModel<SCALAR, AtomicModelEigenBasis<SC
 
   AtomicModelEigenBasis(const alps::params &par, bool verbose = false);
   AtomicModelEigenBasis(int nflavors,
-                          const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
-                          const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
+                          const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list = {},
+                          const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list = {},
                           bool verbose = false,
                           double cutoff_ham = 1e-12,
                           double hermicity_tolerance = 1e-12,

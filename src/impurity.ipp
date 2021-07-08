@@ -111,7 +111,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       operator_pair_flavor_updater(FLAVORS),
       single_op_shift_updater(BETA, FLAVORS, N),
       worm_insertion_removers(0),
-      sliding_window(p_model.get(), BETA),
+      sliding_window(p_model, BETA),
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
