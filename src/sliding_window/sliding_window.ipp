@@ -12,10 +12,19 @@ SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<const MODEL> p
 
 template<typename MODEL>
 void
-SlidingWindowManager<MODEL>::init_stacks(int n_window_size, const operator_container_t &operators) {
-  check_true(n_window_size > 0);
-  init_tau_edges(n_window_size);
+SlidingWindowManager<MODEL>::init_tau_edges(int n_window) {
+  this->n_window = n_window;
+  tau_edges.resize(2*n_window+1);
+  tau_edges[0] = 0;
+  for (auto w=1; w<tau_edges.size()-1; ++w) {
+    tau_edges[w] = (BETA * w) / (2.0 * n_window);
+  }
+  tau_edges.back() = BETA;
+}
 
+template<typename MODEL>
+void
+SlidingWindowManager<MODEL>::init_stacks(const operator_container_t &operators) {
   left_states.resize(num_brakets);
   right_states.resize(num_brakets);
   norm_left_states.resize(num_brakets);//for bra
@@ -35,8 +44,6 @@ SlidingWindowManager<MODEL>::init_stacks(int n_window_size, const operator_conta
     norm_left_states[braket].push_back(left_states[braket].back().compute_spectral_norm());
     norm_right_states[braket].push_back(right_states[braket].back().compute_spectral_norm());
   }
-
-  set_window_size(n_window_size, operators);
   sanity_check();
 }
 
@@ -47,8 +54,6 @@ void SlidingWindowManager<MODEL>::set_window_size(int n_window_new,
                                                   ITIME_AXIS_LEFT_OR_RIGHT new_direction_move) {
   check_true(n_window_new > 0);
   init_tau_edges(n_window_new);
-
-  sanity_check();
 
   //reset
   while (depth_right_states() > 1) {
@@ -516,23 +521,19 @@ template<typename MODEL>
 void SlidingWindowManager<MODEL>::restore_state(const operator_container_t &ops, state_t state) {
   set_window_size(boost::get<3>(state), ops, boost::get<1>(state), boost::get<2>(state));
   move_left_edge_to(ops, boost::get<0>(state));
-  assert(get_position_right_edge() == boost::get<1>(state));
-  assert(get_position_left_edge() == boost::get<0>(state));
-  //move_right_edge_to(ops, boost::get<1>(state));
-  //direction_move_local_window = boost::get<2>(state);
+  check_true(get_position_right_edge() == boost::get<1>(state));
+  check_true(get_position_left_edge() == boost::get<0>(state));
 };
 
 template<typename MODEL>
 void
 SlidingWindowManager<MODEL>::sanity_check() const {
-#ifndef NDEBUG
   for (int braket = 0; braket < num_brakets; ++braket) {
-    assert(left_states[braket].size() == depth_left_states());
-    assert(right_states[braket].size() == depth_right_states());
-    assert(norm_left_states[braket].size() == depth_left_states());
-    assert(norm_right_states[braket].size() == depth_right_states());
-    assert(norm_right_states[braket].back() >= 0);
-    assert(norm_left_states[braket].back() >= 0);
+    check_true(left_states[braket].size() == depth_left_states());
+    check_true(right_states[braket].size() == depth_right_states());
+    check_true(norm_left_states[braket].size() == depth_left_states());
+    check_true(norm_right_states[braket].size() == depth_right_states());
+    check_true(norm_right_states[braket].back() >= 0);
+    check_true(norm_left_states[braket].back() >= 0);
   }
-#endif
 }

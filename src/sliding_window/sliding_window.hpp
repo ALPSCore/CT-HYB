@@ -31,16 +31,8 @@ class SlidingWindowManager {
   SlidingWindowManager(std::shared_ptr<const MODEL> p_model, double beta, int n_window=1);
 
   //Initialization
-  inline void init_tau_edges(int n_window) {
-    this->n_window = n_window;
-    tau_edges.resize(2*n_window+1);
-    tau_edges[0] = 0;
-    for (auto w=1; w<tau_edges.size()-1; ++w) {
-      tau_edges[w] = (BETA * w) / (2.0 * n_window);
-    }
-    tau_edges.back() = BETA;
-  }
-  void init_stacks(int n_window_size, const operator_container_t &operators);
+  inline void init_tau_edges(int n_window);
+  void init_stacks(const operator_container_t &operators);
 
   //Change window size during MC simulation
   void set_window_size(int n_window_size, const operator_container_t &operators, int new_position_right_edge = 0,
@@ -59,11 +51,7 @@ class SlidingWindowManager {
   inline int get_num_brakets() const { return num_brakets; };
   inline double get_tau_low() const { return get_tau_edge(position_right_edge); };
   inline double get_tau_high() const { return get_tau_edge(position_left_edge); };
-  inline double get_tau_edge(int position) const {
-    //check_true(position >= 0 && position <= 2 * n_window);
-    //return (BETA * position) / (2.0 * n_window);
-    return tau_edges.at(position);
-  }
+  inline double get_tau_edge(int position) const {return tau_edges.at(position); }
   inline int get_n_window() const { return n_window; };
   inline int get_position_right_edge() const { return position_right_edge; }
   inline int get_position_left_edge() const { return position_left_edge; }
