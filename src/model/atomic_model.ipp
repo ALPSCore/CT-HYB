@@ -20,10 +20,6 @@ void AtomicModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters) {
       .define<std::string>("model.coulomb_tensor_input_file", "Input file containing nonzero elements of U tensor")
       .define<std::string>("model.hopping_matrix_input_file", "Input file for hopping matrix")
       .define<std::string>("model.delta_input_file", "", "Input file for hybridization function Delta(tau)")
-      //.define<double>("model.inner_outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
-                      //"Cutoff energy for inner states for computing trace (measured from the lowest eigenvalue)")
-      //.define<double>("model.outer_cutoff_energy", 0.1 * std::numeric_limits<double>::max(),
-                      //"Cutoff energy for outer states for computing trace (measured from the lowest eigenvalue)")
       .define<double>("model.cutoff_ham", 1E-12,
                       "Cutoff for entries in the local Hamiltonian matrix")
       .define<double>("model.hermicity_tolerance", 1E-12,
@@ -37,8 +33,6 @@ AtomicModel<SCALAR, DERIVED>::AtomicModel(int nflavors,
                                               const std::vector<std::tuple<int, int, SCALAR> > &nonzero_t_vals_list,
                                               const std::vector<std::tuple<int, int, int, int, SCALAR> > &nonzero_U_vals_list,
                                               bool verbose,
-                                              //double inner_outer_cutoff_energy = 0.1 * std::numeric_limits<double>::max(),
-                                              //double outer_cutoff_energy = 0.1 * std::numeric_limits<double>::max(),
                                               double cutoff_ham,
                                               double hermicity_tolerance
                                               )

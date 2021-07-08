@@ -1,30 +1,20 @@
 #include "sliding_window.hpp"
 
 template<typename MODEL>
-SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<const MODEL> p_model_,
-  double beta, int n_window)
+SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<MODEL> p_model_,
+  double beta, int n_window, const operator_container_t &operators)
     : p_model(p_model_),
       BETA(beta),
+      n_window(n_window),
       num_brakets(p_model->num_brakets()),
       norm_cutoff(std::sqrt(std::numeric_limits<double>::min())) {
-        init_tau_edges(n_window);
-      };
 
-template<typename MODEL>
-void
-SlidingWindowManager<MODEL>::init_tau_edges(int n_window) {
-  this->n_window = n_window;
-  tau_edges.resize(2*n_window+1);
-  tau_edges[0] = 0;
-  for (auto w=1; w<tau_edges.size()-1; ++w) {
-    tau_edges[w] = (BETA * w) / (2.0 * n_window);
-  }
-  tau_edges.back() = BETA;
-}
+  // Generate meshes
+  init_tau_edges(n_window);
 
-template<typename MODEL>
-void
-SlidingWindowManager<MODEL>::init_stacks(const operator_container_t &operators) {
+  position_left_edge = 2*n_window;
+  position_right_edge = 0;
+
   left_states.resize(num_brakets);
   right_states.resize(num_brakets);
   norm_left_states.resize(num_brakets);//for bra
@@ -38,12 +28,12 @@ SlidingWindowManager<MODEL>::init_stacks(const operator_container_t &operators) 
     right_states[braket].push_back(
         p_model->get_outer_ket(braket)
     );
-
     norm_left_states[braket].resize(0);
     norm_right_states[braket].resize(0);
     norm_left_states[braket].push_back(left_states[braket].back().compute_spectral_norm());
     norm_right_states[braket].push_back(right_states[braket].back().compute_spectral_norm());
   }
+
   sanity_check();
 }
 
@@ -51,8 +41,15 @@ template<typename MODEL>
 void SlidingWindowManager<MODEL>::set_window_size(int n_window_new,
                                                   const operator_container_t &operators,
                                                   int new_position_right_edge,
-                                                  ITIME_AXIS_LEFT_OR_RIGHT new_direction_move) {
+                                                  ITIME_AXIS_LEFT_OR_RIGHT new_direction_move,
+                                                  int new_position_left_edge
+                                                  ) {
   check_true(n_window_new > 0);
+
+  if (new_position_left_edge < 0) {
+    new_position_left_edge = new_position_right_edge+2;
+  }
+
   init_tau_edges(n_window_new);
 
   //reset
@@ -71,16 +68,16 @@ void SlidingWindowManager<MODEL>::set_window_size(int n_window_new,
     for (int i = 0; i < new_position_right_edge; ++i) {
       move_forward_right_edge(operators);
     }
-    for (int i = 0; i < 2 * n_window - 2 - new_position_right_edge; ++i) {
+    for (int i = 0; i < 2 * n_window - new_position_left_edge; ++i) {
       move_forward_left_edge(operators);
     }
-    assert(position_left_edge - position_right_edge == 2);
-    assert(position_right_edge == new_position_right_edge);
+    check_true(position_left_edge == new_position_left_edge);
+    check_true(position_right_edge == new_position_right_edge);
 
     direction_move_local_window = new_direction_move;
     if (get_position_right_edge() == 0) {
       direction_move_local_window = ITIME_LEFT;
-    } else if (get_position_right_edge() == 2 * get_n_window() - 2) {
+    } else if (get_position_left_edge() == 2 * get_n_window()) {
       direction_move_local_window = ITIME_RIGHT;
     }
   } else {
@@ -121,12 +118,11 @@ SlidingWindowManager<MODEL>::move_forward_right_edge(const operator_container_t 
 
   for (int move = 0; move < num_move; ++move) {
     //range check
-    assert(position_right_edge >= 0);
-    assert(position_right_edge <= 2 * n_window - 2);
-    const double tau_edge_old = get_tau_edge(position_right_edge);
-    const double tau_edge_new = get_tau_edge(position_right_edge + 1);
-    //const int new_size = depth_right_states()+1;
-    std::pair<op_it_t, op_it_t> ops_range = operators.range(tau_edge_old <= bll::_1, bll::_1 < tau_edge_new);
+    check_true(position_right_edge >= 0);
+    check_true(position_right_edge <= 2 * n_window - 2);
+    double tau_edge_old = get_tau_edge(position_right_edge);
+    double tau_edge_new = get_tau_edge(position_right_edge + 1);
+    auto ops_range = operators.range(tau_edge_old <= bll::_1, bll::_1 < tau_edge_new);
     EXTENDED_REAL max_norm = -1;
     for (int i_braket = 0; i_braket < num_brakets; ++i_braket) {
       right_states[i_braket].push_back(right_states[i_braket].back());
@@ -313,7 +309,7 @@ SlidingWindowManager<MODEL>::lazy_eval_trace(const operator_container_t &operato
 template<typename MODEL>
 void
 SlidingWindowManager<MODEL>::evolve_bra(const MODEL &model, BRAKET_TYPE &bra,
-                                        std::pair<op_it_t, op_it_t> ops_range, double tau_old, double tau_new) {
+            std::pair<op_it_t, op_it_t> ops_range, double tau_old, double tau_new) {
   if (bra.invalid()) {
     return;
   }
@@ -359,11 +355,11 @@ SlidingWindowManager<MODEL>::evolve_ket(const MODEL &model, BRAKET_TYPE &ket,
   }
 
   //range check
-  assert(tau_new >= tau_old);
+  check_true(tau_new >= tau_old);
 
   ket.normalize();
 
-  const int num_ops = std::distance(ops_range.first, ops_range.second);
+  auto num_ops = std::distance(ops_range.first, ops_range.second);
   if (num_ops > 0) {
     op_it_t it = ops_range.first;
     op_it_t it_up = it;
@@ -371,7 +367,7 @@ SlidingWindowManager<MODEL>::evolve_ket(const MODEL &model, BRAKET_TYPE &ket,
 
     BRAKET_TYPE tmp;
     model.sector_propagate_ket(ket, it->time() - tau_old);
-    for (int i = 0; i < num_ops; i++) {
+    for (auto i = 0; i < num_ops; i++) {
       model.apply_op_hyb_ket(it->type(), it->flavor(), ket);
 
       if (it_up != ops_range.second) {
@@ -519,7 +515,13 @@ void SlidingWindowManager<MODEL>::pop_back_ket(int num_pop_back) {
 
 template<typename MODEL>
 void SlidingWindowManager<MODEL>::restore_state(const operator_container_t &ops, state_t state) {
-  set_window_size(boost::get<3>(state), ops, boost::get<1>(state), boost::get<2>(state));
+  set_window_size(
+      boost::get<3>(state),
+      ops,
+      boost::get<1>(state),
+      boost::get<2>(state),
+      boost::get<0>(state)
+    );
   move_left_edge_to(ops, boost::get<0>(state));
   check_true(get_position_right_edge() == boost::get<1>(state));
   check_true(get_position_left_edge() == boost::get<0>(state));
@@ -528,6 +530,7 @@ void SlidingWindowManager<MODEL>::restore_state(const operator_container_t &ops,
 template<typename MODEL>
 void
 SlidingWindowManager<MODEL>::sanity_check() const {
+  check_true(get_position_left_edge() >= get_position_right_edge());
   for (int braket = 0; braket < num_brakets; ++braket) {
     check_true(left_states[braket].size() == depth_left_states());
     check_true(right_states[braket].size() == depth_right_states());

@@ -1,5 +1,7 @@
 #include "moves.hpp"
 
+#include <tuple>
+
 /**
  * @brief pick one of elements randombly
  */
@@ -181,10 +183,10 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     if (det_rat != 0.0) {
       const SCALAR rest = (*acceptance_rate_correction_) * det_rat;
       const EXTENDED_REAL trace_cutoff = myabs(r_th * mc_config.trace / rest);
-      boost::tie(accepted, trace_new) = sliding_window.lazy_eval_trace(mc_config.operators, trace_cutoff, trace_bound);
+      std::tie(accepted, trace_new) = sliding_window.lazy_eval_trace(mc_config.operators, trace_cutoff, trace_bound);
       prob = rest * convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new / mc_config.trace));
-      assert(myabs(trace_new) < myabs(trace_bound_sum) * 1.01);
-      assert(accepted == std::abs(prob) > r_th);
+      check_true(myabs(trace_new) < myabs(trace_bound_sum) * 1.01);
+      check_true(accepted == std::abs(prob) > r_th);
     } else {
       trace_new = 0.0;
       prob = 0.0;
@@ -199,7 +201,7 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     const int perm_new = compute_permutation_sign(mc_config);
     mc_config.sign *= (1. * perm_new / mc_config.perm_sign) * mysign(prob);
     mc_config.perm_sign = perm_new;
-    assert(!my_isnan(mc_config.sign));
+    check_true(!my_isnan(mc_config.sign));
     accepted_ = true;
   } else { // rejected
     mc_config.M.reject_update();
@@ -1380,62 +1382,3 @@ bool EqualTimeG1_TwoTimeG2_Connector<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::p
   }
   return true;
 }
-
-/*
-template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-bool GWormShifter<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
-    alps::random01 &rng,
-    MonteCarloConfiguration<SCALAR> &mc_config,
-    const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
-) {
-  namespace bll = boost::lambda;
-  typedef operator_container_t::iterator it_t;
-
-  if (typeid(mc_config.p_worm.get()) != typeid(p_worm_template_.get())) {
-    throw std::logic_error("Type is wrong in GWormShifter::update()");
-  }
-
-  const int iop_shifted = static_cast<int>(rng() * 2 * RANK);
-  double tau_range_max, tau_range_min;
-  if (rng() < 0.5) {
-    tau_range_max = beta_;
-    tau_range_min = 0.0;
-  } else {
-    double tau_old = mc_config.p_worm->get_time(iop_shifted);
-    tau_range_max = tau_old + (beta_/mc_config.pert_order()) * num_flavors_;
-    tau_range_min = tau_old - (beta_/mc_config.pert_order()) * num_flavors_;
-  }
-
-  const int block = mc_config.M.block_belonging_to(mc_config.p_worm->get_flavor(iop_shifted));
-  const operator_container_t *p_ops = iop_shifted % 2 == 0 ?
-    &mc_config.M.get_c_ops_set(block) :
-     &mc_config.M.get_cdagg_ops_set(block);
-  std::pair<it_t,it_t> ops_range = p_ops->range(
-    tau_range_min <= bll::_1, bll::_1 <= tau_range_max
-  );
-  ops_work_.resize(0);
-  std::copy(ops_range.first, ops_range.second, std::back_inserter(ops_work_));
-
-  if (ops_work_.size() == 0) {
-    return false;
-  }
-
-  BaseType::p_new_worm_ = mc_config.p_worm->clone();
-  psi new_op = ops_work_[static_cast<int>(rng() * ops_work_.size())];
-  BaseType::p_new_worm_->set_flavor(iop_shifted, new_op.flavor());
-  BaseType::p_new_worm_->set_time(iop_shifted, new_op.time().time());
-
-  const psi old_op = mc_config.p_worm->get_operators()[iop_shifted];
-  if (iop_shifted % 2 == 0) {
-    BaseType::c_ops_rem_.push_back(new_op);
-    BaseType::c_ops_add_.push_back(old_op);
-  } else {
-    BaseType::cdagg_ops_rem_.push_back(new_op);
-    BaseType::cdagg_ops_add_.push_back(old_op);
-  }
-
-  BaseType::acceptance_rate_correction_ = 1.0;
-  return true;
-}
-*/

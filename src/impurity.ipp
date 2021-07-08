@@ -111,7 +111,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       operator_pair_flavor_updater(FLAVORS),
       single_op_shift_updater(BETA, FLAVORS, N),
       worm_insertion_removers(0),
-      sliding_window(p_model, BETA, p["sliding_window.min"]),
+      sliding_window(p_model, BETA),
       p_meas_corr(0),
       global_shift_acc_rate(),
       swap_acc_rate(0),
@@ -146,7 +146,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   if (p["sliding_window.max"].template as<int>() < p["sliding_window.max"].template as<int>()) {
     throw std::runtime_error("sliding_window.max cannot be smaller than sliding_window.max.");
   }
-  sliding_window.init_stacks(mc_config.operators);
+  sliding_window.set_window_size(p["sliding_window.min"], mc_config.operators);
   mc_config.trace = sliding_window.compute_trace(mc_config.operators);
   if (comm.rank() == 0 && verbose) {
     std::cout << "initial trace = " << mc_config.trace << " with N_SLIDING_WINDOW = " << sliding_window.get_n_window()

@@ -1,8 +1,8 @@
 template<typename SCALAR>
 AtomicModelEigenBasis<SCALAR>::AtomicModelEigenBasis(const alps::params &par, bool verbose)
     : AtomicModel<SCALAR, AtomicModelEigenBasis<SCALAR> >(par, verbose) {
-  build_basis(par["inner_outer_cutoff_energy"].template as<double>());
-  build_outer_braket(par["outer_cutoff_energy"].template as<double>());
+  build_basis(par["model.inner_outer_cutoff_energy"].template as<double>());
+  build_outer_braket(par["model.outer_cutoff_energy"].template as<double>());
   build_qops();
 }
 

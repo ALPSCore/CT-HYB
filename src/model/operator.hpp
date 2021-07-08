@@ -113,32 +113,32 @@ class psi {
   typedef OperatorTime itime_type;
   typedef OperatorTime TIME_T;
 
-  psi() {
-    t_ = 0;
-    type_ = INVALID_OP;
-    flavor_ = 0;
-    site_ = 0;
+  psi() : t_(0), type_(INVALID_OP), flavor_(0), time_deriv_(false) {
   };
-  psi(TIME_T t, OPERATOR_TYPE type, int flavor) {
-    t_ = t;
-    type_ = type;
-    flavor_ = flavor;
-    site_ = 0;
-  };
-  TIME_T time() const { return t_; }
 
+  psi(TIME_T t, OPERATOR_TYPE type, int flavor, bool time_deriv=false)
+    : t_(t), type_(type), flavor_(flavor) {
+  };
+
+  TIME_T time() const { return t_; }
   int flavor() const { return flavor_; }
-  OPERATOR_TYPE type() const { return type_; } // 0=create, 1=destroy
-  //void set_time(double t) {t_ = t;}
+  bool time_deriv() const {return time_deriv_; }
+  OPERATOR_TYPE type() const { return type_; } // 0=creation, 1=annihilation
   void set_time(TIME_T t) { t_ = t; }
 
   void set_flavor(int flavor) { flavor_ = flavor; }
   void set_type(OPERATOR_TYPE type) { type_ = type; }
+
  private:
   TIME_T t_;
-  int site_, flavor_;
+  int flavor_;
   OPERATOR_TYPE type_;
+  bool time_deriv_;
 };
+
+//class LocalPhi : psi {
+  //using psi::psi;
+//};
 
 inline OperatorTime operator_time(const psi &op) {
   return op.time();

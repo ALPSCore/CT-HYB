@@ -28,15 +28,26 @@ class SlidingWindowManager {
   typedef typename boost::tuple<int, int, ITIME_AXIS_LEFT_OR_RIGHT, int>
       state_t;//pos of left edge, pos of right edge, direction of move, num of windows
 
-  SlidingWindowManager(std::shared_ptr<const MODEL> p_model, double beta, int n_window=1);
+  SlidingWindowManager(std::shared_ptr<MODEL> p_model, double beta, int n_window=1, const operator_container_t &operators = {});
+
 
   //Initialization
-  inline void init_tau_edges(int n_window);
-  void init_stacks(const operator_container_t &operators);
+  inline void init_tau_edges(int n_window) {
+    tau_edges.resize(2*n_window+1);
+    tau_edges[0] = 0;
+    for (auto w=1; w<tau_edges.size()-1; ++w) {
+      tau_edges[w] = (BETA * w) / (2.0 * n_window);
+    }
+    tau_edges.back() = BETA;
+  }
+  //void init_stacks(const operator_container_t &operators = {});
 
   //Change window size during MC simulation
-  void set_window_size(int n_window_size, const operator_container_t &operators, int new_position_right_edge = 0,
-                       ITIME_AXIS_LEFT_OR_RIGHT new_direction_move = ITIME_LEFT);
+  // If new_position_left_edge is not given, it defaults to new_position_left_edge = new_position_right_edge+2.
+  void set_window_size(int n_window_size, const operator_container_t &operators = {},
+                      int new_position_right_edge = 0,
+                      ITIME_AXIS_LEFT_OR_RIGHT new_direction_move = ITIME_LEFT,
+                      int new_position_left_edge = -1);
 
   //Get and restore the state of the window (size, position, direction of move)
   inline state_t get_state() const {
@@ -106,7 +117,7 @@ class SlidingWindowManager {
 
   // Private member variables
   std::vector<double> tau_edges;
-  const std::shared_ptr<const MODEL> p_model;
+  const std::shared_ptr<MODEL> p_model;
   const double BETA;
   const int num_brakets;
   const double norm_cutoff;

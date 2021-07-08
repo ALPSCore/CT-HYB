@@ -265,6 +265,22 @@ class AtomicModel {
   virtual void apply_qop_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const = 0;
   virtual void apply_qop_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const = 0;
 
+  void apply_op_bra(const psi &op, BRAKET_T &bra) const {
+    if (op.time_deriv()) {
+      apply_qop_bra(op.type(), op.flavor(), bra);
+    } else {
+      apply_op_hyb_bra(op.type(), op.flavor(), bra);
+    }
+  }
+
+  void apply_op_ket(const psi &op, BRAKET_T &ket) const {
+    if (op.time_deriv()) {
+      apply_qop_ket(op.type(), op.flavor(), ket);
+    } else {
+      apply_op_hyb_ket(op.type(), op.flavor(), ket);
+    }
+  }
+
   virtual typename ExtendedScalar<SCALAR>::value_type
       product(const BRAKET_T &bra, const BRAKET_T &ket) const = 0;
 
