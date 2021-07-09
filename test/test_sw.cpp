@@ -6,7 +6,7 @@
 # include "test_sw.hpp"
 # include "../src/model/atomic_model.hpp"
 
-TEST(SlidingWindow, tau_edges) {
+TEST(SlidingWindow, uniform) {
   using MODEL = REAL_EIGEN_BASIS_MODEL;
   double beta = 10.0;
   int nflavors = 1;
@@ -28,7 +28,20 @@ TEST(SlidingWindow, tau_edges) {
   for (auto i=1; i<2*n_window; ++i) {
     ASSERT_NEAR((beta * i)/(2*n_window2), sw.get_tau_edge(i), 1e-10);
   }
+}
 
+TEST(SlidingWindow, nonuniform) {
+  using MODEL = REAL_EIGEN_BASIS_MODEL;
+  double beta = 10.0;
+  int nflavors = 1;
+  auto p_model = std::shared_ptr<MODEL>(new MODEL(nflavors));
+
+  std::vector<double> tau_edges {0.0, 0.1*beta, 0.5*beta, 0.8*beta, beta};
+  auto sw = SlidingWindowManager<MODEL>(p_model, beta, tau_edges);
+
+  for (int i=0; i<tau_edges.size(); ++i) {
+    ASSERT_EQ(sw.get_tau(i), tau_edges[i]);
+  }
 }
 
 TEST(SlidingWindow, move) {

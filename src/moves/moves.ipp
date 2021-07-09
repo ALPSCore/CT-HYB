@@ -667,8 +667,9 @@ global_update(R &rng,
               const WormTransformer &worm_transformer,
               int Nwin
 ) {
-  assert(sliding_window.get_tau_low() == 0);
-  assert(sliding_window.get_tau_high() == BETA);
+  check_true(sliding_window.get_tau_low() == 0);
+  check_true(sliding_window.get_tau_high() == BETA);
+
   mc_config.sanity_check(sliding_window);
   const int pert_order = mc_config.pert_order();
   if (pert_order == 0) {

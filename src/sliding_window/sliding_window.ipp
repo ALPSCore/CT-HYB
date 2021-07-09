@@ -1,20 +1,29 @@
 #include "sliding_window.hpp"
 
+
 template<typename MODEL>
 SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<MODEL> p_model_,
-  double beta, int n_window, const operator_container_t &operators)
+  double beta, const std::vector<double> &tau_edges, const operator_container_t &operators)
     : p_model(p_model_),
       BETA(beta),
-      n_window(n_window),
+      n_window((tau_edges.size()-1)/2),
+      tau_edges_(tau_edges),
       num_brakets(p_model->num_brakets()),
       norm_cutoff(std::sqrt(std::numeric_limits<double>::min())) {
-
-  // Generate meshes
-  init_tau_edges(n_window);
-
+  check_true(tau_edges.size()%2==1, "Number of elements in tau_edges is odd!");
+  check_true(tau_edges_[0]==0.0 && tau_edges_.back()==beta, "tau_edges is invalid!");
+  for (auto i=0; i<tau_edges_.size()-1; ++i) {
+    check_true(tau_edges_[i] < tau_edges_[i+1], "tau_edges must be in strictly increasing order!");
+  }
   position_left_edge = 2*n_window;
   position_right_edge = 0;
 
+  init_stacks(operators);
+  sanity_check();
+}
+
+template<typename MODEL>
+void SlidingWindowManager<MODEL>::init_stacks(const operator_container_t &operators) {
   left_states.resize(num_brakets);
   right_states.resize(num_brakets);
   norm_left_states.resize(num_brakets);//for bra
@@ -33,6 +42,24 @@ SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<MODEL> p_model
     norm_left_states[braket].push_back(left_states[braket].back().compute_spectral_norm());
     norm_right_states[braket].push_back(right_states[braket].back().compute_spectral_norm());
   }
+}
+
+template<typename MODEL>
+SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<MODEL> p_model_,
+  double beta, int n_window, const operator_container_t &operators)
+    : p_model(p_model_),
+      BETA(beta),
+      n_window(n_window),
+      num_brakets(p_model->num_brakets()),
+      norm_cutoff(std::sqrt(std::numeric_limits<double>::min())) {
+
+  // Generate meshes
+  init_tau_edges(n_window);
+
+  position_left_edge = 2*n_window;
+  position_right_edge = 0;
+
+  init_stacks(operators);
 
   sanity_check();
 }

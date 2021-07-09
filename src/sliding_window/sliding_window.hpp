@@ -28,19 +28,23 @@ class SlidingWindowManager {
   typedef typename boost::tuple<int, int, ITIME_AXIS_LEFT_OR_RIGHT, int>
       state_t;//pos of left edge, pos of right edge, direction of move, num of windows
 
-  SlidingWindowManager(std::shared_ptr<MODEL> p_model, double beta, int n_window=1, const operator_container_t &operators = {});
+  SlidingWindowManager(std::shared_ptr<MODEL> p_model, double beta, int n_window=1,
+      const operator_container_t &operators = {});
 
+  SlidingWindowManager(std::shared_ptr<MODEL> p_model, double beta, const std::vector<double> &tau_edges,
+      const operator_container_t &operators = {});
 
   //Initialization
   inline void init_tau_edges(int n_window) {
-    tau_edges.resize(2*n_window+1);
-    tau_edges[0] = 0;
-    for (auto w=1; w<tau_edges.size()-1; ++w) {
-      tau_edges[w] = (BETA * w) / (2.0 * n_window);
+    tau_edges_.resize(2*n_window+1);
+    tau_edges_[0] = 0;
+    for (auto w=1; w<tau_edges_.size()-1; ++w) {
+      tau_edges_[w] = (BETA * w) / (2.0 * n_window);
     }
-    tau_edges.back() = BETA;
+    tau_edges_.back() = BETA;
   }
-  //void init_stacks(const operator_container_t &operators = {});
+
+  void init_stacks(const operator_container_t &operators);
 
   //Change window size during MC simulation
   // If new_position_left_edge is not given, it defaults to new_position_left_edge = new_position_right_edge+2.
@@ -62,11 +66,12 @@ class SlidingWindowManager {
   inline int get_num_brakets() const { return num_brakets; };
   inline double get_tau_low() const { return get_tau_edge(position_right_edge); };
   inline double get_tau_high() const { return get_tau_edge(position_left_edge); };
-  inline double get_tau_edge(int position) const {return tau_edges.at(position); }
+  inline double get_tau_edge(int position) const {return tau_edges_.at(position); }
   inline int get_n_window() const { return n_window; };
   inline int get_position_right_edge() const { return position_right_edge; }
   inline int get_position_left_edge() const { return position_left_edge; }
   inline int get_direction_move_local_window() const { return direction_move_local_window; }
+  inline double get_tau(int position) const { return tau_edges_[position]; }
   inline const std::shared_ptr<const MODEL> get_p_model() const { return p_model; }
   inline const BRAKET_TYPE &get_bra(int bra) const { return left_states[bra].back(); }
   inline const BRAKET_TYPE &get_ket(int ket) const { return right_states[ket].back(); }
@@ -119,7 +124,7 @@ class SlidingWindowManager {
       compute_trace_braket(int braket, std::pair<op_it_t, op_it_t> ops_range, double tau_left, double tau_right) const;
 
   // Private member variables
-  std::vector<double> tau_edges;
+  std::vector<double> tau_edges_;
   const std::shared_ptr<MODEL> p_model;
   const double BETA;
   const int num_brakets;
