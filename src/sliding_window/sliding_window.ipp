@@ -155,8 +155,7 @@ SlidingWindowManager<MODEL>::move_forward_left_edge(const operator_container_t &
 
   for (int move = 0; move < num_move; ++move) {
     //range check
-    assert(position_left_edge >= 2);
-    assert(position_left_edge <= 2 * n_window);
+    check_true(position_left_edge >= 0 && position_left_edge <= 2 * n_window);
 
     sanity_check();
 
@@ -445,7 +444,7 @@ SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t &ope
         0.0;
     trace_bound_sum += bound[braket];
   }
-  assert(trace_bound_sum >= 0.0);
+  check_true(trace_bound_sum >= 0.0);
   return trace_bound_sum;
 }
 
@@ -459,7 +458,7 @@ SlidingWindowManager<MODEL>::move_window_to_next_position(const operator_contain
     return;
   }
   // If the window width is beta, no way to move it.
-  if (position_left_edge = 2*n_window && position_right_edge == 0) {
+  if (position_left_edge == 2*n_window && position_right_edge == 0) {
     return;
   }
 
