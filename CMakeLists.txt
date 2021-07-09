@@ -127,29 +127,30 @@ add_library(moves ${MOVES_FILES})
 target_link_libraries(moves sw model common ${ALPSCore_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 add_library(measurement ${MEAS_FILES})
-target_link_libraries(measurement sw model common ${ALPSCore_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+target_link_libraries(measurement sw model common ${ALPSCore_LIBRARIES} ${Boost_LIBRARIES} ${MPI_CXX_LIBRARIES} ${EXTRA_LIBS})
 
 add_library(hyb ${ALL_LIB_FILES})
-target_link_libraries(hyb ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+target_link_libraries(hyb measurement moves sw model common ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
 
 #executable
 add_executable(hybmat ./src/main.cpp)
-target_link_libraries(hybmat hyb measurement moves sw model common)
+#target_link_libraries(hybmat hyb measurement moves sw model common)
+target_link_libraries(hybmat hyb)
 
 #testing setup
 option(Testing "Enable testing" ON)
 include(EnableGtests) #defined in ./cmake
 include_directories("test")
-set(LINK_ALL hyb measurement moves sw model common)
-message(STATUS ${LINK_ALL})
+#set(LINK_ALL hyb measurement moves sw model common)
+#message(STATUS ${LINK_ALL})
 
 enable_testing(test)
 
-add_gtest(unittest_solver)
-add_gtest(unittest_fu)
-add_gtest(g2)
-add_gtest(test_model)
-add_gtest(test_sw)
+add_gtest(unittest_solver "hyb")
+add_gtest(unittest_fu "hyb")
+add_gtest(g2 "measurement")
+add_gtest(test_model "model")
+add_gtest(test_sw "sw;model")
 
 #installation
 install (TARGETS hybmat RUNTIME DESTINATION bin)

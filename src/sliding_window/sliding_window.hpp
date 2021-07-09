@@ -79,6 +79,9 @@ class SlidingWindowManager {
   void move_right_edge_to(const operator_container_t &operators, int pos);
   void move_left_edge_to(const operator_container_t &operators, int pos);
   void move_window_to(const operator_container_t &operators, ITIME_AXIS_LEFT_OR_RIGHT direction);
+  inline void set_direction(ITIME_AXIS_LEFT_OR_RIGHT direction) {
+    this->direction_move_local_window = direction;
+  }
 
   //Computing trace
   typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type

@@ -30,3 +30,24 @@ TEST(SlidingWindow, tau_edges) {
   }
 
 }
+
+TEST(SlidingWindow, move) {
+  using MODEL = REAL_EIGEN_BASIS_MODEL;
+  double beta = 10.0;
+  int nflavors = 1;
+  int n_window = 10;
+  auto p_model = std::shared_ptr<MODEL>(new MODEL(nflavors));
+  auto sw = SlidingWindowManager<MODEL>(p_model, beta, n_window);
+  operator_container_t ops;
+
+  ASSERT_EQ(sw.get_position_left_edge(), 2*n_window);
+  ASSERT_EQ(sw.get_position_right_edge(), 0);
+  //std::cout << sw.get_position_left_edge() << std::endl;
+  //std::cout << sw.get_position_right_edge() << std::endl;
+
+  // Move left edge to pos 2 (right edge is at 0.)
+  sw.move_left_edge_to(ops, 2);
+  ASSERT_EQ(sw.get_position_left_edge(), 2);
+  ASSERT_EQ(sw.get_position_right_edge(), 0);
+
+}

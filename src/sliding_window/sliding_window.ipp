@@ -119,7 +119,7 @@ SlidingWindowManager<MODEL>::move_forward_right_edge(const operator_container_t 
   for (int move = 0; move < num_move; ++move) {
     //range check
     check_true(position_right_edge >= 0);
-    check_true(position_right_edge <= 2 * n_window - 2);
+    check_true(position_right_edge <= 2 * n_window);
     double tau_edge_old = get_tau_edge(position_right_edge);
     double tau_edge_new = get_tau_edge(position_right_edge + 1);
     auto ops_range = operators.range(tau_edge_old <= bll::_1, bll::_1 < tau_edge_new);
@@ -458,22 +458,20 @@ SlidingWindowManager<MODEL>::move_window_to_next_position(const operator_contain
   if (n_window == 1) {
     return;
   }
-
-  if (direction_move_local_window == ITIME_LEFT) {
-    if (position_left_edge == 2 * n_window) {
-      direction_move_local_window = ITIME_RIGHT;
-      move_window_to(operators, ITIME_RIGHT);
-    } else {
-      move_window_to(operators, ITIME_LEFT);
-    }
-  } else {
-    if (position_right_edge == 0) {
-      direction_move_local_window = ITIME_LEFT;
-      move_window_to(operators, ITIME_LEFT);
-    } else {
-      move_window_to(operators, ITIME_RIGHT);
-    }
+  // If the window width is beta, no way to move it.
+  if (position_left_edge = 2*n_window && position_right_edge == 0) {
+    return;
   }
+
+  // First check if the direction is OK.
+  // Reverse the move direction otherwise.
+  if (direction_move_local_window == ITIME_LEFT && position_left_edge == 2 * n_window) {
+    direction_move_local_window = ITIME_RIGHT;
+  } else if (direction_move_local_window == ITIME_RIGHT && position_right_edge == 0) {
+    direction_move_local_window = ITIME_LEFT;
+  }
+
+  move_window_to(operators, direction_move_local_window);
 
   sanity_check();
 }
