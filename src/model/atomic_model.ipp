@@ -131,6 +131,7 @@ split_op_into_sectors(int num_sectors,
   }
 }
 
+
 template<typename SCALAR, typename DERIVED>
 void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, double hermicity_tolerance){
   const double eps_numerics = 1E-12;

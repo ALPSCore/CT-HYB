@@ -403,6 +403,9 @@ class AtomicModelEigenBasis: public AtomicModel<SCALAR, AtomicModelEigenBasis<SC
   void apply_qop_bra(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &bra) const;
   void apply_qop_ket(const OPERATOR_TYPE &op_type, int flavor, BRAKET_T &ket) const;
 
+  // Compute partition function for the given inverse temperature beta
+  SCALAR compute_z(double beta) const;
+
   inline int dim_sector(int sector) const {
     return eigenvals_sector.at(sector).size();
   }

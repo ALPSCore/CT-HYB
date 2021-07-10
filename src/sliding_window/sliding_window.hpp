@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <limits>
 
 #include <boost/tuple/tuple.hpp>
 #include <boost/multi_array.hpp>
@@ -66,6 +67,22 @@ class SlidingWindowManager {
   inline int get_num_brakets() const { return num_brakets; };
   inline double get_tau_low() const { return get_tau_edge(position_right_edge); };
   inline double get_tau_high() const { return get_tau_edge(position_left_edge); };
+
+  inline OperatorTime get_op_tau_low(int pos=-1) const {
+    if (pos < 0) {
+      return OperatorTime(get_tau_edge(position_right_edge), std::numeric_limits<int>::lowest());
+    } else {
+      return OperatorTime(get_tau_edge(pos), std::numeric_limits<int>::lowest());
+    }
+  };
+
+  inline OperatorTime get_op_tau_high(int pos=-1) const {
+    if (pos < 0) {
+      return OperatorTime(get_tau_edge(position_left_edge), std::numeric_limits<int>::max());
+    } else {
+      return OperatorTime(get_tau_edge(pos), std::numeric_limits<int>::max());
+    }
+  };
   inline double get_tau_edge(int position) const {return tau_edges_.at(position); }
   inline int get_n_window() const { return n_window; };
   inline int get_position_right_edge() const { return position_right_edge; }
@@ -83,6 +100,15 @@ class SlidingWindowManager {
   void move_forward_left_edge(const operator_container_t &operators, int num_move = 1);
   void move_right_edge_to(const operator_container_t &operators, int pos);
   void move_left_edge_to(const operator_container_t &operators, int pos);
+  void move_edges_to(const operator_container_t &operators, int left_pos, int right_pos) {
+    if (left_pos <= get_position_right_edge()) {
+      move_left_edge_to(operators, left_pos);
+      move_right_edge_to(operators, right_pos);
+    } else {
+      move_right_edge_to(operators, right_pos);
+      move_left_edge_to(operators, left_pos);
+    }
+  }
   void move_window_to(const operator_container_t &operators, ITIME_AXIS_LEFT_OR_RIGHT direction);
   inline void set_direction(ITIME_AXIS_LEFT_OR_RIGHT direction) {
     this->direction_move_local_window = direction;

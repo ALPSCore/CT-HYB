@@ -94,3 +94,74 @@ TEST(SlidingWindow, move) {
   ASSERT_EQ(1, sw.get_position_right_edge());
   ASSERT_EQ(ITIME_LEFT, sw.get_direction_move_local_window());
 }
+
+/*
+ * Single-orbital Hubbard atom at half filling
+ */
+TEST(SlidingWindow, trace) {
+  using SCALAR = std::complex<double>;
+  using MODEL = COMPLEX_EIGEN_BASIS_MODEL;
+
+  double beta = 2.0;
+  int n_section = 10;
+
+  auto onsite_U = 2.0;
+  auto mu = 0.5*onsite_U;
+  auto nflavors = 2;
+
+  std::vector<std::tuple<int, int, int, int, SCALAR> > Uval_list{ {0, 1, 1, 0, onsite_U} };
+  std::vector<std::tuple<int, int, SCALAR> > t_list {{0,0,-mu}, {1,1,-mu}};
+
+  auto p_model = std::shared_ptr<MODEL>(new MODEL(nflavors, t_list, Uval_list));
+
+  // Check eigen states
+  std::vector<int> nelec_sectors_ref = {2, 1, 1, 0};
+  std::vector<double> min_enes_ref = {0, -0.5*onsite_U, -0.5*onsite_U, 0};
+  std::vector<double> min_enes;
+  std::vector<int> nelec_sectors;
+  for (auto sector=0; sector<4; ++sector) {
+      min_enes.push_back(p_model->min_energy(sector) + p_model->get_reference_energy());
+      nelec_sectors.push_back(p_model->nelec_sector(sector));
+  }
+  ASSERT_EQ(min_enes_ref, min_enes);
+  ASSERT_EQ(nelec_sectors_ref, nelec_sectors);
+  ASSERT_EQ(p_model->get_reference_energy(), -0.5*onsite_U);
+
+  auto up = 0, dn = 1;
+
+  // Partition function
+  EXTENDED_COMPLEX Z = SlidingWindowManager<MODEL>(p_model, beta, n_section).
+    compute_trace(operator_container_t{});
+  std::complex<double> Z_ref = p_model->compute_z(beta);
+  ASSERT_NEAR(std::abs(mycast<std::complex<double>>(Z) - Z_ref), 0.0, 1e-8);
+
+  // n_up(tau)
+  for (auto tau : {0.0, 0.1*beta, 0.5*beta}) {
+    auto sw = SlidingWindowManager<MODEL>(p_model, beta, n_section);
+    operator_container_t ops;
+    ops.insert(psi(OperatorTime(tau, 1), CREATION_OP, up));
+    ops.insert(psi(OperatorTime(tau, 0), ANNIHILATION_OP, up));
+    for (auto right_pos=0; right_pos <= n_section; ++right_pos) {
+      for (auto left_pos=right_pos; left_pos <= n_section; ++left_pos) {
+        sw.move_edges_to(ops, left_pos, right_pos);
+        auto nup = mycast<std::complex<double>>(sw.compute_trace(ops)/Z);
+        ASSERT_NEAR(std::abs(nup - 0.5), 0.0, 1e-8);
+      }
+    }
+  }
+
+  
+  // -G(tau) = Tr[e^{-(beta-tau) H} c_up e^{-tau H} c^dagger_up]/Z
+  for (auto tau : {0.0*beta, 0.1*beta, 0.5*beta, beta}) {
+    auto sw = SlidingWindowManager<MODEL>(p_model, beta, n_section);
+    operator_container_t ops;
+    ops.insert(psi(OperatorTime(1e-10, 0), CREATION_OP, up));
+    ops.insert(psi(OperatorTime(tau,   1), ANNIHILATION_OP, up));
+    auto gtau = mycast<double>(sw.compute_trace(ops)/Z);
+    auto gtau_ref = 0.5 * (
+      std::exp(-0.5*onsite_U*tau)/(1+std::exp(-0.5*beta*onsite_U)) +
+      std::exp(+0.5*onsite_U*tau)/(1+std::exp(+0.5*beta*onsite_U))
+    );
+    ASSERT_NEAR(gtau_ref, gtau, 1e-8);
+  }
+}

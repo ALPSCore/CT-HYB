@@ -147,13 +147,13 @@ SlidingWindowManager<MODEL>::move_forward_right_edge(const operator_container_t 
     //range check
     check_true(position_right_edge >= 0);
     check_true(position_right_edge <= 2 * n_window);
-    double tau_edge_old = get_tau_edge(position_right_edge);
-    double tau_edge_new = get_tau_edge(position_right_edge + 1);
+    OperatorTime tau_edge_old = get_op_tau_low(position_right_edge);
+    OperatorTime tau_edge_new = get_op_tau_low(position_right_edge + 1);
     auto ops_range = operators.range(tau_edge_old <= bll::_1, bll::_1 < tau_edge_new);
     EXTENDED_REAL max_norm = -1;
     for (int i_braket = 0; i_braket < num_brakets; ++i_braket) {
       right_states[i_braket].push_back(right_states[i_braket].back());
-      evolve_ket(*p_model, right_states[i_braket].back(), ops_range, tau_edge_old, tau_edge_new);
+      evolve_ket(*p_model, right_states[i_braket].back(), ops_range, tau_edge_old.time(), tau_edge_new.time());
       norm_right_states[i_braket].push_back(right_states[i_braket].back().compute_spectral_norm());
       if (max_norm < norm_right_states[i_braket].back()) {
         max_norm = norm_right_states[i_braket].back();
@@ -186,16 +186,15 @@ SlidingWindowManager<MODEL>::move_forward_left_edge(const operator_container_t &
 
     sanity_check();
 
-    const double tau_edge_old = get_tau_edge(position_left_edge);
-    const double tau_edge_new = get_tau_edge(position_left_edge - 1);
+    OperatorTime tau_edge_old = get_op_tau_high(position_left_edge);
+    OperatorTime tau_edge_new = get_op_tau_high(position_left_edge - 1);
     const std::pair<op_it_t, op_it_t> ops_range = operators_tmp.range(tau_edge_new < bll::_1,
                                                                       bll::_1 <= tau_edge_old);
-    //const int num_ops = std::distance(ops_range.first, ops_range.second);
 
     EXTENDED_REAL max_norm = -1;
     for (int i_braket = 0; i_braket < num_brakets; ++i_braket) {
       left_states[i_braket].push_back(left_states[i_braket].back());
-      evolve_bra(*p_model, left_states[i_braket].back(), ops_range, tau_edge_old, tau_edge_new);
+      evolve_bra(*p_model, left_states[i_braket].back(), ops_range, tau_edge_old.time(), tau_edge_new.time());
       norm_left_states[i_braket].push_back(left_states[i_braket].back().compute_spectral_norm());
       if (max_norm < norm_left_states[i_braket].back()) {
         max_norm = norm_left_states[i_braket].back();
@@ -246,8 +245,8 @@ SlidingWindowManager<MODEL>::compute_trace(const operator_container_t &operators
 
   EXTENDED_SCALAR trace = 0.0;
 
-  const double tau_right = get_tau_edge(position_right_edge);
-  const double tau_left = get_tau_edge(position_left_edge);
+  OperatorTime tau_right = get_op_tau_low(position_right_edge);
+  OperatorTime tau_left = get_op_tau_high(position_left_edge);
   std::pair<op_it_t, op_it_t> ops_range = operators.range(tau_right <= bll::_1, bll::_1 <= tau_left);
 
   for (int i_braket = 0; i_braket < num_brakets; ++i_braket) {
@@ -256,7 +255,7 @@ SlidingWindowManager<MODEL>::compute_trace(const operator_container_t &operators
     }
     BRAKET_TYPE ket = right_states[i_braket].back();
 
-    evolve_ket(*p_model, ket, ops_range, tau_right, tau_left);
+    evolve_ket(*p_model, ket, ops_range, tau_right.time(), tau_left.time());
     if (left_states[i_braket].back().sector() == ket.sector()) {
       const EXTENDED_SCALAR trace_braket = p_model->product(left_states[i_braket].back(), ket);
       assert(!my_isnan(trace_braket));
@@ -295,8 +294,8 @@ SlidingWindowManager<MODEL>::lazy_eval_trace(const operator_container_t &operato
 
   sanity_check();
 
-  const double tau_right = get_tau_edge(position_right_edge);
-  const double tau_left = get_tau_edge(position_left_edge);
+  OperatorTime tau_right = get_op_tau_low(position_right_edge);
+  OperatorTime tau_left = get_op_tau_high(position_left_edge);
   std::pair<op_it_t, op_it_t> ops_range = operators.range(tau_right <= bll::_1, bll::_1 <= tau_left);
 
   EXTENDED_REAL trace_bound_current = std::accumulate(trace_bound.begin(), trace_bound.end(), EXTENDED_REAL(0.0));
@@ -319,7 +318,7 @@ SlidingWindowManager<MODEL>::lazy_eval_trace(const operator_container_t &operato
       break;
     }
 
-    const EXTENDED_SCALAR trace_braket = compute_trace_braket(braket, ops_range, tau_left, tau_right);
+    const EXTENDED_SCALAR trace_braket = compute_trace_braket(braket, ops_range, tau_left.time(), tau_right.time());
 
     assert(myabs(trace_braket) <= trace_bound[braket] * 1.01);
     trace_sum += trace_braket;
@@ -343,7 +342,7 @@ SlidingWindowManager<MODEL>::evolve_bra(const MODEL &model, BRAKET_TYPE &bra,
   bra.normalize();
 
   //range check
-  assert(tau_new <= tau_old);
+  check_true(tau_new <= tau_old);
 
   const int num_ops = std::distance(ops_range.first, ops_range.second);
 
@@ -416,8 +415,8 @@ EXTENDED_REAL
 SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t &operators,
                                                  std::vector<EXTENDED_REAL> &bound) const {
   namespace bll = boost::lambda;
-  const double tau_right = get_tau_edge(position_right_edge);
-  const double tau_left = get_tau_edge(position_left_edge);
+  OperatorTime tau_right = get_op_tau_low(position_right_edge);
+  OperatorTime tau_left = get_op_tau_high(position_left_edge);
   std::pair<op_it_t, op_it_t> ops_range = operators.range(tau_right <= bll::_1, bll::_1 <= tau_left);
   std::vector<psi> ops_in_range(ops_range.first, ops_range.second);
   const int num_ops = ops_in_range.size();

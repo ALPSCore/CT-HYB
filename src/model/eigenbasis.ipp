@@ -32,6 +32,18 @@ void AtomicModelEigenBasis<SCALAR>::define_parameters(alps::params &parameters) 
                       "Cutoff energy for outer states for computing trace (measured from the lowest eigenvalue)");
 }
 
+
+template<typename SCALAR>
+SCALAR AtomicModelEigenBasis<SCALAR>::compute_z(double beta) const {
+  SCALAR z = 0.0;
+  for (auto s=0; s<this->num_sectors(); ++s) {
+    for (auto e: eigenvals_sector[s]) {
+      z += std::exp(-beta * e);
+    }
+  }
+  return z;
+}
+
 template<typename SCALAR, typename OP>
 void construct_operator_object(const Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> &mat, OP &op_obj) {
   op_obj.resize(mat.rows(), mat.cols());
