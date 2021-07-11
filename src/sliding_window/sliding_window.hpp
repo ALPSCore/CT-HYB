@@ -29,18 +29,18 @@ class SlidingWindowManager {
   typedef typename boost::tuple<int, int, ITIME_AXIS_LEFT_OR_RIGHT, int>
       state_t;//pos of left edge, pos of right edge, direction of move, num of windows
 
-  SlidingWindowManager(std::shared_ptr<MODEL> p_model, double beta, int n_window=1,
+  SlidingWindowManager(int n_section, std::shared_ptr<MODEL> p_model, double beta,
       const operator_container_t &operators = {});
 
   SlidingWindowManager(std::shared_ptr<MODEL> p_model, double beta, const std::vector<double> &tau_edges,
       const operator_container_t &operators = {});
 
   //Initialization
-  inline void init_tau_edges(int n_window) {
-    tau_edges_.resize(2*n_window+1);
+  inline void init_tau_edges(int n_section) {
+    tau_edges_.resize(n_section+1);
     tau_edges_[0] = 0;
     for (auto w=1; w<tau_edges_.size()-1; ++w) {
-      tau_edges_[w] = (BETA * w) / (2.0 * n_window);
+      tau_edges_[w] = (BETA * w) / n_section;
     }
     tau_edges_.back() = BETA;
   }
@@ -49,7 +49,7 @@ class SlidingWindowManager {
 
   //Change window size during MC simulation
   // If new_position_left_edge is not given, it defaults to new_position_left_edge = new_position_right_edge+2.
-  void set_window_size(int n_window_size, const operator_container_t &operators = {},
+  void set_uniform_mesh(int n_section_new, const operator_container_t &operators = {},
                       int new_position_right_edge = 0,
                       ITIME_AXIS_LEFT_OR_RIGHT new_direction_move = ITIME_LEFT,
                       int new_position_left_edge = -1);
@@ -59,7 +59,7 @@ class SlidingWindowManager {
     return boost::make_tuple(position_left_edge,
                              position_right_edge,
                              direction_move_local_window,
-                             n_window);
+                             n_section);
   }
   void restore_state(const operator_container_t &ops, state_t state);
 
@@ -84,11 +84,11 @@ class SlidingWindowManager {
     }
   };
   inline double get_tau_edge(int position) const {return tau_edges_.at(position); }
-  inline int get_n_window() const { return n_window; };
   inline int get_position_right_edge() const { return position_right_edge; }
   inline int get_position_left_edge() const { return position_left_edge; }
   inline int get_direction_move_local_window() const { return direction_move_local_window; }
   inline double get_tau(int position) const { return tau_edges_[position]; }
+  inline int get_n_section() const {return n_section;}
   inline const std::shared_ptr<const MODEL> get_p_model() const { return p_model; }
   inline const BRAKET_TYPE &get_bra(int bra) const { return left_states[bra].back(); }
   inline const BRAKET_TYPE &get_ket(int ket) const { return right_states[ket].back(); }
@@ -158,7 +158,7 @@ class SlidingWindowManager {
 
   std::vector<std::vector<BRAKET_TYPE> > left_states, right_states;
   //bra and ket, respectively
-  int position_left_edge, position_right_edge, n_window;
+  int position_left_edge, position_right_edge, n_section;
   ITIME_AXIS_LEFT_OR_RIGHT direction_move_local_window; //0: left, 1: right
 
   //for lazy evalulation of trace using spectral norm

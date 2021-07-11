@@ -10,7 +10,7 @@
 #include "model/hybridization_function.hpp"
 #include "sliding_window/sliding_window.hpp"
 
-#include "worm.hpp"
+#include "moves/worm.hpp"
 
 template<typename SCALAR>
 struct MonteCarloConfiguration {
@@ -29,7 +29,6 @@ struct MonteCarloConfiguration {
   }
 
   ConfigSpace current_config_space() const {
-    typedef CorrelationWorm<2> N2Worm;
     if (!p_worm) {
       return Z_FUNCTION;
     } else {
@@ -97,19 +96,19 @@ void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
   assert(std::abs(det_rat - 1.0) < 1E-4);
 
   //check trace
-  const int Nwin = std::max(sliding_window.get_n_window(), 10);
-  typename SW::state_t state = sliding_window.get_state();
-  sliding_window.set_window_size(Nwin, operators, 0, ITIME_LEFT);
+  //const int Nwin = std::max(sliding_window.get_n_window(), 10);
+  //typename SW::state_t state = sliding_window.get_state();
+  //sliding_window.set_window_size(Nwin, operators, 0, ITIME_LEFT);
+//
+  //std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
+  //sliding_window.compute_trace_bound(operators, trace_bound);
+//
+  //std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(operators, EXTENDED_REAL(0.0), trace_bound);
+  //const EXTENDED_SCALAR trace_recomputed = r.second;
+//
+  //sliding_window.restore_state(operators, state);
 
-  std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
-  sliding_window.compute_trace_bound(operators, trace_bound);
-
-  std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(operators, EXTENDED_REAL(0.0), trace_bound);
-  const EXTENDED_SCALAR trace_recomputed = r.second;
-
-  sliding_window.restore_state(operators, state);
-
-  assert(myabs(trace_recomputed - trace) < 1E-4 * myabs(trace));
+  //assert(myabs(trace_recomputed - trace) < 1E-4 * myabs(trace));
 
   const int perm_sign2 = compute_permutation_sign(*this);
   assert(perm_sign2 == perm_sign);
@@ -118,9 +117,9 @@ void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
   for (int i = 0; i < det_new.size(); ++i) {
     sign_det *= mysign(det_new[i]);
   }
-  const SCALAR sign2 = sign_det * convert_to_scalar(mysign(trace_recomputed)) * (1. * perm_sign2);
+  //const SCALAR sign2 = sign_det * convert_to_scalar(mysign(trace_recomputed)) * (1. * perm_sign2);
 
-  assert(std::abs(sign2 / sign - 1.0) < 1E-4);
+  //assert(std::abs(sign2 / sign - 1.0) < 1E-4);
 #endif
 }
 

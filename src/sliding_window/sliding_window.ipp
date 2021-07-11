@@ -6,16 +6,15 @@ SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<MODEL> p_model
   double beta, const std::vector<double> &tau_edges, const operator_container_t &operators)
     : p_model(p_model_),
       BETA(beta),
-      n_window((tau_edges.size()-1)/2),
+      n_section(tau_edges.size()-1),
       tau_edges_(tau_edges),
       num_brakets(p_model->num_brakets()),
       norm_cutoff(std::sqrt(std::numeric_limits<double>::min())) {
-  check_true(tau_edges.size()%2==1, "Number of elements in tau_edges is odd!");
   check_true(tau_edges_[0]==0.0 && tau_edges_.back()==beta, "tau_edges is invalid!");
   for (auto i=0; i<tau_edges_.size()-1; ++i) {
     check_true(tau_edges_[i] < tau_edges_[i+1], "tau_edges must be in strictly increasing order!");
   }
-  position_left_edge = 2*n_window;
+  position_left_edge = n_section;
   position_right_edge = 0;
 
   init_stacks(operators);
@@ -45,18 +44,18 @@ void SlidingWindowManager<MODEL>::init_stacks(const operator_container_t &operat
 }
 
 template<typename MODEL>
-SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<MODEL> p_model_,
-  double beta, int n_window, const operator_container_t &operators)
+SlidingWindowManager<MODEL>::SlidingWindowManager(int n_section,
+  std::shared_ptr<MODEL> p_model_, double beta, const operator_container_t &operators)
     : p_model(p_model_),
       BETA(beta),
-      n_window(n_window),
+      n_section(n_section),
       num_brakets(p_model->num_brakets()),
       norm_cutoff(std::sqrt(std::numeric_limits<double>::min())) {
 
   // Generate meshes
-  init_tau_edges(n_window);
+  init_tau_edges(n_section);
 
-  position_left_edge = 2*n_window;
+  position_left_edge = n_section;
   position_right_edge = 0;
 
   init_stacks(operators);
@@ -65,19 +64,17 @@ SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<MODEL> p_model
 }
 
 template<typename MODEL>
-void SlidingWindowManager<MODEL>::set_window_size(int n_window_new,
+void SlidingWindowManager<MODEL>::set_uniform_mesh(int n_section_new,
                                                   const operator_container_t &operators,
                                                   int new_position_right_edge,
                                                   ITIME_AXIS_LEFT_OR_RIGHT new_direction_move,
                                                   int new_position_left_edge
                                                   ) {
-  check_true(n_window_new > 0);
-
   if (new_position_left_edge < 0) {
     new_position_left_edge = new_position_right_edge+2;
   }
 
-  init_tau_edges(n_window_new);
+  init_tau_edges(n_section_new);
 
   //reset
   while (depth_right_states() > 1) {
@@ -87,30 +84,22 @@ void SlidingWindowManager<MODEL>::set_window_size(int n_window_new,
     move_backward_edge(ITIME_LEFT);
   }
 
-  n_window = n_window_new;
-  if (n_window >= 2) {
-    position_right_edge = 0;
-    position_left_edge = 2 * n_window;
+  n_section = n_section_new;
 
-    for (int i = 0; i < new_position_right_edge; ++i) {
-      move_forward_right_edge(operators);
-    }
-    for (int i = 0; i < 2 * n_window - new_position_left_edge; ++i) {
-      move_forward_left_edge(operators);
-    }
-    check_true(position_left_edge == new_position_left_edge);
-    check_true(position_right_edge == new_position_right_edge);
+  position_right_edge = 0;
+  position_left_edge = n_section;
 
-    direction_move_local_window = new_direction_move;
-    if (get_position_right_edge() == 0) {
-      direction_move_local_window = ITIME_LEFT;
-    } else if (get_position_left_edge() == 2 * get_n_window()) {
-      direction_move_local_window = ITIME_RIGHT;
-    }
-  } else {
-    position_right_edge = 0;
-    position_left_edge = 2 * n_window;
+  for (int i = 0; i < new_position_right_edge; ++i) {
+    move_forward_right_edge(operators);
   }
+  for (int i = 0; i < n_section - new_position_left_edge; ++i) {
+    move_forward_left_edge(operators);
+  }
+  check_true(position_left_edge == new_position_left_edge);
+  check_true(position_right_edge == new_position_right_edge);
+
+  direction_move_local_window = new_direction_move;
+
   sanity_check();
 }
 
@@ -125,7 +114,7 @@ SlidingWindowManager<MODEL>::move_backward_edge(ITIME_AXIS_LEFT_OR_RIGHT which_e
     pop_back_ket(num_move);
     position_right_edge -= num_move;
   } else if (which_edge == ITIME_LEFT) {
-    if (position_left_edge + num_move > 2 * n_window) {
+    if (position_left_edge + num_move > n_section) {
       throw std::runtime_error("Out of range in move_backward_edge");
     }
     pop_back_bra(num_move);
@@ -146,7 +135,7 @@ SlidingWindowManager<MODEL>::move_forward_right_edge(const operator_container_t 
   for (int move = 0; move < num_move; ++move) {
     //range check
     check_true(position_right_edge >= 0);
-    check_true(position_right_edge <= 2 * n_window);
+    check_true(position_right_edge <= n_section);
     OperatorTime tau_edge_old = get_op_tau_low(position_right_edge);
     OperatorTime tau_edge_new = get_op_tau_low(position_right_edge + 1);
     auto ops_range = operators.range(tau_edge_old <= bll::_1, bll::_1 < tau_edge_new);
@@ -182,7 +171,7 @@ SlidingWindowManager<MODEL>::move_forward_left_edge(const operator_container_t &
 
   for (int move = 0; move < num_move; ++move) {
     //range check
-    check_true(position_left_edge >= 0 && position_left_edge <= 2 * n_window);
+    check_true(position_left_edge >= 0 && position_left_edge <= n_section);
 
     sanity_check();
 
@@ -215,7 +204,7 @@ SlidingWindowManager<MODEL>::move_forward_left_edge(const operator_container_t &
 template<typename MODEL>
 void
 SlidingWindowManager<MODEL>::move_right_edge_to(const operator_container_t &operators, int pos) {
-  assert(pos >= 0 && pos <= 2 * n_window);
+  assert(pos >= 0 && pos <= n_section);
   if (get_position_right_edge() > pos) {
     move_backward_edge(ITIME_RIGHT, get_position_right_edge() - pos);
   } else if (get_position_right_edge() < pos) {
@@ -226,7 +215,7 @@ SlidingWindowManager<MODEL>::move_right_edge_to(const operator_container_t &oper
 template<typename MODEL>
 void
 SlidingWindowManager<MODEL>::move_left_edge_to(const operator_container_t &operators, int pos) {
-  assert(pos >= 0 && pos <= 2 * n_window);
+  assert(pos >= 0 && pos <= n_section);
   const int current_pos = get_position_left_edge();
   if (current_pos > pos) {
     move_forward_left_edge(operators, current_pos - pos);
@@ -480,17 +469,14 @@ void
 SlidingWindowManager<MODEL>::move_window_to_next_position(const operator_container_t &operators) {
   sanity_check();
 
-  if (n_window == 1) {
-    return;
-  }
   // If the window width is beta, no way to move it.
-  if (position_left_edge == 2*n_window && position_right_edge == 0) {
+  if (position_left_edge == n_section && position_right_edge == 0) {
     return;
   }
 
   // First check if the direction is OK.
   // Reverse the move direction otherwise.
-  if (direction_move_local_window == ITIME_LEFT && position_left_edge == 2 * n_window) {
+  if (direction_move_local_window == ITIME_LEFT && position_left_edge == n_section) {
     direction_move_local_window = ITIME_RIGHT;
   } else if (direction_move_local_window == ITIME_RIGHT && position_right_edge == 0) {
     direction_move_local_window = ITIME_LEFT;
@@ -538,7 +524,7 @@ void SlidingWindowManager<MODEL>::pop_back_ket(int num_pop_back) {
 
 template<typename MODEL>
 void SlidingWindowManager<MODEL>::restore_state(const operator_container_t &ops, state_t state) {
-  set_window_size(
+  set_uniform_mesh(
       boost::get<3>(state),
       ops,
       boost::get<1>(state),

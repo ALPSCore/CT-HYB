@@ -93,7 +93,6 @@ set(SW_FILES
 
 set(MEAS_FILES
     ./src/measurement/measurement.cpp
-    ./src/measurement/meas_correlation_static_obs.cpp
 )
 
 set(MOVES_FILES

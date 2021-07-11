@@ -10,23 +10,23 @@ TEST(SlidingWindow, uniform) {
   using MODEL = REAL_EIGEN_BASIS_MODEL;
   double beta = 10.0;
   int nflavors = 1;
-  int n_window = 10;
+  int n_section = 10;
   auto p_model = std::shared_ptr<MODEL>(new MODEL(nflavors));
-  auto sw = SlidingWindowManager<MODEL>(p_model, beta, n_window);
+  auto sw = SlidingWindowManager<MODEL>(n_section, p_model, beta);
 
   ASSERT_FLOAT_EQ(sw.get_tau_edge(0), 0.0);
-  ASSERT_FLOAT_EQ(sw.get_tau_edge(2*n_window), beta);
-  for (auto i=1; i<2*n_window; ++i) {
-    ASSERT_NEAR((beta * i)/(2*n_window), sw.get_tau_edge(i), 1e-10);
+  ASSERT_FLOAT_EQ(sw.get_tau_edge(n_section), beta);
+  for (auto i=1; i<n_section; ++i) {
+    ASSERT_NEAR((beta * i)/(n_section), sw.get_tau_edge(i), 1e-10);
   }
 
-  // Double n_window
-  auto n_window2 = 2 * n_window;
-  sw.set_window_size(n_window2);
+  // Double n_section
+  auto n_section2 = 2 * n_section;
+  sw.set_uniform_mesh(n_section2);
   ASSERT_FLOAT_EQ(sw.get_tau_edge(0), 0.0);
-  ASSERT_FLOAT_EQ(sw.get_tau_edge(2*n_window2), beta);
-  for (auto i=1; i<2*n_window; ++i) {
-    ASSERT_NEAR((beta * i)/(2*n_window2), sw.get_tau_edge(i), 1e-10);
+  ASSERT_FLOAT_EQ(sw.get_tau_edge(n_section2), beta);
+  for (auto i=1; i<n_section2; ++i) {
+    ASSERT_NEAR((beta * i)/(n_section2), sw.get_tau_edge(i), 1e-10);
   }
 }
 
@@ -46,14 +46,14 @@ TEST(SlidingWindow, nonuniform) {
 
 TEST(SlidingWindow, move) {
   using MODEL = REAL_EIGEN_BASIS_MODEL;
-  double beta = 10.0;
+  double beta = 10.1;
   int nflavors = 1;
-  int n_window = 10;
+  int n_section = 10;
   auto p_model = std::shared_ptr<MODEL>(new MODEL(nflavors));
-  auto sw = SlidingWindowManager<MODEL>(p_model, beta, n_window);
+  auto sw = SlidingWindowManager<MODEL>(n_section, p_model, beta);
   operator_container_t ops;
 
-  ASSERT_EQ(2*n_window, sw.get_position_left_edge());
+  ASSERT_EQ(n_section, sw.get_position_left_edge());
   ASSERT_EQ(0, sw.get_position_right_edge());
 
   // Move left edge to pos 2 (right edge stays at 0.)
@@ -66,23 +66,23 @@ TEST(SlidingWindow, move) {
   ASSERT_EQ(0, sw.get_position_left_edge());
   ASSERT_EQ(0, sw.get_position_right_edge());
 
-  // Move left edge to pos 2*n_window, then right edge to the same position.
+  // Move left edge to pos n_section, then right edge to the same position.
   // The window width will be 0.
-  sw.move_left_edge_to(ops, 2*n_window);
-  sw.move_right_edge_to(ops, 2*n_window);
-  ASSERT_EQ(2*n_window, sw.get_position_left_edge());
-  ASSERT_EQ(2*n_window, sw.get_position_right_edge());
+  sw.move_left_edge_to(ops, n_section);
+  sw.move_right_edge_to(ops, n_section);
+  ASSERT_EQ(n_section, sw.get_position_left_edge());
+  ASSERT_EQ(n_section, sw.get_position_right_edge());
 
   // Set the move direction to left, move the window twice
   sw.set_direction(ITIME_LEFT);
   sw.move_window_to_next_position(ops);
-  ASSERT_EQ(2*n_window-1, sw.get_position_left_edge());
-  ASSERT_EQ(2*n_window-1, sw.get_position_right_edge());
+  ASSERT_EQ(n_section-1, sw.get_position_left_edge());
+  ASSERT_EQ(n_section-1, sw.get_position_right_edge());
   ASSERT_EQ(ITIME_RIGHT, sw.get_direction_move_local_window());
 
   sw.move_window_to_next_position(ops);
-  ASSERT_EQ(2*n_window-2, sw.get_position_left_edge());
-  ASSERT_EQ(2*n_window-2, sw.get_position_right_edge());
+  ASSERT_EQ(n_section-2, sw.get_position_left_edge());
+  ASSERT_EQ(n_section-2, sw.get_position_right_edge());
 
   // Move right edge to pos 0, then left edge to pos 2.
   // Set the move direction to left, move the window once
@@ -130,14 +130,14 @@ TEST(SlidingWindow, trace) {
   auto up = 0, dn = 1;
 
   // Partition function
-  EXTENDED_COMPLEX Z = SlidingWindowManager<MODEL>(p_model, beta, n_section).
+  EXTENDED_COMPLEX Z = SlidingWindowManager<MODEL>(n_section, p_model, beta).
     compute_trace(operator_container_t{});
   std::complex<double> Z_ref = p_model->compute_z(beta);
   ASSERT_NEAR(std::abs(mycast<std::complex<double>>(Z) - Z_ref), 0.0, 1e-8);
 
   // n_up(tau)
   for (auto tau : {0.0, 0.1*beta, 0.5*beta}) {
-    auto sw = SlidingWindowManager<MODEL>(p_model, beta, n_section);
+    auto sw = SlidingWindowManager<MODEL>(n_section, p_model, beta);
     operator_container_t ops;
     ops.insert(psi(OperatorTime(tau, 1), CREATION_OP, up));
     ops.insert(psi(OperatorTime(tau, 0), ANNIHILATION_OP, up));
@@ -153,10 +153,10 @@ TEST(SlidingWindow, trace) {
   
   // -G(tau) = Tr[e^{-(beta-tau) H} c_up e^{-tau H} c^dagger_up]/Z
   for (auto tau : {0.0*beta, 0.1*beta, 0.5*beta, beta}) {
-    auto sw = SlidingWindowManager<MODEL>(p_model, beta, n_section);
+    auto sw = SlidingWindowManager<MODEL>(n_section, p_model, beta);
     operator_container_t ops;
-    ops.insert(psi(OperatorTime(1e-10, 0), CREATION_OP, up));
-    ops.insert(psi(OperatorTime(tau,   1), ANNIHILATION_OP, up));
+    ops.insert(psi(OperatorTime(0,   0), CREATION_OP, up));
+    ops.insert(psi(OperatorTime(tau, 1), ANNIHILATION_OP, up));
     auto gtau = mycast<double>(sw.compute_trace(ops)/Z);
     auto gtau_ref = 0.5 * (
       std::exp(-0.5*onsite_U*tau)/(1+std::exp(-0.5*beta*onsite_U)) +

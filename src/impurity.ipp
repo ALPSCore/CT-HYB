@@ -111,8 +111,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       operator_pair_flavor_updater(FLAVORS),
       single_op_shift_updater(BETA, FLAVORS, N),
       worm_insertion_removers(0),
-      sliding_window(p_model, BETA),
-      p_meas_corr(0),
+      sliding_window(1, p_model, BETA),
       global_shift_acc_rate(),
       swap_acc_rate(0),
       timings(5, 0.0),
@@ -146,18 +145,21 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   if (p["sliding_window.max"].template as<int>() < p["sliding_window.max"].template as<int>()) {
     throw std::runtime_error("sliding_window.max cannot be smaller than sliding_window.max.");
   }
-  sliding_window.set_window_size(p["sliding_window.min"], mc_config.operators);
+  sliding_window.set_uniform_mesh(
+    2*p["sliding_window.min"].template as<int>(),
+    mc_config.operators);
   mc_config.trace = sliding_window.compute_trace(mc_config.operators);
   if (comm.rank() == 0 && verbose) {
-    std::cout << "initial trace = " << mc_config.trace << " with N_SLIDING_WINDOW = " << sliding_window.get_n_window()
+    std::cout << "initial trace = " << mc_config.trace
+              << " with N_SECTION = " << sliding_window.get_n_section()
               << std::endl;
   }
 
   //Equal-time two-particle Green's function
-  read_eq_time_two_particle_greens_meas();
+  //read_eq_time_two_particle_greens_meas();
 
   //Two-time correlation functions
-  read_two_time_correlation_functions();
+  //read_two_time_correlation_functions();
 
   if (comm.rank() == 0 && verbose) {
     std::cout << "The number of blocks in the inverse matrix is " << mc_config.M.num_blocks() << "." << std::endl;
@@ -289,23 +291,6 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       }
       break;
 
-    case Two_time_G2:
-      p_two_time_G2_meas->measure(mc_config,
-                                  measurements,
-                                  random,
-                                  sliding_window,
-                                  N_win_standard,
-                                  "Two_time_G2");
-      break;
-
-    case Equal_time_G1:
-      p_equal_time_G1_meas->measure_G1(mc_config, measurements, "Equal_time_G1");
-      break;
-
-    case Equal_time_G2:
-      p_equal_time_G2_meas->measure_G2(mc_config, measurements, "Equal_time_G2");
-      break;
-
     default:
       throw std::runtime_error("Used unsupported worm");
   }
@@ -359,8 +344,6 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   if (mc_config.current_config_space() == Z_FUNCTION) {
     assert(!mc_config.p_worm);
     measure_Z_function_space();
-  } else if (mc_config.current_config_space() == Two_time_G2) {
-    //measure_N2_space();
   }
 
   auto end = std::chrono::high_resolution_clock::now();
@@ -427,6 +410,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
 //Measure the expectation values of density operators
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure_n() {
+  /*
   assert(is_thermalized());
   MeasStaticObs<SlidingWindowManager<IMP_MODEL>, CdagC> meas(sliding_window, mc_config.operators);
   std::vector<CdagC> ops(FLAVORS);
@@ -451,12 +435,14 @@ void HybridizationSimulation<IMP_MODEL>::measure_n() {
         convert_to_scalar(static_cast<EXTENDED_REAL>(get_real(result_meas[flavor] * mc_config.sign * inv_trace)));
   }
   measurements["n"] << result_meas_Re;
+  */
 }
 
 //Measure two-time correlation functions by insertion
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure_two_time_correlation_functions() {
   assert(is_thermalized());
+  /*
   if (p_meas_corr.get() == 0) {
     return;
   }
@@ -470,13 +456,12 @@ void HybridizationSimulation<IMP_MODEL>::measure_two_time_correlation_functions(
   measure_simple_vector_observable<COMPLEX>(measurements,
                                             "Two_time_correlation_functions",
                                             to_complex_double_std_vector(result));
+  */
 }
 
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
-  //assert(sliding_window.get_position_right_edge() == 0);
-
   //Propose higher-order insertion/removal updates less frequently
   std::vector<double> proposal_rates;
   {
@@ -488,14 +473,13 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
   }
   boost::random::discrete_distribution<> dist(proposal_rates);
 
-  const int rank_ins_rem = dist(random.engine()) + 1;
-  const int current_n_window = std::max(N_win_standard / rank_ins_rem, 1);
-  if (current_n_window != sliding_window.get_n_window()) {
-    sliding_window.set_window_size(current_n_window, mc_config.operators, 0, ITIME_LEFT);
+  int rank_ins_rem = dist(random.engine()) + 1;
+  int current_n_section = 2 * std::max(N_win_standard / rank_ins_rem, 1);
+  if (current_n_section != sliding_window.get_n_section()) {
+    sliding_window.set_uniform_mesh(current_n_section, mc_config.operators, 0, ITIME_LEFT);
   }
 
-  //assert(sliding_window.get_position_right_edge() == 0);
-  const int num_move = std::max(2 * current_n_window - 2, 1);
+  const int num_move = std::max(current_n_section - 2, 1);
   for (int move = 0; move < num_move; ++move) {
     double pert_order_sum = 0;
     //insertion and removal of operators hybridized with the bath
@@ -569,32 +553,6 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
       adjust_worm_space_weight();
     }
 
-    //EqualTimeG1 <=> TwoTimeG2
-    if (specialized_updaters.find("Connect_Equal_time_G1_and_Two_time_G2") != specialized_updaters.end() &&
-        (mc_config.current_config_space() == Equal_time_G1 || mc_config.current_config_space() == Two_time_G2)
-        ) {
-      bool accepted = specialized_updaters["Connect_Equal_time_G1_and_Two_time_G2"]->
-          update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
-      adjust_worm_space_weight();
-    }
-
-
-    /*
-    if (specialized_updaters.find("G1_shifter_hyb") != specialized_updaters.end()
-        && mc_config.current_config_space() == G1) {
-      bool accepted = specialized_updaters["G1_shifter_hyb"]->
-          update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
-      adjust_worm_space_weight();
-    }
-
-    if (specialized_updaters.find("G2_shifter_hyb") != specialized_updaters.end()
-        && mc_config.current_config_space() == G2) {
-      bool accepted = specialized_updaters["G2_shifter_hyb"]->
-          update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
-      adjust_worm_space_weight();
-    }
-    */
-
     //worm move
     for (typename worm_updater_map_t::iterator it = worm_movers.begin(); it != worm_movers.end();
          ++it) {
@@ -607,8 +565,12 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::global_updates() {
-  const std::size_t n_sliding_window_bak = sliding_window.get_n_window();
-  sliding_window.set_window_size(1, mc_config.operators);
+  auto n_section_back = sliding_window.get_n_section();
+  sliding_window.set_uniform_mesh(1, mc_config.operators,
+    0 , //new_position_right_edge
+    ITIME_LEFT, 
+    1  //new_position_left_edge
+  );
 
   //jump between configuration spaces without a window
   transition_between_config_spaces();
@@ -671,7 +633,7 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
     sanity_check();
   }
 
-  sliding_window.set_window_size(n_sliding_window_bak, mc_config.operators, 0, ITIME_LEFT);
+  sliding_window.set_uniform_mesh(n_section_back, mc_config.operators, 0, ITIME_LEFT);
   sanity_check();
 }
 

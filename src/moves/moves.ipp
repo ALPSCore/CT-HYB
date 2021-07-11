@@ -1,4 +1,5 @@
 #include "moves.hpp"
+#include "worm.hpp"
 
 #include <tuple>
 
@@ -702,8 +703,8 @@ global_update(R &rng,
   }
 
   //compute new trace (we use sliding window to avoid overflow/underflow).
-  sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);
-  sliding_window.set_window_size(Nwin, operators_new, 0, ITIME_LEFT);
+  //sliding_window.set_uniform_mesh(2, mc_config.operators, 0, ITIME_LEFT);//do we need?
+  //sliding_window.set_uniform_mesh(2*Nwin, operators_new, 0, ITIME_LEFT);
 
   std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
   sliding_window.compute_trace_bound(operators_new, trace_bound);
@@ -711,7 +712,7 @@ global_update(R &rng,
   std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(operators_new, EXTENDED_REAL(0.0), trace_bound);
   const EXTENDED_SCALAR trace_new = r.second;
 
-  sliding_window.set_window_size(1, mc_config.operators, 0, ITIME_LEFT);
+  //sliding_window.set_(1, mc_config.operators, 0, ITIME_LEFT);
   if (trace_new == EXTENDED_SCALAR(0.0)) {
     return false;
   }
@@ -1245,141 +1246,4 @@ int count_hyb_cdagg_c_op_pairs(InputItr op_begin,
     cdagg_c_pair = cdagg_c_pairs[idx];
   }
   return cdagg_c_pairs.size();
-}
-
-template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-bool EqualTimeG1_TwoTimeG2_Connector<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
-    alps::random01 &rng,
-    const MonteCarloConfiguration<SCALAR> &mc_config,
-    const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
-) {
-  typedef operator_container_t::iterator it_t;
-  namespace bll = boost::lambda;
-
-  if (mc_config.current_config_space() != Equal_time_G1 && mc_config.current_config_space() != Two_time_G2) {
-    throw std::runtime_error("Error in EqualTimeG1_TwoTimeG2_Connector::propose()");
-  }
-
-  const double weight_G1 = config_space_weight.find(Equal_time_G1)->second;
-  const double weight_G2 = config_space_weight.find(Two_time_G2)->second;
-
-  const double tau_low = sliding_window.get_tau_low();
-  const double tau_high = sliding_window.get_tau_high();
-
-  const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
-
-  if (mc_config.current_config_space() == Equal_time_G1) {
-    BaseType::p_new_worm_ = boost::shared_ptr<Worm>(new CorrelationWorm<2>());
-    BaseType::p_new_worm_->set_time(0, mc_config.p_worm->get_time(0));
-    BaseType::p_new_worm_->set_time(1, open_random(rng, tau_low, tau_high));
-    for (int iop = 0; iop < 2; ++iop) {
-      BaseType::p_new_worm_->set_flavor(iop, mc_config.p_worm->get_flavor(iop));
-    }
-
-    if (rng() < 0.5) {
-      //Insert new operators into the trace
-      for (int iop = 2; iop < 4; ++iop) {
-        BaseType::p_new_worm_->set_flavor(iop, static_cast<int>(num_flavors_ * rng()));
-      }
-
-      BaseType::acceptance_rate_correction_ = (weight_G2 / weight_G1) *
-          num_flavors_ * num_flavors_ * (tau_high - tau_low);
-    } else {
-      return false;
-      //Insert new operators into the trace and remove hybridized operators
-      std::pair<it_t, it_t> op_range = mc_config.operators.range(
-          tau_low <= bll::_1, bll::_1 <= tau_high
-      );
-      std::pair<psi, psi> cdagg_c_pair;
-      const int num_cdagg_c_pair =
-          count_hyb_cdagg_c_op_pairs(op_range.first, op_range.second, worm_ops, rng, cdagg_c_pair);
-      if (num_cdagg_c_pair == 0) {
-        return false;
-      }
-
-      //remove cdagger and c operators from the determinant
-      BaseType::cdagg_ops_rem_.push_back(cdagg_c_pair.first);
-      BaseType::c_ops_rem_.push_back(cdagg_c_pair.second);
-
-      BaseType::p_new_worm_->set_flavor(2, cdagg_c_pair.first.flavor());
-      BaseType::p_new_worm_->set_flavor(3, cdagg_c_pair.second.flavor());
-
-      boost::optional<psi> hyb_op_upper_bound, hyb_op_lower_bound;
-      //tau_max: the time of the first operator which has a larger time than the operator pair under consideration.
-      // If there is no such operator, tau_max = tau_high = upper end point of the sliding window.
-      //tau_min: defined in a similar way
-      double tau_max, tau_min;
-      tau_max = get_tau_first_hyb_op_larger_than(mc_config.operators, cdagg_c_pair.first, tau_high, worm_ops, hyb_op_lower_bound);
-      tau_min = get_tau_first_hyb_op_smaller_than(mc_config.operators, cdagg_c_pair.second, tau_low, worm_ops, hyb_op_upper_bound);
-      BaseType::p_new_worm_->set_time(1, open_random(rng, tau_min, tau_max));
-
-      BaseType::acceptance_rate_correction_ = (weight_G2 / weight_G1) * (2. * num_cdagg_c_pair) / (tau_max - tau_min);
-      assert(tau_min < tau_max);
-      assert(tau_low <= tau_min);
-      assert(tau_max <= tau_high);
-    }
-  } else {
-    if (mc_config.p_worm->get_time(1) < tau_low || mc_config.p_worm->get_time(1) > tau_high) {
-      return false;
-    }
-
-    BaseType::p_new_worm_ = boost::shared_ptr<Worm>(new EqualTimeGWorm<1>());
-    BaseType::p_new_worm_->set_time(0, mc_config.p_worm->get_time(0));
-    for (int iop = 0; iop < 2; ++iop) {
-      BaseType::p_new_worm_->set_flavor(iop, mc_config.p_worm->get_flavor(iop));
-    }
-
-    if (rng() < 0.5) {
-      //Remove worm operators
-      BaseType::acceptance_rate_correction_ = (weight_G1 / weight_G2) / (
-          num_flavors_ * num_flavors_ * (tau_high - tau_low)
-      );
-    } else {
-      return false;
-      //Remove worm operators and insert operators into the determinant to cancel out changes in quantum numbers
-      boost::optional<psi> hyb_op_upper_bound, hyb_op_lower_bound;
-      const double tau_max = get_tau_first_hyb_op_larger_than(mc_config.operators, worm_ops[2], tau_high, worm_ops, hyb_op_lower_bound);
-      const double tau_min = get_tau_first_hyb_op_smaller_than(mc_config.operators, worm_ops[3], tau_low, worm_ops, hyb_op_upper_bound);
-      assert(tau_min < tau_max);
-      assert(tau_low <= tau_min);
-      assert(tau_max <= tau_high);
-
-      double tau_cdagg_op = open_random(rng, tau_max, tau_min), tau_c_op = open_random(rng, tau_max, tau_min);
-      if (tau_cdagg_op == tau_c_op) {
-        return false;
-      } else if (tau_cdagg_op < tau_c_op) {
-        std::swap(tau_cdagg_op, tau_c_op);
-      }
-
-      //add cdagger and c operators into to the determinant
-      BaseType::cdagg_ops_add_.push_back(psi(tau_cdagg_op, CREATION_OP, worm_ops[2].flavor()));
-      BaseType::c_ops_add_.push_back(psi(tau_c_op, ANNIHILATION_OP, worm_ops[3].flavor()));
-
-      //count the number of cdagger and c pairs after the update
-      //(A)  cdagger   n   cdagger   => cdagger  cdagger c  cdagger   num_pairs_after_update = num_pairs_before_update+1
-      //(B)  cdagger   n         c   => cdagger  cdagger c  c         num_pairs_after_update = num_pairs_before_update
-      //(C)  cdagger   n   cdagger   => cdagger  cdagger c  cdagger   num_pairs_after_update = num_pairs_before_update+1
-      //(D)  c         n   c         => c        cdagger c  c         num_pairs_after_update = num_pairs_before_update+1
-      //(E)  Otherwise                                                num_pairs_after_update = num_pairs_before_update+1
-      std::pair<it_t, it_t> op_range = mc_config.operators.range(
-          tau_low <= bll::_1, bll::_1 <= tau_high
-      );
-      std::pair<psi, psi> hyb_op_pair;
-      const int num_hyb_op_pairs =
-          count_hyb_cdagg_c_op_pairs(op_range.first, op_range.second, worm_ops, rng, hyb_op_pair);
-
-      int num_pairs_after_update;
-      if (hyb_op_lower_bound && hyb_op_upper_bound && hyb_op_lower_bound->type() == CREATION_OP
-          && hyb_op_upper_bound->type() == ANNIHILATION_OP) {
-        num_pairs_after_update = num_hyb_op_pairs;
-      } else {
-        num_pairs_after_update = num_hyb_op_pairs + 1;
-      }
-
-      BaseType::acceptance_rate_correction_ =
-          (weight_G1 / weight_G2) * (tau_max - tau_min) / (2. * num_pairs_after_update);
-    }
-  }
-  return true;
 }

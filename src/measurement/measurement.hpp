@@ -21,45 +21,6 @@
 #include "../model/operator.hpp"
 #include "../hash.hpp"
 
-/**
- * @brief Class for measurement of two-time correlation function using Legendre basis
- */
-template<typename SCALAR>
-class TwoTimeG2Measurement {
- public:
-  /**
-   * Constructor
-   *
-   * @param num_flavors    the number of flavors
-   * @param num_legendre   the number of legendre coefficients
-   * @param beta           inverse temperature
-   */
-  TwoTimeG2Measurement(int num_flavors, int num_legendre, double beta) :
-      num_flavors_(num_flavors),
-      beta_(beta),
-      legendre_trans_(1, num_legendre),
-      data_(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_legendre]) {
-    std::fill(data_.origin(), data_.origin() + data_.num_elements(), 0.0);
-  }
-
-  /**
-   * @brief Measure correlation functions with shifting two of the four operators on the interval [0,beta]
-   * @param average_pert_order average perturbation order, which is used for determining the number of shifts
-   */
-  template<typename SlidingWindow>
-  void measure(MonteCarloConfiguration<SCALAR> &mc_config,
-               alps::accumulators::accumulator_set &measurements,
-                   alps::random01 &random, SlidingWindow &sliding_window, int average_pert_order, const std::string &str);
-
- private:
-  /** Measure correlation functions for a single configuration */
-  void measure_impl(const std::vector<psi> &worm_ops, SCALAR weight,
-                    boost::multi_array<std::complex<double>,5> &data);
-  int num_flavors_;
-  double beta_;
-  LegendreTransformer legendre_trans_;
-  boost::multi_array<std::complex<double>, 5> data_;
-};
 
 /**
  * Helper for measuring kL and KR

@@ -1,12 +1,3 @@
-template class TwoTimeG2Measurement<PP_SCALAR >;
-
-template void TwoTimeG2Measurement<PP_SCALAR >::measure<PP_SW >(MonteCarloConfiguration<PP_SCALAR > &mc_config,
-                                           alps::accumulators::accumulator_set &measurements,
-                                           alps::random01 &random,
-                                           PP_SW &sliding_window,
-                                           int average_pert_order,
-                                           const std::string &str);
-
 template class G2Measurement<PP_SCALAR>;
 
 template class Reconnections<PP_SCALAR>;

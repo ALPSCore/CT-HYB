@@ -53,7 +53,6 @@
 #include "sliding_window/sliding_window.hpp"
 #include "measurement/measurement.hpp"
 #include "measurement/measurement_old.hpp"
-#include "measurement/meas_correlation_static_obs.hpp"
 
 #include "accumulator.hpp"
 #include "update_histogram.hpp"
@@ -124,8 +123,8 @@ class HybridizationSimulation: public alps::mcbase {
   void add_worm_mover(ConfigSpace config_space,
                       const std::string &updater_name);
 
-  void read_eq_time_two_particle_greens_meas();
-  void read_two_time_correlation_functions();
+  //void read_eq_time_two_particle_greens_meas();
+  //void read_two_time_correlation_functions();
 
   void do_one_sweep(); // one sweep of the window
   void transition_between_config_spaces();
@@ -228,7 +227,7 @@ class HybridizationSimulation: public alps::mcbase {
   SW_TYPE sliding_window;
 
   //Measurement of two-time correlation functions by worm sampling
-  boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
+  //boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
 
   //Measurement of single-particle Green's functions by worm sampling
   boost::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_legendre_meas;
@@ -240,17 +239,17 @@ class HybridizationSimulation: public alps::mcbase {
   boost::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_legendre_meas;
 
   //Measurement of equal-time two-particle Green's function
-  boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 2> > p_equal_time_G2_meas;
+  //boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 2> > p_equal_time_G2_meas;
 
   //Measurement of equal-time single-particle Green's function
-  boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 1> > p_equal_time_G1_meas;
+  //boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 1> > p_equal_time_G1_meas;
 
   //For measuring equal-time two-particle Green's function by insertion
-  std::vector<EqualTimeOperator<2> > eq_time_two_particle_greens_meas;
+  //std::vector<EqualTimeOperator<2> > eq_time_two_particle_greens_meas;
 
   //For measuring two-time correlation functions <c^dagger(tau) c(tau) c^dagger(0) c(0)> by insertion
   //Deprecated: will be relaced by worm sampling
-  boost::scoped_ptr<MeasCorrelation<SW_TYPE, EqualTimeOperator<1> > > p_meas_corr;
+  //boost::scoped_ptr<MeasCorrelation<SW_TYPE, EqualTimeOperator<1> > > p_meas_corr;
 
   //Acceptance rate of global shift and swap updates
   AcceptanceRateMeasurement global_shift_acc_rate;
