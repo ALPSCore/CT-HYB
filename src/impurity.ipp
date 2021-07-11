@@ -145,10 +145,8 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   if (p["sliding_window.max"].template as<int>() < p["sliding_window.max"].template as<int>()) {
     throw std::runtime_error("sliding_window.max cannot be smaller than sliding_window.max.");
   }
-  sliding_window.set_uniform_mesh(
-    2*p["sliding_window.min"].template as<int>(),
-    mc_config.operators);
-  mc_config.trace = sliding_window.compute_trace(mc_config.operators);
+  sliding_window.set_uniform_mesh(2*p["sliding_window.min"].template as<int>());
+  mc_config.trace = sliding_window.compute_trace();
   if (comm.rank() == 0 && verbose) {
     std::cout << "initial trace = " << mc_config.trace
               << " with N_SECTION = " << sliding_window.get_n_section()
@@ -397,68 +395,9 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
     measurements["Acceptance_rate_swap"] << acc_swap;
   }
 
-  //Measure <n>
-  measure_n();
-
-  //Measure <n>
-  measure_two_time_correlation_functions();
-
   measurements["Sign"] << mycast<double>(mc_config.sign);
 
 }
-
-//Measure the expectation values of density operators
-template<typename IMP_MODEL>
-void HybridizationSimulation<IMP_MODEL>::measure_n() {
-  /*
-  assert(is_thermalized());
-  MeasStaticObs<SlidingWindowManager<IMP_MODEL>, CdagC> meas(sliding_window, mc_config.operators);
-  std::vector<CdagC> ops(FLAVORS);
-  std::vector<EXTENDED_COMPLEX> result_meas(FLAVORS);
-  for (int flavor = 0; flavor < FLAVORS; ++flavor) {
-    boost::array<int, 2> flavors_tmp;
-    flavors_tmp[0] = flavor;
-    flavors_tmp[1] = flavor;
-    ops[flavor] = CdagC(flavors_tmp);
-  }
-
-  //Measure <n>
-  meas.perform_meas(ops, result_meas);
-
-  //We measure only the real part because the Monte Carl average of a density operator should be real.
-  // <n> = <n>_MC/<sign>_MC: <sign>_MC=real, <n>_MC=real, <n>=real
-  //Note: we must take the real part of the quantity after it's multiplied by "sign/trace".
-  std::vector<double> result_meas_Re(FLAVORS);
-  EXTENDED_COMPLEX inv_trace = static_cast<EXTENDED_SCALAR>(EXTENDED_SCALAR(1.0) / mc_config.trace);
-  for (int flavor = 0; flavor < FLAVORS; ++flavor) {
-    result_meas_Re[flavor] =
-        convert_to_scalar(static_cast<EXTENDED_REAL>(get_real(result_meas[flavor] * mc_config.sign * inv_trace)));
-  }
-  measurements["n"] << result_meas_Re;
-  */
-}
-
-//Measure two-time correlation functions by insertion
-template<typename IMP_MODEL>
-void HybridizationSimulation<IMP_MODEL>::measure_two_time_correlation_functions() {
-  assert(is_thermalized());
-  /*
-  if (p_meas_corr.get() == 0) {
-    return;
-  }
-
-  boost::multi_array<EXTENDED_COMPLEX, 2> result;
-  p_meas_corr->perform_meas(sliding_window, mc_config.operators, result);
-  const EXTENDED_COMPLEX coeff = EXTENDED_COMPLEX(mc_config.sign) / EXTENDED_COMPLEX(mc_config.trace);
-  std::transform(result.origin(), result.origin() + result.num_elements(), result.origin(),
-                 std::bind1st(std::multiplies<EXTENDED_COMPLEX>(), coeff));
-
-  measure_simple_vector_observable<COMPLEX>(measurements,
-                                            "Two_time_correlation_functions",
-                                            to_complex_double_std_vector(result));
-  */
-}
-
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
@@ -476,7 +415,7 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
   int rank_ins_rem = dist(random.engine()) + 1;
   int current_n_section = 2 * std::max(N_win_standard / rank_ins_rem, 1);
   if (current_n_section != sliding_window.get_n_section()) {
-    sliding_window.set_uniform_mesh(current_n_section, mc_config.operators, 0, ITIME_LEFT);
+    sliding_window.set_uniform_mesh(current_n_section, 0, ITIME_LEFT);
   }
 
   const int num_move = std::max(current_n_section - 2, 1);
@@ -507,10 +446,9 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
 
     transition_between_config_spaces();
 
-    sliding_window.move_window_to_next_position(mc_config.operators);
+    sliding_window.move_window_to_next_position();
   }
   sanity_check();
-  //assert(sliding_window.get_position_right_edge() == 0 || sliding_window.get_position_right_edge() == 2*current_n_window-2);
 }
 
 template<typename IMP_MODEL>
@@ -566,7 +504,7 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::global_updates() {
   auto n_section_back = sliding_window.get_n_section();
-  sliding_window.set_uniform_mesh(1, mc_config.operators,
+  sliding_window.set_uniform_mesh(1,
     0 , //new_position_right_edge
     ITIME_LEFT, 
     1  //new_position_left_edge
@@ -633,7 +571,7 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
     sanity_check();
   }
 
-  sliding_window.set_uniform_mesh(n_section_back, mc_config.operators, 0, ITIME_LEFT);
+  sliding_window.set_uniform_mesh(n_section_back, 0, ITIME_LEFT);
   sanity_check();
 }
 

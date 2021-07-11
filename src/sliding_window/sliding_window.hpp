@@ -29,6 +29,12 @@ class SlidingWindowManager {
   typedef typename boost::tuple<int, int, ITIME_AXIS_LEFT_OR_RIGHT, int>
       state_t;//pos of left edge, pos of right edge, direction of move, num of windows
 
+  SlidingWindowManager() {};
+
+  SlidingWindowManager(const SlidingWindowManager<MODEL> &sw) {
+    *this = sw;
+  };
+
   SlidingWindowManager(int n_section, std::shared_ptr<MODEL> p_model, double beta,
       const operator_container_t &operators = {});
 
@@ -45,11 +51,47 @@ class SlidingWindowManager {
     tau_edges_.back() = BETA;
   }
 
-  void init_stacks(const operator_container_t &operators);
+  void init_stacks();
+
+  bool operator==(const SlidingWindowManager<MODEL> &other) const {
+    return 
+      this->tau_edges_                   == other.tau_edges_ &&
+      this->p_model                      == other.p_model &&
+      this->BETA                         == other.BETA &&
+      this->num_brakets                  == other.num_brakets &&
+      this->norm_cutoff                  == other.norm_cutoff &&
+      this->operators                    == other.operators &&
+      this->left_states                  == other.left_states &&
+      this->right_states                 == other.right_states &&
+      this->position_left_edge           == other.position_left_edge &&
+      this->position_right_edge           == other.position_right_edge &&
+      this->n_section                    == other.n_section &&
+      this->direction_move_local_window  == other.direction_move_local_window &&
+      this->norm_left_states             == other.norm_left_states &&
+      this->norm_right_states            == other.norm_right_states;
+  }
+
+  SlidingWindowManager<MODEL>& operator=(const SlidingWindowManager<MODEL> &other) {
+    this->tau_edges_                   = other.tau_edges_;
+    this->p_model                      = other.p_model;
+    this->BETA                         = other.BETA;
+    this->num_brakets                  = other.num_brakets;
+    this->norm_cutoff                  = other.norm_cutoff;
+    this->operators                    = other.operators;
+    this->left_states                  = other.left_states;
+    this->right_states                 = other.right_states;
+    this->position_left_edge           = other.position_left_edge;
+    this->position_right_edge           = other.position_right_edge;
+    this->n_section                    = other.n_section;
+    this->direction_move_local_window  = other.direction_move_local_window;
+    this->norm_left_states             = other.norm_left_states;
+    this->norm_right_states            = other.norm_right_states;
+    return *this;
+  }
 
   //Change window size during MC simulation
   // If new_position_left_edge is not given, it defaults to new_position_left_edge = new_position_right_edge+2.
-  void set_uniform_mesh(int n_section_new, const operator_container_t &operators = {},
+  void set_uniform_mesh(int n_section_new, 
                       int new_position_right_edge = 0,
                       ITIME_AXIS_LEFT_OR_RIGHT new_direction_move = ITIME_LEFT,
                       int new_position_left_edge = -1);
@@ -61,7 +103,7 @@ class SlidingWindowManager {
                              direction_move_local_window,
                              n_section);
   }
-  void restore_state(const operator_container_t &ops, state_t state);
+  void restore_state(state_t state);
 
   //Getter
   inline int get_num_brakets() const { return num_brakets; };
@@ -89,39 +131,50 @@ class SlidingWindowManager {
   inline int get_direction_move_local_window() const { return direction_move_local_window; }
   inline double get_tau(int position) const { return tau_edges_[position]; }
   inline int get_n_section() const {return n_section;}
-  inline const std::shared_ptr<const MODEL> get_p_model() const { return p_model; }
+  inline const std::shared_ptr<MODEL> get_p_model() const { return p_model; }
+  inline const operator_container_t& get_operators() const {return operators;}
+  inline const double get_beta() const {return BETA;}
   inline const BRAKET_TYPE &get_bra(int bra) const { return left_states[bra].back(); }
   inline const BRAKET_TYPE &get_ket(int ket) const { return right_states[ket].back(); }
 
   //Manipulation of window
-  void move_window_to_next_position(const operator_container_t &operators);
+  void move_window_to_next_position();
   void move_backward_edge(ITIME_AXIS_LEFT_OR_RIGHT, int num_move = 1);
-  void move_forward_right_edge(const operator_container_t &operators, int num_move = 1);
-  void move_forward_left_edge(const operator_container_t &operators, int num_move = 1);
-  void move_right_edge_to(const operator_container_t &operators, int pos);
-  void move_left_edge_to(const operator_container_t &operators, int pos);
-  void move_edges_to(const operator_container_t &operators, int left_pos, int right_pos) {
+  void move_forward_right_edge(int num_move = 1);
+  void move_forward_left_edge(int num_move = 1);
+  void move_right_edge_to(int pos);
+  void move_left_edge_to(int pos);
+  void move_edges_to(int left_pos, int right_pos) {
     if (left_pos <= get_position_right_edge()) {
-      move_left_edge_to(operators, left_pos);
-      move_right_edge_to(operators, right_pos);
+      move_left_edge_to(left_pos);
+      move_right_edge_to(right_pos);
     } else {
-      move_right_edge_to(operators, right_pos);
-      move_left_edge_to(operators, left_pos);
+      move_right_edge_to(right_pos);
+      move_left_edge_to(left_pos);
     }
   }
-  void move_window_to(const operator_container_t &operators, ITIME_AXIS_LEFT_OR_RIGHT direction);
+  void move_window_to(ITIME_AXIS_LEFT_OR_RIGHT direction);
   inline void set_direction(ITIME_AXIS_LEFT_OR_RIGHT direction) {
     this->direction_move_local_window = direction;
   }
 
+  //Mnipulation of operators
+  std::pair<operator_container_t::iterator,bool> insert(const psi &op) {
+    return operators.insert(op);
+  }
+
+  std::size_t erase(const psi &op) {
+    return operators.erase(op);
+  }
+
   //Computing trace
   typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type
-      compute_trace(const operator_container_t &ops) const;
+      compute_trace() const;
   std::pair<bool,
             typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type>
-      lazy_eval_trace(const operator_container_t &ops, EXTENDED_REAL trace_cutoff, std::vector<EXTENDED_REAL> &bound)
+      lazy_eval_trace(EXTENDED_REAL trace_cutoff, std::vector<EXTENDED_REAL> &bound)
       const;
-  EXTENDED_REAL compute_trace_bound(const operator_container_t &ops, std::vector<EXTENDED_REAL> &bound) const;
+  EXTENDED_REAL compute_trace_bound(std::vector<EXTENDED_REAL> &bound) const;
 
   //static function for imaginary-time evolution of a bra or a ket
   static void evolve_bra
@@ -149,20 +202,19 @@ class SlidingWindowManager {
   inline typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type
       compute_trace_braket(int braket, std::pair<op_it_t, op_it_t> ops_range, double tau_left, double tau_right) const;
 
+  inline void sanity_check() const;
+
   // Private member variables
   std::vector<double> tau_edges_;
-  const std::shared_ptr<MODEL> p_model;
-  const double BETA;
-  const int num_brakets;
-  const double norm_cutoff;
-
+  std::shared_ptr<MODEL> p_model;
+  double BETA;
+  int num_brakets;
+  double norm_cutoff;
+  operator_container_t operators;
   std::vector<std::vector<BRAKET_TYPE> > left_states, right_states;
-  //bra and ket, respectively
   int position_left_edge, position_right_edge, n_section;
   ITIME_AXIS_LEFT_OR_RIGHT direction_move_local_window; //0: left, 1: right
-
-  //for lazy evalulation of trace using spectral norm
   std::vector<std::vector<EXTENDED_REAL> > norm_left_states, norm_right_states;
 
-  inline void sanity_check() const;
+
 };

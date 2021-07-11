@@ -126,6 +126,13 @@ class Braket {
     }
   }
 
+  bool operator==(const Braket< Scalar,OBJ> &other) const {
+    return 
+      this->sector_ == other.sector_ &&
+      this->obj_    == other.obj_ &&
+      this->coeff_  == other.coeff_;
+  }
+
  private:
   int sector_;
   OBJ obj_;

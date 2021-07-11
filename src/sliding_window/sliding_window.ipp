@@ -9,7 +9,9 @@ SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<MODEL> p_model
       n_section(tau_edges.size()-1),
       tau_edges_(tau_edges),
       num_brakets(p_model->num_brakets()),
-      norm_cutoff(std::sqrt(std::numeric_limits<double>::min())) {
+      norm_cutoff(std::sqrt(std::numeric_limits<double>::min())),
+      operators(operators)
+       {
   check_true(tau_edges_[0]==0.0 && tau_edges_.back()==beta, "tau_edges is invalid!");
   for (auto i=0; i<tau_edges_.size()-1; ++i) {
     check_true(tau_edges_[i] < tau_edges_[i+1], "tau_edges must be in strictly increasing order!");
@@ -17,12 +19,12 @@ SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<MODEL> p_model
   position_left_edge = n_section;
   position_right_edge = 0;
 
-  init_stacks(operators);
+  init_stacks();
   sanity_check();
 }
 
 template<typename MODEL>
-void SlidingWindowManager<MODEL>::init_stacks(const operator_container_t &operators) {
+void SlidingWindowManager<MODEL>::init_stacks() {
   left_states.resize(num_brakets);
   right_states.resize(num_brakets);
   norm_left_states.resize(num_brakets);//for bra
@@ -50,7 +52,9 @@ SlidingWindowManager<MODEL>::SlidingWindowManager(int n_section,
       BETA(beta),
       n_section(n_section),
       num_brakets(p_model->num_brakets()),
-      norm_cutoff(std::sqrt(std::numeric_limits<double>::min())) {
+      norm_cutoff(std::sqrt(std::numeric_limits<double>::min())),
+      operators(operators)
+       {
 
   // Generate meshes
   init_tau_edges(n_section);
@@ -58,14 +62,13 @@ SlidingWindowManager<MODEL>::SlidingWindowManager(int n_section,
   position_left_edge = n_section;
   position_right_edge = 0;
 
-  init_stacks(operators);
+  init_stacks();
 
   sanity_check();
 }
 
 template<typename MODEL>
 void SlidingWindowManager<MODEL>::set_uniform_mesh(int n_section_new,
-                                                  const operator_container_t &operators,
                                                   int new_position_right_edge,
                                                   ITIME_AXIS_LEFT_OR_RIGHT new_direction_move,
                                                   int new_position_left_edge
@@ -90,10 +93,10 @@ void SlidingWindowManager<MODEL>::set_uniform_mesh(int n_section_new,
   position_left_edge = n_section;
 
   for (int i = 0; i < new_position_right_edge; ++i) {
-    move_forward_right_edge(operators);
+    move_forward_right_edge();
   }
   for (int i = 0; i < n_section - new_position_left_edge; ++i) {
-    move_forward_left_edge(operators);
+    move_forward_left_edge();
   }
   check_true(position_left_edge == new_position_left_edge);
   check_true(position_right_edge == new_position_right_edge);
@@ -128,7 +131,7 @@ SlidingWindowManager<MODEL>::move_backward_edge(ITIME_AXIS_LEFT_OR_RIGHT which_e
 //small-beta side
 template<typename MODEL>
 void
-SlidingWindowManager<MODEL>::move_forward_right_edge(const operator_container_t &operators, int num_move) {
+SlidingWindowManager<MODEL>::move_forward_right_edge(int num_move) {
   namespace bll = boost::lambda;
   sanity_check();
 
@@ -166,7 +169,7 @@ SlidingWindowManager<MODEL>::move_forward_right_edge(const operator_container_t 
 //large-beta side
 template<typename MODEL>
 void
-SlidingWindowManager<MODEL>::move_forward_left_edge(const operator_container_t &operators_tmp, int num_move) {
+SlidingWindowManager<MODEL>::move_forward_left_edge(int num_move) {
   namespace bll = boost::lambda;
 
   for (int move = 0; move < num_move; ++move) {
@@ -177,7 +180,7 @@ SlidingWindowManager<MODEL>::move_forward_left_edge(const operator_container_t &
 
     OperatorTime tau_edge_old = get_op_tau_high(position_left_edge);
     OperatorTime tau_edge_new = get_op_tau_high(position_left_edge - 1);
-    const std::pair<op_it_t, op_it_t> ops_range = operators_tmp.range(tau_edge_new < bll::_1,
+    const std::pair<op_it_t, op_it_t> ops_range = operators.range(tau_edge_new < bll::_1,
                                                                       bll::_1 <= tau_edge_old);
 
     EXTENDED_REAL max_norm = -1;
@@ -203,22 +206,22 @@ SlidingWindowManager<MODEL>::move_forward_left_edge(const operator_container_t &
 
 template<typename MODEL>
 void
-SlidingWindowManager<MODEL>::move_right_edge_to(const operator_container_t &operators, int pos) {
+SlidingWindowManager<MODEL>::move_right_edge_to(int pos) {
   assert(pos >= 0 && pos <= n_section);
   if (get_position_right_edge() > pos) {
     move_backward_edge(ITIME_RIGHT, get_position_right_edge() - pos);
   } else if (get_position_right_edge() < pos) {
-    move_forward_right_edge(operators, pos - get_position_right_edge());
+    move_forward_right_edge(pos - get_position_right_edge());
   }
 }
 
 template<typename MODEL>
 void
-SlidingWindowManager<MODEL>::move_left_edge_to(const operator_container_t &operators, int pos) {
+SlidingWindowManager<MODEL>::move_left_edge_to(int pos) {
   assert(pos >= 0 && pos <= n_section);
   const int current_pos = get_position_left_edge();
   if (current_pos > pos) {
-    move_forward_left_edge(operators, current_pos - pos);
+    move_forward_left_edge(current_pos - pos);
   } else if (current_pos < pos) {
     move_backward_edge(ITIME_LEFT, pos - current_pos);
   }
@@ -227,7 +230,7 @@ SlidingWindowManager<MODEL>::move_left_edge_to(const operator_container_t &opera
 
 template<typename MODEL>
 typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type
-SlidingWindowManager<MODEL>::compute_trace(const operator_container_t &operators) const {
+SlidingWindowManager<MODEL>::compute_trace() const {
   namespace bll = boost::lambda;
 
   sanity_check();
@@ -277,7 +280,7 @@ struct bound_greater: std::binary_function<std::pair<T, int>, std::pair<T, int>,
 
 template<typename MODEL>
 std::pair<bool, typename ExtendedScalar<typename model_traits<MODEL>::SCALAR_T>::value_type>
-SlidingWindowManager<MODEL>::lazy_eval_trace(const operator_container_t &operators, EXTENDED_REAL trace_cutoff,
+SlidingWindowManager<MODEL>::lazy_eval_trace(EXTENDED_REAL trace_cutoff,
                                              std::vector<EXTENDED_REAL> &trace_bound) const {
   namespace bll = boost::lambda;
 
@@ -401,8 +404,7 @@ SlidingWindowManager<MODEL>::evolve_ket(const MODEL &model, BRAKET_TYPE &ket,
 
 template<typename MODEL>
 EXTENDED_REAL
-SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t &operators,
-                                                 std::vector<EXTENDED_REAL> &bound) const {
+SlidingWindowManager<MODEL>::compute_trace_bound(std::vector<EXTENDED_REAL> &bound) const {
   namespace bll = boost::lambda;
   OperatorTime tau_right = get_op_tau_low(position_right_edge);
   OperatorTime tau_left = get_op_tau_high(position_left_edge);
@@ -466,7 +468,7 @@ SlidingWindowManager<MODEL>::compute_trace_bound(const operator_container_t &ope
 
 template<typename MODEL>
 void
-SlidingWindowManager<MODEL>::move_window_to_next_position(const operator_container_t &operators) {
+SlidingWindowManager<MODEL>::move_window_to_next_position() {
   sanity_check();
 
   // If the window width is beta, no way to move it.
@@ -482,22 +484,21 @@ SlidingWindowManager<MODEL>::move_window_to_next_position(const operator_contain
     direction_move_local_window = ITIME_LEFT;
   }
 
-  move_window_to(operators, direction_move_local_window);
+  move_window_to(direction_move_local_window);
 
   sanity_check();
 }
 
 template<typename MODEL>
 void
-SlidingWindowManager<MODEL>::move_window_to(const operator_container_t &operators,
-                                            ITIME_AXIS_LEFT_OR_RIGHT which_direction) {
+SlidingWindowManager<MODEL>::move_window_to(ITIME_AXIS_LEFT_OR_RIGHT which_direction) {
   sanity_check();
   if (which_direction == ITIME_LEFT) {
-    move_forward_right_edge(operators);
+    move_forward_right_edge();
     move_backward_edge(ITIME_LEFT);
   } else if (which_direction == ITIME_RIGHT) {
     move_backward_edge(ITIME_RIGHT);
-    move_forward_left_edge(operators);
+    move_forward_left_edge();
   } else {
     throw std::runtime_error("unknown direction");
   }
@@ -523,15 +524,14 @@ void SlidingWindowManager<MODEL>::pop_back_ket(int num_pop_back) {
 }
 
 template<typename MODEL>
-void SlidingWindowManager<MODEL>::restore_state(const operator_container_t &ops, state_t state) {
+void SlidingWindowManager<MODEL>::restore_state(state_t state) {
   set_uniform_mesh(
       boost::get<3>(state),
-      ops,
       boost::get<1>(state),
       boost::get<2>(state),
       boost::get<0>(state)
     );
-  move_left_edge_to(ops, boost::get<0>(state));
+  move_left_edge_to(boost::get<0>(state));
   check_true(get_position_right_edge() == boost::get<1>(state));
   check_true(get_position_left_edge() == boost::get<0>(state));
 };

@@ -206,4 +206,62 @@ void pick_up_operators(InputItr begin,
                        alps::random01& random01
 );
 
+/**
+ * Count number of operators at the given time.
+ */
+int count_ops_at(const operator_container_t &operators, double t);
+
+
+template<typename SW, typename Iterator>
+inline bool safe_erase_with_record(SW &sw,
+                                   Iterator first,
+                                   Iterator last,
+                                   std::vector<std::pair<psi,ActionType> > &record) {
+  for (Iterator it = first; it != last; ++it) {
+    if (sw.erase(*it) != 1) {
+      throw std::runtime_error("Error in safe_erase_with_record: faild to erase an operator.");
+    }
+    record.push_back(std::make_pair(*it, REMOVAL));
+  }
+  return true;
+}
+
+
+template<typename SW, typename Iterator>
+inline bool safe_insert_with_record(SW &sw,
+                                    Iterator first,
+                                    Iterator last,
+                                    std::vector<std::pair<psi,ActionType> > &record) {
+  for (Iterator it = first; it != last; ++it) {
+    std::pair<operator_container_t::iterator,bool> info = sw.insert(*it);
+    if (!info.second) {
+      throw std::runtime_error("Error in safe_insert_with_record: there was already an operator at the same point.");
+    }
+    record.push_back(std::make_pair(*it,INSERTION));
+  }
+  return true;
+}
+
+template<typename SW>
+bool safe_insert_with_record(SW &sw, const std::vector<psi> &ops,
+                                    std::vector<std::pair<psi,ActionType> > &record) {
+  return safe_insert_with_record(sw, ops.begin(), ops.end(), record);
+}
+
+/**
+ * Revert changes recorded in "record"
+ */
+template<typename SW>
+inline void revert_changes(SW &sw, const std::vector<std::pair<psi,ActionType> > &record) {
+  int count = 0;
+  for (auto it = record.rbegin(); it != record.rend(); ++ it) {
+    ++ count;
+    if (it->second == INSERTION) {
+      sw.erase(it->first);
+    } else {
+      sw.insert(it->first);
+    }
+  }
+}
+
 #include "operator_util.ipp"

@@ -135,24 +135,10 @@ class EqualTimeG1Meas : public WormMeasBase {
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SlidingWindow &sliding_window,
     alps::accumulators::accumulator_set &measurements) {
-      /*
       MonteCarloConfiguration<SCALAR> mc_config_wrk(mc_config);
       SlidingWindow sw_wrk(sliding_window);
 
-      if (mc_config.p_worm) {
-        mc_config_wrk.remove_worm();
-      }
-
-      std::vector<double> taus_ins(nu_ins_);
-      for (auto t=0; t<num_ins_; ++t) {
-        while (true) {
-          taus_ins[t] = (*p_rng)();
-          if (count_ops_at(mc_config.operators, taus_ins[t]) == 0) {
-            break;
-          }
-        }
-      }
-
+      /*
       boost::shared_ptr<Worm> p_worm_org;
       if (mc_config.p_worm) {
         p_worm_org = mc_config.p_worm.clone();

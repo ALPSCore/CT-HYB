@@ -15,10 +15,10 @@
 #include <alps/accumulators.hpp>
 
 #include "../accumulator.hpp"
-#include "../mc_config.hpp"
 #include "../sliding_window/sliding_window.hpp"
 #include "../common/legendre.hpp"
 #include "../model/operator.hpp"
+#include "../moves/mc_config.hpp"
 #include "../hash.hpp"
 
 

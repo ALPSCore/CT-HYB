@@ -241,29 +241,10 @@ inline void safe_erase(operator_container_t &operators, Iterator first, Iterator
   }
 }
 
-template<typename Iterator>
-inline bool safe_erase_with_record(operator_container_t &operators,
-                                   Iterator first,
-                                   Iterator last,
-                                   std::vector<std::pair<psi,ActionType> > &record) {
-  for (Iterator it = first; it != last; ++it) {
-    if (operators.erase(*it) != 1) {
-      throw std::runtime_error("Error in safe_erase_with_record: faild to erase an operator.");
-    }
-    record.push_back(std::make_pair(*it, REMOVAL));
-  }
-  return true;
-}
 
 inline void safe_erase(operator_container_t &operators, const std::vector<psi> &ops) {
   safe_erase(operators, ops.begin(), ops.end());
 }
-
-//inline bool safe_erase_with_record(operator_container_t &operators,
-                                   //const std::vector<psi> &ops,
-                                   //std::vector<std::pair<psi,ActionType> > &record) {
-  //return safe_erase_with_record(operators, ops.begin(), ops.end(), record);
-//}
 
 inline std::pair<operator_container_t::iterator, bool> safe_insert(operator_container_t &operators, const psi &op) {
   std::pair<operator_container_t::iterator, bool> r = operators.insert(op);
@@ -282,46 +263,12 @@ inline void safe_insert(operator_container_t &operators, Iterator first, Iterato
   }
 }
 
-template<typename Iterator>
-inline bool safe_insert_with_record(operator_container_t &operators,
-                                    Iterator first,
-                                    Iterator last,
-                                    std::vector<std::pair<psi,ActionType> > &record) {
-  for (Iterator it = first; it != last; ++it) {
-    std::pair<operator_container_t::iterator,bool> info = operators.insert(*it);
-    if (!info.second) {
-      throw std::runtime_error("Error in safe_insert_with_record: there was already an operator at the same point.");
-    }
-    record.push_back(std::make_pair(*it,INSERTION));
-  }
-  return true;
-}
 
 inline void safe_insert(operator_container_t &operators, const std::vector<psi> &ops) {
   safe_insert(operators, ops.begin(), ops.end());
 }
 
-inline bool safe_insert_with_record(operator_container_t &operators,
-                                    const std::vector<psi> &ops,
-                                    std::vector<std::pair<psi,ActionType> > &record) {
-  return safe_insert_with_record(operators, ops.begin(), ops.end(), record);
-}
 
-/**
- * Revert changes recorded in "record"
- */
-inline void revert_changes(operator_container_t &operators, const std::vector<std::pair<psi,ActionType> > &record) {
-  typedef std::vector<std::pair<psi,ActionType > >::const_reverse_iterator rev_it_t;
-  int count = 0;
-  for (rev_it_t it = record.rbegin(); it != record.rend(); ++ it) {
-    ++ count;
-    if (it->second == INSERTION) {
-      operators.erase(it->first);
-    } else {
-      operators.insert(it->first);
-    }
-  }
-}
 
 //c^¥dagger(flavor0) c(flavor1) c^¥dagger(flavor2) c(flavor3) ... at the equal time
 template<int N>

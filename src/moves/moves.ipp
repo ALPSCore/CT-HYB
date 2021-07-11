@@ -134,7 +134,8 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
 
   //update operators
   std::vector<std::pair<psi, ActionType> > update_record;
-  bool update_success = update_operators(mc_config.operators, op_rem_tot, op_add_tot, update_record);
+  bool update_success = update_operators(sliding_window,
+    op_rem_tot, op_add_tot, update_record);
   if (!update_success) {
     finalize_update();
     return false;
@@ -161,10 +162,9 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
   } else {
     //compute the upper bound of trace
     trace_bound.resize(sliding_window.get_num_brakets());
-    const EXTENDED_REAL trace_bound_sum = sliding_window.compute_trace_bound(mc_config.operators, trace_bound);
+    const EXTENDED_REAL trace_bound_sum = sliding_window.compute_trace_bound(trace_bound);
     if (trace_bound_sum == 0.0) {
-      //revert_operators(mc_config, worm_ops_rem, worm_ops_add);
-      revert_changes(mc_config.operators, update_record);
+      revert_changes(sliding_window, update_record);
       finalize_update();
       return false;
     }
@@ -184,7 +184,7 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     if (det_rat != 0.0) {
       const SCALAR rest = (*acceptance_rate_correction_) * det_rat;
       const EXTENDED_REAL trace_cutoff = myabs(r_th * mc_config.trace / rest);
-      std::tie(accepted, trace_new) = sliding_window.lazy_eval_trace(mc_config.operators, trace_cutoff, trace_bound);
+      std::tie(accepted, trace_new) = sliding_window.lazy_eval_trace(trace_cutoff, trace_bound);
       prob = rest * convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new / mc_config.trace));
       check_true(myabs(trace_new) < myabs(trace_bound_sum) * 1.01);
       check_true(accepted == std::abs(prob) > r_th);
@@ -206,7 +206,7 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     accepted_ = true;
   } else { // rejected
     mc_config.M.reject_update();
-    revert_changes(mc_config.operators, update_record);
+    revert_changes(sliding_window, update_record);
   }
   mc_config.check_nan();
 
@@ -215,29 +215,27 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
   return accepted;
 };
 
-template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-bool LocalUpdater<SCALAR,
-                  EXTENDED_SCALAR,
-                  SLIDING_WINDOW>::update_operators(operator_container_t &operators,
-                                                    const std::vector<psi> &ops_rem,
-                                                    const std::vector<psi> &ops_add,
-                                                    std::vector<std::pair<psi, ActionType> > &update_record) {
+template<typename SLIDING_WINDOW>
+bool update_operators(SLIDING_WINDOW &sw,
+                      const std::vector<psi> &ops_rem,
+                      const std::vector<psi> &ops_add,
+                      std::vector<std::pair<psi, ActionType> > &update_record) {
   update_record.resize(0);
 
   //First, remove operators
   try {
-    safe_erase_with_record(operators, ops_rem.begin(), ops_rem.end(), update_record);
+    safe_erase_with_record(sw, ops_rem.begin(), ops_rem.end(), update_record);
   } catch (const std::exception &e) {
     throw std::runtime_error("Fatal error in LocalUpdater::update_operators");
   }
 
   //Then, add operators
   try {
-    safe_insert_with_record(operators, ops_add.begin(), ops_add.end(), update_record);
+    safe_insert_with_record(sw, ops_add.begin(), ops_add.end(), update_record);
   } catch (const std::exception &e) {
     //In the case, we try to insert an operator at tau where there is already another operator, we reject such an update.
     std::cout << "Warning: duplicate found" << std::endl;
-    revert_changes(operators, update_record);
+    revert_changes(sw, update_record);
     return false;
   }
 
@@ -702,17 +700,15 @@ global_update(R &rng,
     operators_new.insert(new_worm_ops.begin(), new_worm_ops.end());
   }
 
-  //compute new trace (we use sliding window to avoid overflow/underflow).
-  //sliding_window.set_uniform_mesh(2, mc_config.operators, 0, ITIME_LEFT);//do we need?
-  //sliding_window.set_uniform_mesh(2*Nwin, operators_new, 0, ITIME_LEFT);
+  SLIDING_WINDOW sw(1, sliding_window.get_p_model(),
+    sliding_window.get_beta(), operators_new);
 
-  std::vector<EXTENDED_REAL> trace_bound(sliding_window.get_num_brakets());
-  sliding_window.compute_trace_bound(operators_new, trace_bound);
+  std::vector<EXTENDED_REAL> trace_bound(sw.get_num_brakets());
+  sw.compute_trace_bound(trace_bound);
 
-  std::pair<bool, EXTENDED_SCALAR> r = sliding_window.lazy_eval_trace(operators_new, EXTENDED_REAL(0.0), trace_bound);
+  std::pair<bool, EXTENDED_SCALAR> r = sw.lazy_eval_trace(EXTENDED_REAL(0.0), trace_bound);
   const EXTENDED_SCALAR trace_new = r.second;
 
-  //sliding_window.set_(1, mc_config.operators, 0, ITIME_LEFT);
   if (trace_new == EXTENDED_SCALAR(0.0)) {
     return false;
   }
@@ -744,7 +740,7 @@ global_update(R &rng,
     );
 
     mc_config.trace = trace_new;
-    std::swap(mc_config.operators, operators_new);
+    sliding_window = sw;
     std::swap(mc_config.M, M_new);
     std::swap(det_vec, det_vec_new);
     if (mc_config.p_worm) {

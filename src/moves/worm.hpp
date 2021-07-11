@@ -4,6 +4,8 @@
 #include <boost/multi_array.hpp>
 #include <boost/operators.hpp>
 
+#include <alps/mc/random01.hpp>
+
 #include "../common/util.hpp"
 #include "../model/operator.hpp"
 

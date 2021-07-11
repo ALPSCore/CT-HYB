@@ -4,13 +4,13 @@
 
 #include <alps/fastupdate/determinant_matrix_partitioned.hpp>
 
-#include "common/wide_scalar.hpp"
-#include "model/operator.hpp"
-#include "model/atomic_model.hpp"
-#include "model/hybridization_function.hpp"
-#include "sliding_window/sliding_window.hpp"
+#include "../common/wide_scalar.hpp"
+#include "../model/operator.hpp"
+#include "../model/atomic_model.hpp"
+#include "../model/hybridization_function.hpp"
+#include "../sliding_window/sliding_window.hpp"
 
-#include "moves/worm.hpp"
+#include "worm.hpp"
 
 template<typename SCALAR>
 struct MonteCarloConfiguration {

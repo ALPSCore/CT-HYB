@@ -157,3 +157,12 @@ double compute_spread_non_periodic(const std::vector<psi> &ops) {
 }
 
 
+int count_ops_at(const operator_container_t &operators, double t) {
+  int counter = 0;
+  for (auto it=operators.begin(); it!=operators.end(); ++it) {
+    if (it->time().time() == t) {
+      counter += 1;
+    }
+  }
+  return counter;
+}

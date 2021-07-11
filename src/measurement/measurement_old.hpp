@@ -13,10 +13,10 @@
 #include <alps/accumulators.hpp>
 
 #include "../accumulator.hpp"
-#include "../mc_config.hpp"
 #include "../sliding_window/sliding_window.hpp"
 #include "../common/legendre.hpp"
 #include "../model/operator.hpp"
+#include "../moves/mc_config.hpp"
 
 void init_work_space(boost::multi_array<std::complex<double>, 3> &data, int num_flavors, int num_legendre, int num_freq);
 void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_flavors, int num_legendre, int num_freq);

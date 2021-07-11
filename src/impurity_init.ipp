@@ -59,15 +59,14 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<double>("Pert_order_end");
 
   //Acceptance rate of worm updates
-  for (int i = 0; i < worm_insertion_removers.size(); ++i) {
+  for (auto i = 0; i < worm_insertion_removers.size(); ++i) {
     worm_insertion_removers[i]->create_measurement_acc_rate(measurements);
   }
-  for (typename worm_updater_map_t::iterator it = worm_movers.begin(); it != worm_movers.end();
+  for (auto it = worm_movers.begin(); it != worm_movers.end();
        ++it) {
     it->second->create_measurement_acc_rate(measurements);
   }
-  for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::iterator
-           it = specialized_updaters.begin(); it != specialized_updaters.end(); ++it) {
+  for (auto it = specialized_updaters.begin(); it != specialized_updaters.end(); ++it) {
     it->second->create_measurement_acc_rate(measurements);
   }
 

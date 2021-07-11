@@ -49,14 +49,14 @@
 #include "common/wide_scalar.hpp"
 #include "model/operator.hpp"
 #include "model/atomic_model.hpp"
-#include "moves/moves.hpp"
 #include "sliding_window/sliding_window.hpp"
+#include "moves/moves.hpp"
+#include "moves/mc_config.hpp"
 #include "measurement/measurement.hpp"
 #include "measurement/measurement_old.hpp"
 
 #include "accumulator.hpp"
 #include "update_histogram.hpp"
-#include "mc_config.hpp"
 #include "wang_landau.hpp"
 
 
@@ -130,8 +130,6 @@ class HybridizationSimulation: public alps::mcbase {
   void transition_between_config_spaces();
   void global_updates(); //expensive updates
   void update_MC_parameters(); //update parameters for MC moves during thermalization steps
-  void measure_n();
-  void measure_two_time_correlation_functions();
   void adjust_worm_space_weight();
 
   int get_config_space_position(ConfigSpace config_space) const {

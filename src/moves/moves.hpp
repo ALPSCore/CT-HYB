@@ -13,10 +13,10 @@
 
 #include "../model/operator.hpp"
 #include "../common/wide_scalar.hpp"
+#include "../moves/mc_config.hpp"
 #include "../update_histogram.hpp"
 #include "../accumulator.hpp"
 #include "../sliding_window/sliding_window.hpp"
-#include "../mc_config.hpp"
 
 #include "operator_util.hpp"
 
@@ -138,14 +138,6 @@ class LocalUpdater {
   bool accepted_;
 
  private:
-  //std::vector<psi> duplicate_check_work_;
-
-  static bool update_operators(operator_container_t &operators,
-                               const std::vector<psi> &ops_rem, const std::vector<psi> &ops_add,
-                               std::vector<std::pair<psi, ActionType> > &update_record);
-
-  //void revert_operators(MonteCarloConfiguration<SCALAR> &mc_config,
-  //const std::vector<psi> &worm_ops_rem, const std::vector<psi> &worm_ops_add);
 
   void finalize_update();
 
@@ -153,6 +145,11 @@ class LocalUpdater {
 
   int num_attempted_, num_valid_move_, num_accepted_;
 };
+
+template<typename SLIDING_WINDOW>
+bool update_operators(SLIDING_WINDOW &sw,
+    const std::vector<psi> &ops_rem, const std::vector<psi> &ops_add,
+    std::vector<std::pair<psi, ActionType> > &update_record);
 
 /**
  * Update creation and annihilation operators hybridized with the bath
@@ -440,38 +437,6 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
 };
 
 /**
- * @brief Shift updater a Green's function worm by reconnecting hybridization lines
- * WARNING : There is a bug in GWormShifter.
- */
-/*
-template<typename SCALAR, int RANK, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
-class GWormShifter: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
-  typedef LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> BaseType;
-
- public:
-  GWormShifter(const std::string &str,
-               double beta,
-               int num_flavors,
-               boost::shared_ptr<Worm> p_worm_template
-  ) : BaseType(str), beta_(beta), num_flavors_(num_flavors), p_worm_template_(p_worm_template) {}
-
- private:
-  virtual bool propose(
-      alps::random01 &rng,
-      MonteCarloConfiguration<SCALAR> &mc_config,
-      const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
-  );
-
-  double beta_;
-  int num_flavors_;
-  boost::shared_ptr<Worm> p_worm_template_;
-  std::vector<psi> ops_work_;
-};
-*/
-
-
-/**
  * @brief Exchange flavors of a worm
  */
 struct WormExchangeFlavor {
@@ -508,4 +473,3 @@ struct WormShift {
  private:
   double beta_, shift_;
 };
-
