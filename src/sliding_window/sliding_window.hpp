@@ -35,10 +35,10 @@ class SlidingWindowManager {
     *this = sw;
   };
 
-  SlidingWindowManager(int n_section, std::shared_ptr<MODEL> p_model, double beta,
+  SlidingWindowManager(int n_section, std::shared_ptr<const MODEL> p_model, double beta,
       const operator_container_t &operators = {});
 
-  SlidingWindowManager(std::shared_ptr<MODEL> p_model, double beta, const std::vector<double> &tau_edges,
+  SlidingWindowManager(std::shared_ptr<const MODEL> p_model, double beta, const std::vector<double> &tau_edges,
       const operator_container_t &operators = {});
 
   //Initialization
@@ -64,7 +64,7 @@ class SlidingWindowManager {
       this->left_states                  == other.left_states &&
       this->right_states                 == other.right_states &&
       this->position_left_edge           == other.position_left_edge &&
-      this->position_right_edge           == other.position_right_edge &&
+      this->position_right_edge          == other.position_right_edge &&
       this->n_section                    == other.n_section &&
       this->direction_move_local_window  == other.direction_move_local_window &&
       this->norm_left_states             == other.norm_left_states &&
@@ -81,7 +81,7 @@ class SlidingWindowManager {
     this->left_states                  = other.left_states;
     this->right_states                 = other.right_states;
     this->position_left_edge           = other.position_left_edge;
-    this->position_right_edge           = other.position_right_edge;
+    this->position_right_edge          = other.position_right_edge;
     this->n_section                    = other.n_section;
     this->direction_move_local_window  = other.direction_move_local_window;
     this->norm_left_states             = other.norm_left_states;
@@ -131,7 +131,7 @@ class SlidingWindowManager {
   inline int get_direction_move_local_window() const { return direction_move_local_window; }
   inline double get_tau(int position) const { return tau_edges_[position]; }
   inline int get_n_section() const {return n_section;}
-  inline const std::shared_ptr<MODEL> get_p_model() const { return p_model; }
+  inline const std::shared_ptr<const MODEL> get_p_model() const { return p_model; }
   inline const operator_container_t& get_operators() const {return operators;}
   inline const double get_beta() const {return BETA;}
   inline const BRAKET_TYPE &get_bra(int bra) const { return left_states[bra].back(); }
@@ -160,10 +160,12 @@ class SlidingWindowManager {
 
   //Mnipulation of operators
   std::pair<operator_container_t::iterator,bool> insert(const psi &op) {
+    check_true(get_op_tau_low() < op.time() && op.time() < get_op_tau_high());
     return operators.insert(op);
   }
 
   std::size_t erase(const psi &op) {
+    check_true(get_op_tau_low() < op.time() && op.time() < get_op_tau_high());
     return operators.erase(op);
   }
 
@@ -206,7 +208,7 @@ class SlidingWindowManager {
 
   // Private member variables
   std::vector<double> tau_edges_;
-  std::shared_ptr<MODEL> p_model;
+  std::shared_ptr<const MODEL> p_model;
   double BETA;
   int num_brakets;
   double norm_cutoff;

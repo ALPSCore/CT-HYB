@@ -2,7 +2,7 @@
 
 
 template<typename MODEL>
-SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<MODEL> p_model_,
+SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<const MODEL> p_model_,
   double beta, const std::vector<double> &tau_edges, const operator_container_t &operators)
     : p_model(p_model_),
       BETA(beta),
@@ -47,7 +47,7 @@ void SlidingWindowManager<MODEL>::init_stacks() {
 
 template<typename MODEL>
 SlidingWindowManager<MODEL>::SlidingWindowManager(int n_section,
-  std::shared_ptr<MODEL> p_model_, double beta, const operator_container_t &operators)
+  std::shared_ptr<const MODEL> p_model_, double beta, const operator_container_t &operators)
     : p_model(p_model_),
       BETA(beta),
       n_section(n_section),
