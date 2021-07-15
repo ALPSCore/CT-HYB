@@ -20,6 +20,7 @@
 #include <cmath>
 #include <valarray>
 #include <time.h>
+#include <unordered_map>
 
 #include <boost/assert.hpp>
 #include <boost/multi_index_container.hpp>
@@ -58,6 +59,7 @@
 #include "accumulator.hpp"
 #include "update_histogram.hpp"
 #include "wang_landau.hpp"
+#include "measurement/worm_meas.hpp"
 
 
 template<typename IMP_MODEL>
@@ -224,9 +226,6 @@ class HybridizationSimulation: public alps::mcbase {
   //sliding window for computing trace
   SW_TYPE sliding_window;
 
-  //Measurement of two-time correlation functions by worm sampling
-  //boost::shared_ptr<TwoTimeG2Measurement<SCALAR> > p_two_time_G2_meas;
-
   //Measurement of single-particle Green's functions by worm sampling
   boost::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_legendre_meas;
 
@@ -236,18 +235,8 @@ class HybridizationSimulation: public alps::mcbase {
   //Measurement of two-particle Green's functions by worm sampling (Legendre basis)
   boost::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_legendre_meas;
 
-  //Measurement of equal-time two-particle Green's function
-  //boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 2> > p_equal_time_G2_meas;
-
-  //Measurement of equal-time single-particle Green's function
-  //boost::shared_ptr<EqualTimeGMeasurement<SCALAR, 1> > p_equal_time_G1_meas;
-
-  //For measuring equal-time two-particle Green's function by insertion
-  //std::vector<EqualTimeOperator<2> > eq_time_two_particle_greens_meas;
-
-  //For measuring two-time correlation functions <c^dagger(tau) c(tau) c^dagger(0) c(0)> by insertion
-  //Deprecated: will be relaced by worm sampling
-  //boost::scoped_ptr<MeasCorrelation<SW_TYPE, EqualTimeOperator<1> > > p_meas_corr;
+  using WORM_MEAS_TYPE = WormMeas<SCALAR,SW_TYPE>;
+  std::unordered_map<ConfigSpace,std::vector<std::unique_ptr<WORM_MEAS_TYPE>>> worm_meas;
 
   //Acceptance rate of global shift and swap updates
   AcceptanceRateMeasurement global_shift_acc_rate;

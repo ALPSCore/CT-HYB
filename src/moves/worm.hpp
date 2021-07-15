@@ -1,8 +1,10 @@
 #pragma once
 
-#include <boost/array.hpp>
+#include <array>
+
 #include <boost/multi_array.hpp>
 #include <boost/operators.hpp>
+#include <boost/shared_ptr.hpp>
 
 #include <alps/mc/random01.hpp>
 
@@ -44,7 +46,10 @@ class Worm {
   /** Get the number of creation and annihilation operators (not time-ordered)*/
   virtual int num_operators() const = 0;
 
-  /** Get creation and annihilation operators (not time-ordered)*/
+  /** 
+   * Get creation and annihilation operators (not time-ordered)
+   *   Ordered from left (tau=beta) to right (tau=0).
+   */
   virtual std::vector<psi> get_operators() const = 0;
 
   /** Number of independent time indices*/
@@ -140,6 +145,9 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
     for (int f = 0; f < 2 * Rank; ++f) {
       time_index_[f].push_back(f);
     }
+    for (int f = 0; f < 2 * Rank; ++f) {
+      small_indices_[f] = 0;
+    }
   }
 
   virtual boost::shared_ptr<Worm> clone() const {
@@ -160,6 +168,14 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
   virtual void set_time(int index, double new_time) {
     assert(index >= 0 && index < 2 * Rank);
     times_[index] = new_time;
+  }
+
+  virtual void set_small_index(int index, int new_small_index) {
+    small_indices_[index] = new_small_index;
+  }
+
+  virtual int get_small_index(int index) const {
+    return small_indices_[index];
   }
 
   virtual int num_independent_flavors() const { return 2 * Rank; }
@@ -194,8 +210,9 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
   }
 
  private:
-  boost::array<double, 2 * Rank> times_;
-  boost::array<int, 2 * Rank> flavors_;
+  std::array<double, 2 * Rank> times_;
+  std::array<int, 2 * Rank> small_indices_;
+  std::array<int, 2 * Rank> flavors_;
   std::vector<std::vector<int> > time_index_;
 };
 

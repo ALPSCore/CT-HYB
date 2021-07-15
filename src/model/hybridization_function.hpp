@@ -17,6 +17,8 @@ class HybridizationFunction {
       n_flavors_(n_flavors),
       connected_(boost::extents[n_flavors_][n_flavors_]) {
     check_true(F_[0][0].size() == n_tau + 1);
+    check_true(connected_.shape()[0] == n_flavors);
+    check_true(connected_.shape()[1] == n_flavors);
     for (int flavor = 0; flavor < n_flavors; ++flavor) {
       for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
         connected_[flavor][flavor2] = false;
@@ -78,6 +80,7 @@ HybridizationFunction<SCALAR>::HybridizationFunction(
 {
   int Np1_ = n_tau + 1;
   F_.resize(boost::extents[n_flavors][n_flavors][Np1_]);
+  connected_.resize(boost::extents[n_flavors_][n_flavors_]);
   // read hybridization function from input file with FLAVORS+1 colums \tau, G_1_up, G_1_down, G_2_up ..., G_SITES_down)
   std::ifstream infile_f(input_file.c_str());
   if (!infile_f.is_open())

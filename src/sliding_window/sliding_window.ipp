@@ -68,16 +68,20 @@ SlidingWindowManager<MODEL>::SlidingWindowManager(int n_section,
 }
 
 template<typename MODEL>
-void SlidingWindowManager<MODEL>::set_uniform_mesh(int n_section_new,
+void SlidingWindowManager<MODEL>::set_mesh(const std::vector<double> &tau_edges,
                                                   int new_position_right_edge,
                                                   ITIME_AXIS_LEFT_OR_RIGHT new_direction_move,
                                                   int new_position_left_edge
                                                   ) {
+  check_true(tau_edges[0] == 0.0);
+  check_true(tau_edges.back() == BETA);
+  for (auto t=0; t<tau_edges.size()-1; ++t) {
+    check_true(tau_edges[t] < tau_edges[t+1], "tau_edges must be in strictly ascending order!");
+  }
+
   if (new_position_left_edge < 0) {
     new_position_left_edge = new_position_right_edge+2;
   }
-
-  init_tau_edges(n_section_new);
 
   //reset
   while (depth_right_states() > 1) {
@@ -87,7 +91,8 @@ void SlidingWindowManager<MODEL>::set_uniform_mesh(int n_section_new,
     move_backward_edge(ITIME_LEFT);
   }
 
-  n_section = n_section_new;
+  tau_edges_ = tau_edges;
+  n_section = tau_edges_.size()-1;
 
   position_right_edge = 0;
   position_left_edge = n_section;
@@ -104,6 +109,23 @@ void SlidingWindowManager<MODEL>::set_uniform_mesh(int n_section_new,
   direction_move_local_window = new_direction_move;
 
   sanity_check();
+
+}
+
+template<typename MODEL>
+void SlidingWindowManager<MODEL>::set_uniform_mesh(int n_section_new,
+                                                  int new_position_right_edge,
+                                                  ITIME_AXIS_LEFT_OR_RIGHT new_direction_move,
+                                                  int new_position_left_edge
+                                                  ) {
+  std::vector<double> tau_edges(n_section_new+1);
+  tau_edges[0] = 0;
+  for (auto w=1; w<tau_edges.size()-1; ++w) {
+    tau_edges[w] = (BETA * w) / n_section_new;
+  }
+  tau_edges.back() = BETA;
+
+  set_mesh(tau_edges, new_position_right_edge, new_direction_move, new_position_left_edge);
 }
 
 template<typename MODEL>
@@ -494,8 +516,8 @@ void
 SlidingWindowManager<MODEL>::move_window_to(ITIME_AXIS_LEFT_OR_RIGHT which_direction) {
   sanity_check();
   if (which_direction == ITIME_LEFT) {
-    move_forward_right_edge();
     move_backward_edge(ITIME_LEFT);
+    move_forward_right_edge();
   } else if (which_direction == ITIME_RIGHT) {
     move_backward_edge(ITIME_RIGHT);
     move_forward_left_edge();

@@ -233,6 +233,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     times.push_back(std::chrono::high_resolution_clock::now());
 
     if (is_thermalized()) {
+      //std::cout << "Calling measure_every_step" << std::endl;
       measure_every_step();
     }
 
@@ -256,16 +257,17 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
-  assert(is_thermalized());
+  check_true(is_thermalized(), "Must be thermalized!");
 
   switch (mc_config.current_config_space()) {
     case Z_FUNCTION:
       measure_scalar_observable<SCALAR>(measurements, "kLkR",
-                                        static_cast<double>(measure_kLkR(mc_config.operators, BETA,
+                                        static_cast<double>(
+                                          measure_kLkR(sliding_window.get_operators(), BETA,
                                                                          0.5 * BETA * random())) * mc_config.sign);
       measure_scalar_observable<SCALAR>(measurements,
                                         "k",
-                                        static_cast<double>(mc_config.operators.size()) * mc_config.sign);
+                                        static_cast<double>(sliding_window.get_operators().size()) * mc_config.sign);
       break;
 
     case G1:
@@ -292,6 +294,13 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
     default:
       throw std::runtime_error("Used unsupported worm");
   }
+
+  if (worm_meas.find(mc_config.current_config_space()) != worm_meas.end()) {
+    for (auto& ptr_m: worm_meas.at(mc_config.current_config_space())) {
+      ptr_m->measure(mc_config, sliding_window, measurements);
+    }
+  }
+
   //measure configuration space volume
   num_steps_in_config_space[get_config_space_position(mc_config.current_config_space())] += 1.0;
 }

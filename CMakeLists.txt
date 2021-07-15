@@ -93,6 +93,7 @@ set(SW_FILES
 
 set(MEAS_FILES
     ./src/measurement/measurement.cpp
+    ./src/measurement/worm_meas.cpp
 )
 
 set(MOVES_FILES
@@ -150,6 +151,8 @@ add_gtest(unittest_fu "hyb")
 add_gtest(g2 "measurement")
 add_gtest(test_model "model")
 add_gtest(test_sw "sw;model")
+add_gtest(test_moves "moves")
+add_gtest(test_meas "measurement")
 
 #installation
 install (TARGETS hybmat RUNTIME DESTINATION bin)

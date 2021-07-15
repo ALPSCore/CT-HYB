@@ -986,7 +986,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
   const int num_time_indices = p_worm_template_->num_independent_times();
   const int num_flavor_indices = p_worm_template_->num_independent_flavors();
 
-  std::map<ConfigSpace, double>::const_iterator it = config_space_weight.find(p_worm_template_->get_config_space());
+  auto it = config_space_weight.find(p_worm_template_->get_config_space());
   if (it == config_space_weight.end()) {
     return false;
   }

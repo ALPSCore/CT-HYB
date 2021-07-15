@@ -23,7 +23,7 @@ struct MonteCarloConfiguration {
       sign(1.0),
       trace(std::numeric_limits<double>::max()),
       M(F),
-      operators(),
+      //operators(),
       perm_sign(1)
   {
   }
@@ -59,7 +59,7 @@ struct MonteCarloConfiguration {
   DeterminantMatrixType M;
 
   // All c and c^dagger operators hybridized with bath and those from the worm
-  operator_container_t operators;
+  //operator_container_t operators;
 
   boost::shared_ptr<Worm> p_worm;
   int perm_sign;
@@ -69,21 +69,21 @@ template<typename SCALAR>
 template<typename SW>
 void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
 #ifndef NDEBUG
-  operator_container_t operators2;
-  operators2.insert(M.get_cdagg_ops().begin(), M.get_cdagg_ops().end());
-  operators2.insert(M.get_c_ops().begin(), M.get_c_ops().end());
-  if (p_worm) {
-    std::vector<psi> worm_ops = p_worm->get_operators();
-    operators2.insert(worm_ops.begin(), worm_ops.end());
-  }
-  if (operators2 != operators) {
-    std::cout << "debug1 size " << operators.size() << std::endl;
-    std::cout << "debug2 size " << operators2.size() << std::endl;
-    std::cout << "debug1 " << operators << std::endl;
-    std::cout << "debug2 " << operators2 << std::endl;
-    throw std::runtime_error("operators is wrong!");
-  }
-  assert(operators2 == operators);
+  ////operator_container_t operators2;
+  //operators2.insert(M.get_cdagg_ops().begin(), M.get_cdagg_ops().end());
+  //operators2.insert(M.get_c_ops().begin(), M.get_c_ops().end());
+  //if (p_worm) {
+    //std::vector<psi> worm_ops = p_worm->get_operators();
+    //operators2.insert(worm_ops.begin(), worm_ops.end());
+  //}
+  //if (operators2 != operators) {
+    //std::cout << "debug1 size " << operators.size() << std::endl;
+    //std::cout << "debug2 size " << operators2.size() << std::endl;
+    //std::cout << "debug1 " << operators << std::endl;
+    //std::cout << "debug2 " << operators2 << std::endl;
+    //throw std::runtime_error("operators is wrong!");
+  //}
+  //assert(operators2 == operators);
 
   //check determinant
   std::vector<SCALAR> det_old = M.compute_determinant_as_product();

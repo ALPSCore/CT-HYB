@@ -96,6 +96,11 @@ class SlidingWindowManager {
                       ITIME_AXIS_LEFT_OR_RIGHT new_direction_move = ITIME_LEFT,
                       int new_position_left_edge = -1);
 
+  void set_mesh(const std::vector<double> &tau_edges, 
+                      int new_position_right_edge = 0,
+                      ITIME_AXIS_LEFT_OR_RIGHT new_direction_move = ITIME_LEFT,
+                      int new_position_left_edge = -1);
+
   //Get and restore the state of the window (size, position, direction of move)
   inline state_t get_state() const {
     return boost::make_tuple(position_left_edge,
@@ -160,12 +165,18 @@ class SlidingWindowManager {
 
   //Mnipulation of operators
   std::pair<operator_container_t::iterator,bool> insert(const psi &op) {
-    check_true(get_op_tau_low() < op.time() && op.time() < get_op_tau_high());
+    check_true(
+        get_op_tau_low() < op.time() && op.time() < get_op_tau_high(),
+        "Inserting an operator outside the window is not allowed!"
+    );
     return operators.insert(op);
   }
 
   std::size_t erase(const psi &op) {
-    check_true(get_op_tau_low() < op.time() && op.time() < get_op_tau_high());
+    check_true(
+        get_op_tau_low() < op.time() && op.time() < get_op_tau_high(),
+        "Erase an operator outside the window is not allowed!"
+    );
     return operators.erase(op);
   }
 

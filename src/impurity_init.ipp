@@ -43,12 +43,10 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
     p_G2_meas->create_alps_observable(measurements);
   }
 
-  if (par["measurement.equal_time_G1.on"] != 0) {
-    create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G1");
-  }
-
-  if (par["measurement.equal_time_G2.on"] != 0) {
-    create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Equal_time_G2");
+  for (auto& w: worm_meas) {
+    for (auto& ptr_m: w.second) {
+      ptr_m->create_alps_observable(measurements);
+    }
   }
 
   //Fidelity susceptibility
@@ -115,6 +113,14 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       new GMeasurement<SCALAR, 1>(FLAVORS, par["measurement.G1.n_legendre"], 0, BETA,
                                   par["measurement.G1.max_num_data_accumulated"])
   );
+
+  // New measurement for G1
+  worm_meas[G1] = std::vector<std::unique_ptr<WORM_MEAS_TYPE>>();
+  worm_meas[G1].push_back(
+        std::unique_ptr<WORM_MEAS_TYPE>(
+            new EqualTimeG1Meas<SCALAR,SW_TYPE>(&random, FLAVORS, 10)
+        )
+    );
 
   /*
    * G2
