@@ -9,16 +9,12 @@ TEST(ModelLibrary, SingleOrbitalModel) {
   SCALAR tval = 0.0;
   auto nflavors = 2;
 
-  alps::params par;
-  par["model.sites"] = 1;
-  par["model.spins"] = 2;
   double onsite_U = 2.0;
 
   // Repulsive onsite U
   std::vector<std::tuple<int, int, int, int, SCALAR> > Uval_list{ {0, 1, 1, 0, onsite_U} };
   std::vector<std::tuple<int, int, SCALAR> > t_list;
 
-  AtomicModelEigenBasis<SCALAR>::define_parameters(par);
   AtomicModelEigenBasis<SCALAR> model(nflavors, t_list, Uval_list);
 
   check_eigenes(model);
@@ -84,3 +80,25 @@ TEST(Hyb, two_flavor) {
   test_read_intpl_hyb_two_flavor<double>();
   test_read_intpl_hyb_two_flavor<std::complex<double>>();
 }
+
+/*
+TEST(Model, ops_at_same_time) {
+  using SCALAR = std::complex<double>;
+  using MODEL = COMPLEX_EIGEN_BASIS_MODEL;
+
+  auto beta = 10.0;
+  auto tau = 0.1*beta;
+
+  auto up = 0;
+  auto dn = 1;
+
+  operator_container_t ops;
+  auto op1 = psi(OperatorTime(tau, 0), CREATION_OP,     up);
+  auto op2 = psi(OperatorTime(tau, 0), ANNIHILATION_OP, up);
+  ops.insert(op1);
+  ops.insert(op2);
+  ASSERT_EQ(ops.size(), 2);
+  ASSERT_EQ(ops.erase(op1), 1);
+  ASSERT_EQ(ops.erase(op2), 1);
+}
+*/

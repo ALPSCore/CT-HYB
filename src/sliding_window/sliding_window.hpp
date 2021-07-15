@@ -169,7 +169,15 @@ class SlidingWindowManager {
         get_op_tau_low() < op.time() && op.time() < get_op_tau_high(),
         "Inserting an operator outside the window is not allowed!"
     );
-    return operators.insert(op);
+    if (operators.size() > 0) {
+      auto it = operators.find(op);
+      check_true(
+          operators.find(op) == operators.end(),
+          "Insertion failed due to dupulicated key!");
+    }
+    auto info = operators.insert(op);
+    check_true(info.second, "insertion failed!");
+    return info;
   }
 
   std::size_t erase(const psi &op) {
@@ -177,7 +185,13 @@ class SlidingWindowManager {
         get_op_tau_low() < op.time() && op.time() < get_op_tau_high(),
         "Erase an operator outside the window is not allowed!"
     );
-    return operators.erase(op);
+    auto r = operators.erase(op);
+    if (r == 0) {
+      throw std::runtime_error("Error: no operator erased!");
+    } else if (r > 1) {
+      throw std::runtime_error("Error: more than two operators erased!");
+    }
+    return r;
   }
 
   //Computing trace

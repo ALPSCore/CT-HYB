@@ -118,7 +118,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   worm_meas[G1] = std::vector<std::unique_ptr<WORM_MEAS_TYPE>>();
   worm_meas[G1].push_back(
         std::unique_ptr<WORM_MEAS_TYPE>(
-            new EqualTimeG1Meas<SCALAR,SW_TYPE>(&random, FLAVORS, 10)
+            new EqualTimeG1Meas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, 10)
         )
     );
 

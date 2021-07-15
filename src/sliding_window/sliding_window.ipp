@@ -10,9 +10,12 @@ SlidingWindowManager<MODEL>::SlidingWindowManager(std::shared_ptr<const MODEL> p
       tau_edges_(tau_edges),
       num_brakets(p_model->num_brakets()),
       norm_cutoff(std::sqrt(std::numeric_limits<double>::min())),
-      operators(operators)
+      operators()
        {
   check_true(tau_edges_[0]==0.0 && tau_edges_.back()==beta, "tau_edges is invalid!");
+  for (auto& op: operators) {
+    this->operators.insert(op);// Duplicate keys are checked!
+  }
   for (auto i=0; i<tau_edges_.size()-1; ++i) {
     check_true(tau_edges_[i] < tau_edges_[i+1], "tau_edges must be in strictly increasing order!");
   }
@@ -561,6 +564,7 @@ void SlidingWindowManager<MODEL>::restore_state(state_t state) {
 template<typename MODEL>
 void
 SlidingWindowManager<MODEL>::sanity_check() const {
+  check_true(operators.size()%2 == 0, "Number of operators in sw must be even!");
   check_true(get_position_left_edge() >= get_position_right_edge());
   for (int braket = 0; braket < num_brakets; ++braket) {
     check_true(left_states[braket].size() == depth_left_states());

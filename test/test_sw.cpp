@@ -188,3 +188,37 @@ TEST(SlidingWindow, trace) {
     ASSERT_NEAR(gtau_ref, gtau, 1e-8);
   }
 }
+
+TEST(SlidingWindow, op_insertion) {
+  using SCALAR = std::complex<double>;
+  using MODEL = COMPLEX_EIGEN_BASIS_MODEL;
+
+  auto beta = 10.0;
+  auto tau = 0.1*beta;
+  auto n_section = 10;
+
+  // Single-orbital Hubbard atom at half filling
+  auto onsite_U = 2.0;
+  auto mu = 0.5*onsite_U;
+  auto nflavors = 2;
+
+  auto up = 0;
+  auto dn = 1;
+  auto num_ins = 1;
+
+  std::vector<std::tuple<int, int, int, int, SCALAR> > Uval_list{{0, 1, 1, 0, onsite_U}};
+  std::vector<std::tuple<int, int, SCALAR> > t_list {{0, 0, -mu}, {1, 1, -mu}};
+  auto p_model = std::shared_ptr<MODEL>(new MODEL(nflavors, t_list, Uval_list));
+
+  // Try to insert two ops at the same tau
+  operator_container_t ops;
+  auto op1 = psi(OperatorTime(tau, 0), CREATION_OP,     up);
+  auto op2 = psi(OperatorTime(tau, 0), ANNIHILATION_OP, up);
+  auto op3 = psi(OperatorTime(tau, 1), ANNIHILATION_OP, up);
+
+  auto sw = SlidingWindowManager<MODEL>(n_section, p_model, beta, ops);
+  sw.insert(op1);
+  EXPECT_ANY_THROW(sw.insert(op2));
+  ASSERT_TRUE(op1 < op3);
+  sw.insert(op3);
+}

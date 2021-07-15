@@ -10,13 +10,8 @@
 #include <alps/gf/tail.hpp>
 
 #include "hash.hpp"
+#include "common/util.hpp"
 
-template<typename T>
-struct to_complex {
-  std::complex<T> operator()(const T &re, const T &im) {
-    return std::complex<T>(re, im);
-  }
-};
 
 template<typename SOLVER_TYPE>
 void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,

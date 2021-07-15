@@ -1,10 +1,10 @@
 #pragma once
 
 #include <typeinfo>
-
 #include <alps/fastupdate/determinant_matrix_partitioned.hpp>
 
 #include "../common/wide_scalar.hpp"
+#include "../common/util.hpp"
 #include "../model/operator.hpp"
 #include "../model/atomic_model.hpp"
 #include "../model/hybridization_function.hpp"
@@ -49,6 +49,14 @@ struct MonteCarloConfiguration {
 
   int pert_order() const {
     return M.size();
+  }
+
+  void set_worm(const boost::shared_ptr<Worm> &p_worm) {
+    this->p_worm = p_worm;
+  }
+
+  void remove_worm() {
+    this->p_worm = 0;
   }
 
   template<typename SW>

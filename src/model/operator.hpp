@@ -154,16 +154,16 @@ struct OperatorEqualTime {
   }
 };
 
-inline bool operator<(const psi &t1, const psi &t2) {
-  return t1.time() < t2.time();
+inline bool operator<(const psi &op1, const psi &op2) {
+  return op1.time() < op2.time();
 }
 
-inline bool operator<(const psi &t1, const double t2) {
-  return t1.time() < OperatorTime(t2);
+inline bool operator<(const psi &op1, const double t2) {
+  return op1.time() < OperatorTime(t2);
 }
 
-inline bool operator<(const psi &t1, const OperatorTime t2) {
-  return t1.time() < t2;
+inline bool operator<(const psi &op1, const OperatorTime t2) {
+  return op1.time() < t2;
 }
 
 inline bool operator<(const double t1, const psi &t2) {
@@ -221,7 +221,7 @@ template<typename V>
 void print_list(const V &operators) {
   std::cout << "list: " << std::endl;
   for (typename V::const_iterator it = operators.begin(); it != operators.end(); ++it) {
-    std::cout << it->time() << "[" << it->flavor() << "]" << " ";
+    std::cout << "time " << it->time() << "[" << it->flavor() << "]" << " ";
   }
   std::cout << std::endl;
 }

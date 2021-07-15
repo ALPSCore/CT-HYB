@@ -152,7 +152,7 @@ add_gtest(g2 "measurement")
 add_gtest(test_model "model")
 add_gtest(test_sw "sw;model")
 add_gtest(test_moves "moves")
-add_gtest(test_meas "measurement")
+add_gtest(test_meas "measurement;moves")
 
 #installation
 install (TARGETS hybmat RUNTIME DESTINATION bin)

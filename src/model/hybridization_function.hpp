@@ -1,7 +1,12 @@
 #pragma once
 
-#include <boost/multi_array.hpp>
+#include <iostream>
+#include <fstream>
 
+#include <boost/multi_array.hpp>
+#include <boost/lexical_cast.hpp>
+
+#include "../common/util.hpp"
 #include "operator.hpp"
 
 template<typename SCALAR>

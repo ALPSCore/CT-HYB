@@ -425,3 +425,10 @@ inline void check_true(bool b, const std::string& str="") {
     throw std::runtime_error("Something got wrong! " + str);
   }
 }
+
+template<typename T>
+struct to_complex {
+  std::complex<T> operator()(const T &re, const T &im) {
+    return std::complex<T>(re, im);
+  }
+};
