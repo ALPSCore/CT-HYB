@@ -59,6 +59,14 @@ struct MonteCarloConfiguration {
     this->p_worm = 0;
   }
 
+  int compute_perm_sign() const {
+    return compute_permutation_sign_impl(
+      M.get_cdagg_ops(),
+      M.get_c_ops(),
+      p_worm ? p_worm->get_operators() : std::vector<psi>{}
+    );
+  }
+
   template<typename SW>
   void sanity_check(SW &sliding_window);
 

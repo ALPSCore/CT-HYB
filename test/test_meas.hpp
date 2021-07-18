@@ -71,12 +71,12 @@ void test_equal_time_G1(){
   std::map<std::string,boost::any> ar;
   auto sign = 1.0;
   auto worm_space_vol_rat = 0.5;
-  worm_meas.postprocess(results, sign, worm_space_vol_rat, ar);
+  compute_equal_time_G1(results, nflavors, beta, sign, worm_space_vol_rat, ar);
   auto res = boost::any_cast<boost::multi_array<std::complex<double>,2>&>(ar["EQUAL_TIME_G1"]);
   for (auto f0=0; f0<2; ++f0) {
     for (auto f1=0; f1<2; ++f1) {
       if (f0==f1) {
-        ASSERT_TRUE(std::abs(res[f0][f1] - 0.5/(beta*beta)) < 1e-8/(beta*beta));
+        ASSERT_TRUE(std::abs(res[f0][f1] - 0.5/beta) < 1e-8/beta);
       } else {
         ASSERT_TRUE(std::abs(res[f0][f1]) < 1e-8/(beta*beta));
       }

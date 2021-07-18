@@ -14,6 +14,7 @@
 #include "mc/mympiadapter.hpp"
 #include "postprocess.hpp"
 #include "hdf5/boost_any.hpp"
+#include "measurement/worm_meas.hpp"
 
 namespace alps {
 namespace cthyb {
@@ -47,15 +48,22 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
       }
       mc_results_ = alps::collect_results(sim);
 
-      //post process basis transformation etc.
+      //post process 
       {
         //Average sign
-        results_["Sign"] = mc_results_["Sign"].template mean<double>();
+        auto sign     = mc_results_["Sign"].template mean<double>(); 
+        results_["Sign"] = sign;
+        auto nsites   = Base::parameters_["model.sites"].template as<int>();
+        auto nspins   = Base::parameters_["model.spins"].template as<int>();
+        auto beta     = Base::parameters_["model.beta"].template as<double>();
+        auto nflavors = nsites * nspins;
+
+        auto G1_vol = mc_results_["worm_space_volume_G1"].template mean<double>();
+        auto Z_vol =  mc_results_["Z_function_space_volume"].template mean<double>();
 
         //Single-particle Green's function
         std::cout << "Postprocessing G1..." << std::endl;
         compute_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        compute_euqal_time_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
 
         //Two-particle Green's function
         if (Base::parameters_["measurement.G2.matsubara.on"] != 0) {
@@ -66,6 +74,9 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
           std::cout << "Postprocessing G2 (legendre)..." << std::endl;
           compute_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
         }
+
+        compute_equal_time_G1(mc_results_, nflavors, beta, sign, G1_vol/Z_vol, results_);
+
         /**
         if (Base::parameters_["measurement.two_time_G2.on"] != 0) {
           std::cout << "Postprocessing two_time_G2..." << std::endl;

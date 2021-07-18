@@ -1,25 +1,5 @@
 #include "worm_meas.hpp"
 
-template <typename SCALAR, typename SW_TYPE>
-void
-EqualTimeG1Meas<SCALAR,SW_TYPE>::postprocess(
-    const alps::accumulators::result_set &results,
-    double sign, double worm_space_vol_rat,
-    std::map<std::string,boost::any> &ar,
-    bool verbose)
-{
-  double temperature(1.0 / beta_);
-  double coeff = worm_space_vol_rat / sign;
-
-  std::vector<double> data_Re = results["Equal_time_G1_Re"].template mean<std::vector<double> >();
-  std::vector<double> data_Im = results["Equal_time_G1_Im"].template mean<std::vector<double> >();
-  check_true(data_Re.size() == nflavors_ * nflavors_);
-  boost::multi_array<std::complex<double>, 2> data(boost::extents[nflavors_][nflavors_]);
-  std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
-  std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
-                 std::bind1st(std::multiplies<std::complex<double> >(), coeff));
-  ar["EQUAL_TIME_G1"] = data;
-}
 
 template <typename SCALAR, typename SW_TYPE>
 void 
@@ -30,12 +10,10 @@ EqualTimeG1Meas<SCALAR,SW_TYPE>::measure(
 {
   auto beta = sliding_window.get_beta();
 
-  MonteCarloConfiguration<SCALAR> mc_config_wrk(mc_config);
-  if (mc_config_wrk.p_worm->get_config_space() != G1)
+  if (mc_config.p_worm->get_config_space() != G1)
   {
     throw std::runtime_error("Must be measured in G1 space!");
   }
-  mc_config_wrk.p_worm.reset();
 
   std::vector<double> taus_ins(num_ins_);
   for (auto t = 0; t < num_ins_; ++t)
@@ -66,7 +44,12 @@ EqualTimeG1Meas<SCALAR,SW_TYPE>::measure(
 
   auto sw_wrk(sliding_window);
   sw_wrk.set_mesh(taus_edges, 0, ITIME_LEFT, taus_edges.size()-1); // left_pos = beta, right_pos = 0
+  std::cout << std::endl;
+  std::cout << "trace_G " << sw_wrk.compute_trace() << " " << mc_config.p_worm->get_time(0) << " " << mc_config.p_worm->get_time(1) << std::endl;
+  //print_list(mc_config.p_worm->get_operators());
+  std::cout << std::endl;
   auto trace_org = sw_wrk.compute_trace();
+  auto abs_trace_org = myabs(trace_org);
   for (auto op : mc_config.p_worm->get_operators())
   {
     sw_wrk.erase(op);
@@ -75,14 +58,14 @@ EqualTimeG1Meas<SCALAR,SW_TYPE>::measure(
 
   std::vector<psi> ops_tmp;
   ops_tmp.emplace_back(OperatorTime(taus_ins[0], 1), CREATION_OP, 0);
-  ops_tmp.emplace_back(OperatorTime(taus_ins[0], 0), ANNIHILATION_OP, 1);
-  auto perm_sign_change =
-      static_cast<double>(mc_config.perm_sign) *
-      compute_permutation_sign_impl(
+  ops_tmp.emplace_back(OperatorTime(taus_ins[0], 0), ANNIHILATION_OP, 0);
+  double perm_sign =
+      1. * compute_permutation_sign_impl(
           mc_config.M.get_cdagg_ops(),
           mc_config.M.get_c_ops(),
           ops_tmp
           );
+  double perm_sign_rat = perm_sign/mc_config.compute_perm_sign();
 
   boost::multi_array<std::complex<double>,2> weight_rat(boost::extents[nflavors_][nflavors_]);
   std::fill(weight_rat.origin(), weight_rat.origin()+weight_rat.num_elements(), 0.0);
@@ -99,9 +82,13 @@ EqualTimeG1Meas<SCALAR,SW_TYPE>::measure(
         sw_wrk.insert(c_op);
         sw_wrk.insert(cdagg_op);
         SCALAR trace_rat_ = static_cast<SCALAR>(
-              static_cast<typename SW_TYPE::EXTENDED_SCALAR>(sw_wrk.compute_trace()/trace_org)
+              static_cast<typename SW_TYPE::EXTENDED_SCALAR>(
+                sw_wrk.compute_trace()/trace_org
+              )
             );
-        weight_rat[f0][f1] += perm_sign_change * trace_rat_;
+        //std::cout << " debug2 " << f0 << " " << f1 << " " << sw_wrk.compute_trace() << std::endl;
+          //<< trace_rat_ << std::endl;
+        weight_rat[f0][f1] += -perm_sign_rat * trace_rat_;
         sw_wrk.erase(c_op);
         sw_wrk.erase(cdagg_op);
       }
@@ -113,7 +100,7 @@ EqualTimeG1Meas<SCALAR,SW_TYPE>::measure(
   std::transform(
     weight_rat.origin(), weight_rat.origin()+weight_rat.num_elements(),
     weight_rat.origin(),
-    [&](auto x) {return x/(beta*beta*num_ins_);}
+    [&](auto x) {return x/(beta*num_ins_);}
   );
 
   measure_simple_vector_observable<std::complex<double>>(

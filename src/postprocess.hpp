@@ -269,28 +269,6 @@ void compute_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
   ar["G2_LEGENDRE"] = Gl;
 }
 
-template<typename SOLVER_TYPE>
-void compute_euqal_time_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
-                           const typename alps::parameters_type<SOLVER_TYPE>::type &parms,
-                           std::map<std::string,boost::any> &ar,
-                           bool verbose = false) {
-  const double beta(parms["model.beta"]);
-  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
-  const double temperature(1.0 / beta);
-  const double sign = results["Sign"].template mean<double>();
-  const double coeff =
-      temperature * results["worm_space_volume_Equal_time_G1"].template mean<double>() /
-          (sign * results["Z_function_space_volume"].template mean<double>());
-
-  const std::vector<double> data_Re = results["Equal_time_G1_Re"].template mean<std::vector<double> >();
-  const std::vector<double> data_Im = results["Equal_time_G1_Im"].template mean<std::vector<double> >();
-  assert(data_Re.size() == n_flavors * n_flavors);
-  boost::multi_array<std::complex<double>, 2> data(boost::extents[n_flavors][n_flavors]);
-  std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
-  std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
-                 std::bind1st(std::multiplies<std::complex<double> >(), coeff));
-  ar["EQUAL_TIME_G1"] = data;
-}
 
 template<typename SOLVER_TYPE>
 void compute_equal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,

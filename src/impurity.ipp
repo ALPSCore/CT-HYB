@@ -43,7 +43,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>(           "measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>(        "measurement.G1.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
           //Equal-time single-particle GF
-      .define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
+      //.define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
+      .define<int>("measurement.equal_time_G1.num_ins", 10, "Number of insertion measurements")
           //Two-particle GF
       .define<double>(        "measurement.G2.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
       .define<int>(           "measurement.G2.matsubara.on", 0, "Set a non-zero value to activate Matsubara measurement of G2.")

@@ -36,12 +36,12 @@ public:
     const SW_TYPE &sliding_window,
     alps::accumulators::accumulator_set &measurements) = 0;
   
-  virtual void postprocess(
-    const alps::accumulators::result_set &results,
-    double sign, double worm_space_vol_rat,
-    std::map<std::string,boost::any> &ar,
-    bool verbose = false
-  ) = 0;
+  //virtual void postprocess(
+    //const alps::accumulators::result_set &results,
+    //double sign, double worm_space_vol_rat,
+    //std::map<std::string,boost::any> &ar,
+    //bool verbose = false
+  //) = 0;
 
 };
 
@@ -77,15 +77,25 @@ public:
       const SW_TYPE &sliding_window,
       alps::accumulators::accumulator_set &measurements);
 
-  virtual void postprocess(
-    const alps::accumulators::result_set &results,
-    double sign, double worm_space_vol_rat,
-    std::map<std::string,boost::any> &ar,
-    bool verbose = false
-  );
+  //virtual void postprocess(
+    //const alps::accumulators::result_set &results,
+    //double sign, double worm_space_vol_rat,
+    //std::map<std::string,boost::any> &ar,
+    //bool verbose = false
+  //);
 
 private:
   alps::random01 *p_rng_;
   double beta_;
   int nflavors_, num_ins_;
 };
+
+
+void compute_equal_time_G1(
+    const alps::accumulators::result_set &results,
+    int n_flavors,
+    double beta,
+    double sign,
+    double G1_space_vol_rat,
+    std::map<std::string,boost::any> &ar,
+    bool verbose = false);
