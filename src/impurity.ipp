@@ -291,9 +291,6 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
         );
       }
       break;
-
-    default:
-      throw std::runtime_error("Used unsupported worm");
   }
 
   if (worm_meas.find(mc_config.current_config_space()) != worm_meas.end()) {
@@ -308,7 +305,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure() {
-  assert(is_thermalized());
+  check_true(is_thermalized());
   auto start = std::chrono::high_resolution_clock::now();
 
   //Measure the volumes of the configuration spaces

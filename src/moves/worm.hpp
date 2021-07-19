@@ -15,6 +15,9 @@ enum ConfigSpace {
   Z_FUNCTION,
   G1,
   G2,
+  Equal_time_G1,
+  Equal_time_G2,
+  Two_time_G2,
   Unknown
 };
 
@@ -29,6 +32,15 @@ inline std::string get_config_space_name(ConfigSpace config_space) {
     case G2:
       return "G2";
 
+    case Equal_time_G1:
+      return "Equal_time_G1";
+
+    //case Equal_time_G2:
+      //return "Equal_time_G2";
+//
+    //case Two_time_G2:
+      //return "Two_time_G2";
+//
     default:
       throw std::runtime_error("Unknown configuration space");
   }
@@ -214,6 +226,76 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
   std::array<int, 2 * Rank> small_indices_;
   std::array<int, 2 * Rank> flavors_;
   std::vector<std::vector<int> > time_index_;
+};
+
+/**
+ * Measure equal-time Green's function <c^dagger c , ..., c^dagger c>
+ * Rank = 1: single-particle Green's function
+ * Rank = 2: two-particle Green's function
+ *
+ */
+template<unsigned int Rank>
+class EqualTimeGWorm: public Worm, private boost::equality_comparable<EqualTimeGWorm<Rank> > {
+ public:
+  EqualTimeGWorm() {
+    time_index_.push_back(0);
+  }
+
+  virtual boost::shared_ptr<Worm> clone() const {
+    return boost::shared_ptr<Worm>(new EqualTimeGWorm<Rank>(*this));
+  }
+
+  virtual int num_operators() const { return 2 * Rank; };
+
+  virtual std::vector<psi> get_operators() const;//implemented in worm.ipp
+
+  virtual int num_independent_times() const { return 1; }
+
+  virtual double get_time(int index) const {
+    assert(index == 0);
+    return time_;
+  }
+
+  virtual void set_time(int index, double new_time) {
+    assert(index == 0);
+    time_ = new_time;
+  }
+
+  virtual int num_independent_flavors() const { return 2 * Rank; }
+
+  virtual int get_flavor(int index) const {
+    assert(index >= 0 && index < 2 * Rank);
+    return flavors_[index];
+  }
+
+  virtual void set_flavor(int index, int new_flavor) {
+    assert(index >= 0 && index < 2 * Rank);
+    flavors_[index] = new_flavor;
+  }
+
+  virtual const std::vector<int> &get_time_index(int flavor_index) const {
+    assert(flavor_index >= 0 && flavor_index < 2 * Rank);
+    return time_index_;
+  }
+
+  virtual bool operator==(const EqualTimeGWorm<Rank> &other_worm) const {
+    return (time_ == other_worm.time_ && flavors_ == other_worm.flavors_);
+  }
+
+  ConfigSpace get_config_space() const {
+    if (Rank == 1) {
+      return Equal_time_G1;
+    } else if (Rank == 2) {
+      return Equal_time_G2;
+    } else {
+      throw std::runtime_error("get_config_space is not implemented");
+    }
+  }
+
+ private:
+  double time_;
+  boost::array<int, 2 * Rank> flavors_;
+  std::vector<int> time_index_;
 };
 
 #include "worm.ipp"

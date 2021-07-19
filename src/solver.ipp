@@ -59,6 +59,7 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
         auto nflavors = nsites * nspins;
 
         auto G1_vol = mc_results_["worm_space_volume_G1"].template mean<double>();
+        auto equal_time_G1_vol = mc_results_["worm_space_volume_Equal_time_G1"].template mean<double>();
         auto Z_vol =  mc_results_["Z_function_space_volume"].template mean<double>();
 
         //Single-particle Green's function
@@ -75,7 +76,7 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
           compute_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
         }
 
-        compute_equal_time_G1(mc_results_, nflavors, beta, sign, G1_vol/Z_vol, results_);
+        compute_equal_time_G1(mc_results_, nflavors, beta, sign, equal_time_G1_vol/Z_vol, results_);
 
         /**
         if (Base::parameters_["measurement.two_time_G2.on"] != 0) {

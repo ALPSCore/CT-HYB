@@ -11,13 +11,13 @@ void compute_equal_time_G1(
     int n_flavors,
     double beta,
     double sign,
-    double G1_space_vol_rat,
+    double worm_space_rel_vol,
     std::map<std::string,boost::any> &ar,
     bool verbose) {
-  double coeff = G1_space_vol_rat/sign;
-
   std::vector<double> data_Re = results["Equal_time_G1_Re"].template mean<std::vector<double> >();
   std::vector<double> data_Im = results["Equal_time_G1_Im"].template mean<std::vector<double> >();
+  double coeff = worm_space_rel_vol/(sign * beta);
+
   check_true(data_Re.size() == n_flavors * n_flavors);
   boost::multi_array<std::complex<double>, 2> data(boost::extents[n_flavors][n_flavors]);
   std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());

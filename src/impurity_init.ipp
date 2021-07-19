@@ -88,6 +88,10 @@ void HybridizationSimulation<IMP_MODEL>::add_worm_mover(ConfigSpace config_space
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
+  for (auto w : {G1, Equal_time_G1}) {
+    worm_meas[w] = std::vector<std::unique_ptr<WORM_MEAS_TYPE>>();
+  }
+
   /*
    * G1
    */
@@ -114,15 +118,31 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
                                   par["measurement.G1.max_num_data_accumulated"])
   );
 
-  // New measurement for G1
-  worm_meas[G1] = std::vector<std::unique_ptr<WORM_MEAS_TYPE>>();
-  worm_meas[G1].push_back(
+  /*
+   * Equal-time G1
+   */
+  {
+    worm_types.push_back(Equal_time_G1);
+    const std::string name("Equal_time_G1");
+    add_worm_mover<WormMoverType>(Equal_time_G1, name + "_mover");
+    add_worm_mover<WormFlavorChangerType>(Equal_time_G1, name + "_flavor_changer");
+    worm_insertion_removers.push_back(
+        boost::shared_ptr<WormInsertionRemoverType>(
+            new WormInsertionRemoverType(
+                name + "_ins_rem", BETA, FLAVORS, 0.0, BETA,
+                boost::shared_ptr<Worm>(new EqualTimeGWorm<1>())
+            )
+        )
+    );
+    worm_meas[Equal_time_G1].push_back(
         std::unique_ptr<WORM_MEAS_TYPE>(
             new EqualTimeG1Meas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
               par["measurement.equal_time_G1.num_ins"]
             )
         )
     );
+  }
+
 
   /*
    * G2

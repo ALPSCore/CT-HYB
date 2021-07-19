@@ -61,8 +61,8 @@ public:
   /**
    * Constructor
    */
-  EqualTimeG1Meas(alps::random01 *p_rng, double beta, int nflavors, int num_ins)
-    :p_rng_(p_rng), beta_(beta), nflavors_(nflavors), num_ins_(num_ins)
+  EqualTimeG1Meas(alps::random01 *p_rng, double beta, int nflavors, int num_meas)
+    :p_rng_(p_rng), beta_(beta), nflavors_(nflavors), num_meas_(num_meas)
   {
   }
 
@@ -87,7 +87,7 @@ public:
 private:
   alps::random01 *p_rng_;
   double beta_;
-  int nflavors_, num_ins_;
+  int nflavors_, num_meas_;
 };
 
 
