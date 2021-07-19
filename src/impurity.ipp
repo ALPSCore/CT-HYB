@@ -294,8 +294,8 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
   }
 
   if (worm_meas.find(mc_config.current_config_space()) != worm_meas.end()) {
-    for (auto& ptr_m: worm_meas.at(mc_config.current_config_space())) {
-      ptr_m->measure(mc_config, sliding_window, measurements);
+    for (auto& elem: worm_meas.at(mc_config.current_config_space())) {
+      elem.second->measure(mc_config, sliding_window, measurements);
     }
   }
 

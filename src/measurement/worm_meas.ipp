@@ -35,7 +35,7 @@ EqualTimeG1Meas<SCALAR,SW_TYPE>::measure(
   check_true(taus_ins.size() == num_meas_);
   std::sort(taus_ins.begin(), taus_ins.end());
 
-  // Ste up a sliding window
+  // Set up a sliding window
   std::vector<double> taus_edges;
   taus_edges.push_back(0.0);
   for (auto& t: taus_ins) {

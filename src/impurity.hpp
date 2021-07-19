@@ -236,7 +236,7 @@ class HybridizationSimulation: public alps::mcbase {
   boost::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_legendre_meas;
 
   using WORM_MEAS_TYPE = WormMeas<SCALAR,SW_TYPE>;
-  std::unordered_map<ConfigSpace,std::vector<std::unique_ptr<WORM_MEAS_TYPE>>> worm_meas;
+  std::unordered_map<ConfigSpace,std::unordered_map<std::string,std::unique_ptr<WORM_MEAS_TYPE>>> worm_meas;
 
   //Acceptance rate of global shift and swap updates
   AcceptanceRateMeasurement global_shift_acc_rate;

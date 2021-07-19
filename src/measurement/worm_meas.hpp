@@ -36,13 +36,6 @@ public:
     const SW_TYPE &sliding_window,
     alps::accumulators::accumulator_set &measurements) = 0;
   
-  //virtual void postprocess(
-    //const alps::accumulators::result_set &results,
-    //double sign, double worm_space_vol_rat,
-    //std::map<std::string,boost::any> &ar,
-    //bool verbose = false
-  //) = 0;
-
 };
 
 
@@ -76,13 +69,6 @@ public:
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SW_TYPE &sliding_window,
       alps::accumulators::accumulator_set &measurements);
-
-  //virtual void postprocess(
-    //const alps::accumulators::result_set &results,
-    //double sign, double worm_space_vol_rat,
-    //std::map<std::string,boost::any> &ar,
-    //bool verbose = false
-  //);
 
 private:
   alps::random01 *p_rng_;

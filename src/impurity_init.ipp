@@ -44,8 +44,8 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   }
 
   for (auto& w: worm_meas) {
-    for (auto& ptr_m: w.second) {
-      ptr_m->create_alps_observable(measurements);
+    for (auto& elem: w.second) {
+      elem.second->create_alps_observable(measurements);
     }
   }
 
@@ -89,7 +89,7 @@ void HybridizationSimulation<IMP_MODEL>::add_worm_mover(ConfigSpace config_space
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   for (auto w : {G1, Equal_time_G1}) {
-    worm_meas[w] = std::vector<std::unique_ptr<WORM_MEAS_TYPE>>();
+    worm_meas[w] = std::unordered_map<std::string,std::unique_ptr<WORM_MEAS_TYPE>>();
   }
 
   /*
@@ -134,13 +134,12 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         )
     );
-    worm_meas[Equal_time_G1].push_back(
+    worm_meas[Equal_time_G1]["Equal_time_G1"] = 
         std::unique_ptr<WORM_MEAS_TYPE>(
             new EqualTimeG1Meas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
               par["measurement.equal_time_G1.num_ins"]
             )
-        )
-    );
+        );
   }
 
 
@@ -189,13 +188,9 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
     worm_insertion_removers[w]->set_relative_insertion_proposal_rate(1.0 / worm_types.size());
   }
 
-  //if we have active worm spaces, we activate flat histogram algorithm.
-  if (worm_types.size() > 0) {
-    std::vector<double> target_fractions;
-    target_fractions.push_back(1.0);//partition function space
-    for (int w = 0; w < worm_types.size(); ++w) {
-      target_fractions.push_back(1.0);
-    }
+  // Activate flat histogram algorithm
+  {
+    std::vector<double> target_fractions(worm_types.size()+1, 1.0);
     p_flat_histogram_config_space.reset(new FlatHistogram(worm_types.size(), target_fractions));
   }
   config_space_extra_weight.resize(0);
