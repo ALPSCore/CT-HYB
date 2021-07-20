@@ -39,6 +39,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>(           "measurement.G1.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
       .define<int>(           "measurement.G1.n_tau", 2000, "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
       .define<int>(           "measurement.G1.n_matsubara", 2000, "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
+      .define<std::string>(   "measurement.G1.SIE.sampling_frequencies", "vsample.txt", "Text file containing sampling fermionic frequencies.")
       .define<int>(           "measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
       .define<int>(           "measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>(        "measurement.G1.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
@@ -708,8 +709,19 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
     }
   }
 
+  auto ofile = par["outputfile"].template as<std::string>();
   if (p_G2_meas) {
-     p_G2_meas->finalize(par["outputfile"].template as<std::string>());
+     p_G2_meas->finalize(ofile);
+  }
+
+  for (const auto &ws : worm_meas) {
+    for (const auto& elem: ws.second) {
+      elem.second->save_results(ofile);
+    }
+  }
+
+  if (comm.rank() == 0) {
+    p_model->save_info_for_postprocessing(ofile);
   }
 }
 

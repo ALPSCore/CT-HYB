@@ -371,7 +371,7 @@ SlidingWindowManager<MODEL>::evolve_bra(const MODEL &model, BRAKET_TYPE &bra,
 
     model.sector_propagate_bra(bra, tau_old - it->time());
     for (int i = 0; i < num_ops; i++) {
-      model.apply_op_hyb_bra(it->type(), it->flavor(), bra);
+      model.apply_op_bra(*it, bra);
 
       if (it == ops_range.first) {//no more operators left
         model.sector_propagate_bra(bra, it->time() - tau_new);
@@ -410,7 +410,7 @@ SlidingWindowManager<MODEL>::evolve_ket(const MODEL &model, BRAKET_TYPE &ket,
     BRAKET_TYPE tmp;
     model.sector_propagate_ket(ket, it->time() - tau_old);
     for (auto i = 0; i < num_ops; i++) {
-      model.apply_op_hyb_ket(it->type(), it->flavor(), ket);
+      model.apply_op_ket(*it, ket);
 
       if (it_up != ops_range.second) {
         model.sector_propagate_ket(ket, it_up->time() - it->time());
@@ -455,10 +455,10 @@ SlidingWindowManager<MODEL>::compute_trace_bound(std::vector<EXTENDED_REAL> &bou
       std::vector<psi>::const_iterator it_up = it;
       it_up++;
 
-      assert(sector_ket >= 0);
+      check_true(sector_ket >= 0);
       norm_prod *= compute_exp(sector_ket, it->time() - tau_right);
       for (int i = 0; i < num_ops; i++) {
-        assert(sector_ket >= 0);
+        check_true(sector_ket >= 0);
         sector_ket = p_model->get_dst_sector_ket(it->type(), it->flavor(), sector_ket);
         if (sector_ket == nirvana) {
           break;

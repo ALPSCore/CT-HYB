@@ -129,7 +129,8 @@ TEST(SlidingWindow, trace) {
   double beta = 2.0;
   int n_section = 10;
 
-  auto onsite_U = 2.0;
+  auto onsite_U = 4.0;
+  auto half_U = 0.5 * onsite_U;
   auto mu = 0.5*onsite_U;
   auto nflavors = 2;
 
@@ -174,19 +175,35 @@ TEST(SlidingWindow, trace) {
   }
 
   
-  // -G(tau) = Tr[e^{-(beta-tau) H} c_up e^{-tau H} c^dagger_up]/Z
+  // -G(tau) = < c_up(tau) c^\dagger_up(0)>
+  //         = Tr[e^{-(beta-tau) H} c_up e^{-tau H} c^dagger_up]/Z
+  // vartheta(tau) = - <q_up(tau) q^\dagger_up(0)> = frac{d^2 G(tau)}{d tau^2}
+  auto gtau_ref = [&half_U, &beta](double tau){
+      return 0.5 * (
+          std::exp(-half_U*tau)/(1+std::exp(-beta*half_U)) 
+        + std::exp(+half_U*tau)/(1+std::exp(+beta*half_U))); };
+
   for (auto tau : {0.0*beta, 0.1*beta, 0.5*beta, beta}) {
     operator_container_t ops;
-    ops.insert(psi(OperatorTime(0,   0), CREATION_OP, up));
+    ops.insert(psi(OperatorTime(0,   0), CREATION_OP,     up));
     ops.insert(psi(OperatorTime(tau, 1), ANNIHILATION_OP, up));
     auto sw = SlidingWindowManager<MODEL>(n_section, p_model, beta, ops);
     auto gtau = mycast<double>(sw.compute_trace()/Z);
-    auto gtau_ref = 0.5 * (
-      std::exp(-0.5*onsite_U*tau)/(1+std::exp(-0.5*beta*onsite_U)) +
-      std::exp(+0.5*onsite_U*tau)/(1+std::exp(+0.5*beta*onsite_U))
-    );
-    ASSERT_NEAR(gtau_ref, gtau, 1e-8);
+    ASSERT_NEAR(gtau_ref(tau), gtau, 1e-8);
   }
+
+  auto vartheta_ref = [&half_U, &gtau_ref](double tau){
+    return (half_U*half_U) * gtau_ref(tau);
+  };
+  for (auto tau : {0.0*beta, 0.1*beta, 0.5*beta, beta}) {
+    operator_container_t ops;
+    ops.insert(psi(OperatorTime(0,   0), CREATION_OP,     up, true));
+    ops.insert(psi(OperatorTime(tau, 1), ANNIHILATION_OP, up, true));
+    auto sw = SlidingWindowManager<MODEL>(n_section, p_model, beta, ops);
+    auto vartheta = mycast<double>(sw.compute_trace()/Z);
+    ASSERT_NEAR(vartheta_ref(tau), vartheta, 1e-8);
+  }
+
 }
 
 TEST(SlidingWindow, op_insertion) {

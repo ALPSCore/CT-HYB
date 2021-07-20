@@ -117,7 +117,7 @@ class psi {
   };
 
   psi(TIME_T t, OPERATOR_TYPE type, int flavor, bool time_deriv=false)
-    : t_(t), type_(type), flavor_(flavor) {
+    : t_(t), type_(type), flavor_(flavor), time_deriv_(time_deriv) {
   };
 
   TIME_T time() const { return t_; }

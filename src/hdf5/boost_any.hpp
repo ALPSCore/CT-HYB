@@ -5,6 +5,7 @@
 #include <alps/gf/gf.hpp>
 #include <alps/hdf5/archive.hpp>
 #include <alps/utilities/cast.hpp>
+#include "alps/numeric/tensors/tensor_base.hpp"
 
 namespace alps {
 namespace hdf5 {
@@ -79,6 +80,16 @@ inline void save(
   cnt += detail::save_if_match<boost::multi_array<dcomplex_,6 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
   cnt += detail::save_if_match<boost::multi_array<dcomplex_,7 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
   cnt += detail::save_if_match<boost::multi_array<dcomplex_,8 > >::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+
+  cnt += detail::save_if_match<alps::numerics::tensor<double,1>>::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+  cnt += detail::save_if_match<alps::numerics::tensor<double,2>>::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+  cnt += detail::save_if_match<alps::numerics::tensor<double,3>>::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+  cnt += detail::save_if_match<alps::numerics::tensor<double,4>>::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+
+  cnt += detail::save_if_match<alps::numerics::tensor<dcomplex_,1>>::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+  cnt += detail::save_if_match<alps::numerics::tensor<dcomplex_,2>>::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+  cnt += detail::save_if_match<alps::numerics::tensor<dcomplex_,3>>::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
+  cnt += detail::save_if_match<alps::numerics::tensor<dcomplex_,4>>::perform(ar, path, value, size, chunk, offset) ? 1 : 0;
 
   //r = detail::save_if_match<detail::G1_omega_t>::perform(ar, path, value, size, chunk, offset);
   //r = detail::save_if_match<detail::G1_tau_t>::perform(ar, path, value, size, chunk, offset);

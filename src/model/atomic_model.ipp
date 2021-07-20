@@ -1,10 +1,14 @@
+#include "../hdf5/boost_any.hpp"
+
 template<typename SCALAR, typename DERIVED>
 AtomicModel<SCALAR, DERIVED>::AtomicModel(const alps::params &par, bool verbose)
     : flavors_(par["model.sites"].template as<int>() * par["model.spins"].template as<int>()),
       dim_(1 << flavors_),
       reference_energy_(-1E+100),//this should be set in a derived class,
       verbose_(verbose),
-      U_tensor_rot(boost::extents[flavors_][flavors_][flavors_][flavors_]) {
+      hopping_mat(flavors_, flavors_),
+      U_tensor(flavors_, flavors_, flavors_, flavors_)
+      {
   read_U_tensor(par["model.coulomb_tensor_input_file"].template as<std::string>(), flavors_, nonzero_U_vals);
   read_hopping(par["model.hopping_matrix_input_file"].template as<std::string>(), flavors_, nonzero_t_vals);
   hilbert_space_partioning(
@@ -26,6 +30,12 @@ void AtomicModel<SCALAR, DERIVED>::define_parameters(alps::params &parameters) {
                       "Tolerance in checking hermicity of the local Hamiltonian matrix");
 }
 
+template<typename SCALAR, typename DERIVED>
+void AtomicModel<SCALAR, DERIVED>::save_info_for_postprocessing(const std::string &filename) const {
+  alps::hdf5::archive oar(filename, "a");
+  oar["/hopping"] << boost::any(hopping_mat);
+  oar["/U_tensor"] << boost::any(U_tensor);
+}
 
 //mainly for unitest
 template<typename SCALAR, typename DERIVED>
@@ -40,7 +50,9 @@ AtomicModel<SCALAR, DERIVED>::AtomicModel(int nflavors,
       dim_(1 << flavors_),
       verbose_(verbose),
       nonzero_U_vals(nonzero_U_vals_list),
-      nonzero_t_vals(nonzero_t_vals_list) {
+      nonzero_t_vals(nonzero_t_vals_list),
+      hopping_mat(flavors_, flavors_),
+      U_tensor(flavors_, flavors_, flavors_, flavors_) {
   hilbert_space_partioning(cutoff_ham, hermicity_tolerance);
   init_nelec_sectors();
 }
@@ -137,10 +149,8 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
   const double eps_numerics = 1E-12;
   const double eps = cutoff_ham;
 
-
   // Construct hopping matrix
-  matrix_t hopping_mat(flavors_, flavors_);
-  hopping_mat.setZero();
+  hopping_mat.set_zero();
   for (int elem = 0; elem < nonzero_t_vals.size(); ++elem) {
     const int i = std::get<0>(nonzero_t_vals[elem]);
     const int j = std::get<1>(nonzero_t_vals[elem]);
@@ -152,6 +162,26 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
       if (std::abs(hopping_mat(flavor, flavor2) - myconj<SCALAR>(hopping_mat(flavor2, flavor))) > hermicity_tolerance) {
         throw std::runtime_error("Error: Hopping matrix is not hermite!");
       }
+    }
+  }
+  for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
+    for (int flavor1 = 0; flavor1 < flavors_; ++flavor1) {
+      if (std::abs(hopping_mat(flavor1, flavor2)) < eps_numerics) {
+        hopping_mat(flavor1, flavor2) = 0;
+      }
+    }
+  }
+
+  // Construct U_tensor
+  U_tensor.set_zero();
+  for (int elem = 0; elem < nonzero_U_vals.size(); ++elem) {
+    auto uval = std::get<4>(nonzero_U_vals[elem]);
+    if (std::abs(uval) > eps_numerics) {
+      U_tensor
+        (std::get<0>(nonzero_U_vals[elem]),
+         std::get<1>(nonzero_U_vals[elem]),
+         std::get<2>(nonzero_U_vals[elem]),
+         std::get<3>(nonzero_U_vals[elem])) += uval;
     }
   }
 
@@ -180,9 +210,7 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
 
   for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
     for (int flavor1 = 0; flavor1 < flavors_; ++flavor1) {
-      if (std::abs(hopping_mat(flavor1, flavor2)) > eps_numerics) {
-        ham += hopping_mat(flavor1, flavor2) * ddag_ops[flavor1] * d_ops[flavor2];
-      }
+      ham += hopping_mat(flavor1, flavor2) * ddag_ops[flavor1] * d_ops[flavor2];
     }
   }
   ham.prune(PruneHelper<SCALAR>(eps));

@@ -50,16 +50,19 @@
 #include "common/wide_scalar.hpp"
 #include "model/operator.hpp"
 #include "model/atomic_model.hpp"
+
 #include "sliding_window/sliding_window.hpp"
+
 #include "moves/moves.hpp"
 #include "moves/mc_config.hpp"
+
 #include "measurement/measurement.hpp"
 #include "measurement/measurement_old.hpp"
+#include "measurement/vartheta.hpp"
 
 #include "accumulator.hpp"
 #include "update_histogram.hpp"
 #include "wang_landau.hpp"
-#include "measurement/worm_meas.hpp"
 
 
 template<typename IMP_MODEL>

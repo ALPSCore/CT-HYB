@@ -257,38 +257,41 @@ void AtomicModelEigenBasis<SCALAR>::build_qops() {
   qdag_ops_eigen.resize(this->num_flavors());
   for (auto f=0; f<this->num_flavors(); ++f) {
     q_ops_eigen[f].resize(this->num_sectors());
-    qdag_ops_eigen[f].resize(this->num_flavors());
+    qdag_ops_eigen[f].resize(this->num_sectors());
 
     // Build q ops
     for (auto sector=0; sector<this->num_sectors(); ++sector) {
-      if (d_ops_eigen[f][sector].rows() == 0 || d_ops_eigen[f][sector].cols() == 0) {
+      int rows = d_ops_eigen[f][sector].rows();
+      int cols = d_ops_eigen[f][sector].cols();
+      if (rows * cols == 0) {
         continue;
       }
-      dense_matrix_t q1(d_ops_eigen[f][sector]); //Hloc d
-      dense_matrix_t q2(d_ops_eigen[f][sector]); //d Hloc
-      for (auto j=0; j<q1.cols(); ++j) {
-        q1.col(j) *= eigenvals_sector[sector][j];
+      int dst_sector = Base::get_dst_sector_ket(ANNIHILATION_OP, f, sector);
+      q_ops_eigen[f][sector].resize(rows, cols);
+      for (auto i=0; i<rows; ++i) {
+        for (auto j=0; j<cols; ++j) {
+          q_ops_eigen[f][sector](i,j) = 
+            (-eigenvals_sector[dst_sector][i] + eigenvals_sector[sector][j]) * d_ops_eigen[f][sector](i,j);
+        }
       }
-      for (auto i=0; i<q2.rows(); ++i) {
-        q2.row(i) *= eigenvals_sector[sector][i];
-      }
-      q_ops_eigen[f][sector] = q1 - q2;
     }
 
     // Build qdagger ops
     for (auto sector=0; sector<this->num_sectors(); ++sector) {
-      if (ddag_ops_eigen[f][sector].rows() == 0 || ddag_ops_eigen[f][sector].cols() == 0) {
+      int rows = ddag_ops_eigen[f][sector].rows();
+      int cols = ddag_ops_eigen[f][sector].cols();
+      if (rows * cols == 0) {
         continue;
       }
-      dense_matrix_t qdagg1(ddag_ops_eigen[f][sector]); //Hloc d_dagg
-      dense_matrix_t qdagg2(ddag_ops_eigen[f][sector]); //d_dagg Hloc
-      for (auto j=0; j<qdagg1.cols(); ++j) {
-        qdagg1.col(j) *= eigenvals_sector[sector][j];
+      // Hloc d_dagg - d_dagg Hloc
+      int dst_sector = Base::get_dst_sector_ket(CREATION_OP, f, sector);
+      qdag_ops_eigen[f][sector].resize(rows, cols);
+      for (auto i=0; i<rows; ++i) {
+        for (auto j=0; j<cols; ++j) {
+          qdag_ops_eigen[f][sector](i,j) =
+              (eigenvals_sector[dst_sector][i] - eigenvals_sector[sector][j]) * ddag_ops_eigen[f][sector](i,j);
+        }
       }
-      for (auto i=0; i<qdagg2.rows(); ++i) {
-        qdagg2.row(i) *= eigenvals_sector[sector][i];
-      }
-      q_ops_eigen[f][sector] = - qdagg1 + qdagg2;
     }
   }
 }

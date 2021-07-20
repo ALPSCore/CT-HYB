@@ -31,12 +31,12 @@ check_eigenes(const AtomicModelEigenBasis<SCALAR> &model) {
         auto ket = braket_t(eigenket);
         model.apply_op_hyb_ket(ANNIHILATION_OP, std::get<1>(tij), ket);
         model.apply_op_hyb_ket(CREATION_OP, std::get<0>(tij), ket);
-        ene_from_ket += get_real(std::get<2>(tij) * model.product(eigenbra, ket));
+        ene_from_ket += static_cast<double>(get_real(std::get<2>(tij) * model.product(eigenbra, ket)));
 
         auto bra = braket_t(eigenbra);
         model.apply_op_hyb_bra(CREATION_OP, std::get<0>(tij), bra);
         model.apply_op_hyb_bra(ANNIHILATION_OP, std::get<1>(tij), bra);
-        ene_from_bra += get_real(std::get<2>(tij) * model.product(bra, eigenket));
+        ene_from_bra += static_cast<double>(get_real(std::get<2>(tij) * model.product(bra, eigenket)));
       }
 
       // Coulomb interaction
@@ -47,7 +47,9 @@ check_eigenes(const AtomicModelEigenBasis<SCALAR> &model) {
           model.apply_op_hyb_ket(ANNIHILATION_OP, std::get<2>(Uijkl), ket);
           model.apply_op_hyb_ket(CREATION_OP,     std::get<1>(Uijkl), ket);
           model.apply_op_hyb_ket(CREATION_OP,     std::get<0>(Uijkl), ket);
-          ene_from_ket += get_real(std::get<4>(Uijkl) * model.product(eigenbra, ket));
+          ene_from_ket += static_cast<double>(
+              get_real(std::get<4>(Uijkl) * model.product(eigenbra, ket))
+          );
         }
 
         {
@@ -56,7 +58,9 @@ check_eigenes(const AtomicModelEigenBasis<SCALAR> &model) {
           model.apply_op_hyb_bra(CREATION_OP,     std::get<1>(Uijkl), bra);
           model.apply_op_hyb_bra(ANNIHILATION_OP, std::get<2>(Uijkl), bra);
           model.apply_op_hyb_bra(ANNIHILATION_OP, std::get<3>(Uijkl), bra);
-          ene_from_bra += get_real(std::get<4>(Uijkl) * model.product(bra, eigenket));
+          ene_from_bra += static_cast<double>(
+              get_real(std::get<4>(Uijkl) * model.product(bra, eigenket))
+          );
         }
       }
 

@@ -14,7 +14,7 @@
 #include "mc/mympiadapter.hpp"
 #include "postprocess.hpp"
 #include "hdf5/boost_any.hpp"
-#include "measurement/worm_meas.hpp"
+#include "measurement/all.hpp"
 
 namespace alps {
 namespace cthyb {
@@ -77,6 +77,7 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
         }
 
         compute_equal_time_G1(mc_results_, nflavors, beta, sign, equal_time_G1_vol/Z_vol, results_);
+        compute_vartheta(mc_results_, nflavors, beta, sign, G1_vol/Z_vol, results_);
 
         /**
         if (Base::parameters_["measurement.two_time_G2.on"] != 0) {

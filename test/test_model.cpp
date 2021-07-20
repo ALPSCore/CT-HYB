@@ -29,6 +29,8 @@ TEST(ModelLibrary, SingleOrbitalModel) {
   }
   ASSERT_EQ(min_enes_ref, min_enes);
   ASSERT_EQ(nelec_sectors_ref, nelec_sectors);
+
+  model.save_info_for_postprocessing("single_orb_model.h5");
 }
 
 

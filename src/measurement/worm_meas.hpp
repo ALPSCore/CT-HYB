@@ -8,6 +8,7 @@
 
 #include <alps/accumulators.hpp>
 #include <alps/mc/api.hpp>
+#include <alps/hdf5.hpp>
 
 #include "../accumulator.hpp"
 #include "../moves/mc_config.hpp"
@@ -35,17 +36,16 @@ public:
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SW_TYPE &sliding_window,
     alps::accumulators::accumulator_set &measurements) = 0;
-  
+
+  virtual void save_results(const std::string &filename) const {};
 };
 
 
 /**
- * @brief Measurement by worm shift in tau 
+ * @brief Measurement of equal-time G1
  * 
- * Select one time index of a worm and shift it in tau 
- * to generate multiple MC samples.
- * These MC samples and the original MC sample 
- * will be measured.
+ * Multiple MC samples are generated on the fly 
+ * by shifting the worm in time.
  */
 template <typename SCALAR, typename SW_TYPE>
 class EqualTimeG1Meas : public WormMeas<SCALAR,SW_TYPE>
@@ -85,3 +85,5 @@ void compute_equal_time_G1(
     double G1_space_vol_rat,
     std::map<std::string,boost::any> &ar,
     bool verbose = false);
+
+std::vector<int> read_fermionic_matsubara_points(const std::string& file);

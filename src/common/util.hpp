@@ -432,3 +432,17 @@ struct to_complex {
     return std::complex<T>(re, im);
   }
 };
+
+
+/**
+ * Check if the elements in the given integer array are all fermionic.
+ */
+template<typename T>
+bool is_fermionic(const T& begin, const T& end) {
+  bool flag = true;
+  const int MOD = 2;
+  for (auto it=begin; it != end; ++it) {
+    flag = flag && (((*it)%MOD+MOD)%MOD == 1);
+  }
+  return flag;
+}

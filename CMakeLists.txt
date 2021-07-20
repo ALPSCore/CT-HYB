@@ -94,6 +94,7 @@ set(SW_FILES
 set(MEAS_FILES
     ./src/measurement/measurement.cpp
     ./src/measurement/worm_meas.cpp
+    ./src/measurement/vartheta.cpp
 )
 
 set(MOVES_FILES
@@ -148,6 +149,7 @@ enable_testing(test)
 
 add_gtest(unittest_solver "hyb")
 add_gtest(unittest_fu "hyb")
+add_gtest(test_common "common")
 add_gtest(g2 "measurement")
 add_gtest(test_model "model")
 add_gtest(test_sw "sw;model")

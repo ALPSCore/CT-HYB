@@ -12,10 +12,14 @@
 #include <boost/format.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
-
 #include <boost/lambda/lambda.hpp>
 
 #include <Eigen/Dense>
+
+#include <alps/hdf5/archive.hpp>
+#include <alps/hdf5/tensor.hpp>
+#include <alps/utilities/mpi.hpp>
+#include "alps/numeric/tensors/tensor_base.hpp"
 
 #include "hybfermion.hpp"
 #include "clustering.hpp"
@@ -206,6 +210,8 @@ class AtomicModel {
 
   static void define_parameters(alps::params &parameters);
 
+  void save_info_for_postprocessing(const std::string &filename) const;
+
   //! Return the number of flavors (num of sites x num of spins)
   inline int num_flavors() const {
     return flavors_;
@@ -345,7 +351,11 @@ class AtomicModel {
   // t_{ij} cdag_i c_j
   std::vector<std::tuple<int, int, SCALAR> > nonzero_t_vals;
 
-  boost::multi_array<SCALAR, 4> U_tensor_rot;
+  // Model definition
+  //boost::multi_array<SCALAR, 2> hopping_mat;
+  //boost::multi_array<SCALAR, 4> U_tensor;
+  alps::numerics::tensor<SCALAR, 2> hopping_mat;
+  alps::numerics::tensor<SCALAR, 4> U_tensor;
 
   //fermionic operators
   std::vector<std::vector<sparse_matrix_t> > d_ops_sectors, ddag_ops_sectors;//flavor, sector

@@ -117,6 +117,14 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       new GMeasurement<SCALAR, 1>(FLAVORS, par["measurement.G1.n_legendre"], 0, BETA,
                                   par["measurement.G1.max_num_data_accumulated"])
   );
+  {
+      worm_meas[G1]["vartheta"] = 
+        std::unique_ptr<WORM_MEAS_TYPE>(
+            new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
+                read_fermionic_matsubara_points(par["measurement.G1.SIE.sampling_frequencies"])
+            )
+        );
+  }
 
   /*
    * Equal-time G1
