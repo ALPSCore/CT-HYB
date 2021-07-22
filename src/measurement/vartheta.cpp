@@ -25,5 +25,5 @@ void compute_vartheta(
   std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
   std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
                 [&](const auto&x ){return -coeff*x;});
-  ar["VarTheta"] = data;
+  ar["VARTHETA"] = data;
 }

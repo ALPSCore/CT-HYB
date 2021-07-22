@@ -6,6 +6,9 @@
 #include <boost/multi_array.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include <alps/hdf5/archive.hpp>
+
+#include "../hdf5/boost_any.hpp"
 #include "../common/util.hpp"
 #include "operator.hpp"
 
@@ -18,6 +21,7 @@ class HybridizationFunction {
   HybridizationFunction(double BETA, int n_tau, int n_flavors, const container_t &F, double eps = 1e-10) :
       BETA_(BETA),
       F_(F),
+      Delta_(F),
       n_tau_(n_tau),
       n_flavors_(n_flavors),
       connected_(boost::extents[n_flavors_][n_flavors_]) {
@@ -31,6 +35,13 @@ class HybridizationFunction {
           if (std::abs(F[flavor][flavor2][itau]) > eps) {
             connected_[flavor][flavor2] = true;
           }
+        }
+      }
+    }
+    for (auto t=0; t<n_tau+1; ++t) {
+      for (auto f0=0; f0 < n_flavors; ++f0) {
+        for (auto f1=0; f1 < n_flavors; ++f1) {
+          Delta_[f0][f1][n_tau-t] = - F_[f1][f0][t];
         }
       }
     }
@@ -68,10 +79,16 @@ class HybridizationFunction {
     return connected_[flavor1][flavor2];
   }
 
+  void save_info_for_postprocessing(const std::string &filename) const {
+    alps::hdf5::archive oar(filename, "a");
+    oar["/F_tau"] << boost::any(F_);
+    oar["/Delta_tau"] << boost::any(Delta_);
+  }
+
  private:
   double BETA_;
   int n_tau_, n_flavors_;
-  container_t F_;
+  container_t F_, Delta_;
   boost::multi_array<bool, 2> connected_;
 };
 
@@ -85,6 +102,7 @@ HybridizationFunction<SCALAR>::HybridizationFunction(
 {
   int Np1_ = n_tau + 1;
   F_.resize(boost::extents[n_flavors][n_flavors][Np1_]);
+  Delta_.resize(boost::extents[n_flavors][n_flavors][Np1_]);
   connected_.resize(boost::extents[n_flavors_][n_flavors_]);
   // read hybridization function from input file with FLAVORS+1 colums \tau, G_1_up, G_1_down, G_2_up ..., G_SITES_down)
   std::ifstream infile_f(input_file.c_str());
@@ -126,7 +144,8 @@ HybridizationFunction<SCALAR>::HybridizationFunction(
                                    boost::lexical_cast<std::string>(time + 1) + ".");
         }
         //F_ij(tau) = - Delta_ji (beta - tau)
-        F_[j][i][Np1_ - time - 1] = -mycast<SCALAR>(std::complex<double>(real, imag));
+        Delta_[i][j][time] = mycast<SCALAR>(std::complex<double>(real, imag));
+        F_[j][i][Np1_ - time - 1] = -Delta_[i][j][time];
       }
     }
   }

@@ -181,7 +181,7 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
         (std::get<0>(nonzero_U_vals[elem]),
          std::get<1>(nonzero_U_vals[elem]),
          std::get<2>(nonzero_U_vals[elem]),
-         std::get<3>(nonzero_U_vals[elem])) += uval;
+         std::get<3>(nonzero_U_vals[elem])) += 2.0*uval;
     }
   }
 
