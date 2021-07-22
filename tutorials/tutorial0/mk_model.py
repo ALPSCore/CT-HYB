@@ -10,7 +10,7 @@ down = 1
 def generate_U_tensor_onsite(n_orb, U):
     U_tensor = np.zeros((n_orb,2,n_orb,2,n_orb,2,n_orb,2),dtype=complex)
 
-    for iorb in xrange(n_orb):
+    for iorb in range(n_orb):
         U_tensor[iorb, up, iorb, down, iorb, down, iorb, up] = U
         U_tensor[iorb, down, iorb, up, iorb, up, iorb, down] = U
 
@@ -42,28 +42,28 @@ mu = 0.5*Uval
 #Generate Coulomb tensor
 U_tensor, num_elem = generate_U_tensor_onsite(n_site, Uval)
 f = open("Uijkl.txt", "w")
-print >>f, num_elem
+print(num_elem, file=f)
 line = 0
-for iorb1 in xrange(n_site):
-    for iorb2 in xrange(n_site):
-        for iorb3 in xrange(n_site):
-            for iorb4 in xrange(n_site):
-                for isp in xrange(2):
-                    for isp2 in xrange(2):
+for iorb1 in range(n_site):
+    for iorb2 in range(n_site):
+        for iorb3 in range(n_site):
+            for iorb4 in range(n_site):
+                for isp in range(2):
+                    for isp2 in range(2):
                         if U_tensor[iorb1,isp,iorb2,isp2,iorb3,isp2,iorb4,isp] != 0.0:
-                            print >>f, line, "   ", 2*iorb1+isp, 2*iorb2+isp2, 2*iorb3+isp2, 2*iorb4+isp, U_tensor[iorb1,isp,iorb2,isp2,iorb3,isp2,iorb4,isp].real, U_tensor[iorb1,isp,iorb2,isp2,iorb3,isp2,iorb4,isp].imag
+                            print(line, "   ", 2*iorb1+isp, 2*iorb2+isp2, 2*iorb3+isp2, 2*iorb4+isp, U_tensor[iorb1,isp,iorb2,isp2,iorb3,isp2,iorb4,isp].real, U_tensor[iorb1,isp,iorb2,isp2,iorb3,isp2,iorb4,isp].imag, file=f)
                             line += 1
 
 f.close()
 
 #Generate hopping matrix
 f = open('hopping.txt','w')
-for iorb in xrange(nf):
-    for jorb in xrange(nf):
+for iorb in range(nf):
+    for jorb in range(nf):
         if iorb == jorb:
-            print>>f, iorb, jorb, -mu, 0.0
+            print(iorb, jorb, -mu, 0.0, file=f)
         else:
-            print>>f, iorb, jorb, 0.0, 0.0
+            print(iorb, jorb, 0.0, 0.0, file=f)
 f.close()
 
 
@@ -96,7 +96,7 @@ for i in range(ntau+1):
     for j in range(nf):
         for k in range(nf):
             if j==k:
-                print >>f, i, j, k, g_tau[i].real, g_tau[i].imag
+                print(i, j, k, g_tau[i].real, g_tau[i].imag, file=f)
             else:
-                print >>f, i, j, k, 0.0, 0.0
+                print(i, j, k, 0.0, 0.0, file=f)
 f.close()
