@@ -80,12 +80,12 @@ namespace alps {
 
     public:
       DeterminantMatrix(
-        boost::shared_ptr<GreensFunction> p_gf
+        std::shared_ptr<GreensFunction> p_gf
       );
 
       template<typename CdaggCIterator>
       DeterminantMatrix(
-        boost::shared_ptr<GreensFunction> p_gf,
+        std::shared_ptr<GreensFunction> p_gf,
         CdaggCIterator first,
         CdaggCIterator last
       );
@@ -221,7 +221,7 @@ namespace alps {
       cdagg_set_t cdagg_ops_set_;
       c_set_t c_ops_set_;
 
-      boost::shared_ptr<GreensFunction> p_gf_;
+      std::shared_ptr<GreensFunction> p_gf_;
 
       //key: the imaginary time of an operator, the index of row or col in the matrix
       operator_map_t cop_pos_, cdagg_op_pos_;

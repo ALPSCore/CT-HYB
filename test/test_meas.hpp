@@ -38,11 +38,11 @@ void test_equal_time_G1(){
   // Zero hybridization function
   boost::multi_array<SCALAR,3> F_data(boost::extents[nflavors][nflavors][ntau+1]);
   std::fill(F_data.origin(), F_data.origin()+F_data.num_elements(), 0.0);
-  auto p_F = boost::shared_ptr<HybridizationFunction<SCALAR>>(
+  auto p_F = std::shared_ptr<HybridizationFunction<SCALAR>>(
     new HybridizationFunction<SCALAR>(beta, ntau, nflavors, F_data)
   );
 
-  auto p_worm = boost::shared_ptr<EqualTimeGWorm<1>>(new EqualTimeGWorm<1>());
+  auto p_worm = std::shared_ptr<EqualTimeGWorm<1>>(new EqualTimeGWorm<1>());
   p_worm->set_time(         0, 0.5*beta);
   p_worm->set_flavor(       0, up); // c_op
   p_worm->set_flavor(       1, up); // cdagg_op

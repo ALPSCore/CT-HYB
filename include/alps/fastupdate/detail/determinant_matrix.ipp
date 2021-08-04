@@ -10,7 +10,7 @@ namespace alps {
       typename COp
     >
     DeterminantMatrix<Scalar,GreensFunction,CdaggerOp,COp>::DeterminantMatrix(
-        boost::shared_ptr<GreensFunction> p_gf
+        std::shared_ptr<GreensFunction> p_gf
     )
       : Base(p_gf),
         state_(waiting),
@@ -28,7 +28,7 @@ namespace alps {
     >
     template<typename CdaggCIterator>
     DeterminantMatrix<Scalar,GreensFunction,CdaggerOp,COp>::DeterminantMatrix(
-      boost::shared_ptr<GreensFunction> p_gf,
+      std::shared_ptr<GreensFunction> p_gf,
       CdaggCIterator first,
       CdaggCIterator last
     )

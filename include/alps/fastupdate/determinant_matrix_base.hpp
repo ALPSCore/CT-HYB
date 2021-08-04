@@ -44,12 +44,12 @@ namespace alps {
       typedef boost::multi_index::multi_index_container<COp> c_set_t;
 
       DeterminantMatrixBase(
-        boost::shared_ptr<GreensFunction>& p_gf
+        std::shared_ptr<GreensFunction>& p_gf
       ) {};
 
       template<typename CdaggCIterator>
       DeterminantMatrixBase(
-        boost::shared_ptr<GreensFunction>& p_gf,
+        std::shared_ptr<GreensFunction>& p_gf,
         CdaggCIterator first,
         CdaggCIterator last
       ) {};

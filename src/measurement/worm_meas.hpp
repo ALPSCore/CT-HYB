@@ -16,6 +16,20 @@
 #include "../moves/operator_util.hpp"
 #include "../sliding_window/sliding_window.hpp"
 
+
+template <typename SW_TYPE>
+typename SW_TYPE::EXTENDED_SCALAR
+compute_trace_worm_impl(SW_TYPE &sw, const std::vector<psi> &ops) {
+  for (const auto& op: ops) {
+    sw.insert(op);
+  }
+  auto trace = sw.compute_trace();
+  for (const auto& op: ops) {
+    sw.erase(op);
+  }
+  return trace;
+}
+
 /**
  * @brief Base class for worm measurement
  * 
@@ -87,3 +101,18 @@ void compute_equal_time_G1(
     bool verbose = false);
 
 std::vector<int> read_fermionic_matsubara_points(const std::string& file);
+
+
+inline std::pair<double,double>
+fermionic_sign_time_ordering(double tau, double beta) {
+  double tau_sign = 1.0;
+  while (tau < 0) {
+    tau += beta;
+    tau_sign *= -1.0;
+  }
+  while (tau > beta) {
+    tau -= beta;
+    tau_sign *= -1.0;
+  }
+  return {tau, tau_sign};
+}

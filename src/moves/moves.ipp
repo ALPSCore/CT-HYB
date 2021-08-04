@@ -88,7 +88,7 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     alps::random01 &rng, double BETA,
     MonteCarloConfiguration<SCALAR> &mc_config,
     SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
+    const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   mc_config.sanity_check(sliding_window);
 
@@ -269,7 +269,7 @@ bool InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
+    const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   namespace bll = boost::lambda;
 
@@ -410,7 +410,7 @@ bool OperatorPairFlavorUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose
     alps::random01 &rng,
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
+    const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   namespace bll = boost::lambda;
   typedef operator_container_t::iterator it_t;
@@ -456,7 +456,7 @@ bool SingleOperatorShiftUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propos
     alps::random01 &rng,
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
+    const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   namespace bll = boost::lambda;
   typedef operator_container_t::iterator IteratorType;
@@ -607,7 +607,7 @@ SCALAR compute_det_rat(const std::vector<psi> &creation_operators,
 
 
   //compute determinant as a product
-  boost::shared_ptr<GreensFunction> p_gf = M.get_greens_function();
+  std::shared_ptr<GreensFunction> p_gf = M.get_greens_function();
   std::vector<OperatorTime> cdagg_times, c_times;
   det_vec_new.resize(0);
   det_vec_new.reserve(creation_operators.size());
@@ -692,9 +692,9 @@ global_update(R &rng,
   operators_new.insert(creation_operators_new.begin(), creation_operators_new.end());
   operators_new.insert(annihilation_operators_new.begin(), annihilation_operators_new.end());
   //worm
-  boost::shared_ptr<Worm> p_new_worm;
+  std::shared_ptr<Worm> p_new_worm;
   if (mc_config.p_worm) {
-    boost::shared_ptr<Worm> p_w = worm_transformer(*(mc_config.p_worm));
+    std::shared_ptr<Worm> p_w = worm_transformer(*(mc_config.p_worm));
     p_new_worm.swap(p_w);
     std::vector<psi> new_worm_ops = p_new_worm->get_operators();
     operators_new.insert(new_worm_ops.begin(), new_worm_ops.end());
@@ -796,7 +796,7 @@ bool WormMover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
+    const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   if (!mc_config.p_worm) {
     return false;
@@ -840,7 +840,7 @@ bool WormFlavorChanger<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
+    const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   if (!mc_config.p_worm) {
     return false;
@@ -878,7 +878,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     alps::random01 &rng,
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
+    const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   if (mc_config.p_worm) {
     assert(typeid(mc_config.p_worm.get()) == typeid(p_worm_template_.get()));
@@ -906,7 +906,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
     alps::random01 &rng,
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
+    const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   const double tau_low = std::max(sliding_window.get_tau_low(), BaseType::tau_lower_limit_);
   const double tau_high = std::min(sliding_window.get_tau_high(), BaseType::tau_upper_limit_);
@@ -914,9 +914,9 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
   const int num_time_indices = p_worm_template_->num_independent_times();
   const int num_flavor_indices = p_worm_template_->num_independent_flavors();
 
-  std::map<ConfigSpace, double>::const_iterator it = config_space_weight.find(p_worm_template_->get_config_space());
+  std::map<ConfigSpaceEnum::Type, double>::const_iterator it = config_space_weight.find(p_worm_template_->get_config_space());
   if (it == config_space_weight.end()) {
-    std::cout << get_config_space_name(p_worm_template_->get_config_space()) << std::endl;
+    std::cout << ConfigSpaceEnum::to_string(p_worm_template_->get_config_space()) << std::endl;
     throw std::logic_error("Worm space weight not found");
   }
   const double worm_space_weight = it->second;
@@ -975,7 +975,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
     alps::random01 &rng,
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
+    const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   namespace bll = boost::lambda;
   typedef operator_container_t::iterator it_t;
@@ -1108,13 +1108,13 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
     alps::random01 &rng,
     const MonteCarloConfiguration<SCALAR> &mc_config,
     const SLIDING_WINDOW &sliding_window,
-    const std::map<ConfigSpace, double> &config_space_weight
+    const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   if (typeid(mc_config.p_worm.get()) != typeid(p_worm_template_.get())) {
     throw std::logic_error("Type is wrong in GWormInsertionRemover::update()");
   }
 
-  std::map<ConfigSpace, double>::const_iterator it = config_space_weight.find(p_worm_template_->get_config_space());
+  std::map<ConfigSpaceEnum::Type, double>::const_iterator it = config_space_weight.find(p_worm_template_->get_config_space());
   if (it == config_space_weight.end()) {
     throw std::logic_error("Worm space weight not found");
   }

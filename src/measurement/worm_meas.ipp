@@ -10,7 +10,7 @@ EqualTimeG1Meas<SCALAR,SW_TYPE>::measure(
 {
   auto beta = sliding_window.get_beta();
 
-  if (mc_config.p_worm->get_config_space() != Equal_time_G1)
+  if (mc_config.p_worm->get_config_space() != ConfigSpaceEnum::Equal_time_G1)
   {
     throw std::runtime_error("Must be measured in Equal_time_G1 space!");
   }

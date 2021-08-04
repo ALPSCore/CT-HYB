@@ -56,9 +56,9 @@
 #include "moves/moves.hpp"
 #include "moves/mc_config.hpp"
 
-#include "measurement/measurement.hpp"
-#include "measurement/measurement_old.hpp"
-#include "measurement/vartheta.hpp"
+//#include "measurement/measurement.hpp"
+//#include "measurement/measurement_old.hpp"
+#include "measurement/all.hpp"
 
 #include "accumulator.hpp"
 #include "update_histogram.hpp"
@@ -110,7 +110,7 @@ class HybridizationSimulation: public alps::mcbase {
     for (typename worm_updater_map_t::const_iterator it = worm_movers.begin(); it != worm_movers.end(); ++it) {
       names.push_back(it->second->get_name());
     }
-    for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::const_iterator
+    for (typename std::map<std::string, std::shared_ptr<LocalUpdaterType> >::const_iterator
              it = specialized_updaters.begin(); it != specialized_updaters.end(); ++ it) {
       names.push_back(it->second->get_name());
     }
@@ -124,9 +124,13 @@ class HybridizationSimulation: public alps::mcbase {
   //for set up
   void create_observables(); //build ALPS observables
   void create_worm_updaters();
+
   template<typename W>
-  void add_worm_mover(ConfigSpace config_space,
+  void add_worm_mover(ConfigSpaceEnum::Type config_space,
                       const std::string &updater_name);
+  
+  template<typename WORM_T>
+  void add_worm_space(std::shared_ptr<WORM_T> p_worm);
 
   //void read_eq_time_two_particle_greens_meas();
   //void read_two_time_correlation_functions();
@@ -137,11 +141,11 @@ class HybridizationSimulation: public alps::mcbase {
   void update_MC_parameters(); //update parameters for MC moves during thermalization steps
   void adjust_worm_space_weight();
 
-  int get_config_space_position(ConfigSpace config_space) const {
-    if (config_space == Z_FUNCTION) {
+  int get_config_space_position(ConfigSpaceEnum::Type config_space) const {
+    if (config_space == ConfigSpaceEnum::Z_FUNCTION) {
       return 0;
     } else {
-      std::vector<ConfigSpace>::const_iterator
+      std::vector<ConfigSpaceEnum::Type>::const_iterator
           it = std::find(worm_types.begin(), worm_types.end(), config_space);
       if (it == worm_types.end()) {
         return -1;
@@ -165,7 +169,7 @@ class HybridizationSimulation: public alps::mcbase {
   //Model object
   std::shared_ptr<IMP_MODEL> p_model;
 
-  boost::shared_ptr<HybridizationFunction<SCALAR> > F;
+  std::shared_ptr<HybridizationFunction<SCALAR> > F;
 
   //ALPS MPI communicator
 #ifdef ALPS_HAVE_MPI
@@ -185,11 +189,11 @@ class HybridizationSimulation: public alps::mcbase {
   std::vector<double> config_space_extra_weight;
 
   //std::map version which contains the same information as config_space_extra_weight
-  std::map<ConfigSpace, double> worm_space_extra_weight_map;
+  std::map<ConfigSpaceEnum::Type, double> worm_space_extra_weight_map;
 
   /* Monte Carlo updater */
   //insertion/removal updater for single pair update, double pair update, triple pair update, etc.
-  std::vector<boost::shared_ptr<InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
+  std::vector<std::shared_ptr<InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> > >
       ins_rem_updater;
 
   //change the flavor of a pair of operators
@@ -212,34 +216,34 @@ class HybridizationSimulation: public alps::mcbase {
   typedef GWormInsertionRemover<SCALAR, 2, EXTENDED_SCALAR, SW_TYPE> G2WormInsertionRemoverType;
 
   //a list of active worm spaces
-  std::vector<ConfigSpace> worm_types;
+  std::vector<ConfigSpaceEnum::Type> worm_types;
 
   //update the status of the worm (time, flavor), move head and tail
-  typedef std::multimap<ConfigSpace, boost::shared_ptr<WormUpdaterType> > worm_updater_map_t;
+  typedef std::multimap<ConfigSpaceEnum::Type, std::shared_ptr<WormUpdaterType> > worm_updater_map_t;
   worm_updater_map_t worm_movers;
 
   //insertion and removal of a worm by evaluating the trace (worm space <=> Z function space)
-  std::vector<boost::shared_ptr<WormInsertionRemoverType> > worm_insertion_removers;
+  std::vector<std::shared_ptr<WormInsertionRemoverType> > worm_insertion_removers;
 
   //specialized version with improved efficiency
-  std::map<std::string, boost::shared_ptr<LocalUpdaterType> > specialized_updaters;
+  std::map<std::string, std::shared_ptr<LocalUpdaterType> > specialized_updaters;
 
-  boost::shared_ptr<FlatHistogram> p_flat_histogram_config_space;
+  std::shared_ptr<FlatHistogram> p_flat_histogram_config_space;
 
   //sliding window for computing trace
   SW_TYPE sliding_window;
 
   //Measurement of single-particle Green's functions by worm sampling
-  boost::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_legendre_meas;
+  std::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_legendre_meas;
 
   //Measurement of two-particle Green's functions by worm sampling (Matsubara freq.)
-  boost::shared_ptr<G2Measurement<SCALAR> > p_G2_meas;
+  std::shared_ptr<G2Measurement<SCALAR> > p_G2_meas;
 
   //Measurement of two-particle Green's functions by worm sampling (Legendre basis)
-  boost::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_legendre_meas;
+  std::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_legendre_meas;
 
   using WORM_MEAS_TYPE = WormMeas<SCALAR,SW_TYPE>;
-  std::unordered_map<ConfigSpace,std::unordered_map<std::string,std::unique_ptr<WORM_MEAS_TYPE>>> worm_meas;
+  std::unordered_map<ConfigSpaceEnum::Type,std::unordered_map<std::string,std::unique_ptr<WORM_MEAS_TYPE>>> worm_meas;
 
   //Acceptance rate of global shift and swap updates
   AcceptanceRateMeasurement global_shift_acc_rate;

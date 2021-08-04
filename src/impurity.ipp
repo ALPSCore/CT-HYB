@@ -180,7 +180,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     typedef InsertionRemovalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> TypeOffDiag;
     //typedef InsertionRemovalDiagonalUpdater<SCALAR, EXTENDED_SCALAR, SW_TYPE> TypeDiag;
     ins_rem_updater.push_back(
-        boost::shared_ptr<TypeOffDiag>(
+        std::shared_ptr<TypeOffDiag>(
             new TypeOffDiag(k, FLAVORS)
         )
     );
@@ -261,8 +261,10 @@ template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
   check_true(is_thermalized(), "Must be thermalized!");
 
+  // This switch-based dispatch is deprecated.
+  // Register your measument to the worm_meas object instead.
   switch (mc_config.current_config_space()) {
-    case Z_FUNCTION:
+    case ConfigSpaceEnum::Z_FUNCTION:
       measure_scalar_observable<SCALAR>(measurements, "kLkR",
                                         static_cast<double>(
                                           measure_kLkR(sliding_window.get_operators(), BETA,
@@ -272,13 +274,13 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
                                         static_cast<double>(sliding_window.get_operators().size()) * mc_config.sign);
       break;
 
-    case G1:
+    case ConfigSpaceEnum::G1:
       p_G1_legendre_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G1.max_matrix_size"],
                                  par["measurement.G1.aux_field"]
       );
       break;
 
-    case G2:
+    case ConfigSpaceEnum::G2:
       if (p_G2_meas) {
         p_G2_meas->measure_via_hyb(mc_config, random,
                                    par["measurement.G2.matsubara.max_matrix_size"],
@@ -291,6 +293,11 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
                                    par["measurement.G2.aux_field"]
         );
       }
+      break;
+    
+    case ConfigSpaceEnum::Two_point_PP:
+      //DEBUG
+      //print_list(mc_config.p_worm->get_operators());
       break;
   }
 
@@ -313,13 +320,13 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   {
     measurements["Z_function_space_num_steps"] << num_steps_in_config_space[0];
     for (int w = 0; w < worm_types.size(); ++w) {
-      measurements["worm_space_num_steps_" + get_config_space_name(worm_types[w])] << num_steps_in_config_space[w + 1];
+      measurements["worm_space_num_steps_" + ConfigSpaceEnum::to_string(worm_types[w])] << num_steps_in_config_space[w + 1];
     }
 
     num_steps_in_config_space /= config_space_extra_weight;
     measurements["Z_function_space_volume"] << num_steps_in_config_space[0];
     for (int w = 0; w < worm_types.size(); ++w) {
-      measurements["worm_space_volume_" + get_config_space_name(worm_types[w])] << num_steps_in_config_space[w + 1];
+      measurements["worm_space_volume_" + ConfigSpaceEnum::to_string(worm_types[w])] << num_steps_in_config_space[w + 1];
     }
 
     std::fill(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
@@ -341,13 +348,13 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
          ++it) {
       it->second->measure_acc_rate(measurements);
     }
-    for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::iterator
+    for (typename std::map<std::string, std::shared_ptr<LocalUpdaterType> >::iterator
              it = specialized_updaters.begin(); it != specialized_updaters.end(); ++it) {
       it->second->measure_acc_rate(measurements);
     }
   }
 
-  if (mc_config.current_config_space() == Z_FUNCTION) {
+  if (mc_config.current_config_space() == ConfigSpaceEnum::Z_FUNCTION) {
     assert(!mc_config.p_worm);
     measure_Z_function_space();
   }
@@ -468,7 +475,7 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
 
   for (int update = 0; update < FLAVORS; ++update) {
     //worm insertion and removal
-    if (mc_config.current_config_space() == Z_FUNCTION) {
+    if (mc_config.current_config_space() == ConfigSpaceEnum::Z_FUNCTION) {
       const int i_worm = static_cast<int>(random() * worm_insertion_removers.size());
       worm_insertion_removers[i_worm]->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
     } else {
@@ -479,7 +486,8 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
     adjust_worm_space_weight();
 
     //G1 worm insertion and removal by changing hybridization lines
-    if (mc_config.current_config_space() == Z_FUNCTION || mc_config.current_config_space() == G1) {
+    if (mc_config.current_config_space() == ConfigSpaceEnum::Z_FUNCTION ||
+        mc_config.current_config_space() == ConfigSpaceEnum::G1) {
       specialized_updaters["G1_ins_rem_hyb"]->update(random,
                                                      BETA,
                                                      mc_config,
@@ -490,7 +498,8 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
 
     //G2 worm insertion and removal by changing hybridization lines
     if (specialized_updaters.find("G2_ins_rem_hyb") != specialized_updaters.end() &&
-        (mc_config.current_config_space() == Z_FUNCTION || mc_config.current_config_space() == G2)) {
+        (mc_config.current_config_space() == ConfigSpaceEnum::Z_FUNCTION ||
+         mc_config.current_config_space() == ConfigSpaceEnum::G2)) {
       specialized_updaters["G2_ins_rem_hyb"]->update(random,
                                                      BETA,
                                                      mc_config,
@@ -627,7 +636,7 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
        ++it) {
     it->second->update_parameters();
   }
-  for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::iterator
+  for (typename std::map<std::string, std::shared_ptr<LocalUpdaterType> >::iterator
            it = specialized_updaters.begin(); it != specialized_updaters.end(); ++it) {
     it->second->update_parameters();
   }
@@ -651,7 +660,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
        ++it) {
     it->second->finalize_learning();
   }
-  for (typename std::map<std::string, boost::shared_ptr<LocalUpdaterType> >::iterator it = specialized_updaters.begin();
+  for (typename std::map<std::string, std::shared_ptr<LocalUpdaterType> >::iterator it = specialized_updaters.begin();
        it != specialized_updaters.end(); ++it) {
     it->second->finalize_learning();
   }
@@ -691,7 +700,7 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
     std::cout << std::endl << "Weight of configuration spaces for MPI rank " << comm.rank() << " : ";
     std::cout << " Z function space = " << config_space_extra_weight[0];
     for (int w = 0; w < worm_types.size(); ++w) {
-      std::cout << " , " << get_config_space_name(worm_types[w]) << " = " << config_space_extra_weight[w + 1];
+      std::cout << " , " << ConfigSpaceEnum::to_string(worm_types[w]) << " = " << config_space_extra_weight[w + 1];
     }
     std::cout << std::endl;
   }

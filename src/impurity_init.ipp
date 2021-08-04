@@ -1,5 +1,7 @@
 #include "impurity.hpp"
 
+
+
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_observables() {
   // create measurement objects
@@ -25,9 +27,9 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   measurements << alps::accumulators::NoBinningAccumulator<double>("Z_function_space_num_steps");
   for (int w = 0; w < worm_types.size(); ++w) {
     measurements << alps::accumulators::NoBinningAccumulator<double>(
-        "worm_space_volume_" + get_config_space_name(worm_types[w]));
+        "worm_space_volume_" + ConfigSpaceEnum::to_string(worm_types[w]));
     measurements << alps::accumulators::NoBinningAccumulator<double>(
-        "worm_space_num_steps_" + get_config_space_name(worm_types[w]));
+        "worm_space_num_steps_" + ConfigSpaceEnum::to_string(worm_types[w]));
   }
 
   if (par["measurement.two_time_G2.on"] != 0) {
@@ -73,14 +75,32 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
 
 template<typename IMP_MODEL>
 template<typename W>
-void HybridizationSimulation<IMP_MODEL>::add_worm_mover(ConfigSpace config_space,
+void HybridizationSimulation<IMP_MODEL>::add_worm_mover(ConfigSpaceEnum::Type config_space,
                     const std::string &updater_name
 ) {
   worm_movers.insert(
       std::make_pair(
           config_space,
-          boost::shared_ptr<WormUpdaterType>(
+          std::shared_ptr<WormUpdaterType>(
               new W(updater_name, BETA, FLAVORS, 0.0, BETA)
+          )
+      )
+  );
+}
+
+
+template<typename IMP_MODEL>
+template<typename WORM_T>
+void HybridizationSimulation<IMP_MODEL>::add_worm_space(std::shared_ptr<WORM_T> p_worm) {
+  worm_types.push_back(p_worm->get_config_space());
+  auto name = p_worm->get_name();
+  add_worm_mover<WormMoverType>(ConfigSpaceEnum::Equal_time_G1, name + "_mover");
+  add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::Equal_time_G1, name + "_flavor_changer");
+  worm_insertion_removers.push_back(
+      std::shared_ptr<WormInsertionRemoverType>(
+          new WormInsertionRemoverType(
+              name + "_ins_rem", BETA, FLAVORS, 0.0, BETA,
+              p_worm
           )
       )
   );
@@ -88,29 +108,29 @@ void HybridizationSimulation<IMP_MODEL>::add_worm_mover(ConfigSpace config_space
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
-  for (auto w : {G1, Equal_time_G1}) {
+  for (auto w : {ConfigSpaceEnum::G1, ConfigSpaceEnum::Equal_time_G1}) {
     worm_meas[w] = std::unordered_map<std::string,std::unique_ptr<WORM_MEAS_TYPE>>();
   }
 
   /*
    * G1
    */
-  worm_types.push_back(G1);
-  add_worm_mover<WormMoverType>(G1, "G1_mover");
-  add_worm_mover<WormFlavorChangerType>(G1, "G1_flavor_changer");
+  worm_types.push_back(ConfigSpaceEnum::G1);
+  add_worm_mover<WormMoverType>(ConfigSpaceEnum::G1, "G1_mover");
+  add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::G1, "G1_flavor_changer");
   worm_insertion_removers.push_back(
-      boost::shared_ptr<WormInsertionRemoverType>(
+      std::shared_ptr<WormInsertionRemoverType>(
           new WormInsertionRemoverType(
               "G1_ins_rem", BETA, FLAVORS, 0.0, BETA,
-              boost::shared_ptr<Worm>(new GWorm<1>())
+              std::shared_ptr<Worm>(new GWorm<1>())
           )
       )
   );
   //Via connecting or cutting hybridization lines
   specialized_updaters["G1_ins_rem_hyb"] =
-      boost::shared_ptr<LocalUpdaterType>(
+      std::shared_ptr<LocalUpdaterType>(
           new G1WormInsertionRemoverType(
-              "G1_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>())
+              "G1_ins_rem_hyb", BETA, FLAVORS, std::shared_ptr<Worm>(new GWorm<1>())
           )
       );
   p_G1_legendre_meas.reset(
@@ -118,7 +138,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
                                   par["measurement.G1.max_num_data_accumulated"])
   );
   {
-      worm_meas[G1]["vartheta"] = 
+      worm_meas[ConfigSpaceEnum::G1]["vartheta"] = 
         std::unique_ptr<WORM_MEAS_TYPE>(
             new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
                 read_fermionic_matsubara_points(par["measurement.G1.SIE.sampling_frequencies"])
@@ -130,19 +150,19 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
    * Equal-time G1
    */
   {
-    worm_types.push_back(Equal_time_G1);
+    worm_types.push_back(ConfigSpaceEnum::Equal_time_G1);
     const std::string name("Equal_time_G1");
-    add_worm_mover<WormMoverType>(Equal_time_G1, name + "_mover");
-    add_worm_mover<WormFlavorChangerType>(Equal_time_G1, name + "_flavor_changer");
+    add_worm_mover<WormMoverType>(ConfigSpaceEnum::Equal_time_G1, name + "_mover");
+    add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::Equal_time_G1, name + "_flavor_changer");
     worm_insertion_removers.push_back(
-        boost::shared_ptr<WormInsertionRemoverType>(
+        std::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
                 name + "_ins_rem", BETA, FLAVORS, 0.0, BETA,
-                boost::shared_ptr<Worm>(new EqualTimeGWorm<1>())
+                std::shared_ptr<Worm>(new EqualTimeGWorm<1>())
             )
         )
     );
-    worm_meas[Equal_time_G1]["Equal_time_G1"] = 
+    worm_meas[ConfigSpaceEnum::Equal_time_G1]["Equal_time_G1"] = 
         std::unique_ptr<WORM_MEAS_TYPE>(
             new EqualTimeG1Meas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
               par["measurement.equal_time_G1.num_ins"]
@@ -155,14 +175,14 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
    * G2
    */
   if (par["measurement.G2.matsubara.on"] != 0 || par["measurement.G2.legendre.on"] != 0) {
-    worm_types.push_back(G2);
-    add_worm_mover<WormMoverType>(G2, "G2_mover");
-    add_worm_mover<WormFlavorChangerType>(G2, "G2_flavor_changer");
+    worm_types.push_back(ConfigSpaceEnum::G2);
+    add_worm_mover<WormMoverType>(ConfigSpaceEnum::G2, "G2_mover");
+    add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::G2, "G2_flavor_changer");
     worm_insertion_removers.push_back(
-        boost::shared_ptr<WormInsertionRemoverType>(
+        std::shared_ptr<WormInsertionRemoverType>(
             new WormInsertionRemoverType(
                 "G2_ins_rem", BETA, FLAVORS, 0.0, BETA,
-                boost::shared_ptr<Worm>(new GWorm<2>())
+                std::shared_ptr<Worm>(new GWorm<2>())
             )
         )
     );
@@ -183,12 +203,44 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       );
     }
     specialized_updaters["G2_ins_rem_hyb"] =
-        boost::shared_ptr<LocalUpdaterType>(
+        std::shared_ptr<LocalUpdaterType>(
             new G2WormInsertionRemoverType(
-                "G2_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<2>())
+                "G2_ins_rem_hyb", BETA, FLAVORS, std::shared_ptr<Worm>(new GWorm<2>())
             )
         );
   }
+
+  // Measurement of lambda(tau1, tau2)
+  add_worm_space(
+    std::shared_ptr<TwoPointCorrWorm<PH_CHANNEL>>(
+      new TwoPointCorrWorm<PH_CHANNEL>()
+    )
+  );
+  worm_meas[ConfigSpaceEnum::G1]["vartheta"] = 
+    std::unique_ptr<WORM_MEAS_TYPE>(
+        new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
+          read_fermionic_matsubara_points(par["measurement.G1.SIE.sampling_frequencies"])
+        )
+    );
+  worm_meas[ConfigSpaceEnum::G1]["vartheta_legendre"] = 
+    std::unique_ptr<WORM_MEAS_TYPE>(
+        new VarThetaLegendreMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, 400)
+    );
+
+  // Measurement of varphi(tau1, tau2)
+  add_worm_space(
+    std::shared_ptr<TwoPointCorrWorm<PP_CHANNEL>>(
+      new TwoPointCorrWorm<PP_CHANNEL>()
+    )
+  );
+  worm_meas[ConfigSpaceEnum::Two_point_PP]["varphi_legendre"] = 
+    std::unique_ptr<WORM_MEAS_TYPE>(
+        new TwoPointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS, 400)
+    );
+
+  //const std::string name("Equal_time_G1");
+  //add_worm_mover<WormMoverType>(Equal_time_G1, name + "_mover");
+  //add_worm_mover<WormFlavorChangerType>(Equal_time_G1, name + "_flavor_changer");
 
   //Proposal probability of worm insertion is smaller than that of removal by the number of active worm spaces.
   //We correct this here.

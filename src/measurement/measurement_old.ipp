@@ -11,7 +11,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   typedef Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
 
   const int pert_order = mc_config.pert_order();
-  boost::shared_ptr<HybridizationFunction<SCALAR> > p_gf = mc_config.M.get_greens_function();
+  std::shared_ptr<HybridizationFunction<SCALAR> > p_gf = mc_config.M.get_greens_function();
   const std::vector<psi> cdagg_ops = mc_config.M.get_cdagg_ops();
   const std::vector<psi> c_ops = mc_config.M.get_c_ops();
   const std::vector<psi> worm_ops = mc_config.p_worm->get_operators();

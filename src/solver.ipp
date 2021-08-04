@@ -59,8 +59,17 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
         auto nflavors = nsites * nspins;
 
         auto G1_vol = mc_results_["worm_space_volume_G1"].template mean<double>();
-        auto equal_time_G1_vol = mc_results_["worm_space_volume_Equal_time_G1"].template mean<double>();
+        std::map<ConfigSpaceEnum::Type,double> worm_space_vols;
+        for (auto ws: ConfigSpaceEnum::AllWormSpaces) {
+          auto meas_name = "worm_space_volume_" + ConfigSpaceEnum::to_string(ws);
+          if (mc_results_.has(meas_name)) {
+            worm_space_vols[ws] = mc_results_[meas_name].template mean<double>();
+          }
+        }
+
+        //auto equal_time_G1_vol = mc_results_["worm_space_volume_Equal_time_G1"].template mean<double>();
         auto Z_vol =  mc_results_["Z_function_space_volume"].template mean<double>();
+        //auto two_point_PP_vol = mc_results_["worm_space_volume_Two_point_PP"].template mean<double>();
 
         //Single-particle Green's function
         std::cout << "Postprocessing G1..." << std::endl;
@@ -76,8 +85,14 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
           compute_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
         }
 
-        compute_equal_time_G1(mc_results_, nflavors, beta, sign, equal_time_G1_vol/Z_vol, results_);
-        compute_vartheta(mc_results_, nflavors, beta, sign, G1_vol/Z_vol, results_);
+        compute_equal_time_G1(mc_results_, nflavors, beta, sign,
+          worm_space_vols[ConfigSpaceEnum::Equal_time_G1]/Z_vol, results_);
+        compute_vartheta(mc_results_, nflavors, beta, sign,
+          worm_space_vols[ConfigSpaceEnum::G1]/Z_vol, results_);
+        compute_vartheta_legendre(mc_results_, nflavors, beta, sign,
+          worm_space_vols[ConfigSpaceEnum::G1]/Z_vol, results_);
+        compute_two_point_corr(std::string("varphi_legendre"), mc_results_, nflavors, beta, sign,
+          worm_space_vols[ConfigSpaceEnum::Two_point_PP]/Z_vol, results_);
 
         /**
         if (Base::parameters_["measurement.two_time_G2.on"] != 0) {

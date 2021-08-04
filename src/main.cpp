@@ -28,7 +28,7 @@ int main(int argc, const char *argv[]) {
   alps::accumulators::result_set results;
 
   //set up solver
-  boost::shared_ptr<alps::cthyb::Solver> p_solver;
+  std::shared_ptr<alps::cthyb::Solver> p_solver;
   if (par["algorithm"].as<std::string>() == "real-matrix") {
     alps::cthyb::MatrixSolver<double>::define_parameters(par);
     if (par.help_requested(std::cout)) { exit(0); } //If help message is requested, print it and exit normally.

@@ -19,7 +19,7 @@ struct MonteCarloConfiguration {
       DeterminantMatrixType;
 
 
-  MonteCarloConfiguration(boost::shared_ptr<HybridizationFunction<SCALAR> > F) :
+  MonteCarloConfiguration(std::shared_ptr<HybridizationFunction<SCALAR> > F) :
       sign(1.0),
       trace(std::numeric_limits<double>::max()),
       M(F),
@@ -28,9 +28,9 @@ struct MonteCarloConfiguration {
   {
   }
 
-  ConfigSpace current_config_space() const {
+  ConfigSpaceEnum::Type current_config_space() const {
     if (!p_worm) {
-      return Z_FUNCTION;
+      return ConfigSpaceEnum::Z_FUNCTION;
     } else {
       return p_worm->get_config_space();
     }
@@ -51,7 +51,7 @@ struct MonteCarloConfiguration {
     return M.size();
   }
 
-  void set_worm(const boost::shared_ptr<Worm> &p_worm) {
+  void set_worm(const std::shared_ptr<Worm> &p_worm) {
     this->p_worm = p_worm;
   }
 
@@ -77,7 +77,7 @@ struct MonteCarloConfiguration {
   // All c and c^dagger operators hybridized with bath and those from the worm
   //operator_container_t operators;
 
-  boost::shared_ptr<Worm> p_worm;
+  std::shared_ptr<Worm> p_worm;
   int perm_sign;
 };
 

@@ -325,7 +325,7 @@ TYPED_TEST(DeterminantMatrixTypedTest, CombinedUpdateRemoveRowsCols) {
   //OffDiagonalG0<Scalar> gf(beta, n_flavors, E, phase);
   //determinant_matrix_t det_mat(gf, init_ops.begin(), init_ops.end());
   determinant_matrix_t det_mat(
-    boost::shared_ptr<OffDiagonalG0<Scalar> >(
+    std::shared_ptr<OffDiagonalG0<Scalar> >(
      new OffDiagonalG0<Scalar>(beta, n_flavors, E, phase)
     )
   );
@@ -443,7 +443,7 @@ TYPED_TEST(DeterminantMatrixTypedTest, SeparatedUpdateRemoveRowsCols) {
   //OffDiagonalG0<Scalar> gf(beta, n_flavors, E, phase);
   //determinant_matrix_t det_mat(gf, init_ops.begin(), init_ops.end());
   determinant_matrix_t det_mat(
-      boost::shared_ptr<OffDiagonalG0<Scalar> >(
+      std::shared_ptr<OffDiagonalG0<Scalar> >(
           new OffDiagonalG0<Scalar>(beta, n_flavors, E, phase)
       )
   );
@@ -568,7 +568,7 @@ TYPED_TEST(DeterminantMatrixTypedTest, ReplaceRowCol) {
 
   //OffDiagonalG0<Scalar> gf(beta, n_flavors, E, phase);
   determinant_matrix_t det_mat(
-      boost::shared_ptr<OffDiagonalG0<Scalar> >(
+      std::shared_ptr<OffDiagonalG0<Scalar> >(
           new OffDiagonalG0<Scalar>(beta, n_flavors, E, phase)
       ),
       init_ops.begin(),

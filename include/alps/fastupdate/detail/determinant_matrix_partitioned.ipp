@@ -10,7 +10,7 @@ namespace alps {
       typename COp
     >
     DeterminantMatrixPartitioned<Scalar, GreensFunction, CdaggerOp, COp>::DeterminantMatrixPartitioned(
-        boost::shared_ptr<GreensFunction> p_gf
+        std::shared_ptr<GreensFunction> p_gf
     )
       : Base(p_gf),
         p_gf_(p_gf),
@@ -31,7 +31,7 @@ namespace alps {
     >
     template<typename CdaggCIterator>
     DeterminantMatrixPartitioned<Scalar, GreensFunction, CdaggerOp, COp>::DeterminantMatrixPartitioned(
-      boost::shared_ptr<GreensFunction> p_gf,
+      std::shared_ptr<GreensFunction> p_gf,
       CdaggCIterator first,
       CdaggCIterator last
     )
@@ -70,7 +70,7 @@ namespace alps {
       typename COp
     >
     void DeterminantMatrixPartitioned<Scalar, GreensFunction, CdaggerOp, COp>::init(
-        boost::shared_ptr<GreensFunction> p_gf
+        std::shared_ptr<GreensFunction> p_gf
     ) {
       Clustering cl(num_flavors_);
       for (int flavor=0; flavor<num_flavors_; ++flavor) {

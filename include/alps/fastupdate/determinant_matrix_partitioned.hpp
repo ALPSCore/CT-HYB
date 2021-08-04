@@ -84,17 +84,17 @@ namespace alps {
 
     public:
       DeterminantMatrixPartitioned (
-        boost::shared_ptr<GreensFunction> p_gf
+        std::shared_ptr<GreensFunction> p_gf
       );
 
       template<typename CdaggCIterator>
       DeterminantMatrixPartitioned (
-        boost::shared_ptr<GreensFunction> p_gf,
+        std::shared_ptr<GreensFunction> p_gf,
         CdaggCIterator first,
         CdaggCIterator last
       );
 
-      boost::shared_ptr<GreensFunction>
+      std::shared_ptr<GreensFunction>
       get_greens_function() const {
         return p_gf_;
       }
@@ -372,7 +372,7 @@ namespace alps {
       std::vector<std::vector<int> > sector_members_;     //members of each sector
       std::vector<int> sector_belonging_to_; //remember to which sector each flavor belongs
 
-      boost::shared_ptr<GreensFunction> p_gf_;
+      std::shared_ptr<GreensFunction> p_gf_;
       std::vector<BlockMatrixType>  det_mat_;
 
       //permutation from a set that is time-ordered in each sector to a time-ordered set
@@ -411,7 +411,7 @@ namespace alps {
         }
       }
 
-      void init(boost::shared_ptr<GreensFunction> p_gf);
+      void init(std::shared_ptr<GreensFunction> p_gf);
 
       inline void check_state(State state) const {
         if (state_ != state) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <memory>
 #include <limits.h>
 #include <math.h>
 
@@ -66,7 +67,7 @@ struct OperatorShift {
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
 class LocalUpdater {
-  typedef std::map<ConfigSpace, double> weight_map_t;
+  typedef std::map<ConfigSpaceEnum::Type, double> weight_map_t;
  public:
   LocalUpdater(const std::string &name) : name_(name), num_attempted_(0), num_valid_move_(0), num_accepted_(0) {}
   virtual ~LocalUpdater() {}
@@ -84,7 +85,7 @@ class LocalUpdater {
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   ) {
     return false;
   };
@@ -131,7 +132,7 @@ class LocalUpdater {
   std::vector<psi> c_ops_rem_;     //hybrized with bath
   std::vector<psi> cdagg_ops_add_; //hybrized with bath
   std::vector<psi> c_ops_add_;     //hybrized with bath
-  boost::shared_ptr<Worm> p_new_worm_; //New worm
+  std::shared_ptr<Worm> p_new_worm_; //New worm
 
   //some variables set on the exit of update()
   bool valid_move_generated_;
@@ -170,7 +171,7 @@ class InsertionRemovalUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLID
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   );
 
  protected:
@@ -215,7 +216,7 @@ class OperatorPairFlavorUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SL
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   );
 
  private:
@@ -242,7 +243,7 @@ class SingleOperatorShiftUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, S
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   );
 
 
@@ -298,7 +299,7 @@ class WormUpdater: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> 
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   ) = 0;
 
  protected:
@@ -327,7 +328,7 @@ class WormMover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW> {
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   );
 
   double beta_, max_distance_, distance_;
@@ -353,7 +354,7 @@ class WormFlavorChanger: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WIN
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   );
 };
 
@@ -370,7 +371,7 @@ class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_
                        int num_flavors,
                        double tau_lower_limit,
                        double tau_upper_limit,
-                       boost::shared_ptr<Worm> p_worm_template
+                       std::shared_ptr<Worm> p_worm_template
   ) : BaseType(str, beta, num_flavors, tau_lower_limit, tau_upper_limit), p_worm_template_(p_worm_template),
       insertion_proposal_rate_(0.0) {
   }
@@ -384,24 +385,24 @@ class WormInsertionRemover: public WormUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   );
 
   bool propose_by_trace_impl(
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   );
 
   bool propose_by_trace_hyb_impl(
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   );
 
-  boost::shared_ptr<Worm> p_worm_template_;
+  std::shared_ptr<Worm> p_worm_template_;
   //double weight_;
   double insertion_proposal_rate_;
 };
@@ -419,7 +420,7 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
   GWormInsertionRemover(const std::string &str,
                         double beta,
                         int num_flavors,
-                        boost::shared_ptr<Worm> p_worm_template
+                        std::shared_ptr<Worm> p_worm_template
   ) : BaseType(str), p_worm_template_(p_worm_template) {
   }
 
@@ -430,10 +431,10 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
       alps::random01 &rng,
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
-      const std::map<ConfigSpace, double> &config_space_weight
+      const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
   );
 
-  boost::shared_ptr<Worm> p_worm_template_;
+  std::shared_ptr<Worm> p_worm_template_;
 };
 
 /**
@@ -441,8 +442,8 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
  */
 struct WormExchangeFlavor {
   WormExchangeFlavor(int *first) : first_(first) {}
-  boost::shared_ptr<Worm> operator()(const Worm &worm) const {
-    boost::shared_ptr<Worm> new_worm = worm.clone();
+  std::shared_ptr<Worm> operator()(const Worm &worm) const {
+    std::shared_ptr<Worm> new_worm = worm.clone();
     for (int findx = 0; findx < worm.num_independent_flavors(); ++findx) {
       new_worm->set_flavor(findx, first_[worm.get_flavor(findx)]);
     }
@@ -457,10 +458,10 @@ struct WormExchangeFlavor {
  */
 struct WormShift {
   WormShift(double beta, double shift) : beta_(beta), shift_(shift) {}
-  boost::shared_ptr<Worm> operator()(const Worm &worm) const {
+  std::shared_ptr<Worm> operator()(const Worm &worm) const {
     assert(shift_ >= 0.0);
 
-    boost::shared_ptr<Worm> new_worm = worm.clone();
+    std::shared_ptr<Worm> new_worm = worm.clone();
     for (int tindx = 0; tindx < worm.num_independent_times(); ++tindx) {
       double new_t = worm.get_time(tindx) + shift_;
       if (new_t > beta_) {

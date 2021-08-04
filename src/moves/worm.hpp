@@ -1,48 +1,42 @@
 #pragma once
 
 #include <array>
+#include <memory>
 
 #include <boost/multi_array.hpp>
 #include <boost/operators.hpp>
-#include <boost/shared_ptr.hpp>
 
 #include <alps/mc/random01.hpp>
 
 #include "../common/util.hpp"
 #include "../model/operator.hpp"
 
-enum ConfigSpace {
-  Z_FUNCTION,
-  G1,
-  G2,
-  Equal_time_G1,
-  Equal_time_G2,
-  Two_time_G2,
-  Unknown
-};
+namespace ConfigSpaceEnum{
+  enum Type {
+    Z_FUNCTION,
+    G1,
+    G2,
+    Equal_time_G1,
+    Equal_time_G2,
+    Two_point_PH,
+    Two_point_PP,
+    Unknown
+  };
 
-inline std::string get_config_space_name(ConfigSpace config_space) {
-  switch (config_space) {
-    case Z_FUNCTION:
-      return "Z_FUNCTION";
+  static const Type AllWormSpaces[] = 
+    {G1, G2, Equal_time_G1, Equal_time_G2, Two_point_PH, Two_point_PP};
 
-    case G1:
-      return "G1";
-
-    case G2:
-      return "G2";
-
-    case Equal_time_G1:
-      return "Equal_time_G1";
-
-    //case Equal_time_G2:
-      //return "Equal_time_G2";
-//
-    //case Two_time_G2:
-      //return "Two_time_G2";
-//
-    default:
-      throw std::runtime_error("Unknown configuration space");
+  static std::string to_string(ConfigSpaceEnum::Type config_space) {
+    switch (config_space) {
+      case ConfigSpaceEnum::Z_FUNCTION:    return "Z_FUNCTION";
+      case ConfigSpaceEnum::G1:            return "G1";
+      case ConfigSpaceEnum::G2:            return "G2";
+      case ConfigSpaceEnum::Equal_time_G1: return "Equal_time_G1";
+      case ConfigSpaceEnum::Equal_time_G2: return "Equal_time_G2";
+      case ConfigSpaceEnum::Two_point_PH:  return "Two_point_PH";
+      case ConfigSpaceEnum::Two_point_PP:  return "Two_point_PP";
+      default: throw std::runtime_error("Unknown configuration space");
+    }
   }
 }
 
@@ -53,7 +47,7 @@ inline std::string get_config_space_name(ConfigSpace config_space) {
 class Worm {
  public:
 
-  virtual boost::shared_ptr<Worm> clone() const = 0;
+  virtual std::shared_ptr<Worm> clone() const = 0;
 
   /** Get the number of creation and annihilation operators (not time-ordered)*/
   virtual int num_operators() const = 0;
@@ -94,11 +88,11 @@ class Worm {
 
   /** Return the name of the worm instance */
   virtual std::string get_name() const {
-    return get_config_space_name(get_config_space());
+    return ConfigSpaceEnum::to_string(get_config_space());
   }
 
   /** Return worm space */
-  virtual ConfigSpace get_config_space() const = 0;
+  virtual ConfigSpaceEnum::Type get_config_space() const = 0;
 };
 
 inline bool is_worm_in_range(const Worm &worm, double tau_low, double tau_high) {
@@ -162,8 +156,8 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
     }
   }
 
-  virtual boost::shared_ptr<Worm> clone() const {
-    return boost::shared_ptr<Worm>(new GWorm<Rank>(*this));
+  virtual std::shared_ptr<Worm> clone() const {
+    return std::shared_ptr<Worm>(new GWorm<Rank>(*this));
   }
 
   virtual int num_operators() const { return 2 * Rank; };
@@ -211,11 +205,11 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
     return (times_ == other_worm.times_ && flavors_ == other_worm.flavors_);
   }
 
-  ConfigSpace get_config_space() const {
+  ConfigSpaceEnum::Type get_config_space() const {
     if (Rank == 1) {
-      return G1;
+      return ConfigSpaceEnum::G1;
     } else if (Rank == 2) {
-      return G2;
+      return ConfigSpaceEnum::G2;
     } else {
       throw std::runtime_error("get_config_space is not implemented");
     }
@@ -241,8 +235,8 @@ class EqualTimeGWorm: public Worm, private boost::equality_comparable<EqualTimeG
     time_index_.push_back(0);
   }
 
-  virtual boost::shared_ptr<Worm> clone() const {
-    return boost::shared_ptr<Worm>(new EqualTimeGWorm<Rank>(*this));
+  virtual std::shared_ptr<Worm> clone() const {
+    return std::shared_ptr<Worm>(new EqualTimeGWorm<Rank>(*this));
   }
 
   virtual int num_operators() const { return 2 * Rank; };
@@ -282,11 +276,11 @@ class EqualTimeGWorm: public Worm, private boost::equality_comparable<EqualTimeG
     return (time_ == other_worm.time_ && flavors_ == other_worm.flavors_);
   }
 
-  ConfigSpace get_config_space() const {
+  ConfigSpaceEnum::Type get_config_space() const {
     if (Rank == 1) {
-      return Equal_time_G1;
+      return ConfigSpaceEnum::Equal_time_G1;
     } else if (Rank == 2) {
-      return Equal_time_G2;
+      return ConfigSpaceEnum::Equal_time_G2;
     } else {
       throw std::runtime_error("get_config_space is not implemented");
     }
@@ -298,4 +292,56 @@ class EqualTimeGWorm: public Worm, private boost::equality_comparable<EqualTimeG
   std::vector<int> time_index_;
 };
 
-#include "worm.ipp"
+/**
+ * Measure < (O_{ab}(tau_1) O'_{cd}(tau_2)>
+ * 
+ * PH:
+ * O_{ab}  = d_a^+ d_b
+ * O'_{cd} = d_c^+ d_d
+ * 
+ * PP:
+ * O_{ab}  = d_a   d_b
+ * O'_{cd} = d_a^+ d_b^+
+ */
+struct PP_CHANNEL {};
+struct PH_CHANNEL {};
+template<class CHANNEL>
+class TwoPointCorrWorm: public Worm, private boost::equality_comparable<TwoPointCorrWorm<CHANNEL>> {
+ public:
+  TwoPointCorrWorm() : time_index_{{0}, {1}} {}
+
+  virtual std::shared_ptr<Worm> clone() const {
+    return std::shared_ptr<Worm>(new TwoPointCorrWorm(*this));
+  }
+
+  virtual int num_operators() const { return 4; };
+
+  virtual std::vector<psi> get_operators() const;//implemented in worm.ipp
+
+  virtual int num_independent_times() const { return 2; }
+
+  virtual double get_time(int index) const { return times_.at(index); }
+
+  virtual void set_time(int index, double new_time) { times_.at(index) = new_time; }
+
+  virtual int num_independent_flavors() const { return 4; }
+
+  virtual int get_flavor(int index) const { return flavors_.at(index); }
+
+  virtual void set_flavor(int index, int new_flavor) { flavors_[index] = new_flavor; }
+
+  virtual const std::vector<int> &get_time_index(int flavor_index) const {
+    return time_index_[flavor_index];
+  }
+
+  virtual bool operator==(const TwoPointCorrWorm<CHANNEL> &other_worm) const {
+    return (times_ == other_worm.times_ && flavors_ == other_worm.flavors_);
+  }
+
+  ConfigSpaceEnum::Type get_config_space() const;
+
+ private:
+  std::array<double,2> times_;
+  std::array<int,4> flavors_;
+  std::vector<std::vector<int>> time_index_;
+};
