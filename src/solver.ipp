@@ -91,6 +91,8 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
           worm_space_vols[ConfigSpaceEnum::G1]/Z_vol, results_);
         compute_vartheta_legendre(mc_results_, nflavors, beta, sign,
           worm_space_vols[ConfigSpaceEnum::G1]/Z_vol, results_);
+        compute_two_point_corr(std::string("lambda_legendre"), mc_results_, nflavors, beta, sign,
+          worm_space_vols[ConfigSpaceEnum::Two_point_PH]/Z_vol, results_);
         compute_two_point_corr(std::string("varphi_legendre"), mc_results_, nflavors, beta, sign,
           worm_space_vols[ConfigSpaceEnum::Two_point_PP]/Z_vol, results_);
 

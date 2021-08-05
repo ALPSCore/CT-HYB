@@ -70,9 +70,14 @@ class QMCResult:
             self.gtau = load_cmplx(h5, '/gtau/data')
             self.gomega = load_cmplx(h5, '/gf/data')
             self.gl = load_cmplx(h5, '/G1_LEGENDRE').transpose((2,0,1))
-            self.vartheta = load_cmplx(h5, '/VARTHETA')
+            self.vartheta = load_cmplx(h5, '/vartheta')
             self.vartheta_smpl_freq = h5["vartheta_smpl_freqs"][()]
             self.equal_time_G1 = load_cmplx(h5, '/EQUAL_TIME_G1')
+
+            for to_be_read in ['varphi_legendre', 'lambda_legendre']:
+                if not to_be_read in h5:
+                    continue
+                self.__setattr__(to_be_read, load_cmplx(h5, to_be_read))
         
             self.sign = h5['/simulation/results/Sign/mean/value'][()]
             self.sign_count = h5['/simulation/results/Sign/count'][()]
@@ -103,7 +108,6 @@ class QMCResult:
 
         # Compute A_{ab}
         A = self.hopping + np.einsum('abij,ij->ab', self.asymU, self.equal_time_G1)
-        print("A", A)
 
         # Compute calG = (iv - Delta(iv)), G0, full G, self-energy
         G = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)

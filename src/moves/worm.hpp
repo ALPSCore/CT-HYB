@@ -322,7 +322,7 @@ class TwoPointCorrWorm: public Worm, private boost::equality_comparable<TwoPoint
 
   virtual double get_time(int index) const { return times_.at(index); }
 
-  virtual void set_time(int index, double new_time) { times_.at(index) = new_time; }
+  virtual void set_time(int index, double new_time) { times_[index] = new_time; }
 
   virtual int num_independent_flavors() const { return 4; }
 

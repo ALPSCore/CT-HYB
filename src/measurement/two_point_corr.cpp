@@ -34,10 +34,11 @@ void compute_two_point_corr(
   std::vector<double> data_Im = results[name+"_Im"].template mean<std::vector<double> >();
   double coeff = worm_space_rel_vol/(sign * beta);
 
-  check_true(data_Re.size() % n_flavors * n_flavors == 0);
-  int data_size = data_Re.size()/(n_flavors * n_flavors);
+  check_true(data_Re.size() % (n_flavors * n_flavors * n_flavors * n_flavors) == 0);
+  int data_size = data_Re.size()/(n_flavors * n_flavors * n_flavors * n_flavors);
 
-  boost::multi_array<std::complex<double>,3> data(boost::extents[data_size][n_flavors][n_flavors]);
+  boost::multi_array<std::complex<double>,5>
+    data(boost::extents[data_size][n_flavors][n_flavors][n_flavors][n_flavors]);
   std::transform(data_Re.begin(), data_Re.end(), data_Im.begin(), data.origin(), to_complex<double>());
   std::transform(data.origin(), data.origin() + data.num_elements(), data.origin(),
                 [&](const auto&x ){return coeff*x;});

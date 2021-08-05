@@ -210,12 +210,6 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
         );
   }
 
-  // Measurement of lambda(tau1, tau2)
-  add_worm_space(
-    std::shared_ptr<TwoPointCorrWorm<PH_CHANNEL>>(
-      new TwoPointCorrWorm<PH_CHANNEL>()
-    )
-  );
   worm_meas[ConfigSpaceEnum::G1]["vartheta"] = 
     std::unique_ptr<WORM_MEAS_TYPE>(
         new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
@@ -225,6 +219,17 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
   worm_meas[ConfigSpaceEnum::G1]["vartheta_legendre"] = 
     std::unique_ptr<WORM_MEAS_TYPE>(
         new VarThetaLegendreMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, 400)
+    );
+
+  // Measurement of lambda(tau1, tau2)
+  add_worm_space(
+    std::shared_ptr<TwoPointCorrWorm<PH_CHANNEL>>(
+      new TwoPointCorrWorm<PH_CHANNEL>()
+    )
+  );
+  worm_meas[ConfigSpaceEnum::Two_point_PH]["lambda_legendre"] = 
+    std::unique_ptr<WORM_MEAS_TYPE>(
+        new TwoPointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS, 400)
     );
 
   // Measurement of varphi(tau1, tau2)
