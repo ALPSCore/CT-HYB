@@ -8,7 +8,7 @@ TwoPointCorrMeas<SCALAR,SW_TYPE,CHANNEL>::measure(
       alps::accumulators::accumulator_set &measurements)
 {
   using EX_SCALAR = typename SW_TYPE::EXTENDED_SCALAR;
-  int N_meas = 10;
+  int N_meas = 100;
 
   auto beta = sliding_window.get_beta();
 

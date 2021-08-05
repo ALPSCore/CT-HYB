@@ -1,7 +1,27 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.core.einsumfunc import einsum
-from alpscthyb.post_proc import QMCResult, compute_Tnl_sparse
+from alpscthyb.post_proc import QMCResult, compute_Tnl_sparse, legendre_to_matsubara, legendre_to_tau
+from alpscthyb import post_proc
+
+
+def lambda_tau_non_int(res, tau, gir):
+    """ Compute lambda(tau) from gl in a non-interacting case"""
+    #gtau = legendre_to_tau(gl, tau, beta)
+    #gtau_inv = legendre_to_tau(gl, res.beta-tau, beta)
+    gtau     = np.einsum('tl,lij->tij', res.basis_f.Ultau_all_l(tau).T,          gir)
+    gtau_inv = np.einsum('tl,lij->tij', res.basis_f.Ultau_all_l(res.beta-tau).T, gir)
+    #gtau = res.basis_f.evaluate_tau(gir)
+    #gtau = res.basis_f.evaluate_tau(gir)
+    return np.einsum('ab,cd->abcd', res.equal_time_G1, res.equal_time_G1)[None,...] + \
+        np.einsum('Tda, Tbc->Tabcd', gtau_inv, gtau)
+
+
+def varphi_tau_non_int(res, tau, gir):
+    """ Compute lambda(tau) from gl in a non-interacting case"""
+    gtau = np.einsum('tl,lij->tij', res.basis_f.Ultau_all_l(tau).T,          gir)
+    return np.einsum('Tad,Tbc->Tabcd', gtau, gtau) - np.einsum('Tac,Tbd->Tabcd', gtau, gtau)
+
 
 #def giw_ref(beta, U, vsample):
     #assert all(vsample%2 == 1)
@@ -27,16 +47,23 @@ plt.close(1)
 U = 8.
 mu = 0.5*U
 
+# Fermionic sampling frequencies
+vsample = res.basis_f.wsample
+
 #SIE
-vsample = res.vartheta_smpl_freq
-giv = res.compute_giv_SIE()
+gir_SIE = res.compute_gir_SIE()
+giv = res.compute_giv_SIE(vsample)
 sigma_iv = res.compute_sigma_iv(giv, vsample)
 
 #Legendre
 giv_legendre = res.compute_giv_from_legendre(vsample)
 sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, vsample)
 
-v = res.vartheta_smpl_freq * np.pi/res.beta
+# G0
+g0iv = res.compute_g0iv(res.basis_f.wsample)
+g0ir = post_proc._fit_iw(res.basis_f, g0iv)
+
+v = vsample * np.pi/res.beta
 iv = 1J * v
 
 #giv_ref = 0.5/(iv - 0.5*U) + 0.5/(iv + 0.5*U)
@@ -81,19 +108,31 @@ for flavor in range(res.nflavors):
     plt.close(1)
 
 
+ref_generators = {'lambda': lambda_tau_non_int, 'varphi': varphi_tau_non_int}
 for name in ['varphi', 'lambda']:
     data_l = res.__getattribute__(name+'_legendre')
-    data_iv = np.einsum('wl,labcd->wabcd',
-        compute_Tnl_sparse(vsample, data_l.shape[0]),
-        data_l
-    )
-    for flavors in [(0,1,0,1), (0,0,0,0)]:
+    wsample = 2 * np.arange(-10,10)
+    data_iw = legendre_to_matsubara(data_l, wsample)
+    tau = np.linspace(0, beta, 100)
+    data_tau = legendre_to_tau(data_l, tau, beta)
+    for flavors in [(0,1,0,1), (1,0,1,0), (0,0,0,0), (1,1,1,1)]:
         plt.figure(1)
-        plt.plot(vsample, (data_iv[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), label='Re')
-        plt.plot(vsample, (data_iv[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), label='Im')
+        plt.plot(wsample, (data_iw[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), label='Re', marker='x')
+        plt.plot(wsample, (data_iw[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), label='Im', marker='x')
         plt.legend()
         plt.xlim([-10,10])
-        plt.savefig(name + f"_iv_flavors{flavors[0]}{flavors[1]}{flavors[2]}{flavors[3]}.eps")
+        plt.savefig(name + f"_iw_flavors{flavors[0]}{flavors[1]}{flavors[2]}{flavors[3]}.eps")
+        plt.close(1)
+
+        plt.figure(1)
+        plt.plot(tau, (data_tau[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), label='Re', marker='x', color='r')
+        plt.plot(tau, (data_tau[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), label='Im', marker='x', color='b')
+        if name in ref_generators:
+            data_tau_ref = ref_generators[name](res, tau, g0ir)
+            plt.plot(tau, (data_tau_ref[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), ls='-', marker='', color='r')
+            plt.plot(tau, (data_tau_ref[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), ls='-', marker='', color='b')
+        plt.legend()
+        plt.savefig(name + f"_tau_flavors{flavors[0]}{flavors[1]}{flavors[2]}{flavors[3]}.eps")
         plt.close(1)
 
 
