@@ -855,6 +855,8 @@ bool WormFlavorChanger<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   for (int f = 0; f < BaseType::p_new_worm_->num_independent_flavors(); ++f) {
     bool updatable = true;
     const std::vector<int> &time_index = BaseType::p_new_worm_->get_time_index(f);
+    check_true(time_index.size() <= BaseType::p_new_worm_->num_independent_times());
+    check_true(time_index.size() > 0);
     for (int t = 0; t < time_index.size(); ++t) {
       updatable = updatable
           && InRange<double>(tau_low, tau_high)(BaseType::p_new_worm_->get_time(time_index[t]));

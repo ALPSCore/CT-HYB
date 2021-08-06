@@ -122,18 +122,24 @@ class HybridizationSimulation: public alps::mcbase {
 
  private:
   //for set up
+  void create_worm_spaces();
+  void create_custom_worm_updaters();
+  void create_worm_meas();
   void create_observables(); //build ALPS observables
-  void create_worm_updaters();
 
   template<typename W>
   void add_worm_mover(ConfigSpaceEnum::Type config_space,
                       const std::string &updater_name);
   
   template<typename WORM_T>
-  void add_worm_space(std::shared_ptr<WORM_T> p_worm);
+  void add_worm_space();
+
+  //template<typename WORM_T>
+  //void add_default_worm_mover_insertion_remover();
 
   //void read_eq_time_two_particle_greens_meas();
   //void read_two_time_correlation_functions();
+
 
   void do_one_sweep(); // one sweep of the window
   void transition_between_config_spaces();
@@ -153,6 +159,10 @@ class HybridizationSimulation: public alps::mcbase {
         return std::distance(worm_types.begin(), it) + 1;
       }
     }
+  }
+
+  bool is_worm_space_active(ConfigSpaceEnum::Type w) const {
+    return std::find(worm_types.begin(), worm_types.end(), w) != worm_types.end();
   }
 
   //Definition of system parameters constant during simulation
@@ -235,9 +245,6 @@ class HybridizationSimulation: public alps::mcbase {
 
   //Measurement of single-particle Green's functions by worm sampling
   std::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_legendre_meas;
-
-  //Measurement of two-particle Green's functions by worm sampling (Matsubara freq.)
-  std::shared_ptr<G2Measurement<SCALAR> > p_G2_meas;
 
   //Measurement of two-particle Green's functions by worm sampling (Legendre basis)
   std::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_legendre_meas;

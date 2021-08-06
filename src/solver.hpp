@@ -83,9 +83,8 @@ class MatrixSolver : public Solver {
   const alps::accumulators::result_set& get_accumulated_results() const;
 
  private:
-
+  alps::mpi::communicator comm_;
   alps::accumulators::result_set mc_results_;
-
   std::map<std::string,boost::any> results_;
 };
 

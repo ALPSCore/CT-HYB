@@ -20,7 +20,9 @@ namespace alps {
 namespace cthyb {
 
 template<typename Scalar>
-MatrixSolver<Scalar>::MatrixSolver(const alps::params &parameters) : Base(parameters), mc_results_(), results_() {}
+MatrixSolver<Scalar>::MatrixSolver(const alps::params &parameters) : Base(parameters), mc_results_(), results_(), comm_() {
+
+}
 
 template<typename Scalar>
 void MatrixSolver<Scalar>::define_parameters(alps::params &parameters) {
@@ -30,19 +32,18 @@ void MatrixSolver<Scalar>::define_parameters(alps::params &parameters) {
 template<typename Scalar>
 int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
   //try {
-    alps::mpi::communicator c;
-    const int my_rank = c.rank();
+    const int my_rank = comm_.rank();
     const int verbose = Base::parameters_["verbose"];
     if (my_rank == 0 && verbose > 0) {
       std::cout << "Creating simulation..." << std::endl;
     }
 
-    sim_type sim(Base::parameters_, c);
-    const boost::function<bool()> cb = alps::stop_callback(c, size_t(Base::parameters_["timelimit"]));
+    sim_type sim(Base::parameters_, comm_);
+    const boost::function<bool()> cb = alps::stop_callback(comm_, size_t(Base::parameters_["timelimit"]));
 
     std::pair<bool, bool> r = sim.run(cb);
 
-    if (c.rank() == 0) {
+    if (comm_.rank() == 0) {
       if (!r.second) {
         throw std::runtime_error("Master process is not thermalized yet. Increase simulation time!");
       }
@@ -79,22 +80,22 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
         if (Base::parameters_["measurement.G2.matsubara.on"] != 0) {
           std::cout << "Postprocessing G2 (matsubara)..." << std::endl;
           compute_G2_matsubara<SOLVER_TYPE>(mc_results_, Base::parameters_);
+          compute_equal_time_G1(mc_results_, nflavors, beta, sign,
+            worm_space_vols[ConfigSpaceEnum::Equal_time_G1]/Z_vol, results_);
+          compute_vartheta(mc_results_, nflavors, beta, sign,
+            worm_space_vols[ConfigSpaceEnum::G1]/Z_vol, results_);
+          compute_vartheta_legendre(mc_results_, nflavors, beta, sign,
+            worm_space_vols[ConfigSpaceEnum::G1]/Z_vol, results_);
+          compute_two_point_corr(std::string("lambda_legendre"), mc_results_, nflavors, beta, sign,
+            worm_space_vols[ConfigSpaceEnum::Two_point_PH]/Z_vol, results_);
+          compute_two_point_corr(std::string("varphi_legendre"), mc_results_, nflavors, beta, sign,
+            worm_space_vols[ConfigSpaceEnum::Two_point_PP]/Z_vol, results_);
         }
         if (Base::parameters_["measurement.G2.legendre.on"] != 0) {
           std::cout << "Postprocessing G2 (legendre)..." << std::endl;
           compute_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
         }
 
-        compute_equal_time_G1(mc_results_, nflavors, beta, sign,
-          worm_space_vols[ConfigSpaceEnum::Equal_time_G1]/Z_vol, results_);
-        compute_vartheta(mc_results_, nflavors, beta, sign,
-          worm_space_vols[ConfigSpaceEnum::G1]/Z_vol, results_);
-        compute_vartheta_legendre(mc_results_, nflavors, beta, sign,
-          worm_space_vols[ConfigSpaceEnum::G1]/Z_vol, results_);
-        compute_two_point_corr(std::string("lambda_legendre"), mc_results_, nflavors, beta, sign,
-          worm_space_vols[ConfigSpaceEnum::Two_point_PH]/Z_vol, results_);
-        compute_two_point_corr(std::string("varphi_legendre"), mc_results_, nflavors, beta, sign,
-          worm_space_vols[ConfigSpaceEnum::Two_point_PP]/Z_vol, results_);
 
         /**
         if (Base::parameters_["measurement.two_time_G2.on"] != 0) {
@@ -129,10 +130,10 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
       }
     }
 
-    c.barrier();
+    comm_.barrier();
 
     // Dump data for debug
-    if (c.rank() == 0 && dump_file != "") {
+    if (comm_.rank() == 0 && dump_file != "") {
       alps::hdf5::archive ar(dump_file, "w");
       ar["/parameters"] << Base::parameters_;
       ar["/simulation/results"] << this->get_accumulated_results();

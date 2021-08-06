@@ -186,9 +186,20 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     );
   }
 
-  create_worm_updaters();
-
+  create_worm_spaces();
+  create_custom_worm_updaters();
+  create_worm_meas();
   create_observables();
+
+  if (comm.rank() == 0) {
+    std::cout << std::endl;
+    std::cout << "Active worm spaces:" << std::endl;
+    check_true(worm_types.size() > 0, "No active worm space!");
+    for (auto w: worm_types) {
+      std::cout  << " " << ConfigSpaceEnum::to_string(w) << std::endl;
+    }
+    std::cout << std::endl;
+  }
 }
 
 
@@ -281,12 +292,6 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       break;
 
     case ConfigSpaceEnum::G2:
-      if (p_G2_meas) {
-        p_G2_meas->measure_via_hyb(mc_config, random,
-                                   par["measurement.G2.matsubara.max_matrix_size"],
-                                   par["measurement.G2.aux_field"]
-        );
-      }
       if (p_G2_legendre_meas) {
         p_G2_legendre_meas->measure_via_hyb(mc_config, measurements, random,
                                    par["measurement.G2.legendre.max_matrix_size"],
@@ -719,9 +724,6 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
   }
 
   auto ofile = par["outputfile"].template as<std::string>();
-  if (p_G2_meas) {
-     p_G2_meas->finalize(ofile);
-  }
 
   for (const auto &ws : worm_meas) {
     for (const auto& elem: ws.second) {

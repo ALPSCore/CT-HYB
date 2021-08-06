@@ -20,7 +20,7 @@
 #include "../model/operator.hpp"
 #include "../moves/mc_config.hpp"
 #include "../hash.hpp"
-
+#include "worm_meas.hpp"
 
 /**
  * Helper for measuring kL and KR
@@ -127,16 +127,17 @@ void make_two_freqs_list(
     std::vector<std::pair<int,int>>& two_freqs_vec,
     std::unordered_map<std::pair<int,int>, int>& two_freqs_map);
 
-template<typename SCALAR>
-class G2Measurement {
+template<typename SCALAR, typename SW_TYPE>
+class G2Measurement : public WormMeas<SCALAR,SW_TYPE> {
 public:
     /**
      * Constructor
      *
      * @param num_flavors    the number of flavors
      */
-    G2Measurement(int num_flavors, double beta, const std::vector<matsubara_freq_point_PH>& freqs);
-
+    G2Measurement(alps::random01 *p_rng, double beta, int num_flavors,
+      const std::vector<matsubara_freq_point_PH>& freqs,
+      int max_matrix_size, double eps = 1E-5);
 
     /**
      * @brief Create ALPS observable
@@ -148,16 +149,23 @@ public:
     /**
      * @brief Measure Green's function via hybridization function
      */
-    void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                         alps::random01 &random, int max_matrix_size, double eps = 1E-5);
+    //void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
+                         //alps::random01 &random, int max_matrix_size, double eps = 1E-5);
+    void measure(
+      const MonteCarloConfiguration<SCALAR> &mc_config,
+      const SW_TYPE &sliding_window,
+      alps::accumulators::accumulator_set &measurements);
 
-    void finalize(const std::string& output_file);
+    void save_results(const std::string& filename);
 
 private:
+    alps::random01 *p_rng_;
     std::string str_;
     int num_flavors_;
     double beta_;
     std::vector<matsubara_freq_point_PH> freqs_;
+    int max_matrix_size_;
+    double eps_;
     boost::multi_array<std::complex<double>, 5> matsubara_data_; //flavor, flavor, flavor, flavor, freq
     int num_data_;
     int max_num_data_;//max number of data accumlated before passing data to ALPS

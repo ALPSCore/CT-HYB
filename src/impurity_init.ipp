@@ -1,6 +1,28 @@
 #include "impurity.hpp"
 
 
+template<typename IMP_MODEL>
+template<typename WORM_T>
+void HybridizationSimulation<IMP_MODEL>::add_worm_space() {
+  auto p_worm = std::shared_ptr<Worm>(new WORM_T());
+  auto w = p_worm->get_config_space();
+  check_true(
+    std::find(worm_types.begin(), worm_types.end(), w) == worm_types.end(),
+    "Duplicate worm space!"
+  );
+  worm_types.push_back(w);
+  auto name = ConfigSpaceEnum::to_string(w);
+  add_worm_mover<WormMoverType>(w, name + "_mover");
+  add_worm_mover<WormFlavorChangerType>(w, name + "_flavor_changer");
+  worm_insertion_removers.push_back(
+      std::shared_ptr<WormInsertionRemoverType>(
+          new WormInsertionRemoverType(
+              name + "_ins_rem", BETA, FLAVORS, 0.0, BETA, p_worm
+          )
+      )
+  );
+}
+
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_observables() {
@@ -40,9 +62,6 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   }
   if (p_G2_legendre_meas) {
     p_G2_legendre_meas->create_alps_observable(measurements);
-  }
-  if (p_G2_meas) {
-    p_G2_meas->create_alps_observable(measurements);
   }
 
   for (auto& w: worm_meas) {
@@ -89,6 +108,7 @@ void HybridizationSimulation<IMP_MODEL>::add_worm_mover(ConfigSpaceEnum::Type co
 }
 
 
+/*
 template<typename IMP_MODEL>
 template<typename WORM_T>
 void HybridizationSimulation<IMP_MODEL>::add_worm_space(std::shared_ptr<WORM_T> p_worm) {
@@ -105,17 +125,54 @@ void HybridizationSimulation<IMP_MODEL>::add_worm_space(std::shared_ptr<WORM_T> 
       )
   );
 }
+*/
 
 template<typename IMP_MODEL>
-void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
-  for (auto w : {ConfigSpaceEnum::G1, ConfigSpaceEnum::Equal_time_G1}) {
-    worm_meas[w] = std::unordered_map<std::string,std::unique_ptr<WORM_MEAS_TYPE>>();
+void HybridizationSimulation<IMP_MODEL>::create_worm_spaces() {
+  //worm_types.push_back(ConfigSpaceEnum::G1);
+  //worm_types.push_back(ConfigSpaceEnum::Equal_time_G1);
+  //if (par["measurement.G2.matsubara.on"] != 0 || par["measurement.G2.legendre.on"] != 0) {
+    //worm_types.push_back(ConfigSpaceEnum::G2);
+  //}
+
+  add_worm_space<GWorm<1>>();
+  add_worm_space<EqualTimeGWorm<1>>();
+  if (par["measurement.G2.matsubara.on"] != 0 || par["measurement.G2.legendre.on"] != 0) {
+    add_worm_space<GWorm<2>>();
+    add_worm_space<TwoPointCorrWorm<PH_CHANNEL>>();
+    add_worm_space<TwoPointCorrWorm<PP_CHANNEL>>();
   }
+
+  // Measurement of lambda(tau1, tau2)
+  //add_worm_space(
+    //std::shared_ptr<TwoPointCorrWorm<PH_CHANNEL>>(
+      //new TwoPointCorrWorm<PH_CHANNEL>()
+    //)
+  //);
+//
+  // Measurement of varphi(tau1, tau2)
+  //add_worm_space(
+    //std::shared_ptr<TwoPointCorrWorm<PP_CHANNEL>>(
+      //new TwoPointCorrWorm<PP_CHANNEL>()
+    //)
+  //);
+
+}
+
+
+template<typename IMP_MODEL>
+void HybridizationSimulation<IMP_MODEL>::create_custom_worm_updaters() {
+  // Add default remove/insertion/move updators
+  //add_default_worm_mover_insertion_remover<GWorm<1>>();
+  //add_default_worm_mover_insertion_remover<GWorm<2>>();
+  //add_default_worm_mover_insertion_remover<EqualTimeGWorm<1>>();
+  //add_default_worm_mover_insertion_remover<TwoPointCorrWorm<PH_CHANNEL>>();
+  //add_default_worm_mover_insertion_remover<TwoPointCorrWorm<PP_CHANNEL>>();
 
   /*
    * G1
    */
-  worm_types.push_back(ConfigSpaceEnum::G1);
+  /*
   add_worm_mover<WormMoverType>(ConfigSpaceEnum::G1, "G1_mover");
   add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::G1, "G1_flavor_changer");
   worm_insertion_removers.push_back(
@@ -126,6 +183,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
           )
       )
   );
+  */
   //Via connecting or cutting hybridization lines
   specialized_updaters["G1_ins_rem_hyb"] =
       std::shared_ptr<LocalUpdaterType>(
@@ -137,20 +195,12 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
       new GMeasurement<SCALAR, 1>(FLAVORS, par["measurement.G1.n_legendre"], 0, BETA,
                                   par["measurement.G1.max_num_data_accumulated"])
   );
-  {
-      worm_meas[ConfigSpaceEnum::G1]["vartheta"] = 
-        std::unique_ptr<WORM_MEAS_TYPE>(
-            new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
-                read_fermionic_matsubara_points(par["measurement.G1.SIE.sampling_frequencies"])
-            )
-        );
-  }
 
   /*
    * Equal-time G1
    */
-  {
-    worm_types.push_back(ConfigSpaceEnum::Equal_time_G1);
+  /*
+  if (is_worm_space_active(ConfigSpaceEnum::Equal_time_G1)) {
     const std::string name("Equal_time_G1");
     add_worm_mover<WormMoverType>(ConfigSpaceEnum::Equal_time_G1, name + "_mover");
     add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::Equal_time_G1, name + "_flavor_changer");
@@ -162,20 +212,15 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         )
     );
-    worm_meas[ConfigSpaceEnum::Equal_time_G1]["Equal_time_G1"] = 
-        std::unique_ptr<WORM_MEAS_TYPE>(
-            new EqualTimeG1Meas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
-              par["measurement.equal_time_G1.num_ins"]
-            )
-        );
   }
+  */
 
 
   /*
    * G2
    */
-  if (par["measurement.G2.matsubara.on"] != 0 || par["measurement.G2.legendre.on"] != 0) {
-    worm_types.push_back(ConfigSpaceEnum::G2);
+  if (is_worm_space_active(ConfigSpaceEnum::G2)) {
+    /*
     add_worm_mover<WormMoverType>(ConfigSpaceEnum::G2, "G2_mover");
     add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::G2, "G2_flavor_changer");
     worm_insertion_removers.push_back(
@@ -186,13 +231,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         )
     );
-    if (par["measurement.G2.matsubara.on"].template as<int>() != 0) {
-      p_G2_meas.reset(
-          new G2Measurement<SCALAR>(FLAVORS, BETA,
-                                    read_matsubara_points(par["measurement.G2.matsubara.frequencies_PH"])
-          )
-      );
-    }
+    */
     if (par["measurement.G2.legendre.on"].template as<int>() != 0) {
       p_G2_legendre_meas.reset(
           new GMeasurement<SCALAR, 2>(FLAVORS,
@@ -209,43 +248,6 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
             )
         );
   }
-
-  worm_meas[ConfigSpaceEnum::G1]["vartheta"] = 
-    std::unique_ptr<WORM_MEAS_TYPE>(
-        new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
-          read_fermionic_matsubara_points(par["measurement.G1.SIE.sampling_frequencies"])
-        )
-    );
-  worm_meas[ConfigSpaceEnum::G1]["vartheta_legendre"] = 
-    std::unique_ptr<WORM_MEAS_TYPE>(
-        new VarThetaLegendreMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, 400)
-    );
-
-  // Measurement of lambda(tau1, tau2)
-  add_worm_space(
-    std::shared_ptr<TwoPointCorrWorm<PH_CHANNEL>>(
-      new TwoPointCorrWorm<PH_CHANNEL>()
-    )
-  );
-  worm_meas[ConfigSpaceEnum::Two_point_PH]["lambda_legendre"] = 
-    std::unique_ptr<WORM_MEAS_TYPE>(
-        new TwoPointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS, 400)
-    );
-
-  // Measurement of varphi(tau1, tau2)
-  add_worm_space(
-    std::shared_ptr<TwoPointCorrWorm<PP_CHANNEL>>(
-      new TwoPointCorrWorm<PP_CHANNEL>()
-    )
-  );
-  worm_meas[ConfigSpaceEnum::Two_point_PP]["varphi_legendre"] = 
-    std::unique_ptr<WORM_MEAS_TYPE>(
-        new TwoPointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS, 400)
-    );
-
-  //const std::string name("Equal_time_G1");
-  //add_worm_mover<WormMoverType>(Equal_time_G1, name + "_mover");
-  //add_worm_mover<WormFlavorChangerType>(Equal_time_G1, name + "_flavor_changer");
 
   //Proposal probability of worm insertion is smaller than that of removal by the number of active worm spaces.
   //We correct this here.
@@ -268,6 +270,80 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
 
   config_spaces_visited_in_measurement_steps.resize(0);
   config_spaces_visited_in_measurement_steps.resize(worm_types.size() + 1, false);
+}
+
+
+template<typename IMP_MODEL>
+void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
+  for (auto w : ConfigSpaceEnum::AllWormSpaces) {
+    if (!is_worm_space_active(w)) {
+      continue;
+    }
+    worm_meas[w] = std::unordered_map<std::string,std::unique_ptr<WORM_MEAS_TYPE>>();
+  }
+
+  auto register_worm_meas = [this]
+    (ConfigSpaceEnum::Type w, const std::string& meas_name, WormMeas<SCALAR,SW_TYPE> *p_meas) {
+    if (this->worm_meas[w].find(meas_name) != this->worm_meas[w].end()) {
+      throw std::logic_error("Duplicated worm_meas!");
+    }
+    this->worm_meas[w][meas_name] = std::unique_ptr<WORM_MEAS_TYPE>(p_meas);
+  };
+
+  // G1
+  register_worm_meas(ConfigSpaceEnum::G1, "vartheta",
+        new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
+          read_fermionic_matsubara_points(par["measurement.G1.SIE.sampling_frequencies"])
+        )
+    );
+
+  register_worm_meas(ConfigSpaceEnum::G1, "vartheta_legendre",
+        new VarThetaLegendreMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, 400)
+    );
+
+  //Equal_time_G1
+  if (is_worm_space_active(ConfigSpaceEnum::Equal_time_G1)) {
+    register_worm_meas(
+      ConfigSpaceEnum::Equal_time_G1,
+      "Equal_time_G1",
+      new EqualTimeG1Meas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
+        par["measurement.equal_time_G1.num_ins"]
+      )
+    );
+  }
+
+  //Two_point_PH
+  if (is_worm_space_active(ConfigSpaceEnum::Two_point_PH)) {
+    register_worm_meas(
+      ConfigSpaceEnum::Two_point_PH,
+      "lambda_legendre",
+      new TwoPointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS, 400)
+    );
+  }
+
+  //Two_point_PP
+  if (is_worm_space_active(ConfigSpaceEnum::Two_point_PP)) {
+    register_worm_meas(
+      ConfigSpaceEnum::Two_point_PP,
+      "varphi_legendre",
+      new TwoPointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS, 400)
+    );
+  }
+
+  // G2
+  if (is_worm_space_active(ConfigSpaceEnum::G2)) {
+    if (par["measurement.G2.matsubara.on"].template as<int>() != 0) {
+      register_worm_meas(
+        ConfigSpaceEnum::G2,
+        "matsubara_sparse",
+        new G2Measurement<SCALAR,SW_TYPE>(&random, FLAVORS, BETA,
+          read_matsubara_points(par["measurement.G2.matsubara.frequencies_PH"]),
+          par["measurement.G2.matsubara.max_matrix_size"],
+          par["measurement.G2.aux_field"]
+        )
+      );
+    }
+  }
 }
 
 template<typename IMP_MODEL>

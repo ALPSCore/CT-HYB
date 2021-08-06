@@ -20,21 +20,25 @@ namespace ConfigSpaceEnum{
     Equal_time_G2,
     Two_point_PH,
     Two_point_PP,
+    Three_point_PH,
+    Three_point_PP,
     Unknown
   };
 
   static const Type AllWormSpaces[] = 
-    {G1, G2, Equal_time_G1, Equal_time_G2, Two_point_PH, Two_point_PP};
+    {G1, G2, Equal_time_G1, Equal_time_G2, Two_point_PH, Two_point_PP, Three_point_PH, Three_point_PP};
 
   static std::string to_string(ConfigSpaceEnum::Type config_space) {
     switch (config_space) {
-      case ConfigSpaceEnum::Z_FUNCTION:    return "Z_FUNCTION";
-      case ConfigSpaceEnum::G1:            return "G1";
-      case ConfigSpaceEnum::G2:            return "G2";
-      case ConfigSpaceEnum::Equal_time_G1: return "Equal_time_G1";
-      case ConfigSpaceEnum::Equal_time_G2: return "Equal_time_G2";
-      case ConfigSpaceEnum::Two_point_PH:  return "Two_point_PH";
-      case ConfigSpaceEnum::Two_point_PP:  return "Two_point_PP";
+      case ConfigSpaceEnum::Z_FUNCTION:      return "Z_FUNCTION";
+      case ConfigSpaceEnum::G1:              return "G1";
+      case ConfigSpaceEnum::G2:              return "G2";
+      case ConfigSpaceEnum::Equal_time_G1:   return "Equal_time_G1";
+      case ConfigSpaceEnum::Equal_time_G2:   return "Equal_time_G2";
+      case ConfigSpaceEnum::Two_point_PH:    return "Two_point_PH";
+      case ConfigSpaceEnum::Two_point_PP:    return "Two_point_PP";
+      case ConfigSpaceEnum::Three_point_PH:  return "Three_point_PH";
+      case ConfigSpaceEnum::Three_point_PP:  return "Three_point_PP";
       default: throw std::runtime_error("Unknown configuration space");
     }
   }
@@ -331,7 +335,7 @@ class TwoPointCorrWorm: public Worm, private boost::equality_comparable<TwoPoint
   virtual void set_flavor(int index, int new_flavor) { flavors_[index] = new_flavor; }
 
   virtual const std::vector<int> &get_time_index(int flavor_index) const {
-    return time_index_[flavor_index];
+    return time_index_.at(static_cast<int>(flavor_index/2));
   }
 
   virtual bool operator==(const TwoPointCorrWorm<CHANNEL> &other_worm) const {

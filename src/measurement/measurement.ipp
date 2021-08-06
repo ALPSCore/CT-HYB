@@ -590,12 +590,17 @@ void compute_G2(double beta,
                    M_prime, creation_ops, annihilation_ops, freqs, two_freqs_vec, two_freqs_map, result);
 }
 
-template<typename SCALAR>
-G2Measurement<SCALAR>::G2Measurement(int num_flavors, double beta, const std::vector<matsubara_freq_point_PH>& freqs) :
-    str_("G2"),
-    num_flavors_(num_flavors),
+template<typename SCALAR, typename SW_TYPE>
+G2Measurement<SCALAR,SW_TYPE>::G2Measurement(alps::random01 *p_rng, double beta, int num_flavors,
+    const std::vector<matsubara_freq_point_PH>& freqs,
+    int max_matrix_size, double eps):
+    p_rng_(p_rng),
     beta_(beta),
+    num_flavors_(num_flavors),
     freqs_(),
+    str_("G2"),
+    max_matrix_size_(max_matrix_size),
+    eps_(eps),
     num_data_(0) {
 
   // Make sure that Fock term can be reconstructed.
@@ -617,14 +622,12 @@ G2Measurement<SCALAR>::G2Measurement(int num_flavors, double beta, const std::ve
   std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0);
 };
 
-template<typename SCALAR>
-void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                                            alps::random01 &random,
-                                            int max_num_ops,
-                                            double eps) {
-
+template<typename SCALAR, typename SW_TYPE>
+void G2Measurement<SCALAR,SW_TYPE>::measure(const MonteCarloConfiguration<SCALAR> &mc_config,
+    const SW_TYPE &sliding_window,
+    alps::accumulators::accumulator_set &measurements) {
   auto t1 = std::chrono::system_clock::now();
-  Reconnections<SCALAR> reconnection(mc_config, random, max_num_ops, 2, eps);
+  Reconnections<SCALAR> reconnection(mc_config, *p_rng_, max_matrix_size_, 2, eps_);
   auto t2 = std::chrono::system_clock::now();
 
   compute_G2<SCALAR>(beta_, num_flavors_, freqs_, two_freqs_vec_, two_freqs_map_, mc_config, reconnection, matsubara_data_);
@@ -632,8 +635,8 @@ void G2Measurement<SCALAR>::measure_via_hyb(const MonteCarloConfiguration<SCALAR
   ++num_data_;
 }
 
-template<typename SCALAR>
-void G2Measurement<SCALAR>::finalize(const std::string& output_file) {
+template<typename SCALAR, typename SW_TYPE>
+void G2Measurement<SCALAR, SW_TYPE>::save_results(const std::string& filename) {
   alps::mpi::communicator comm;
 
   comm.barrier();
@@ -679,7 +682,7 @@ void G2Measurement<SCALAR>::finalize(const std::string& output_file) {
                    matsubara_data_.origin(),
                    std::bind2nd(std::divides<std::complex<double> >(), 1. * num_tot_data));
 
-    alps::hdf5::archive oar(output_file, "w");
+    alps::hdf5::archive oar(filename, "a");
     oar["/simulation/results/G2H_matsubara/data"] = matsubara_data_;
     boost::multi_array<int,2> freqs_tmp(boost::extents[freqs_.size()][3]);
     for (int i=0; i<freqs_.size(); ++i) {

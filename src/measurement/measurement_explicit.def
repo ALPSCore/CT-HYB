@@ -1,4 +1,4 @@
-template class G2Measurement<PP_SCALAR>;
+template class G2Measurement<PP_SCALAR, PP_SW>;
 
 template class Reconnections<PP_SCALAR>;
 
