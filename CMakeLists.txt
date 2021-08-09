@@ -79,6 +79,7 @@ set(ALL_LIB_FILES
 set(COMMON_LIB_FILES
     ./src/common/util.cpp
     ./src/common/legendre.cpp
+    ./src/common/logger.cpp
 )
 
 set(MODEL_FILES

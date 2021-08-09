@@ -42,15 +42,7 @@ public:
       const SW_TYPE &sliding_window,
       alps::accumulators::accumulator_set &measurements);
 
-  virtual void save_results(const std::string &filename) const {
-    /*
-    alps::mpi::communicator comm;
-    if (comm.rank() != 0) {
-      return;
-    }
-    alps::hdf5::archive oar(filename, "a");
-    oar[get_name() + "_smpl_freqs"] = vsample_;
-    */
+  virtual void save_results(const std::string &filename, const alps::mpi::communicator &comm) const {
   }
 
 private:

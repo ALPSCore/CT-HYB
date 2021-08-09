@@ -48,6 +48,7 @@
 #include <alps/params/convenience_params.hpp>
 
 #include "common/wide_scalar.hpp"
+#include "common/logger.hpp"
 #include "model/operator.hpp"
 #include "model/atomic_model.hpp"
 
@@ -68,7 +69,7 @@
 template<typename IMP_MODEL>
 class HybridizationSimulation: public alps::mcbase {
  public:
-  HybridizationSimulation(parameters_type const &params, int rank); //constructor
+  HybridizationSimulation(parameters_type const &params, const alps::mpi::communicator &comm); //constructor
 
   //TYPES
   typedef alps::mcbase Base;
@@ -78,6 +79,7 @@ class HybridizationSimulation: public alps::mcbase {
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
 
   static void define_parameters(parameters_type &parameters);
+  static std::vector<ConfigSpaceEnum::Type> get_defined_worm_spaces(const parameters_type &parameters);
 
   void update(); //the main monte carlo step
   void measure_every_step();//measure every step, which is called in update()
@@ -134,13 +136,6 @@ class HybridizationSimulation: public alps::mcbase {
   template<typename WORM_T>
   void add_worm_space();
 
-  //template<typename WORM_T>
-  //void add_default_worm_mover_insertion_remover();
-
-  //void read_eq_time_two_particle_greens_meas();
-  //void read_two_time_correlation_functions();
-
-
   void do_one_sweep(); // one sweep of the window
   void transition_between_config_spaces();
   void global_updates(); //expensive updates
@@ -182,9 +177,7 @@ class HybridizationSimulation: public alps::mcbase {
   std::shared_ptr<HybridizationFunction<SCALAR> > F;
 
   //ALPS MPI communicator
-#ifdef ALPS_HAVE_MPI
   alps::mpi::communicator comm;
-#endif
 
   //nearly equal to the average perturbation order (must be kept fixed during measurement steps)
   int N_win_standard;

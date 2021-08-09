@@ -26,6 +26,7 @@
 #include "operator.hpp"
 #include "../common/util.hpp"
 #include "../common/wide_scalar.hpp"
+#include "../common/logger.hpp"
 
 //forward declaration for alps::params
 namespace alps {
@@ -95,10 +96,10 @@ class Braket {
     normalize();
     norm_type r = invalid() ? norm_type(0.0) : coeff_ * spectral_norm_diag<Scalar>(obj_);
     if (!(r >= 0.0)) {
-      std::cout << "comp debug " << coeff_ << " " << spectral_norm_diag<Scalar>(obj_) << std::endl;
-      std::cout << "comp prod " << coeff_ * spectral_norm_diag<Scalar>(obj_) << std::endl;
-      std::cout << "comp size " << obj_.rows() << " " << obj_.cols() << std::endl;
-      std::cout << "comp debug " << obj_ << " === " << std::endl;
+      logger_out << "comp debug " << coeff_ << " " << spectral_norm_diag<Scalar>(obj_) << std::endl;
+      logger_out << "comp prod " << coeff_ * spectral_norm_diag<Scalar>(obj_) << std::endl;
+      logger_out << "comp size " << obj_.rows() << " " << obj_.cols() << std::endl;
+      logger_out << "comp debug " << obj_ << " === " << std::endl;
       exit(-1);
     }
     return r;

@@ -60,7 +60,7 @@ inline void print_sectors(const std::vector<std::vector<double> > &evals_sectors
     if (evals_sectors[sector].size() == 0) {
       continue;
     }
-    std::cout << "Sector " << sector << " : dim = " << evals_sectors[sector].size()
+    logger_out << "Sector " << sector << " : dim = " << evals_sectors[sector].size()
         << ", min energy = "
         << *std::min_element(evals_sectors[sector].begin(), evals_sectors[sector].end())
         << ", max energy = "
@@ -164,13 +164,13 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(double inner_outer_cutoff_energy
   boost::tie(eigenvalue_max, eigenvalue_min) = min_max_energy_sectors(eigenvals_sector, min_eigenval_sector);
   if (Base::verbose_) {
     print_sectors(eigenvals_sector);
-    std::cout << " Max eigen energy = " << eigenvalue_max << std::endl;
-    std::cout << " Min eigen energy = " << eigenvalue_min << std::endl;
+    logger_out << " Max eigen energy = " << eigenvalue_max << std::endl;
+    logger_out << " Min eigen energy = " << eigenvalue_min << std::endl;
   }
 
   //Throwing away high-energy states
   if (Base::verbose_) {
-    std::cout << " Throwing away high energy states..." << std::endl;
+    logger_out << " Throwing away high energy states..." << std::endl;
   }
   remove_high_energy_states(eigenvals_sector,
                             evecs_sector,
@@ -178,8 +178,8 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(double inner_outer_cutoff_energy
   boost::tie(eigenvalue_max, eigenvalue_min) = min_max_energy_sectors(eigenvals_sector, min_eigenval_sector);
   if (Base::verbose_) {
     print_sectors(eigenvals_sector);
-    std::cout << " Max eigen energy = " << eigenvalue_max << std::endl;
-    std::cout << " Min eigen energy  = " << eigenvalue_min << std::endl;
+    logger_out << " Max eigen energy = " << eigenvalue_max << std::endl;
+    logger_out << " Min eigen energy  = " << eigenvalue_min << std::endl;
   }
   check_evecs(ham_sector, evecs_sector);
 
@@ -210,7 +210,7 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(double inner_outer_cutoff_energy
   Base::reference_energy_ = eigenvalue_min;
   */
   if (Base::verbose_) {
-    std::cout << "Reference energy " << Base::reference_energy_ << std::endl;
+    logger_out << "Reference energy " << Base::reference_energy_ << std::endl;
   }
   for (int sector = 0; sector < num_sectors; ++sector) {
     for (int ie = 0; ie < eigenvals_sector[sector].size(); ++ie) {
@@ -333,7 +333,7 @@ void AtomicModelEigenBasis<SCALAR>::build_outer_braket(double outer_cutoff_energ
     ket_list.push_back(BRAKET_T(sector, obj));
 
     if (Base::verbose_) {
-      std::cout << "Dim of ket: sector " << sector << " inner " << dim << " outer " << dim_outer << std::endl;
+      logger_out << "Dim of ket: sector " << sector << " inner " << dim << " outer " << dim_outer << std::endl;
     }
     ++active_sector;
   }

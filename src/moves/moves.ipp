@@ -1,5 +1,6 @@
 #include "moves.hpp"
 #include "worm.hpp"
+#include "../common/logger.hpp"
 
 #include <tuple>
 
@@ -28,7 +29,7 @@ T safe_falling_factorial(T x, unsigned i) {
 inline void range_check(const std::vector<psi> &ops, double tau_low, double tau_high) {
   for (std::vector<psi>::const_iterator it = ops.begin(); it != ops.end(); ++it) {
     if (tau_low > it->time().time() || tau_high < it->time().time()) {
-      std::cout << ops << std::endl;
+      logger_out << ops << std::endl;
       throw std::runtime_error("Something went wrong: try to update operators outside the range");
     }
   }
@@ -234,7 +235,7 @@ bool update_operators(SLIDING_WINDOW &sw,
     safe_insert_with_record(sw, ops_add.begin(), ops_add.end(), update_record);
   } catch (const std::exception &e) {
     //In the case, we try to insert an operator at tau where there is already another operator, we reject such an update.
-    std::cout << "Warning: duplicate found" << std::endl;
+    logger_out << "Warning: duplicate found" << std::endl;
     revert_changes(sw, update_record);
     return false;
   }
@@ -918,8 +919,8 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
 
   std::map<ConfigSpaceEnum::Type, double>::const_iterator it = config_space_weight.find(p_worm_template_->get_config_space());
   if (it == config_space_weight.end()) {
-    std::cout << ConfigSpaceEnum::to_string(p_worm_template_->get_config_space()) << std::endl;
-    throw std::logic_error("Worm space weight not found");
+    logger_out << ConfigSpaceEnum::to_string(p_worm_template_->get_config_space()) << std::endl;
+    throw std::logic_error("Worm space weight not found" + ConfigSpaceEnum::to_string(p_worm_template_->get_config_space()) );
   }
   const double worm_space_weight = it->second;
 
@@ -1118,7 +1119,8 @@ bool GWormInsertionRemover<SCALAR, RANK, EXTENDED_SCALAR, SLIDING_WINDOW>::propo
 
   std::map<ConfigSpaceEnum::Type, double>::const_iterator it = config_space_weight.find(p_worm_template_->get_config_space());
   if (it == config_space_weight.end()) {
-    throw std::logic_error("Worm space weight not found");
+    logger_out << ConfigSpaceEnum::to_string(p_worm_template_->get_config_space()) << std::endl;
+    throw std::logic_error("Worm space weight not found" + ConfigSpaceEnum::to_string(p_worm_template_->get_config_space()) );
   }
   const double worm_space_weight = it->second;
 

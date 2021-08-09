@@ -225,8 +225,8 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
   cl.finalize_labeling();
 
   if (verbose_) {
-    std::cout << "dim of Hilbert space " << dim_ << std::endl;
-    std::cout << "# of blocks " << cl.get_num_clusters() << std::endl;
+    logger_out << "dim of Hilbert space " << dim_ << std::endl;
+    logger_out << "# of blocks " << cl.get_num_clusters() << std::endl;
   }
 
   //Merge some blocks according to creation and annihilation operators
@@ -240,7 +240,7 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
   cl2.finalize_labeling();
 
   if (verbose_) {
-    std::cout << "# of sectors " << cl2.get_num_clusters() << std::endl;
+    logger_out << "# of sectors " << cl2.get_num_clusters() << std::endl;
   }
 
   //identity members in each symmetry sector

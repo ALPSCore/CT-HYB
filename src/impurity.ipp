@@ -84,8 +84,22 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
 
 
 template<typename IMP_MODEL>
-HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type const &p, int rank)
-    : alps::mcbase(p, rank),
+std::vector<ConfigSpaceEnum::Type>
+HybridizationSimulation<IMP_MODEL>::get_defined_worm_spaces(const parameters_type &parameters) {
+  std::vector<ConfigSpaceEnum::Type> active_worm_spaces;
+  active_worm_spaces.push_back(ConfigSpaceEnum::G1);
+  active_worm_spaces.push_back(ConfigSpaceEnum::Equal_time_G1);
+  if (parameters["measurement.G2.matsubara.on"] != 0 || parameters["measurement.G2.legendre.on"] != 0) {
+    active_worm_spaces.push_back(ConfigSpaceEnum::G2);
+    active_worm_spaces.push_back(ConfigSpaceEnum::Two_point_PH);
+    active_worm_spaces.push_back(ConfigSpaceEnum::Two_point_PP);
+  }
+  return active_worm_spaces;
+}
+
+template<typename IMP_MODEL>
+HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type const &p, const alps::mpi::communicator &comm)
+    : alps::mcbase(p, comm.rank()),
       par(p),
       BETA(parameters["model.beta"]),      //inverse temperature
       SITES(parameters["model.sites"]),          //number of sites
@@ -95,16 +109,14 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       N_non_worm_meas(parameters["measurement.n_non_worm_meas"]),
       thermalization_time(parameters["thermalization_time"]),
       start_time(time(NULL)),
-      p_model(new IMP_MODEL(p, rank == 0)),//impurity model
+      p_model(new IMP_MODEL(p, comm.rank() == 0)),//impurity model
       F(new HybridizationFunction<SCALAR>(
           BETA,
           parameters["model.delta_input_file"].template as<std::string>(),
           N, FLAVORS
         )
       ),
-#ifdef ALPS_HAVE_MPI
-      comm(),
-#endif
+      comm(comm),
       N_win_standard(1),
       sweeps(0),                                                                 //sweeps done up to now
       mc_config(F),
@@ -122,7 +134,6 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       pert_order_recorder(),
       config_spaces_visited_in_measurement_steps(0)
 {
-
   if (thermalization_time < 0) {
     thermalization_time = static_cast<double>(0.1 * parameters["timelimit"].template as<double>());
   }
@@ -150,7 +161,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   sliding_window.set_uniform_mesh(2*p["sliding_window.min"].template as<int>());
   mc_config.trace = sliding_window.compute_trace();
   if (comm.rank() == 0 && verbose) {
-    std::cout << "initial trace = " << mc_config.trace
+    logger_out << "initial trace = " << mc_config.trace
               << " with N_SECTION = " << sliding_window.get_n_section()
               << std::endl;
   }
@@ -162,13 +173,13 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   //read_two_time_correlation_functions();
 
   if (comm.rank() == 0 && verbose) {
-    std::cout << "The number of blocks in the inverse matrix is " << mc_config.M.num_blocks() << "." << std::endl;
+    logger_out << "The number of blocks in the inverse matrix is " << mc_config.M.num_blocks() << "." << std::endl;
     for (int block = 0; block < mc_config.M.num_blocks(); ++block) {
-      std::cout << "flavors in block " << block << " : ";
+      logger_out << "flavors in block " << block << " : ";
       for (int flavor = 0; flavor < mc_config.M.num_flavors(block); ++flavor) {
-        std::cout << mc_config.M.flavors(block)[flavor] << " ";
+        logger_out << mc_config.M.flavors(block)[flavor] << " ";
       }
-      std::cout << std::endl;
+      logger_out << std::endl;
     }
   }
 
@@ -188,17 +199,20 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
 
   create_worm_spaces();
   create_custom_worm_updaters();
+  //for (auto &w: worm_types) {
+    //logger_out << comm.rank() << " " << ConfigSpaceEnum::to_string(w) << std::endl;
+  //}
   create_worm_meas();
   create_observables();
 
   if (comm.rank() == 0) {
-    std::cout << std::endl;
-    std::cout << "Active worm spaces:" << std::endl;
+    logger_out << std::endl;
+    logger_out << "Active worm spaces:" << std::endl;
     check_true(worm_types.size() > 0, "No active worm space!");
     for (auto w: worm_types) {
-      std::cout  << " " << ConfigSpaceEnum::to_string(w) << std::endl;
+      logger_out  << " " << ConfigSpaceEnum::to_string(w) << std::endl;
     }
-    std::cout << std::endl;
+    logger_out << std::endl;
   }
 }
 
@@ -246,7 +260,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
     times.push_back(std::chrono::high_resolution_clock::now());
 
     if (is_thermalized()) {
-      //std::cout << "Calling measure_every_step" << std::endl;
+      //logger_out << "Calling measure_every_step" << std::endl;
       measure_every_step();
     }
 
@@ -491,8 +505,9 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
     adjust_worm_space_weight();
 
     //G1 worm insertion and removal by changing hybridization lines
-    if (mc_config.current_config_space() == ConfigSpaceEnum::Z_FUNCTION ||
-        mc_config.current_config_space() == ConfigSpaceEnum::G1) {
+    if (specialized_updaters.find("G1_ins_rem_hyb") != specialized_updaters.end() &&
+        (mc_config.current_config_space() == ConfigSpaceEnum::Z_FUNCTION ||
+         mc_config.current_config_space() == ConfigSpaceEnum::G1) ) {
       specialized_updaters["G1_ins_rem_hyb"]->update(random,
                                                      BETA,
                                                      mc_config,
@@ -625,7 +640,7 @@ void HybridizationSimulation<IMP_MODEL>::update_MC_parameters() {
       )
   );
   if (verbose && comm.rank() == 0 && sweeps % 10 == 0) {
-    std::cout << " new window size = " << N_win_standard << " sweep = " << sweeps << " pert_order = "
+    logger_out << " new window size = " << N_win_standard << " sweep = " << sweeps << " pert_order = "
               << mc_config.pert_order() << std::endl;
   }
 
@@ -671,21 +686,21 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   }
 
   if (comm.rank() == 0) {
-    std::cout << "Thermalization process done after " << sweeps << " steps." << std::endl;
-    std::cout << "The number of segments for sliding window update is " << N_win_standard << "."
+    logger_out << "Thermalization process done after " << sweeps << " steps." << std::endl;
+    logger_out << "The number of segments for sliding window update is " << N_win_standard << "."
               << std::endl;
-    std::cout << "Perturbation orders (averaged over processes) are the following:" << std::endl;
+    logger_out << "Perturbation orders (averaged over processes) are the following:" << std::endl;
   }
   const std::vector<int> &order_creation_flavor = count_creation_operators(FLAVORS, mc_config);
   if (comm.rank() == 0) {
     for (int flavor = 0; flavor < FLAVORS; ++flavor) {
-      std::cout << " flavor " << flavor << " " << order_creation_flavor[flavor] << std::endl;
+      logger_out << " flavor " << flavor << " " << order_creation_flavor[flavor] << std::endl;
     }
-    std::cout << std::endl;
+    logger_out << std::endl;
   }
   if (p_flat_histogram_config_space) {
     if (!p_flat_histogram_config_space->converged() && verbose) {
-      std::cout <<
+      logger_out <<
                 boost::format(
                     "Warning: flat histogram is not yet obtained for MPI rank %1%. It may be safer to increase thermalization time!"
                 ) % comm.rank() << std::endl;
@@ -702,12 +717,12 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
   measurements["Pert_order_start"] << pert_order_recorder.mean();
 
   if (verbose) {
-    std::cout << std::endl << "Weight of configuration spaces for MPI rank " << comm.rank() << " : ";
-    std::cout << " Z function space = " << config_space_extra_weight[0];
+    logger_out << std::endl << "Weight of configuration spaces for MPI rank " << comm.rank() << " : ";
+    logger_out << " Z function space = " << config_space_extra_weight[0];
     for (int w = 0; w < worm_types.size(); ++w) {
-      std::cout << " , " << ConfigSpaceEnum::to_string(worm_types[w]) << " = " << config_space_extra_weight[w + 1];
+      logger_out << " , " << ConfigSpaceEnum::to_string(worm_types[w]) << " = " << config_space_extra_weight[w + 1];
     }
-    std::cout << std::endl;
+    logger_out << std::endl;
   }
 }
 
@@ -727,7 +742,8 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
 
   for (const auto &ws : worm_meas) {
     for (const auto& elem: ws.second) {
-      elem.second->save_results(ofile);
+      logger_out << "writing to " << ConfigSpaceEnum::to_string(ws.first) << " " << elem.first << " " << ofile << typeid(*elem.second).name() << std::endl;
+      elem.second->save_results(ofile, comm);
     }
   }
 

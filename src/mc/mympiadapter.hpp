@@ -1,20 +1,16 @@
 #pragma once
 
 #include <ctime>
-#include <boost/format.hpp>
+#include "../common/logger.hpp"
 
-#include <alps/mc/mpiadapter.hpp>
-
-//#include <time.h>
-
-class my_check_schedule
+class MyCheckSchedule
 {
  public:
   typedef std::time_t time_point;
   typedef double duration;
 
   /// Constructor
-  my_check_schedule(double tcheck = 10)
+  MyCheckSchedule(double tcheck = 10)
       :   tcheck_(tcheck)
   {
   }
@@ -45,20 +41,22 @@ class my_check_schedule
 ///   update_thermalized_status()
 ///   prepare_for_measurement()
 ///   finish_measurement()
-template<typename Base> class mymcmpiadapter : public alps::mcmpiadapter<Base,my_check_schedule> {
+template<typename Base> class mymcmpiadapter : public Base {
  private:
-  typedef alps::mcmpiadapter<Base,my_check_schedule> base_type_;
+  alps::params parameters_;
   alps::mpi::communicator comm_;
+  MyCheckSchedule checker_;
 
  public:
-  typedef typename base_type_::parameters_type parameters_type;
+  typedef typename alps::params parameters_type;
+  typedef typename alps::accumulators::result_set results_type;
 
   /// Construct mcmpiadapter with a custom scheduler
   // Just forwards to the base class constructor
   mymcmpiadapter(
-      parameters_type const & parameters,
+      alps::params const & parameters,
       alps::mpi::communicator const & comm
-  ) : base_type_(parameters, comm, my_check_schedule()), comm_(comm)
+  ) : Base(parameters, comm), parameters_(parameters), comm_(comm), checker_()
   {}
 
   std::pair<bool,bool> run(boost::function<bool ()> const & stop_callback) {
@@ -93,12 +91,12 @@ template<typename Base> class mymcmpiadapter : public alps::mcmpiadapter<Base,my
       if (all_processes_thermalized) {
         this->measure();
       }
-      if (stopped || base_type_::schedule_checker.pending() || !all_processes_thermalized) {
+      if (stopped || checker_.pending() || !all_processes_thermalized) {
         stopped = stop_callback();
         done = stopped;
-        base_type_::schedule_checker.update(0.0);
-        if (base_type_::communicator.rank() == 0 && std::time(NULL) - last_output_time > 1.0) {
-          std::cout << "Checking if the simulation is finished: "
+        checker_.update(0.0);
+        if (comm_.rank() == 0 && std::time(NULL) - last_output_time > 1.0) {
+          logger_out << "Checking if the simulation is finished: "
                   <<  std::time(NULL) - start_time << " sec passed." << std::endl;
           last_output_time = std::time(NULL);
         }
@@ -110,7 +108,7 @@ template<typename Base> class mymcmpiadapter : public alps::mcmpiadapter<Base,my
   }
 
   static parameters_type& define_parameters(parameters_type & parameters) {
-    base_type_::define_parameters(parameters);
+    //base_type_::define_parameters(parameters);
     return parameters;
   }
 };

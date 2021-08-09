@@ -142,33 +142,30 @@ public:
     /**
      * @brief Create ALPS observable
      */
-    void create_alps_observable(alps::accumulators::accumulator_set &measurements) const {
-        create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, (str_ + "_matsubara").c_str());
+    virtual void create_alps_observable(alps::accumulators::accumulator_set &measurements) const {
+        create_observable<std::complex<double>, SimpleRealVectorObservable>(measurements, "G2H");
     }
 
     /**
      * @brief Measure Green's function via hybridization function
      */
-    //void measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                         //alps::random01 &random, int max_matrix_size, double eps = 1E-5);
-    void measure(
+    virtual void measure(
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SW_TYPE &sliding_window,
       alps::accumulators::accumulator_set &measurements);
 
-    void save_results(const std::string& filename);
+    virtual void save_results(const std::string& filename, const alps::mpi::communicator &comm) const;
 
 private:
     alps::random01 *p_rng_;
-    std::string str_;
     int num_flavors_;
     double beta_;
     std::vector<matsubara_freq_point_PH> freqs_;
     int max_matrix_size_;
     double eps_;
     boost::multi_array<std::complex<double>, 5> matsubara_data_; //flavor, flavor, flavor, flavor, freq
-    int num_data_;
-    int max_num_data_;//max number of data accumlated before passing data to ALPS
+    //int num_data_;
+    //int max_num_data_;//max number of data accumlated before passing data to ALPS
     std::vector<std::pair<int,int>> two_freqs_vec_;
     std::unordered_map<std::pair<int,int>, int> two_freqs_map_;
 };

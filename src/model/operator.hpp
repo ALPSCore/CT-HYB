@@ -10,6 +10,8 @@
 #include <boost/multi_index/identity.hpp>
 #include <boost/array.hpp>
 
+#include "../common/logger.hpp"
+
 enum OPERATOR_TYPE {
   CREATION_OP = 0,
   ANNIHILATION_OP = 1,
@@ -219,11 +221,11 @@ typedef boost::multi_index::multi_index_container<psi>
 
 template<typename V>
 void print_list(const V &operators) {
-  std::cout << "list: " << std::endl;
+  logger_out << "list: " << std::endl;
   for (typename V::const_iterator it = operators.begin(); it != operators.end(); ++it) {
-    std::cout << "time " << it->time() << "[" << it->flavor() << "]" << " ";
+    logger_out << "time " << it->time() << "[" << it->flavor() << "]" << " ";
   }
-  std::cout << std::endl;
+  logger_out << std::endl;
 }
 
 inline void safe_erase(operator_container_t &operators, const psi &op) {

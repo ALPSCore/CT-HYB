@@ -21,7 +21,7 @@ void read_U_tensor(const std::string &input_file, int flavors_, std::vector<std:
   }
   if (verbose_)
   {
-    std::cout << "Reading " << input_file << "..." << std::endl;
+    logger_out << "Reading " << input_file << "..." << std::endl;
   }
 
   int num_elem;
@@ -32,7 +32,7 @@ void read_U_tensor(const std::string &input_file, int flavors_, std::vector<std:
   }
   if (verbose_)
   {
-    std::cout << "Number of non-zero elements in U tensor is " << num_elem << std::endl;
+    logger_out << "Number of non-zero elements in U tensor is " << num_elem << std::endl;
   }
 
   nonzero_U_vals.clear();

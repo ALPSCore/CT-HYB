@@ -108,130 +108,59 @@ void HybridizationSimulation<IMP_MODEL>::add_worm_mover(ConfigSpaceEnum::Type co
 }
 
 
-/*
-template<typename IMP_MODEL>
-template<typename WORM_T>
-void HybridizationSimulation<IMP_MODEL>::add_worm_space(std::shared_ptr<WORM_T> p_worm) {
-  worm_types.push_back(p_worm->get_config_space());
-  auto name = p_worm->get_name();
-  add_worm_mover<WormMoverType>(ConfigSpaceEnum::Equal_time_G1, name + "_mover");
-  add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::Equal_time_G1, name + "_flavor_changer");
-  worm_insertion_removers.push_back(
-      std::shared_ptr<WormInsertionRemoverType>(
-          new WormInsertionRemoverType(
-              name + "_ins_rem", BETA, FLAVORS, 0.0, BETA,
-              p_worm
-          )
-      )
-  );
-}
-*/
-
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_worm_spaces() {
-  //worm_types.push_back(ConfigSpaceEnum::G1);
-  //worm_types.push_back(ConfigSpaceEnum::Equal_time_G1);
-  //if (par["measurement.G2.matsubara.on"] != 0 || par["measurement.G2.legendre.on"] != 0) {
-    //worm_types.push_back(ConfigSpaceEnum::G2);
-  //}
+  auto target_worm_space = get_defined_worm_spaces(par)[par["target_worm_space"].template as<int>()];
+  switch (target_worm_space)
+  {
+  case ConfigSpaceEnum::G1:
+    add_worm_space<GWorm<1>>();
+    break;
 
-  add_worm_space<GWorm<1>>();
-  add_worm_space<EqualTimeGWorm<1>>();
-  if (par["measurement.G2.matsubara.on"] != 0 || par["measurement.G2.legendre.on"] != 0) {
+  case ConfigSpaceEnum::Equal_time_G1:
+    add_worm_space<EqualTimeGWorm<1>>();
+    break;
+
+  case ConfigSpaceEnum::G2:
     add_worm_space<GWorm<2>>();
+    break;
+  
+  case ConfigSpaceEnum::Two_point_PH:
     add_worm_space<TwoPointCorrWorm<PH_CHANNEL>>();
+    break;
+
+  case ConfigSpaceEnum::Two_point_PP:
     add_worm_space<TwoPointCorrWorm<PP_CHANNEL>>();
+    break;
+
+  default:
+    throw std::logic_error("Invalid worm space!");
   }
-
-  // Measurement of lambda(tau1, tau2)
-  //add_worm_space(
-    //std::shared_ptr<TwoPointCorrWorm<PH_CHANNEL>>(
-      //new TwoPointCorrWorm<PH_CHANNEL>()
-    //)
-  //);
-//
-  // Measurement of varphi(tau1, tau2)
-  //add_worm_space(
-    //std::shared_ptr<TwoPointCorrWorm<PP_CHANNEL>>(
-      //new TwoPointCorrWorm<PP_CHANNEL>()
-    //)
-  //);
-
 }
 
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::create_custom_worm_updaters() {
-  // Add default remove/insertion/move updators
-  //add_default_worm_mover_insertion_remover<GWorm<1>>();
-  //add_default_worm_mover_insertion_remover<GWorm<2>>();
-  //add_default_worm_mover_insertion_remover<EqualTimeGWorm<1>>();
-  //add_default_worm_mover_insertion_remover<TwoPointCorrWorm<PH_CHANNEL>>();
-  //add_default_worm_mover_insertion_remover<TwoPointCorrWorm<PP_CHANNEL>>();
-
   /*
    * G1
    */
-  /*
-  add_worm_mover<WormMoverType>(ConfigSpaceEnum::G1, "G1_mover");
-  add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::G1, "G1_flavor_changer");
-  worm_insertion_removers.push_back(
-      std::shared_ptr<WormInsertionRemoverType>(
-          new WormInsertionRemoverType(
-              "G1_ins_rem", BETA, FLAVORS, 0.0, BETA,
-              std::shared_ptr<Worm>(new GWorm<1>())
-          )
-      )
-  );
-  */
-  //Via connecting or cutting hybridization lines
-  specialized_updaters["G1_ins_rem_hyb"] =
+  if (is_worm_space_active(ConfigSpaceEnum::G1)) {
+    specialized_updaters["G1_ins_rem_hyb"] =
       std::shared_ptr<LocalUpdaterType>(
           new G1WormInsertionRemoverType(
               "G1_ins_rem_hyb", BETA, FLAVORS, std::shared_ptr<Worm>(new GWorm<1>())
           )
       );
-  p_G1_legendre_meas.reset(
+    p_G1_legendre_meas.reset(
       new GMeasurement<SCALAR, 1>(FLAVORS, par["measurement.G1.n_legendre"], 0, BETA,
                                   par["measurement.G1.max_num_data_accumulated"])
-  );
-
-  /*
-   * Equal-time G1
-   */
-  /*
-  if (is_worm_space_active(ConfigSpaceEnum::Equal_time_G1)) {
-    const std::string name("Equal_time_G1");
-    add_worm_mover<WormMoverType>(ConfigSpaceEnum::Equal_time_G1, name + "_mover");
-    add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::Equal_time_G1, name + "_flavor_changer");
-    worm_insertion_removers.push_back(
-        std::shared_ptr<WormInsertionRemoverType>(
-            new WormInsertionRemoverType(
-                name + "_ins_rem", BETA, FLAVORS, 0.0, BETA,
-                std::shared_ptr<Worm>(new EqualTimeGWorm<1>())
-            )
-        )
     );
   }
-  */
-
 
   /*
    * G2
    */
   if (is_worm_space_active(ConfigSpaceEnum::G2)) {
-    /*
-    add_worm_mover<WormMoverType>(ConfigSpaceEnum::G2, "G2_mover");
-    add_worm_mover<WormFlavorChangerType>(ConfigSpaceEnum::G2, "G2_flavor_changer");
-    worm_insertion_removers.push_back(
-        std::shared_ptr<WormInsertionRemoverType>(
-            new WormInsertionRemoverType(
-                "G2_ins_rem", BETA, FLAVORS, 0.0, BETA,
-                std::shared_ptr<Worm>(new GWorm<2>())
-            )
-        )
-    );
-    */
     if (par["measurement.G2.legendre.on"].template as<int>() != 0) {
       p_G2_legendre_meas.reset(
           new GMeasurement<SCALAR, 2>(FLAVORS,
@@ -291,15 +220,17 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
   };
 
   // G1
-  register_worm_meas(ConfigSpaceEnum::G1, "vartheta",
+  if (is_worm_space_active(ConfigSpaceEnum::G1)) {
+    register_worm_meas(ConfigSpaceEnum::G1, "vartheta",
         new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
           read_fermionic_matsubara_points(par["measurement.G1.SIE.sampling_frequencies"])
         )
     );
 
-  register_worm_meas(ConfigSpaceEnum::G1, "vartheta_legendre",
+    register_worm_meas(ConfigSpaceEnum::G1, "vartheta_legendre",
         new VarThetaLegendreMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, 400)
     );
+  }
 
   //Equal_time_G1
   if (is_worm_space_active(ConfigSpaceEnum::Equal_time_G1)) {
@@ -413,11 +344,11 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
     swap_acc_rate.resize(swap_vector.size());
 
     if (comm.rank() == 0) {
-      std::cout << "The following swap updates will be performed." << std::endl;
+      logger_out << "The following swap updates will be performed." << std::endl;
       for (int i = 0; i < swap_vector.size(); ++i) {
-        std::cout << "Update #" << i << " generated from template #" << swap_vector[i].second << std::endl;
+        logger_out << "Update #" << i << " generated from template #" << swap_vector[i].second << std::endl;
         for (int j = 0; j < swap_vector[i].first.size(); ++j) {
-          std::cout << "flavor " << j << " to flavor " << swap_vector[i].first[j] << std::endl;
+          logger_out << "flavor " << j << " to flavor " << swap_vector[i].first[j] << std::endl;
         }
       }
     }

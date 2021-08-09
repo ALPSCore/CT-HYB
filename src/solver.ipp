@@ -15,12 +15,14 @@
 #include "postprocess.hpp"
 #include "hdf5/boost_any.hpp"
 #include "measurement/all.hpp"
+#include "common/logger.hpp"
 
 namespace alps {
 namespace cthyb {
 
 template<typename Scalar>
-MatrixSolver<Scalar>::MatrixSolver(const alps::params &parameters) : Base(parameters), mc_results_(), results_(), comm_() {
+MatrixSolver<Scalar>::MatrixSolver(const alps::params &parameters,const alps::mpi::communicator &comm):
+  Base(parameters, comm), mc_results_(), results_() {
 
 }
 
@@ -30,125 +32,38 @@ void MatrixSolver<Scalar>::define_parameters(alps::params &parameters) {
 }
 
 template<typename Scalar>
+std::vector<ConfigSpaceEnum::Type> MatrixSolver<Scalar>::get_defined_worm_spaces(alps::params &parameters) {
+  return sim_type::get_defined_worm_spaces(parameters);
+}
+
+  static std::vector<ConfigSpaceEnum::Type> get_defined_worm_spaces(alps::params &parameters);
+
+template<typename Scalar>
 int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
-  //try {
-    const int my_rank = comm_.rank();
-    const int verbose = Base::parameters_["verbose"];
-    if (my_rank == 0 && verbose > 0) {
-      std::cout << "Creating simulation..." << std::endl;
+  const int rank = comm_.rank();
+  const int verbose = Base::parameters_["verbose"];
+  if (rank == 0 && verbose > 0) {
+    logger_out << "Creating simulation with " << std::to_string(comm_.size()) << " processes..." << std::endl;
+  }
+
+  sim_type sim(Base::parameters_, comm_);
+  const boost::function<bool()> cb = alps::stop_callback(comm_, size_t(Base::parameters_["timelimit"]));
+
+  std::pair<bool, bool> r = sim.run(cb);
+
+  if (comm_.rank() == 0) {
+    if (!r.second) {
+      throw std::runtime_error("Master process is not thermalized yet. Increase simulation time!");
     }
-
-    sim_type sim(Base::parameters_, comm_);
-    const boost::function<bool()> cb = alps::stop_callback(comm_, size_t(Base::parameters_["timelimit"]));
-
-    std::pair<bool, bool> r = sim.run(cb);
-
-    if (comm_.rank() == 0) {
-      if (!r.second) {
-        throw std::runtime_error("Master process is not thermalized yet. Increase simulation time!");
-      }
-      mc_results_ = alps::collect_results(sim);
-
-      //post process 
-      {
-        //Average sign
-        auto sign     = mc_results_["Sign"].template mean<double>(); 
-        results_["Sign"] = sign;
-        auto nsites   = Base::parameters_["model.sites"].template as<int>();
-        auto nspins   = Base::parameters_["model.spins"].template as<int>();
-        auto beta     = Base::parameters_["model.beta"].template as<double>();
-        auto nflavors = nsites * nspins;
-
-        auto G1_vol = mc_results_["worm_space_volume_G1"].template mean<double>();
-        std::map<ConfigSpaceEnum::Type,double> worm_space_vols;
-        for (auto ws: ConfigSpaceEnum::AllWormSpaces) {
-          auto meas_name = "worm_space_volume_" + ConfigSpaceEnum::to_string(ws);
-          if (mc_results_.has(meas_name)) {
-            worm_space_vols[ws] = mc_results_[meas_name].template mean<double>();
-          }
-        }
-
-        //auto equal_time_G1_vol = mc_results_["worm_space_volume_Equal_time_G1"].template mean<double>();
-        auto Z_vol =  mc_results_["Z_function_space_volume"].template mean<double>();
-        //auto two_point_PP_vol = mc_results_["worm_space_volume_Two_point_PP"].template mean<double>();
-
-        //Single-particle Green's function
-        std::cout << "Postprocessing G1..." << std::endl;
-        compute_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-
-        //Two-particle Green's function
-        if (Base::parameters_["measurement.G2.matsubara.on"] != 0) {
-          std::cout << "Postprocessing G2 (matsubara)..." << std::endl;
-          compute_G2_matsubara<SOLVER_TYPE>(mc_results_, Base::parameters_);
-          compute_equal_time_G1(mc_results_, nflavors, beta, sign,
-            worm_space_vols[ConfigSpaceEnum::Equal_time_G1]/Z_vol, results_);
-          compute_vartheta(mc_results_, nflavors, beta, sign,
-            worm_space_vols[ConfigSpaceEnum::G1]/Z_vol, results_);
-          compute_vartheta_legendre(mc_results_, nflavors, beta, sign,
-            worm_space_vols[ConfigSpaceEnum::G1]/Z_vol, results_);
-          compute_two_point_corr(std::string("lambda_legendre"), mc_results_, nflavors, beta, sign,
-            worm_space_vols[ConfigSpaceEnum::Two_point_PH]/Z_vol, results_);
-          compute_two_point_corr(std::string("varphi_legendre"), mc_results_, nflavors, beta, sign,
-            worm_space_vols[ConfigSpaceEnum::Two_point_PP]/Z_vol, results_);
-        }
-        if (Base::parameters_["measurement.G2.legendre.on"] != 0) {
-          std::cout << "Postprocessing G2 (legendre)..." << std::endl;
-          compute_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        }
-
-
-        /**
-        if (Base::parameters_["measurement.two_time_G2.on"] != 0) {
-          std::cout << "Postprocessing two_time_G2..." << std::endl;
-          compute_two_time_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        }
-        if (Base::parameters_["measurement.equal_time_G2.on"] != 0) {
-          std::cout << "Postprocessing equal_time_G2..." << std::endl;
-          compute_equal_time_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        }
-
-        //Density-density correlation
-        if (Base::parameters_["measurement.nn_corr.n_def"] != 0) {
-          std::cout << "Postprocessing nn_corr..." << std::endl;
-          compute_nn_corr<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        }
-        **/
-
-        //Fidelity susceptibility
-        compute_fidelity_susceptibility<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-
-        if (my_rank == 0) {
-          sim.show_statistics(mc_results_);
-        }
-      }
+    mc_results_ = alps::collect_results(sim);
+  } else {
+    if (r.second) {
+      alps::collect_results(sim);
     } else {
-      if (r.second) {
-        alps::collect_results(sim);
-      } else {
-        throw std::runtime_error((boost::format(
-            "Warning: MPI process %1% is not thermalized yet. Increase simulation time!") % my_rank).str());
-      }
+      throw std::runtime_error((boost::format(
+          "Warning: MPI process %1% is not thermalized yet. Increase simulation time!") % rank).str());
     }
-
-    comm_.barrier();
-
-    // Dump data for debug
-    if (comm_.rank() == 0 && dump_file != "") {
-      alps::hdf5::archive ar(dump_file, "w");
-      ar["/parameters"] << Base::parameters_;
-      ar["/simulation/results"] << this->get_accumulated_results();
-      {
-        const std::map<std::string,boost::any> &results = this->get_results();
-        for (std::map<std::string,boost::any>::const_iterator it = results.begin(); it != results.end(); ++it) {
-          ar["/" + it->first] << it->second;
-        }
-      }
-    }
-
-  //} catch (const std::exception& e) {
-      //std::cerr << "Thrown exception " << e.what() << std::endl;
-      //return 1;
-  //}
+  }
 
   return 0;
 }

@@ -598,11 +598,8 @@ G2Measurement<SCALAR,SW_TYPE>::G2Measurement(alps::random01 *p_rng, double beta,
     beta_(beta),
     num_flavors_(num_flavors),
     freqs_(),
-    str_("G2"),
     max_matrix_size_(max_matrix_size),
-    eps_(eps),
-    num_data_(0) {
-
+    eps_(eps) {
   // Make sure that Fock term can be reconstructed.
   std::set<matsubara_freq_point_PH > freqs_PH_set;
   auto add = [&](matsubara_freq_point_PH key) {
@@ -626,72 +623,31 @@ template<typename SCALAR, typename SW_TYPE>
 void G2Measurement<SCALAR,SW_TYPE>::measure(const MonteCarloConfiguration<SCALAR> &mc_config,
     const SW_TYPE &sliding_window,
     alps::accumulators::accumulator_set &measurements) {
-  auto t1 = std::chrono::system_clock::now();
   Reconnections<SCALAR> reconnection(mc_config, *p_rng_, max_matrix_size_, 2, eps_);
-  auto t2 = std::chrono::system_clock::now();
-
+  std::fill(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(), 0);
   compute_G2<SCALAR>(beta_, num_flavors_, freqs_, two_freqs_vec_, two_freqs_map_, mc_config, reconnection, matsubara_data_);
-  auto t3 = std::chrono::system_clock::now();
-  ++num_data_;
+  measure_simple_vector_observable<std::complex<double>>(
+    measurements, "G2H", to_std_vector(matsubara_data_));
 }
 
 template<typename SCALAR, typename SW_TYPE>
-void G2Measurement<SCALAR, SW_TYPE>::save_results(const std::string& filename) {
-  alps::mpi::communicator comm;
-
-  comm.barrier();
-  int num_tot_data;
-  MPI_Reduce(
-      &num_data_,
-      &num_tot_data,
-      1,
-      alps::mpi::get_mpi_datatype(num_data_),
-      MPI_SUM,
-      0,
-      comm
-  );
-
-  if (num_data_ == 0) {
-    std::cout << "Warning G2 has not been measured on node " << comm.rank() << "! This may cause a problem such as dead lock. Run longer!" << std::endl;
+void G2Measurement<SCALAR, SW_TYPE>::save_results(const std::string& filename, const alps::mpi::communicator &comm) const {
+  if (comm.rank() != 0) {
+    return;
   }
 
-  if (comm.rank() == 0) {
-    MPI_Reduce(
-        MPI_IN_PLACE,
-        matsubara_data_.origin(),
-        matsubara_data_.num_elements(),
-        MPI_CXX_DOUBLE_COMPLEX,
-        MPI_SUM,
-        0,
-        comm
-    );
-  } else {
-    MPI_Reduce(
-        matsubara_data_.origin(),
-        matsubara_data_.origin(),
-        matsubara_data_.num_elements(),
-        MPI_CXX_DOUBLE_COMPLEX,
-        MPI_SUM,
-        0,
-        comm
-    );
+  alps::hdf5::archive oar(filename, "a");
+  std::vector<int> v(freqs_.size());
+  std::vector<int> vp(freqs_.size());
+  std::vector<int> w(freqs_.size());
+  for (int i=0; i<freqs_.size(); ++i) {
+    v[i]  = 2*std::get<0>(freqs_[i])+1;
+    vp[i] = 2*std::get<1>(freqs_[i])+1;
+    w[i]  = 2*std::get<2>(freqs_[i]);
   }
-
-  if (comm.rank() == 0) {
-    std::transform(matsubara_data_.origin(), matsubara_data_.origin() + matsubara_data_.num_elements(),
-                   matsubara_data_.origin(),
-                   std::bind2nd(std::divides<std::complex<double> >(), 1. * num_tot_data));
-
-    alps::hdf5::archive oar(filename, "a");
-    oar["/simulation/results/G2H_matsubara/data"] = matsubara_data_;
-    boost::multi_array<int,2> freqs_tmp(boost::extents[freqs_.size()][3]);
-    for (int i=0; i<freqs_.size(); ++i) {
-      freqs_tmp[i][0] = std::get<0>(freqs_[i]);
-      freqs_tmp[i][1] = std::get<1>(freqs_[i]);
-      freqs_tmp[i][2] = std::get<2>(freqs_[i]);
-    }
-    oar["/simulation/results/G2H_matsubara/freqs_PH"] = freqs_tmp;
-  }
+  oar["/G2H/wsample/0"] = v;
+  oar["/G2H/wsample/1"] = vp;
+  oar["/G2H/wsample/2"] = w;
 }
 
 

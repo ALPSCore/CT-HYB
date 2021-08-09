@@ -51,7 +51,7 @@ public:
     const SW_TYPE &sliding_window,
     alps::accumulators::accumulator_set &measurements) = 0;
 
-  virtual void save_results(const std::string &filename) const {};
+  virtual void save_results(const std::string &filename, const alps::mpi::communicator &comm) const {};
 };
 
 

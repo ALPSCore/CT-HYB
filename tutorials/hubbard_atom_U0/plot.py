@@ -31,7 +31,7 @@ def varphi_tau_non_int(res, tau, gir):
 #def vartheta_ref(beta, U, vsample):
     #return ((0.5*U)**2) * giw_ref(beta, U, vsample)
 
-res = QMCResult('input')
+res = QMCResult('input', verbose=True)
 beta = res.beta
 
 plt.figure(1)
@@ -50,6 +50,7 @@ mu = 0.5*U
 # Fermionic sampling frequencies
 vsample = res.basis_f.wsample
 
+
 #SIE
 gir_SIE = res.compute_gir_SIE()
 giv = res.compute_giv_SIE(vsample)
@@ -63,6 +64,11 @@ sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, vsample)
 g0iv = res.compute_g0iv(res.basis_f.wsample)
 g0ir = post_proc._fit_iw(res.basis_f, g0iv)
 
+# vartheta
+vartheta = res.vartheta
+vartheta_rec = legendre_to_matsubara(res.vartheta_legendre, res.vartheta_smpl_freqs)
+vartheta_non_int = np.einsum('ai,jb,wij->wab', res.hopping, res.hopping, res.compute_g0iv(res.vartheta_smpl_freqs))
+
 v = vsample * np.pi/res.beta
 iv = 1J * v
 
@@ -73,14 +79,35 @@ iv = 1J * v
 for flavor in range(res.nflavors):
     plt.figure(1)
     plt.subplot(211)
+    v_ = res.vartheta_smpl_freqs * np.pi/beta
+    plt.plot(v_, vartheta[:,flavor,flavor].real, label='SIE')
+    plt.plot(v_, vartheta_rec[:,flavor,flavor].real, ls='', marker='x', label='SIE (legendre)')
+    plt.plot(v_, vartheta_non_int[:,flavor,flavor].real, ls='', marker='+', label='Non interacting')
+    plt.xlim([-10, 10])
+    plt.ylabel(r"Re$\vartheta(\mathrm{i}\nu)$")
+    plt.subplot(212)
+    plt.plot(v_, vartheta[:,flavor,flavor].imag, label='SIE')
+    plt.plot(v_, vartheta_rec[:,flavor,flavor].imag, ls='', marker='x', label='SIE (legendre)')
+    plt.plot(v_, vartheta_non_int[:,flavor,flavor].imag, ls='', marker='+', label='Non interacting')
+    plt.xlim([-10, 10])
+    plt.xlabel(r"$\nu$")
+    plt.ylabel(r"Im$\vartheta(\mathrm{i}\nu)$")
+    plt.legend()
+    plt.savefig(f"vartheta_flavor{flavor}.eps")
+    plt.close(1)
+
+    plt.figure(1)
+    plt.subplot(211)
     plt.plot(v, giv[:,flavor,flavor].real, label='SIE')
     plt.plot(v, giv_legendre[:,flavor,flavor].real, label='Legendre')
-    plt.xlim([-20, 20])
+    plt.plot(v, g0iv[:,flavor,flavor].real, label='G0')
+    plt.xlim([-10, 10])
     plt.ylabel(r"Re$G(\mathrm{i}\nu)$")
     plt.subplot(212)
     plt.plot(v, giv[:,flavor,flavor].imag, label='SIE')
     plt.plot(v, giv_legendre[:,flavor,flavor].imag, marker='x', ls='', label='Legendre')
-    plt.xlim([-20, 20])
+    plt.plot(v, g0iv[:,flavor,flavor].imag, label='G0')
+    plt.xlim([-10, 10])
     plt.xlabel(r"$\nu$")
     plt.ylabel(r"Im$G(\mathrm{i}\nu)$")
     plt.legend()

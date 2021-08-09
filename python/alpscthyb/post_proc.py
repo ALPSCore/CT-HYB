@@ -2,6 +2,7 @@ import numpy as np
 from numpy.polynomial.legendre import legval
 import scipy
 import h5py
+import os
 import irbasis
 from irbasis_x.twopoint import FiniteTemperatureBasis, TruncatedBasis
 from irbasis_x.freq import check_fermionic
@@ -86,6 +87,110 @@ def _fit_iw(basis_ir, giw):
         gl = basis_ir.fit_iw(giw)
         return gl.reshape((gl.shape[0],) + rest_dim)
 
+def exits_mc_result(h5, name):
+    return '/simulation/results/'+name in h5
+
+def read_mc_result(h5, name):
+    return {'mean': h5['/simulation/results/'+name+'/mean/value'][()]}
+
+def read_cmplx_mc_result(h5, name):
+    re = h5['/simulation/results/'+name+'_Re/mean/value'][()]
+    im = h5['/simulation/results/'+name+'_Im/mean/value'][()]
+    return {'mean': re + 1J*im}
+
+def postprocess_G1(h5, verbose=False, **kwargs):
+    nflavors = kwargs['nflavors']
+    beta = kwargs['beta']
+
+    results = {}
+    sign = read_mc_result(h5, 'Sign')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_G1')['mean']
+    z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
+
+    # Legendre
+    if verbose:
+        print("Reading gl...")
+    results['gl'] = (w_vol/(sign * z_vol)) * read_cmplx_mc_result(h5, 'G1')['mean'].\
+        reshape((nflavors,nflavors,-1)).transpose((2,0,1))
+
+    # Equal time
+    if exits_mc_result(h5, "Equal_time_G1_Re"):
+        if verbose:
+            print("Reading equal_time_G1...")
+        results['equal_time_G1'] =  (w_vol/(sign * z_vol * beta)) * \
+            read_cmplx_mc_result(h5, 'Equal_time_G1')['mean'].reshape((nflavors,nflavors))
+
+    # vartheta
+    if exits_mc_result(h5, "vartheta_legendre_Re"):
+        if verbose:
+            print("Reading vartheta_legendre...")
+        results['vartheta_legendre'] =  -(w_vol/(beta * sign * z_vol)) * \
+            read_cmplx_mc_result(h5, 'vartheta_legendre')['mean'].reshape((-1,nflavors,nflavors))
+
+    if exits_mc_result(h5, "vartheta_Re"):
+        if verbose:
+            print("Reading vartheta...")
+        results['vartheta'] =  -(w_vol/(beta * sign * z_vol)) * \
+            read_cmplx_mc_result(h5, 'vartheta')['mean'].reshape((-1,nflavors,nflavors))
+        results['vartheta_smpl_freqs'] = h5['vartheta_smpl_freqs'][()]
+    
+    return results
+
+def postprocess_equal_time_G1(h5, verbose=False, **kwargs):
+    nflavors = kwargs['nflavors']
+    beta = kwargs['beta']
+
+    results = {}
+    sign = read_mc_result(h5, 'Sign')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_Equal_time_G1')['mean']
+    z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
+
+    # Equal time
+    if exits_mc_result(h5, "Equal_time_G1_Re"):
+        if verbose:
+            print("Reading equal_time_G1...")
+        results['equal_time_G1'] =  (w_vol/(sign * z_vol * beta)) * \
+            read_cmplx_mc_result(h5, 'Equal_time_G1')['mean'].reshape((nflavors,nflavors))
+
+    return results
+
+def postprocess_two_point_ph(h5, verbose=False, **kwargs):
+    nflavors = kwargs['nflavors']
+    beta = kwargs['beta']
+    sign = read_mc_result(h5, 'Sign')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_Two_point_PH')['mean']
+    z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
+    return {
+        'lambda_legendre':
+        (w_vol/(sign * z_vol * beta)) * \
+            read_cmplx_mc_result(h5, 'lambda_legendre')['mean'].\
+            reshape((-1,nflavors,nflavors,nflavors,nflavors))
+    }
+
+def postprocess_two_point_pp(h5, verbose=False, **kwargs):
+    nflavors = kwargs['nflavors']
+    beta = kwargs['beta']
+    sign = read_mc_result(h5, 'Sign')['mean']
+    sign = read_mc_result(h5, 'Sign')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_Two_point_PP')['mean']
+    z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
+    return {
+        'varphi_legendre':
+        (w_vol/(sign * z_vol * beta)) * \
+            read_cmplx_mc_result(h5, 'varphi_legendre')['mean'].\
+            reshape((-1,nflavors,nflavors,nflavors,nflavors))
+    }
+
+
+all_worm_space_names = ['G1', 'G2', 'Equal_time_G1', 'Two_point_PH', 'Two_point_PP']
+
+postprocessors = {
+    'G1' : postprocess_G1,
+    'Equal_time_G1' : postprocess_equal_time_G1,
+    'Two_point_PH' : postprocess_two_point_ph,
+    'Two_point_PP' : postprocess_two_point_pp,
+}
+
 class QMCResult:
     def __init__(self, p, verbose=False, Lambda=1E+5, cutoff=1e-8) -> None:
         if verbose:
@@ -94,6 +199,9 @@ class QMCResult:
         with h5py.File(p+'.out.h5','r') as h5:
             self.sites = read_param(h5, 'model.sites')
             self.beta = read_param(h5, 'model.beta')
+            self.nflavors = 2*self.sites
+
+        with h5py.File(p+'_wormspace_G1.out.h5','r') as h5:
             self.hopping = load_cmplx(h5, 'hopping')
             self.Delta_tau = load_cmplx(h5, '/Delta_tau').transpose((2,0,1))
             # U_tensor: (1/2) U_{ijkl} d^dagger_i d^dagger_j d_k d_l
@@ -104,21 +212,15 @@ class QMCResult:
             asymU = 0.5 * (asymU - asymU.transpose((2, 1, 0, 3)))
             self.asymU = asymU
         
-            self.gtau = load_cmplx(h5, '/gtau/data')
-            self.gomega = load_cmplx(h5, '/gf/data')
-            self.gl = load_cmplx(h5, '/G1_LEGENDRE').transpose((2,0,1))
-            self.vartheta_legendre = load_cmplx(h5, '/vartheta_legendre')
-            self.equal_time_G1 = load_cmplx(h5, '/EQUAL_TIME_G1')
-
-            for to_be_read in ['varphi_legendre', 'lambda_legendre']:
-                if not to_be_read in h5:
-                    continue
-                self.__setattr__(to_be_read, load_cmplx(h5, to_be_read))
-        
-            self.sign = h5['/simulation/results/Sign/mean/value'][()]
-            self.sign_count = h5['/simulation/results/Sign/count'][()]
-        
-        self.nflavors = 2*self.sites
+        # Read Monte Carlo data
+        for ws_name, post_ in postprocessors.items():
+            fname = p+f'_wormspace_{ws_name}.out.h5'
+            if not os.path.exists(fname):
+                continue
+            with h5py.File(fname, 'r') as h5:
+                res_ = post_(h5, verbose, beta=self.beta, nflavors=self.nflavors)
+                for k, v in res_.items():
+                    self.__setattr__(k, v)
 
         # Set up IR basis
         self.basis_f = load_irbasis('F', Lambda, self.beta, cutoff)
@@ -180,6 +282,9 @@ class QMCResult:
         A = self.hopping + np.einsum('abij,ij->ab', self.asymU, self.equal_time_G1)
 
         # Compute calG = (iv - Delta(iv)), G0, full G, self-energy
+        #print("vartheta", vartheta)
+        #print("A", A)
+        #vartheta[...] = 0.0 #debug
         G = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)
         Sigma = np.empty_like(G)
         I = np.identity(self.nflavors)

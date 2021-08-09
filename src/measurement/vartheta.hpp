@@ -33,8 +33,7 @@ public:
       const SW_TYPE &sliding_window,
       alps::accumulators::accumulator_set &measurements);
 
-  virtual void save_results(const std::string &filename) const {
-    alps::mpi::communicator comm;
+  virtual void save_results(const std::string &filename, const alps::mpi::communicator &comm) const {
     if (comm.rank() != 0) {
       return;
     }
