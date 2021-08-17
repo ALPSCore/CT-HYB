@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gtest.h>
+#include <fstream>
 
 #include <boost/shared_ptr.hpp>
 
@@ -12,7 +13,7 @@
 #include "../src/moves/mc_config.hpp"
 #include "../src/moves/worm.hpp"
 #include "../src/sliding_window/sliding_window.hpp"
-#include "../src/measurement/worm_meas.hpp"
+#include "../src/measurement/all.hpp"
 
 template<typename SCALAR>
 void test_equal_time_G1(){

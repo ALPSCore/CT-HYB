@@ -4,4 +4,5 @@
 #include "vartheta.hpp"
 #include "two_point_corr.hpp"
 #include "three_point_corr.hpp"
+#include "h_corr.hpp"
 #include "smpl_freqs_SIE.hpp"

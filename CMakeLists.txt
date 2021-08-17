@@ -98,6 +98,7 @@ set(MEAS_FILES
     ./src/measurement/vartheta.cpp
     ./src/measurement/two_point_corr.cpp
     ./src/measurement/three_point_corr.cpp
+    ./src/measurement/h_corr.cpp
 )
 
 set(MOVES_FILES

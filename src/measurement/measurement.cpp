@@ -14,6 +14,20 @@ void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_
   data.resize(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_legendre][num_legendre][num_freq]);
 }
 
+inline int to_old_convention(int i) {
+  if (i%2 == 0) {
+    //boson
+    return i/2;
+  } else {
+    //fermion
+    if (i>=0) {
+      return i/2;
+    } else {
+      return i/2-1;
+    }
+  }
+}
+
 std::vector<matsubara_freq_point_PH> read_matsubara_points(const std::string& file) {
   std::ifstream f(file);
 
@@ -31,7 +45,11 @@ std::vector<matsubara_freq_point_PH> read_matsubara_points(const std::string& fi
     if (i != j) {
       throw std::runtime_error("The first column has a wrong value in " + file + ".");
     }
-    data[i] = matsubara_freq_point_PH(n, np, m);
+    data[i] = matsubara_freq_point_PH(
+      to_old_convention(n),
+      to_old_convention(np),
+      to_old_convention(m)
+    );
   }
 
   return data;

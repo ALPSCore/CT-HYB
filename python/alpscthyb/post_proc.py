@@ -224,10 +224,35 @@ def postprocess_three_point_pp(h5, verbose=False, **kwargs):
 
     return res
 
+def postprocess_G2(h5, verbose=False, **kwargs):
+    nflavors = kwargs['nflavors']
+    beta = kwargs['beta']
+    sign = read_mc_result(h5, 'Sign')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_G2')['mean']
+    z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
+
+    if exits_mc_result(h5, "h_corr_Re"):
+        if verbose:
+            print("Reading h_corr...")
+        res = {
+            'h':
+            (w_vol/(sign * z_vol)) * \
+                read_cmplx_mc_result(h5, 'h_corr')['mean'].\
+                reshape((-1,nflavors,nflavors,nflavors,nflavors))
+        }
+        res['h_smpl_freqs'] = \
+            (
+                h5['/h_corr/smpl_freqs/0'][()],
+                h5['/h_corr/smpl_freqs/1'][()],
+                h5['/h_corr/smpl_freqs/2'][()],
+                h5['/h_corr/smpl_freqs/3'][()]
+            )
+    return res
 
 
 postprocessors = {
     'G1'             : postprocess_G1,
+    'G2'             : postprocess_G2,
     'Equal_time_G1'  : postprocess_equal_time_G1,
     'Two_point_PH'   : postprocess_two_point_ph,
     'Two_point_PP'   : postprocess_two_point_pp,

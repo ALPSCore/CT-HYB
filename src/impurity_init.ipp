@@ -294,7 +294,6 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
 
   // G2
   if (is_worm_space_active(ConfigSpaceEnum::G2)) {
-    /*
     if (par["measurement.G2.matsubara.on"].template as<int>() != 0) {
       register_worm_meas(
         ConfigSpaceEnum::G2,
@@ -305,8 +304,19 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
           par["measurement.G2.aux_field"]
         )
       );
+      if (par["measurement.G2.matsubara.SIE.on"] != 0) {
+        register_worm_meas(
+          ConfigSpaceEnum::G2,
+          "h_corr",
+          new HCorrMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
+            smpl_freqs_SIE.v1,
+            smpl_freqs_SIE.v2,
+            smpl_freqs_SIE.v3,
+            smpl_freqs_SIE.v4
+          )
+        );
+      }
     }
-    */
   }
 }
 

@@ -154,3 +154,21 @@ for ax in axes:
     ax.legend()
 fig.tight_layout()
 fig.savefig('gamma.eps')
+
+# h
+fig, axes = plt.subplots(2, 1)
+h_ref = non_int.h(res.h_smpl_freqs)
+print(res.h[:,0,0,0,0].real)
+print(res.h[:,0,0,0,0].imag)
+print(h_ref[:,0,0,0,0].real)
+print(h_ref[:,0,0,0,0].imag)
+axes[0].plot(res.h[:,0,0,0,0].real, marker='o', label='QMC')
+axes[0].plot(h_ref[:,0,0,0,0].real, marker='x', label='ref')
+axes[1].plot(res.h[:,0,0,0,0].imag, marker='o', label='QMC')
+axes[1].plot(h_ref[:,0,0,0,0].imag, marker='x', label='ref')
+axes[0].set_ylabel(r"Re$h$")
+axes[1].set_ylabel(r"Im$h$")
+for ax in axes:
+    ax.legend()
+fig.tight_layout()
+fig.savefig('h.eps')

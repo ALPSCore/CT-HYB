@@ -105,7 +105,7 @@ SamplingFreqsG2SIE load_smpl_freqs_SIE(const std::string& file) {
 
   for (int i=0; i<num_freqs; ++i) {
     int j, v_, vp_, w_;
-    f >> j >> w_ >> vp_ >> w_;
+    f >> j >> v_ >> vp_ >> w_;
     if (i != j) {
       throw std::runtime_error("The first column has a wrong value in " + file + ".");
     }
