@@ -1,37 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.core.einsumfunc import einsum
+from alpscthyb import non_interacting
 from alpscthyb.post_proc import QMCResult, compute_Tnl_sparse, legendre_to_matsubara, legendre_to_tau
 from alpscthyb import post_proc
+from alpscthyb.non_interacting import NoninteractingLimit
 
-
-def lambda_tau_non_int(res, tau, gir):
-    """ Compute lambda(tau) from gl in a non-interacting case"""
-    #gtau = legendre_to_tau(gl, tau, beta)
-    #gtau_inv = legendre_to_tau(gl, res.beta-tau, beta)
-    gtau     = np.einsum('tl,lij->tij', res.basis_f.Ultau_all_l(tau).T,          gir)
-    gtau_inv = np.einsum('tl,lij->tij', res.basis_f.Ultau_all_l(res.beta-tau).T, gir)
-    #gtau = res.basis_f.evaluate_tau(gir)
-    #gtau = res.basis_f.evaluate_tau(gir)
-    return np.einsum('ab,cd->abcd', res.equal_time_G1, res.equal_time_G1)[None,...] + \
-        np.einsum('Tda, Tbc->Tabcd', gtau_inv, gtau)
-
-
-def varphi_tau_non_int(res, tau, gir):
-    """ Compute lambda(tau) from gl in a non-interacting case"""
-    gtau = np.einsum('tl,lij->tij', res.basis_f.Ultau_all_l(tau).T,          gir)
-    return np.einsum('Tad,Tbc->Tabcd', gtau, gtau) - np.einsum('Tac,Tbd->Tabcd', gtau, gtau)
-
-
-#def giw_ref(beta, U, vsample):
-    #assert all(vsample%2 == 1)
-    #iv = 1J * vsample * np.pi/beta
-    #return 0.5/(iv-0.5*U) + 0.5/(iv+0.5*U)
-#
-#def vartheta_ref(beta, U, vsample):
-    #return ((0.5*U)**2) * giw_ref(beta, U, vsample)
 
 res = QMCResult('input', verbose=True)
+non_int = NoninteractingLimit(res)
 beta = res.beta
 
 plt.figure(1)
@@ -50,7 +27,6 @@ mu = 0.5*U
 # Fermionic sampling frequencies
 vsample = res.basis_f.wsample
 
-
 #SIE
 gir_SIE = res.compute_gir_SIE()
 giv = res.compute_giv_SIE(vsample)
@@ -61,20 +37,15 @@ giv_legendre = res.compute_giv_from_legendre(vsample)
 sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, vsample)
 
 # G0
-g0iv = res.compute_g0iv(res.basis_f.wsample)
-g0ir = post_proc._fit_iw(res.basis_f, g0iv)
+g0iv = non_int.giv(res.basis_f.wsample)
 
 # vartheta
 vartheta = res.vartheta
 vartheta_rec = legendre_to_matsubara(res.vartheta_legendre, res.vartheta_smpl_freqs)
-vartheta_non_int = np.einsum('ai,jb,wij->wab', res.hopping, res.hopping, res.compute_g0iv(res.vartheta_smpl_freqs))
+vartheta_non_int = non_int.vartheta(res.vartheta_smpl_freqs)
 
 v = vsample * np.pi/res.beta
 iv = 1J * v
-
-#giv_ref = 0.5/(iv - 0.5*U) + 0.5/(iv + 0.5*U)
-#g0      = 1/iv
-#sigma_iv_ref = 1/g0 - 1/giv_ref + mu
 
 for flavor in range(res.nflavors):
     plt.figure(1)
@@ -118,24 +89,18 @@ for flavor in range(res.nflavors):
     plt.subplot(211)
     plt.plot(v, (sigma_iv[:,flavor,flavor].real), label='SIE')
     plt.plot(v, (sigma_iv_legendre[:,flavor,flavor].real), marker='x', ls='', label='legenre')
-    #plt.plot(v, np.abs(sigma_iv_ref.real), marker='+', ls='', label='ref')
     plt.ylabel(r"Re$\Sigma(\mathrm{i}\nu)$")
-    #plt.xscale("log")
-    #plt.yscale("log")
     plt.subplot(212)
     plt.plot(v, (sigma_iv[:,flavor,flavor].imag), label='SIE')
     plt.plot(v, (sigma_iv_legendre[:,flavor,flavor].imag), marker='x', ls='', label='legenre')
-    #plt.plot(v, np.abs(sigma_iv_ref.imag), marker='+', ls='', label='ref')
     plt.xlabel(r"$\nu$")
     plt.ylabel(r"Im$\Sigma(\mathrm{i}\nu)$")
-    #plt.xscale("log")
-    #plt.yscale("log")
     plt.legend()
     plt.savefig(f"sigma_iv_flavor{flavor}.eps")
     plt.close(1)
 
 
-ref_generators = {'lambda': lambda_tau_non_int, 'varphi': varphi_tau_non_int}
+ref_generators = {'lambda': 'lambda_tau', 'varphi': 'varphi_tau'}
 for name in ['varphi', 'lambda']:
     data_l = res.__getattribute__(name+'_legendre')
     wsample = 2 * np.arange(-10,10)
@@ -155,21 +120,37 @@ for name in ['varphi', 'lambda']:
         plt.plot(tau, (data_tau[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), label='Re', marker='x', color='r')
         plt.plot(tau, (data_tau[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), label='Im', marker='x', color='b')
         if name in ref_generators:
-            data_tau_ref = ref_generators[name](res, tau, g0ir)
+            data_tau_ref = non_int.__getattribute__(ref_generators[name])(tau)
             plt.plot(tau, (data_tau_ref[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), ls='-', marker='', color='r')
             plt.plot(tau, (data_tau_ref[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), ls='-', marker='', color='b')
         plt.legend()
         plt.savefig(name + f"_tau_flavors{flavors[0]}{flavors[1]}{flavors[2]}{flavors[3]}.eps")
         plt.close(1)
 
+# eta
+fig, axes = plt.subplots(2, 1)
+eta_ref = non_int.eta(res.eta_smpl_freqs)
+axes[0].plot(res.eta[:,0,0,0,0].real, marker='o', label='QMC')
+axes[0].plot(eta_ref[:,0,0,0,0].real, marker='x', label='ref')
+axes[1].plot(res.eta[:,0,0,0,0].imag, marker='o', label='QMC')
+axes[1].plot(eta_ref[:,0,0,0,0].imag, marker='x', label='ref')
+axes[0].set_ylabel(r"Re$\eta$")
+axes[1].set_ylabel(r"Im$\eta$")
+for ax in axes:
+    ax.legend()
+fig.tight_layout()
+fig.savefig('eta.eps')
 
-#plt.figure(1)
-#plt.plot(v, np.abs(sigma_iv[:,0,0] - sigma_iv_ref), marker='x', label='SIE')
-#plt.plot(v, np.abs(sigma_iv_legendre[:,0,0] - sigma_iv_ref), marker='+', label='Legendre')
-#plt.xlabel(r"$\nu$")
-#plt.ylabel(r"Absolute error in $\Sigma(\mathrm{i}\nu)$")
-#plt.xscale("log")
-#plt.yscale("log")
-#plt.legend()
-#plt.savefig("error_sigma_iv.eps")
-#plt.close(1)
+# gamma
+fig, axes = plt.subplots(2, 1)
+gamma_ref = non_int.gamma(res.gamma_smpl_freqs)
+axes[0].plot(res.gamma[:,0,1,0,1].real, marker='o', label='QMC')
+axes[0].plot(gamma_ref[:,0,1,0,1].real, marker='x', label='ref')
+axes[1].plot(res.gamma[:,0,1,0,1].imag, marker='o', label='QMC')
+axes[1].plot(gamma_ref[:,0,1,0,1].imag, marker='x', label='ref')
+axes[0].set_ylabel(r"Re$\gamma$")
+axes[1].set_ylabel(r"Im$\gamma$")
+for ax in axes:
+    ax.legend()
+fig.tight_layout()
+fig.savefig('gamma.eps')

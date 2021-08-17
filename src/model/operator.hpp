@@ -130,6 +130,7 @@ class psi {
 
   void set_flavor(int flavor) { flavor_ = flavor; }
   void set_type(OPERATOR_TYPE type) { type_ = type; }
+  void set_time_deriv(bool time_deriv) { time_deriv_ = time_deriv; }
 
  private:
   TIME_T t_;

@@ -97,6 +97,7 @@ set(MEAS_FILES
     ./src/measurement/worm_meas.cpp
     ./src/measurement/vartheta.cpp
     ./src/measurement/two_point_corr.cpp
+    ./src/measurement/three_point_corr.cpp
 )
 
 set(MOVES_FILES

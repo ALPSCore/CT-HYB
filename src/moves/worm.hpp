@@ -296,8 +296,11 @@ class EqualTimeGWorm: public Worm, private boost::equality_comparable<EqualTimeG
   std::vector<int> time_index_;
 };
 
+struct PP_CHANNEL {};
+struct PH_CHANNEL {};
+
 /**
- * Measure < (O_{ab}(tau_1) O'_{cd}(tau_2)>
+ * Measure <T O_{ab}(tau_1) O'_{cd}(tau_2)>
  * 
  * PH:
  * O_{ab}  = d_a^+ d_b
@@ -307,8 +310,6 @@ class EqualTimeGWorm: public Worm, private boost::equality_comparable<EqualTimeG
  * O_{ab}  = d_a   d_b
  * O'_{cd} = d_a^+ d_b^+
  */
-struct PP_CHANNEL {};
-struct PH_CHANNEL {};
 template<class CHANNEL>
 class TwoPointCorrWorm: public Worm, private boost::equality_comparable<TwoPointCorrWorm<CHANNEL>> {
  public:
@@ -346,6 +347,63 @@ class TwoPointCorrWorm: public Worm, private boost::equality_comparable<TwoPoint
 
  private:
   std::array<double,2> times_;
+  std::array<int,4> flavors_;
+  std::vector<std::vector<int>> time_index_;
+};
+
+/**
+ * Measure
+ * 
+ * PH:
+ *  <T c_a(tau_1) c^\dagger_b(tau_2) n_{cd}(tau_3)>
+ * 
+ * PP:
+ *  <T c_a(tau_1) c_b(tau_2) (d^\dagger_c d^\dagger_d)(tau_3)>
+ */
+template<class CHANNEL>
+class ThreePointCorrWorm: public Worm, private boost::equality_comparable<ThreePointCorrWorm<CHANNEL>> {
+ public:
+  ThreePointCorrWorm() : time_index_{{0}, {1}, {2}, {2}} {}
+
+  virtual std::shared_ptr<Worm> clone() const {
+    return std::shared_ptr<Worm>(new ThreePointCorrWorm(*this));
+  }
+
+  virtual int num_operators() const { return 4; };
+
+  virtual std::vector<psi> get_operators() const;
+
+  virtual int num_independent_times() const { return 3; }
+
+  virtual double get_time(int index) const { return times_.at(index); }
+
+  virtual void set_time(int index, double new_time) { times_[index] = new_time; }
+
+  virtual int num_independent_flavors() const { return 4; }
+
+  virtual int get_flavor(int index) const { return flavors_.at(index); }
+
+  virtual void set_flavor(int index, int new_flavor) { flavors_[index] = new_flavor; }
+
+  virtual const std::vector<int> &get_time_index(int flavor_index) const {
+    return time_index_[flavor_index];
+    //if (flavor_index == 0) {
+      //return time_index_.at(0);
+    //} elif (flavor_index == 1) {
+      //return time_index_.at(1);
+    //} else {
+      //return time_index_.at(2);
+    //}
+  }
+
+  virtual bool operator==(const ThreePointCorrWorm<CHANNEL> &other_worm) const {
+    return (times_ == other_worm.times_ && flavors_ == other_worm.flavors_);
+  }
+
+  ConfigSpaceEnum::Type get_config_space() const;
+
+ private:
+  std::array<double,3> times_;
   std::array<int,4> flavors_;
   std::vector<std::vector<int>> time_index_;
 };

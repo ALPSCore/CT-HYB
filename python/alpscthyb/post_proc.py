@@ -24,17 +24,6 @@ def read_param(h5, name):
     else:
         raise RuntimeError("Parameter "+ name + " not found") 
 
-#def compute_Tnl(n_matsubara, n_legendre):
-    #"""
-    #Compute transformation matrix from Legendre to fermionic/bosonic Matsubara frequency
-    #Implement Eq. (4.5) in the Boehnke's  Ph.D thesis
-    #"""
-    #Tnl = np.zeros((n_matsubara, n_legendre), dtype=complex)
-    #for n in range(n_matsubara):
-        #sph_jn = np.array([scipy.special.spherical_jn(l, (n+0.5)*np.pi) for l in range(n_legendre)])
-        #for il in range(n_legendre):
-            #Tnl[n,il] = ((-1)**n) * ((1J)**(il+1)) * np.sqrt(2*il + 1.0) * sph_jn[il]
-    #return Tnl
 
 def legendre_to_tau(gl, tau, beta):
     """
@@ -174,6 +163,8 @@ def postprocess_two_point_pp(h5, verbose=False, **kwargs):
     sign = read_mc_result(h5, 'Sign')['mean']
     w_vol = read_mc_result(h5, 'worm_space_volume_Two_point_PP')['mean']
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
+    if verbose:
+        print("Reading varphi_legendre...")
     return {
         'varphi_legendre':
         (w_vol/(sign * z_vol * beta)) * \
@@ -181,14 +172,67 @@ def postprocess_two_point_pp(h5, verbose=False, **kwargs):
             reshape((-1,nflavors,nflavors,nflavors,nflavors))
     }
 
+def postprocess_three_point_ph(h5, verbose=False, **kwargs):
+    nflavors = kwargs['nflavors']
+    beta = kwargs['beta']
 
-all_worm_space_names = ['G1', 'G2', 'Equal_time_G1', 'Two_point_PH', 'Two_point_PP']
+    sign = read_mc_result(h5, 'Sign')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_Three_point_PH')['mean']
+    z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
+
+    if verbose:
+        print("Reading eta...")
+
+    res = {
+        'eta':
+        (w_vol/(sign * z_vol * beta)) * \
+            read_cmplx_mc_result(h5, 'eta')['mean'].\
+            reshape((-1,nflavors,nflavors,nflavors,nflavors))
+    }
+
+    res['eta_smpl_freqs'] = \
+        (
+            h5['/eta/smpl_freqs/0'][()],
+            h5['/eta/smpl_freqs/1'][()]
+        )
+
+    return res
+
+def postprocess_three_point_pp(h5, verbose=False, **kwargs):
+    nflavors = kwargs['nflavors']
+    beta = kwargs['beta']
+
+    sign = read_mc_result(h5, 'Sign')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_Three_point_PP')['mean']
+    z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
+
+    if verbose:
+        print("Reading gamma...")
+
+    res = {
+        'gamma':
+        (w_vol/(sign * z_vol * beta)) * \
+            read_cmplx_mc_result(h5, 'gamma')['mean'].\
+            reshape((-1,nflavors,nflavors,nflavors,nflavors))
+    }
+
+    res['gamma_smpl_freqs'] = \
+        (
+            h5['/gamma/smpl_freqs/0'][()],
+            h5['/gamma/smpl_freqs/1'][()]
+        )
+
+    return res
+
+
 
 postprocessors = {
-    'G1' : postprocess_G1,
-    'Equal_time_G1' : postprocess_equal_time_G1,
-    'Two_point_PH' : postprocess_two_point_ph,
-    'Two_point_PP' : postprocess_two_point_pp,
+    'G1'             : postprocess_G1,
+    'Equal_time_G1'  : postprocess_equal_time_G1,
+    'Two_point_PH'   : postprocess_two_point_ph,
+    'Two_point_PP'   : postprocess_two_point_pp,
+    'Three_point_PH' : postprocess_three_point_ph,
+    'Three_point_PP' : postprocess_three_point_pp,
 }
 
 class QMCResult:

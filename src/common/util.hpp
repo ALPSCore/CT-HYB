@@ -452,6 +452,16 @@ bool is_bosonic(const T& begin, const T& end) {
   return !is_fermionic(begin, end);
 }
 
+template<typename I>
+bool is_fermionic(const std::vector<I>& freqs) {
+  return is_fermionic(freqs.begin(), freqs.end());
+}
+
+template<typename I>
+bool is_bosonic(const std::vector<I>& freqs) {
+  return is_bosonic(freqs.begin(), freqs.end());
+}
+
 template<typename T>
 std::vector<T>
 unique(const std::vector<T> &v) {

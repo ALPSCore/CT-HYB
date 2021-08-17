@@ -57,8 +57,6 @@
 #include "moves/moves.hpp"
 #include "moves/mc_config.hpp"
 
-//#include "measurement/measurement.hpp"
-//#include "measurement/measurement_old.hpp"
 #include "measurement/all.hpp"
 
 #include "accumulator.hpp"
@@ -265,6 +263,8 @@ class HybridizationSimulation: public alps::mcbase {
   PertOrderRecorder pert_order_recorder;
 
   std::vector<bool> config_spaces_visited_in_measurement_steps;
+
+  SamplingFreqsG2SIE smpl_freqs_SIE;
 
   void sanity_check();
 

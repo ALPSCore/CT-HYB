@@ -133,8 +133,16 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_spaces() {
     add_worm_space<TwoPointCorrWorm<PP_CHANNEL>>();
     break;
 
+  case ConfigSpaceEnum::Three_point_PH:
+    add_worm_space<ThreePointCorrWorm<PH_CHANNEL>>();
+    break;
+
+  case ConfigSpaceEnum::Three_point_PP:
+    add_worm_space<ThreePointCorrWorm<PP_CHANNEL>>();
+    break;
+
   default:
-    throw std::logic_error("Invalid worm space!");
+    throw std::logic_error("create_worm_spaces does not implement worm space " + ConfigSpaceEnum::to_string(target_worm_space)+"!");
   }
 }
 
@@ -221,11 +229,9 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
 
   // G1
   if (is_worm_space_active(ConfigSpaceEnum::G1)) {
-    register_worm_meas(ConfigSpaceEnum::G1, "vartheta",
-        new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
-          read_fermionic_matsubara_points(par["measurement.G1.SIE.sampling_frequencies"])
-        )
-    );
+    //register_worm_meas(ConfigSpaceEnum::G1, "vartheta",
+        //new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, smpl_freqs_SIE.v)
+    //);
 
     register_worm_meas(ConfigSpaceEnum::G1, "vartheta_legendre",
         new VarThetaLegendreMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, 400)
@@ -261,8 +267,34 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
     );
   }
 
+  //Three_point_PH
+  if (is_worm_space_active(ConfigSpaceEnum::Three_point_PH)) {
+    register_worm_meas(
+      ConfigSpaceEnum::Three_point_PH,
+      "eta",
+      new ThreePointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS,
+        smpl_freqs_SIE.v_eta,
+        smpl_freqs_SIE.w_eta
+      )
+    );
+  }
+
+  //Three_point_PP
+  if (is_worm_space_active(ConfigSpaceEnum::Three_point_PP)) {
+    register_worm_meas(
+      ConfigSpaceEnum::Three_point_PP,
+      "gamma",
+      new ThreePointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS,
+        smpl_freqs_SIE.v_gamma,
+        smpl_freqs_SIE.w_gamma
+      )
+    );
+  }
+
+
   // G2
   if (is_worm_space_active(ConfigSpaceEnum::G2)) {
+    /*
     if (par["measurement.G2.matsubara.on"].template as<int>() != 0) {
       register_worm_meas(
         ConfigSpaceEnum::G2,
@@ -274,6 +306,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
         )
       );
     }
+    */
   }
 }
 

@@ -39,7 +39,6 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>(           "measurement.G1.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
       .define<int>(           "measurement.G1.n_tau", 2000, "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
       .define<int>(           "measurement.G1.n_matsubara", 2000, "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
-      .define<std::string>(   "measurement.G1.SIE.sampling_frequencies", "vsample.txt", "Text file containing sampling fermionic frequencies.")
       .define<int>(           "measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
       .define<int>(           "measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
       .define<double>(        "measurement.G1.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
@@ -51,6 +50,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>(           "measurement.G2.matsubara.on", 0, "Set a non-zero value to activate Matsubara measurement of G2.")
       .define<std::string>(   "measurement.G2.matsubara.frequencies_PH", "", "Text file containing a list of frequencies on which G2 is measured (in particle-hole convention)")
       .define<int>(           "measurement.G2.matsubara.max_matrix_size", 20, "Max size of inverse matrix for measurement.")
+      .define<int>(           "measurement.G2.matsubara.SIE.on", 0, "Set a non-zero value to activate symmetric improve estimators")
+      //.define<std::string>(   "measurement.G1.SIE.sampling_frequencies", "vsample.txt", "Text file containing sampling fermionic frequencies.")
       .define<int>(           "measurement.G2.legendre.on", 0, "Set a non-zero value to activate Legendre measurement of G2.")
       .define<int>(           "measurement.G2.legendre.n_legendre", 0, "Number of legendre polynomials for measurement")
       .define<int>(           "measurement.G2.legendre.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
@@ -91,10 +92,15 @@ HybridizationSimulation<IMP_MODEL>::get_defined_worm_spaces(const parameters_typ
   active_worm_spaces.push_back(ConfigSpaceEnum::Equal_time_G1);
   if (parameters["measurement.G2.matsubara.on"] != 0 || parameters["measurement.G2.legendre.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::G2);
+  }
+  if (parameters["measurement.G2.matsubara.on"]  != 0 &&
+      parameters["measurement.G2.matsubara.SIE.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::Two_point_PH);
     active_worm_spaces.push_back(ConfigSpaceEnum::Two_point_PP);
+    active_worm_spaces.push_back(ConfigSpaceEnum::Three_point_PH);
+    active_worm_spaces.push_back(ConfigSpaceEnum::Three_point_PP);
   }
-  return active_worm_spaces;
+  return unique(active_worm_spaces);
 }
 
 template<typename IMP_MODEL>
@@ -132,7 +138,8 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       verbose(p["verbose"].template as<int>() != 0),
       thermalized(false),
       pert_order_recorder(),
-      config_spaces_visited_in_measurement_steps(0)
+      config_spaces_visited_in_measurement_steps(0),
+      smpl_freqs_SIE(load_smpl_freqs_SIE(p["measurement.G2.matsubara.frequencies_PH"]))
 {
   if (thermalization_time < 0) {
     thermalization_time = static_cast<double>(0.1 * parameters["timelimit"].template as<double>());
@@ -742,7 +749,6 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
 
   for (const auto &ws : worm_meas) {
     for (const auto& elem: ws.second) {
-      logger_out << "writing to " << ConfigSpaceEnum::to_string(ws.first) << " " << elem.first << " " << ofile << typeid(*elem.second).name() << std::endl;
       elem.second->save_results(ofile, comm);
     }
   }
