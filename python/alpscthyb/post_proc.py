@@ -297,13 +297,15 @@ class QMCResult:
         # Fit Delta(tau) with IR basis
         taus = np.linspace(0, self.beta, self.Delta_tau.shape[0])
         all_l = np.arange(self.basis_f.dim())
-        Utaul = self.basis_f.Ultau(all_l[:,None], taus[None,:]).T
+        Ftau = self.basis_f.Ultau(all_l[:,None], taus[None,:]).T
+        regularizer = self.basis_f.Sl(all_l)
         Delta_l = np.linalg.lstsq(
-                Utaul,
+                Ftau * regularizer[None,:],
                 self.Delta_tau.reshape((-1,self.nflavors**2)),
                 rcond=None
-            )[0]
+            )[0] * regularizer[:,None]
         self.Delta_l = Delta_l.reshape((-1, self.nflavors, self.nflavors))
+        self.Delta_tau_rec = np.einsum('tl,lij->tij', Ftau, self.Delta_l)
 
     def compute_gir_SIE(self):
         """

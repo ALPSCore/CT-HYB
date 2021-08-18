@@ -748,7 +748,17 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
   }
   for (int i = 0; i < config_spaces_visited_in_measurement_steps.size(); ++i) {
     if (!config_spaces_visited_in_measurement_steps[i]) {
-      throw std::runtime_error("Some configuration space was not visited in measurement steps. Thermalization time may be too short.");
+      if (i==0) {
+        std::string message = 
+          "The Z space was not visited in measurement steps. Thermalization time may be too short.";
+        logger_out << message << std::endl;
+        throw std::runtime_error(message);
+      } else {
+        std::string message = ConfigSpaceEnum::to_string(worm_types[i-1]) +
+          " space was not visited in measurement steps. Thermalization time may be too short.";
+        logger_out << message << std::endl;
+        throw std::runtime_error(message);
+      }
     }
   }
 
