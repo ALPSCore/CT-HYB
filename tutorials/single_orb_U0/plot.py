@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from itertools import product
 from numpy.core.einsumfunc import einsum
 from alpscthyb import non_interacting
 from alpscthyb.post_proc import QMCResult, compute_Tnl_sparse, legendre_to_matsubara, legendre_to_tau
@@ -164,14 +165,15 @@ fig.savefig('gamma.eps')
 # h
 fig, axes = plt.subplots(2, 1)
 h_ref = non_int.h(res.h_smpl_freqs)
-print(res.h[:,0,0,0,0].real)
-print(res.h[:,0,0,0,0].imag)
-print(h_ref[:,0,0,0,0].real)
-print(h_ref[:,0,0,0,0].imag)
-axes[0].plot(res.h[:,0,0,0,0].real, marker='o', label='QMC')
-axes[0].plot(h_ref[:,0,0,0,0].real, marker='x', label='ref')
-axes[1].plot(res.h[:,0,0,0,0].imag, marker='o', label='QMC')
-axes[1].plot(h_ref[:,0,0,0,0].imag, marker='x', label='ref')
+#print(np.abs(h_ref[:,0,0,0,0]))
+#print(np.abs(h_ref[:,0,1,0,1]))
+data = np.max(np.abs(h_ref), axis=0)
+#for i, j, k, l in product(range(res.nflavors), repeat=4):
+    #print(i, j, k, l, data[i, j, k, l])
+axes[0].plot(res.h[:,0,0,1,1].real, marker='o', label='QMC')
+axes[0].plot(h_ref[:,0,0,1,1].real, marker='x', label='ref')
+axes[1].plot(res.h[:,0,0,1,1].imag, marker='o', label='QMC')
+axes[1].plot(h_ref[:,0,0,1,1].imag, marker='x', label='ref')
 axes[0].set_ylabel(r"Re$h$")
 axes[1].set_ylabel(r"Im$h$")
 for ax in axes:

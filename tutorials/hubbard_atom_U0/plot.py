@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from itertools import product
 from numpy.core.einsumfunc import einsum
 from alpscthyb import non_interacting
 from alpscthyb.post_proc import QMCResult, compute_Tnl_sparse, legendre_to_matsubara, legendre_to_tau
@@ -12,12 +13,17 @@ non_int = NoninteractingLimit(res)
 beta = res.beta
 
 plt.figure(1)
-plt.semilogy(np.abs(res.Delta_tau[0,0,:]))
+for f in range(res.nflavors):
+    plt.plot(res.Delta_tau[:,f,f], label=f'flavor{f}')
+    plt.plot(res.Delta_tau_rec[:,f,f], label=f'flavor{f}')
+plt.legend()
 plt.savefig("Delta_tau.eps")
 plt.close(1)
 
 plt.figure(1)
-plt.semilogy(np.abs(res.Delta_l[:,0,0]))
+for f in range(res.nflavors):
+    plt.semilogy(np.abs(res.Delta_l[:,f,f]), label=f'flavor{f}')
+plt.legend()
 plt.savefig("Delta_l.eps")
 plt.close(1)
 
@@ -40,9 +46,9 @@ sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, vsample)
 g0iv = non_int.giv(res.basis_f.wsample)
 
 # vartheta
-vartheta = res.vartheta
-vartheta_rec = legendre_to_matsubara(res.vartheta_legendre, res.vartheta_smpl_freqs)
-vartheta_non_int = non_int.vartheta(res.vartheta_smpl_freqs)
+#vartheta = res.vartheta
+vartheta_rec = legendre_to_matsubara(res.vartheta_legendre, vsample)
+vartheta_non_int = non_int.vartheta(vsample)
 
 v = vsample * np.pi/res.beta
 iv = 1J * v
@@ -50,20 +56,19 @@ iv = 1J * v
 for flavor in range(res.nflavors):
     plt.figure(1)
     plt.subplot(211)
-    v_ = res.vartheta_smpl_freqs * np.pi/beta
-    plt.plot(v_, vartheta[:,flavor,flavor].real, label='SIE')
+    v_ = vsample * np.pi/beta
     plt.plot(v_, vartheta_rec[:,flavor,flavor].real, ls='', marker='x', label='SIE (legendre)')
     plt.plot(v_, vartheta_non_int[:,flavor,flavor].real, ls='', marker='+', label='Non interacting')
     plt.xlim([-10, 10])
     plt.ylabel(r"Re$\vartheta(\mathrm{i}\nu)$")
     plt.subplot(212)
-    plt.plot(v_, vartheta[:,flavor,flavor].imag, label='SIE')
     plt.plot(v_, vartheta_rec[:,flavor,flavor].imag, ls='', marker='x', label='SIE (legendre)')
     plt.plot(v_, vartheta_non_int[:,flavor,flavor].imag, ls='', marker='+', label='Non interacting')
     plt.xlim([-10, 10])
     plt.xlabel(r"$\nu$")
     plt.ylabel(r"Im$\vartheta(\mathrm{i}\nu)$")
     plt.legend()
+    plt.tight_layout()
     plt.savefig(f"vartheta_flavor{flavor}.eps")
     plt.close(1)
 
@@ -82,6 +87,7 @@ for flavor in range(res.nflavors):
     plt.xlabel(r"$\nu$")
     plt.ylabel(r"Im$G(\mathrm{i}\nu)$")
     plt.legend()
+    plt.tight_layout()
     plt.savefig(f"giv_flavor{flavor}.eps")
     plt.close(1)
 
@@ -117,12 +123,12 @@ for name in ['varphi', 'lambda']:
         plt.close(1)
 
         plt.figure(1)
-        plt.plot(tau, (data_tau[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), label='Re', marker='x', color='r')
-        plt.plot(tau, (data_tau[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), label='Im', marker='x', color='b')
+        plt.plot(tau, (data_tau[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), label='Re', ls='', marker='x', color='r')
+        plt.plot(tau, (data_tau[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), label='Im', ls='', marker='x', color='b')
         if name in ref_generators:
             data_tau_ref = non_int.__getattribute__(ref_generators[name])(tau)
-            plt.plot(tau, (data_tau_ref[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), ls='-', marker='', color='r')
-            plt.plot(tau, (data_tau_ref[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), ls='-', marker='', color='b')
+            plt.plot(tau, (data_tau_ref[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), ls='--', marker='', color='r')
+            plt.plot(tau, (data_tau_ref[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), ls='--', marker='', color='b')
         plt.legend()
         plt.savefig(name + f"_tau_flavors{flavors[0]}{flavors[1]}{flavors[2]}{flavors[3]}.eps")
         plt.close(1)
@@ -159,14 +165,15 @@ fig.savefig('gamma.eps')
 # h
 fig, axes = plt.subplots(2, 1)
 h_ref = non_int.h(res.h_smpl_freqs)
-print(res.h[:,0,0,0,0].real)
-print(res.h[:,0,0,0,0].imag)
-print(h_ref[:,0,0,0,0].real)
-print(h_ref[:,0,0,0,0].imag)
-axes[0].plot(res.h[:,0,0,0,0].real, marker='o', label='QMC')
-axes[0].plot(h_ref[:,0,0,0,0].real, marker='x', label='ref')
-axes[1].plot(res.h[:,0,0,0,0].imag, marker='o', label='QMC')
-axes[1].plot(h_ref[:,0,0,0,0].imag, marker='x', label='ref')
+#print(np.abs(h_ref[:,0,0,0,0]))
+#print(np.abs(h_ref[:,0,1,0,1]))
+data = np.max(np.abs(h_ref), axis=0)
+#for i, j, k, l in product(range(res.nflavors), repeat=4):
+    #print(i, j, k, l, data[i, j, k, l])
+axes[0].plot(res.h[:,0,0,1,1].real, marker='o', label='QMC')
+axes[0].plot(h_ref[:,0,0,1,1].real, marker='x', label='ref')
+axes[1].plot(res.h[:,0,0,1,1].imag, marker='o', label='QMC')
+axes[1].plot(h_ref[:,0,0,1,1].imag, marker='x', label='ref')
 axes[0].set_ylabel(r"Re$h$")
 axes[1].set_ylabel(r"Im$h$")
 for ax in axes:
