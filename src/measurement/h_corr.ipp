@@ -8,28 +8,34 @@ HCorrMeas<SCALAR,SW_TYPE>::measure(
       alps::accumulators::accumulator_set &measurements)
 {
   using EX_SCALAR = typename SW_TYPE::EXTENDED_SCALAR;
-  int N_meas = 100;
+  //std::vector<std::chrono::high_resolution_clock::time_point> times;
+  //times.push_back(std::chrono::high_resolution_clock::now());//0
 
   auto beta = sliding_window.get_beta();
 
   auto trace_org = mc_config.trace;
 
   auto sw_wrk(sliding_window);
+  //times.push_back(std::chrono::high_resolution_clock::now());//1
   sw_wrk.move_edges_to(sw_wrk.get_n_section(), 0);
+  //times.push_back(std::chrono::high_resolution_clock::now());//2
 
   // Remove worm operators from the trace
   for (const auto& op : mc_config.p_worm->get_operators()) {
     sw_wrk.erase(op);
   }
+  //times.push_back(std::chrono::high_resolution_clock::now());//3
 
   boost::multi_array<std::complex<double>,5>
     matsu_data(boost::extents[v1_.size()][nflavors_][nflavors_][nflavors_][nflavors_]);
   std::fill(matsu_data.origin(), matsu_data.origin()+matsu_data.num_elements(), 0.0);
+  //times.push_back(std::chrono::high_resolution_clock::now());//4
 
   boost::multi_array<std::complex<double>,4>
     obs(boost::extents[nflavors_][nflavors_][nflavors_][nflavors_]);
   double sum_trans_prop = 0.0;
-  for (auto i_meas=0; i_meas < N_meas; ++i_meas) {
+  for (auto i_meas=0; i_meas < nsmpl_; ++i_meas) {
+    //std::cout << "i_meas" << i_meas << std::endl;
     std::fill(obs.origin(), obs.origin()+obs.num_elements(), 0.0);
     std::array<double,3> taus;
     auto ntimes = mc_config.p_worm->num_independent_times();
@@ -103,13 +109,19 @@ HCorrMeas<SCALAR,SW_TYPE>::measure(
     }
 
   }//i_meas
+  //times.push_back(std::chrono::high_resolution_clock::now());//5
 
   std::transform(
     matsu_data.origin(), matsu_data.origin()+matsu_data.num_elements(),
     matsu_data.origin(),
     [&sum_trans_prop](const auto &x) {return x/sum_trans_prop;}
   );
+  //times.push_back(std::chrono::high_resolution_clock::now());
 
   measure_simple_vector_observable<std::complex<double>>(
     measurements, "h_corr", to_std_vector(matsu_data));
+  //times.push_back(std::chrono::high_resolution_clock::now());
+  //for(auto i=0; i<times.size()-1; ++i) {
+    //logger_out << "timing " << i << " " << std::chrono::duration_cast<std::chrono::milliseconds>(times[i+1] - times[i]).count() << std::endl;
+  //}
 };

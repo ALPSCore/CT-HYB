@@ -22,9 +22,9 @@ public:
    * Constructor
    */
   ThreePointCorrMeas(alps::random01 *p_rng, double beta, int nflavors,
-    const std::vector<int> &vsample, const std::vector<int> &wsample)
+    const std::vector<int> &vsample, const std::vector<int> &wsample, int nsmpl)
     :p_rng_(p_rng), beta_(beta), nflavors_(nflavors),
-     vsample_(vsample), wsample_(wsample)
+     vsample_(vsample), wsample_(wsample), nsmpl_(nsmpl)
   {
     check_true(is_fermionic(vsample_.begin(), vsample_.end()), "vsample must be fermionic!");
     check_true(is_bosonic(wsample_.begin(), wsample_.end()), "vsample must be bosonic!");
@@ -61,4 +61,5 @@ private:
   int nflavors_;
   std::vector<int> vsample_;
   std::vector<int> wsample_;
+  int nsmpl_;
 };

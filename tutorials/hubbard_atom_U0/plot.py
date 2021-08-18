@@ -144,6 +144,7 @@ fig.savefig('eta.eps')
 # gamma
 fig, axes = plt.subplots(2, 1)
 gamma_ref = non_int.gamma(res.gamma_smpl_freqs)
+print(gamma_ref[:,0,1,0,1])
 axes[0].plot(res.gamma[:,0,1,0,1].real, marker='o', label='QMC')
 axes[0].plot(gamma_ref[:,0,1,0,1].real, marker='x', label='ref')
 axes[1].plot(res.gamma[:,0,1,0,1].imag, marker='o', label='QMC')

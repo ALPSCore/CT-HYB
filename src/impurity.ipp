@@ -51,6 +51,9 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<std::string>(   "measurement.G2.matsubara.frequencies_PH", "", "Text file containing a list of frequencies on which G2 is measured (in particle-hole convention)")
       .define<int>(           "measurement.G2.matsubara.max_matrix_size", 20, "Max size of inverse matrix for measurement.")
       .define<int>(           "measurement.G2.matsubara.SIE.on", 0, "Set a non-zero value to activate symmetric improve estimators")
+      .define<int>(           "measurement.G2.matsubara.SIE.nsample_two_point",   10, "Number of samples at each measurement of a two-point correlation function")
+      .define<int>(           "measurement.G2.matsubara.SIE.nsample_three_point",  2, "Number of samples at each measurement of a three-point correlation function")
+      .define<int>(           "measurement.G2.matsubara.SIE.nsample_four_point",   2, "Number of samples at each measurement of a four-point correlation function")
       //.define<std::string>(   "measurement.G1.SIE.sampling_frequencies", "vsample.txt", "Text file containing sampling fermionic frequencies.")
       .define<int>(           "measurement.G2.legendre.on", 0, "Set a non-zero value to activate Legendre measurement of G2.")
       .define<int>(           "measurement.G2.legendre.n_legendre", 0, "Number of legendre polynomials for measurement")
@@ -313,12 +316,14 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       break;
 
     case ConfigSpaceEnum::G2:
+      /*
       if (p_G2_legendre_meas) {
         p_G2_legendre_meas->measure_via_hyb(mc_config, measurements, random,
                                    par["measurement.G2.legendre.max_matrix_size"],
                                    par["measurement.G2.aux_field"]
         );
       }
+      */
       break;
     
     case ConfigSpaceEnum::Two_point_PP:
@@ -722,6 +727,8 @@ void HybridizationSimulation<IMP_MODEL>::prepare_for_measurement() {
     p_flat_histogram_config_space->finish_learning(false);
   }
   measurements["Pert_order_start"] << pert_order_recorder.mean();
+
+  std::fill(timings.begin(), timings.end(), 0.0);
 
   if (verbose) {
     logger_out << std::endl << "Weight of configuration spaces for MPI rank " << comm.rank() << " : ";

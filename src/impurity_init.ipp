@@ -170,6 +170,7 @@ void HybridizationSimulation<IMP_MODEL>::create_custom_worm_updaters() {
    */
   if (is_worm_space_active(ConfigSpaceEnum::G2)) {
     if (par["measurement.G2.legendre.on"].template as<int>() != 0) {
+      /*
       p_G2_legendre_meas.reset(
           new GMeasurement<SCALAR, 2>(FLAVORS,
                                       par["measurement.G2.legendre.n_legendre"],
@@ -177,6 +178,7 @@ void HybridizationSimulation<IMP_MODEL>::create_custom_worm_updaters() {
                                       par["measurement.G2.legendre.max_num_data_accumulated"]
           )
       );
+      */
     }
     specialized_updaters["G2_ins_rem_hyb"] =
         std::shared_ptr<LocalUpdaterType>(
@@ -254,7 +256,9 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
     register_worm_meas(
       ConfigSpaceEnum::Two_point_PH,
       "lambda_legendre",
-      new TwoPointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS, 400)
+      new TwoPointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS, 400,
+        par["measurement.G2.matsubara.SIE.nsample_two_point"]
+      )
     );
   }
 
@@ -263,7 +267,9 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
     register_worm_meas(
       ConfigSpaceEnum::Two_point_PP,
       "varphi_legendre",
-      new TwoPointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS, 400)
+      new TwoPointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS, 400,
+        par["measurement.G2.matsubara.SIE.nsample_two_point"]
+      )
     );
   }
 
@@ -274,7 +280,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
       "eta",
       new ThreePointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS,
         smpl_freqs_SIE.v_eta,
-        smpl_freqs_SIE.w_eta
+        smpl_freqs_SIE.w_eta,
+        par["measurement.G2.matsubara.SIE.nsample_three_point"]
       )
     );
   }
@@ -286,7 +293,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
       "gamma",
       new ThreePointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS,
         smpl_freqs_SIE.v_gamma,
-        smpl_freqs_SIE.w_gamma
+        smpl_freqs_SIE.w_gamma,
+        par["measurement.G2.matsubara.SIE.nsample_three_point"]
       )
     );
   }
@@ -295,6 +303,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
   // G2
   if (is_worm_space_active(ConfigSpaceEnum::G2)) {
     if (par["measurement.G2.matsubara.on"].template as<int>() != 0) {
+      /*
       register_worm_meas(
         ConfigSpaceEnum::G2,
         "matsubara_sparse",
@@ -304,6 +313,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
           par["measurement.G2.aux_field"]
         )
       );
+      */
       if (par["measurement.G2.matsubara.SIE.on"] != 0) {
         register_worm_meas(
           ConfigSpaceEnum::G2,
@@ -312,7 +322,8 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
             smpl_freqs_SIE.v1,
             smpl_freqs_SIE.v2,
             smpl_freqs_SIE.v3,
-            smpl_freqs_SIE.v4
+            smpl_freqs_SIE.v4,
+            par["measurement.G2.matsubara.SIE.nsample_four_point"]
           )
         );
       }

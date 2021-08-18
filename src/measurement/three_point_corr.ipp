@@ -8,7 +8,6 @@ ThreePointCorrMeas<SCALAR,SW_TYPE,CHANNEL>::measure(
       alps::accumulators::accumulator_set &measurements)
 {
   using EX_SCALAR = typename SW_TYPE::EXTENDED_SCALAR;
-  int N_meas = 100;
 
   auto beta = sliding_window.get_beta();
 
@@ -29,7 +28,7 @@ ThreePointCorrMeas<SCALAR,SW_TYPE,CHANNEL>::measure(
   boost::multi_array<std::complex<double>,4>
     obs(boost::extents[nflavors_][nflavors_][nflavors_][nflavors_]);
   double sum_trans_prop = 0.0;
-  for (auto i_meas=0; i_meas < N_meas; ++i_meas) {
+  for (auto i_meas=0; i_meas < nsmpl_; ++i_meas) {
     std::fill(obs.origin(), obs.origin()+obs.num_elements(), 0.0);
     std::array<double,3> taus;
     // COMPUTE PERMUTATION SIGN

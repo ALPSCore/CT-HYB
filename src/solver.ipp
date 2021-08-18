@@ -56,6 +56,9 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
       throw std::runtime_error("Master process is not thermalized yet. Increase simulation time!");
     }
     mc_results_ = alps::collect_results(sim);
+    if (comm_.rank() == 0) {
+      sim.show_statistics(mc_results_);
+    }
   } else {
     if (r.second) {
       alps::collect_results(sim);

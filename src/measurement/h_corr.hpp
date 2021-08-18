@@ -18,9 +18,11 @@ public:
     const std::vector<int> &v1,
     const std::vector<int> &v2,
     const std::vector<int> &v3,
-    const std::vector<int> &v4)
+    const std::vector<int> &v4,
+    int nsmpl
+    )
     :p_rng_(p_rng), beta_(beta), nflavors_(nflavors),
-     v1_(v1), v2_(v2), v3_(v3), v4_(v4)
+     v1_(v1), v2_(v2), v3_(v3), v4_(v4), nsmpl_(nsmpl)
   {
     check_true(is_fermionic(v1_.begin(), v1_.end()), "v1 must be fermionic!");
     check_true(is_fermionic(v2_.begin(), v2_.end()), "v2 must be fermionic!");
@@ -56,4 +58,5 @@ private:
   double beta_;
   int nflavors_;
   std::vector<int> v1_, v2_, v3_, v4_;
+  int nsmpl_;
 };

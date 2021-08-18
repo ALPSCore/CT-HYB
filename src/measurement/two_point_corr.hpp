@@ -21,8 +21,8 @@ public:
   /**
    * Constructor
    */
-  TwoPointCorrMeas(alps::random01 *p_rng, double beta, int nflavors, int nl)
-    :p_rng_(p_rng), beta_(beta), nflavors_(nflavors), legendre_trans_(0, nl)
+  TwoPointCorrMeas(alps::random01 *p_rng, double beta, int nflavors, int nl, int nsmpl)
+    :p_rng_(p_rng), beta_(beta), nflavors_(nflavors), legendre_trans_(0, nl), nsmpl_(nsmpl)
   {
     //check_true(is_bosonic(vsample_.begin(), vsample_.end()),
       //"Some of frequencies are not bosonic!");
@@ -55,6 +55,7 @@ private:
   int nflavors_;
   //std::vector<int> vsample_;
   LegendreTransformer legendre_trans_;
+  int nsmpl_;
 };
 
 
