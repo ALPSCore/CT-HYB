@@ -19,6 +19,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("sliding_window.max", 1000, "Max number of windows")
       .define<int>("sliding_window.min", 1, "Min number of windows")
           //Model definition
+      .define<int>("model.flavors", "Number of flavors = model.sites * model.spins")
       .define<int>("model.sites", "Number of sites/orbitals")
       .define<int>("model.spins", "Number of spins")
       .define<double>("model.beta", "Inverse temperature")
@@ -50,10 +51,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>(           "measurement.G2.matsubara.on", 0, "Set a non-zero value to activate Matsubara measurement of G2.")
       .define<std::string>(   "measurement.G2.matsubara.frequencies_PH", "", "Text file containing a list of frequencies on which G2 is measured (in particle-hole convention)")
       .define<int>(           "measurement.G2.matsubara.max_matrix_size", 20, "Max size of inverse matrix for measurement.")
-      .define<int>(           "measurement.G2.matsubara.SIE.on", 0, "Set a non-zero value to activate symmetric improve estimators")
-      .define<int>(           "measurement.G2.matsubara.SIE.nsample_two_point",   10, "Number of samples at each measurement of a two-point correlation function")
-      .define<int>(           "measurement.G2.matsubara.SIE.nsample_three_point",  2, "Number of samples at each measurement of a three-point correlation function")
-      .define<int>(           "measurement.G2.matsubara.SIE.nsample_four_point",   2, "Number of samples at each measurement of a four-point correlation function")
+      .define<int>(           "measurement.G2.SIE.on", 0, "Set a non-zero value to activate symmetric improve estimators")
+      .define<int>(           "measurement.G2.SIE.nsample_two_point",   10, "Number of samples at each measurement of a two-point correlation function")
       //.define<std::string>(   "measurement.G1.SIE.sampling_frequencies", "vsample.txt", "Text file containing sampling fermionic frequencies.")
       .define<int>(           "measurement.G2.legendre.on", 0, "Set a non-zero value to activate Legendre measurement of G2.")
       .define<int>(           "measurement.G2.legendre.n_legendre", 0, "Number of legendre polynomials for measurement")
@@ -96,8 +95,7 @@ HybridizationSimulation<IMP_MODEL>::get_defined_worm_spaces(const parameters_typ
   if (parameters["measurement.G2.matsubara.on"] != 0 || parameters["measurement.G2.legendre.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::G2);
   }
-  if (parameters["measurement.G2.matsubara.on"]  != 0 &&
-      parameters["measurement.G2.matsubara.SIE.on"] != 0) {
+  if (parameters["measurement.G2.SIE.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::Two_point_PH);
     active_worm_spaces.push_back(ConfigSpaceEnum::Two_point_PP);
     active_worm_spaces.push_back(ConfigSpaceEnum::Three_point_PH);
@@ -113,7 +111,7 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       BETA(parameters["model.beta"]),      //inverse temperature
       SITES(parameters["model.sites"]),          //number of sites
       SPINS(parameters["model.spins"]),          //number of spins
-      FLAVORS(SPINS * SITES),                             //flavors, i.e. #spins * #sites
+      FLAVORS(parameters["model.flavors"]),                             //flavors, i.e. #spins * #sites
       N(parameters["model.n_tau_hyb"]),                  //time slices
       N_non_worm_meas(parameters["measurement.n_non_worm_meas"]),
       thermalization_time(parameters["thermalization_time"]),
@@ -150,6 +148,8 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   if (thermalization_time > 0.9 * parameters["timelimit"].template as<double>()) {
     throw std::runtime_error("timelimit is too short in comparison with thermalization_time.");
   }
+
+  check_true(FLAVORS == SITES * SPINS, "model.flavors != model.sites * model_spins");
 
 
   /////////////////////////////////////////////////////////////////////

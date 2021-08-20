@@ -5,6 +5,7 @@ typedef SlidingWindowManager<COMPLEX_EIGEN_BASIS_MODEL> SW_COMPLEX_MATRIX;
 
 template class EqualTimeG1Meas<double,SW_REAL_MATRIX>;
 template class EqualTimeG1Meas<std::complex<double>,SW_COMPLEX_MATRIX>;
+template class WormConfigRecord<double,double>;
 
 void compute_equal_time_G1(
     const alps::accumulators::result_set &results,

@@ -13,6 +13,7 @@
  *************************************************************************************/
 
 #include <fstream>
+#include <cstdio>
 #include <alps/utilities/fs/remove_extensions.hpp>
 
 #include "hdf5/boost_any.hpp"
@@ -78,7 +79,8 @@ int main(int argc, const char *argv[]) {
   std::string prefix_global = alps::fs::remove_extensions(par["outputfile"]);
   auto prefix = alps::fs::remove_extensions(par["outputfile"]) + "_wormspace_"
     + ConfigSpaceEnum::to_string(target_worm_space);
-  par["outputfile"] = prefix + ".out.h5";
+  const std::string outputfile = prefix + ".out.h5";
+  par["outputfile"] = outputfile;
   std::cout << "Assigning rank " << std::to_string(rank)
     << " to subgroup " << std::to_string(subgrp) << " for "
     << ConfigSpaceEnum::to_string(target_worm_space) << std::endl;
@@ -89,7 +91,13 @@ int main(int argc, const char *argv[]) {
     p_solver.reset(new alps::cthyb::MatrixSolver<std::complex<double> >(par, sub_comm));
   }
 
-  logger_out = std::ofstream(prefix + "_log.txt");
+  logger_out = std::ofstream("log_" + prefix + "_rank" + std::to_string(sub_comm.rank()) + ".txt");
+
+  // Remove the exisiting old output file if any
+  if (sub_comm.rank() == 0 && file_exists(outputfile)) {
+    logger_out << "Removing the old output file " << outputfile << "..." << std::endl;
+    std::remove(outputfile.c_str());
+  }
 
   //solve the model
   p_solver->solve();
@@ -97,8 +105,9 @@ int main(int argc, const char *argv[]) {
   //write the results into a hdf5 file
   sub_comm.barrier();
   if (sub_comm.rank() == 0) {
-    logger_out << "Writing result into " << prefix + ".out.h5" << std::endl;
+    logger_out << "Writing result into " << prefix + ".out.h5...";
     alps::hdf5::archive ar(prefix + ".out.h5", "a");
+    ar["/parameters"] << par;
     ar["/simulation/results"] << p_solver->get_accumulated_results();
     {
       const std::map<std::string,boost::any> &results = p_solver->get_results();
@@ -106,16 +115,17 @@ int main(int argc, const char *argv[]) {
         ar["/" + it->first] << it->second;
       }
     }
+    logger_out << "Done!" << std::endl;
   }
+  logger_out.flush();
   sub_comm.barrier();
-
 
   if (comm.rank() == 0) {
     alps::hdf5::archive ar(prefix_global + ".out.h5", "w");
     ar["/parameters"] << par;
-    //for (auto ws: defined_worm_spaces) {
-      //ar["/worm_spaces/" + ConfigSpaceEnum::to_string(ws)] << 1;
-    //}
+    for (auto ws: defined_worm_spaces) {
+      ar["/worm_spaces/" + ConfigSpaceEnum::to_string(ws)] << 1;
+    }
   }
 
   return 0;

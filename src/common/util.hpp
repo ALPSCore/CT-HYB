@@ -9,6 +9,7 @@
 #include <alps/mc/random01.hpp>
 
 #include <iostream>
+#include <fstream>
 #include <math.h>
 #include <vector>
 #include <complex>
@@ -469,4 +470,10 @@ unique(const std::vector<T> &v) {
   auto result = std::unique(v_.begin(), v_.end());
   v_.erase(result, v_.end());
   return v_;
+}
+
+inline bool file_exists(const std::string& str)
+{
+  std::ifstream ifs(str);
+  return ifs.is_open();
 }

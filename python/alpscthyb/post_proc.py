@@ -5,10 +5,80 @@ import h5py
 import os
 import irbasis
 from irbasis_x.twopoint import FiniteTemperatureBasis, TruncatedBasis
-from irbasis_x.freq import check_fermionic
+from irbasis_x.freq import check_bosonic, check_fermionic
 
 from alpscthyb.util import float_to_complex_array
 
+class WormConfigRecord:
+    def __init__(self, h5, path, num_time_idx, num_flavor_idx) -> None:
+        self.num_data_set = h5[path+'/num_dataset'][()]
+        self.datasets = []
+        for i in range(self.num_data_set):
+            taus = []
+            for t in range(num_time_idx):
+                taus.append(h5[path+f'/dataset{i}/taus/{t}'][()])
+            flavors = []
+            for f in range(num_flavor_idx):
+                flavors.append(h5[path+f'/dataset{i}/flavors/{f}'][()])
+            values = h5[path+f'/dataset{i}/vals_real'][()] + 1J* h5[path+f'/dataset{i}/vals_imag'][()]
+            self.datasets.append(
+                {
+                    'taus':    taus,
+                    'flavors': flavors,
+                    'values' : values
+                }
+            )
+
+def ft_three_point_obj(worm_config_record, wsample, nflavors, beta):
+    wfs, wbs = wsample
+    wfs = check_fermionic(wfs)
+    wbs = check_bosonic(wbs)
+    res = np.zeros((wfs.size,) + 4*(nflavors,), dtype=np.complex128)
+    ndata = 0
+    for dset in worm_config_record.datasets:
+        taus_f = dset['taus'][0] - dset['taus'][1]
+        taus_b = dset['taus'][1] - dset['taus'][2]
+        exp_ = np.exp(1J * np.pi * (
+            wfs[:,None]*taus_f[None,:]+
+            wbs[:,None]*taus_b[None,:])/beta)
+        res_ = exp_ * dset['values'][None,:]
+        flavors = dset['flavors']
+        ndata += flavors[0].size
+        for iconfig in range(flavors[0].size):
+            res[:, flavors[0][iconfig],
+                   flavors[1][iconfig],
+                   flavors[2][iconfig],
+                   flavors[3][iconfig],
+            ] += res_[:, iconfig]
+    res /= ndata*beta
+    return res
+
+def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
+    wf1, wf2, wf3, wf4 = wsample
+    wf1 = check_fermionic(wf1)
+    wf2 = check_fermionic(wf2)
+    wf3 = check_fermionic(wf3)
+    wf4 = check_fermionic(wf4)
+    res = np.zeros((wf1.size,) + 4*(nflavors,), dtype=np.complex128)
+    ndata = 0
+    for dset in worm_config_record.datasets:
+        exp_ = np.exp(1J * np.pi * (
+                +wf1[:,None] * dset['taus'][0][None,:]
+                -wf2[:,None] * dset['taus'][1][None,:]
+                +wf3[:,None] * dset['taus'][2][None,:]
+                -wf4[:,None] * dset['taus'][3][None,:]
+                )/beta)
+        res_ = exp_ * dset['values'][None,:]
+        flavors = dset['flavors']
+        ndata += flavors[0].size
+        for iconfig in range(flavors[0].size):
+            res[:, flavors[0][iconfig],
+                   flavors[1][iconfig],
+                   flavors[2][iconfig],
+                   flavors[3][iconfig],
+            ] += res_[:, iconfig]
+    res /= ndata
+    return res
 
 def load_irbasis(stat, Lambda, beta, cutoff):
     return FiniteTemperatureBasis(
@@ -173,80 +243,41 @@ def postprocess_two_point_pp(h5, verbose=False, **kwargs):
     }
 
 def postprocess_three_point_ph(h5, verbose=False, **kwargs):
-    nflavors = kwargs['nflavors']
-    beta = kwargs['beta']
-
     sign = read_mc_result(h5, 'Sign')['mean']
     w_vol = read_mc_result(h5, 'worm_space_volume_Three_point_PH')['mean']
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
-
     if verbose:
         print("Reading eta...")
-
     res = {
-        'eta':
-        (w_vol/(sign * z_vol * beta)) * \
-            read_cmplx_mc_result(h5, 'eta')['mean'].\
-            reshape((-1,nflavors,nflavors,nflavors,nflavors))
+        'eta_coeff' : w_vol/(sign * z_vol),
+        'eta_datasets' : WormConfigRecord(h5, 'eta', 3, 4)
     }
-
-    res['eta_smpl_freqs'] = \
-        (
-            h5['/eta/smpl_freqs/0'][()],
-            h5['/eta/smpl_freqs/1'][()]
-        )
-
     return res
 
 def postprocess_three_point_pp(h5, verbose=False, **kwargs):
-    nflavors = kwargs['nflavors']
-    beta = kwargs['beta']
-
     sign = read_mc_result(h5, 'Sign')['mean']
     w_vol = read_mc_result(h5, 'worm_space_volume_Three_point_PP')['mean']
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
-
     if verbose:
         print("Reading gamma...")
-
     res = {
-        'gamma':
-        (w_vol/(sign * z_vol * beta)) * \
-            read_cmplx_mc_result(h5, 'gamma')['mean'].\
-            reshape((-1,nflavors,nflavors,nflavors,nflavors))
+        'gamma_coeff' : w_vol/(sign * z_vol),
+        'gamma_datasets' : WormConfigRecord(h5, 'gamma', 3, 4)
     }
-
-    res['gamma_smpl_freqs'] = \
-        (
-            h5['/gamma/smpl_freqs/0'][()],
-            h5['/gamma/smpl_freqs/1'][()]
-        )
-
     return res
 
 def postprocess_G2(h5, verbose=False, **kwargs):
-    nflavors = kwargs['nflavors']
     beta = kwargs['beta']
     sign = read_mc_result(h5, 'Sign')['mean']
     w_vol = read_mc_result(h5, 'worm_space_volume_G2')['mean']
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
 
-    if exits_mc_result(h5, "h_corr_Re"):
+    res = {}
+    if "h_corr" in h5:
         if verbose:
             print("Reading h_corr...")
-        res = {
-            'h':
-            (w_vol/(sign * z_vol)) * \
-                read_cmplx_mc_result(h5, 'h_corr')['mean'].\
-                reshape((-1,nflavors,nflavors,nflavors,nflavors))
-        }
-        res['h_smpl_freqs'] = \
-            (
-                h5['/h_corr/smpl_freqs/0'][()],
-                h5['/h_corr/smpl_freqs/1'][()],
-                h5['/h_corr/smpl_freqs/2'][()],
-                h5['/h_corr/smpl_freqs/3'][()]
-            )
+        res['h_corr_coeff'] = w_vol/(sign * z_vol)
+        res['h_corr_datasets'] = WormConfigRecord(h5, 'h_corr', 4, 4)
     return res
 
 
@@ -353,9 +384,6 @@ class QMCResult:
         A = self.hopping + np.einsum('abij,ij->ab', self.asymU, self.equal_time_G1)
 
         # Compute calG = (iv - Delta(iv)), G0, full G, self-energy
-        #print("vartheta", vartheta)
-        #print("A", A)
-        #vartheta[...] = 0.0 #debug
         G = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)
         Sigma = np.empty_like(G)
         I = np.identity(self.nflavors)
@@ -387,3 +415,27 @@ class QMCResult:
         Tnl = compute_Tnl_sparse(vsample, self.gl.shape[0])
         giv = np.einsum('nl,lij->nij', Tnl, self.gl, optimize=True)
         return giv
+
+
+    def compute_eta(self, wsample):
+        wfs, wbs = wsample
+        check_fermionic(wfs)
+        check_bosonic(wbs)
+        return self.eta_coeff * \
+            ft_three_point_obj(self.eta_datasets, wsample, self.nflavors, self.beta)
+    
+    def compute_gamma(self, wsample):
+        wfs, wbs = wsample
+        check_fermionic(wfs)
+        check_bosonic(wbs)
+        return self.gamma_coeff * \
+            ft_three_point_obj(self.gamma_datasets, wsample, self.nflavors, self.beta)
+
+    def compute_h_corr(self, wsample):
+        w1, w2, w3, w4 = wsample
+        check_fermionic(w1)
+        check_fermionic(w2)
+        check_fermionic(w3)
+        check_fermionic(w4)
+        return self.h_corr_coeff * \
+            ft_four_point_obj(self.h_corr_datasets, wsample, self.nflavors, self.beta)

@@ -140,8 +140,10 @@ target_link_libraries(hyb measurement moves sw model common ${ALPSCore_LIBRARIES
 
 #executable
 add_executable(hybmat ./src/main.cpp)
-#target_link_libraries(hybmat hyb measurement moves sw model common)
 target_link_libraries(hybmat hyb)
+
+add_executable(eval_g2 ./src/eval_g2.cpp)
+target_link_libraries(eval_g2 hyb)
 
 #testing setup
 option(Testing "Enable testing" ON)

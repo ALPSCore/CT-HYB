@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from itertools import product
+from irbasis_x.freq import box
 from numpy.core.einsumfunc import einsum
 from alpscthyb import non_interacting
 from alpscthyb.post_proc import QMCResult, compute_Tnl_sparse, legendre_to_matsubara, legendre_to_tau
@@ -132,12 +134,22 @@ for name in ['varphi', 'lambda']:
         plt.savefig(name + f"_tau_flavors{flavors[0]}{flavors[1]}{flavors[2]}{flavors[3]}.eps")
         plt.close(1)
 
+
+def box_fb(nf, nb):
+    wf = 2*np.arange(-nf,nf)+1
+    wb = 2*np.arange(-nb,nb)
+    v, w = np.broadcast_arrays(wf[:,None], wb[None,:])
+    return v.ravel(), w.ravel()
+
+wsample_fb = box_fb(4, 5)
+
 # eta
 fig, axes = plt.subplots(2, 1)
-eta_ref = non_int.eta(res.eta_smpl_freqs)
-axes[0].plot(res.eta[:,0,0,0,0].real, marker='o', label='QMC')
+eta_qmc = res.compute_eta(wsample_fb)
+eta_ref = non_int.eta(wsample_fb)
+axes[0].plot(eta_qmc[:,0,0,0,0].real, marker='o', label='QMC')
 axes[0].plot(eta_ref[:,0,0,0,0].real, marker='x', label='ref')
-axes[1].plot(res.eta[:,0,0,0,0].imag, marker='o', label='QMC')
+axes[1].plot(eta_qmc[:,0,0,0,0].imag, marker='o', label='QMC')
 axes[1].plot(eta_ref[:,0,0,0,0].imag, marker='x', label='ref')
 axes[0].set_ylabel(r"Re$\eta$")
 axes[1].set_ylabel(r"Im$\eta$")
@@ -148,11 +160,11 @@ fig.savefig('eta.eps')
 
 # gamma
 fig, axes = plt.subplots(2, 1)
-gamma_ref = non_int.gamma(res.gamma_smpl_freqs)
-print(gamma_ref[:,0,1,0,1])
-axes[0].plot(res.gamma[:,0,1,0,1].real, marker='o', label='QMC')
+gamma_qmc = res.compute_gamma(wsample_fb)
+gamma_ref = non_int.gamma(wsample_fb)
+axes[0].plot(gamma_qmc[:,0,1,0,1].real, marker='o', label='QMC')
 axes[0].plot(gamma_ref[:,0,1,0,1].real, marker='x', label='ref')
-axes[1].plot(res.gamma[:,0,1,0,1].imag, marker='o', label='QMC')
+axes[1].plot(gamma_qmc[:,0,1,0,1].imag, marker='o', label='QMC')
 axes[1].plot(gamma_ref[:,0,1,0,1].imag, marker='x', label='ref')
 axes[0].set_ylabel(r"Re$\gamma$")
 axes[1].set_ylabel(r"Im$\gamma$")
@@ -162,16 +174,15 @@ fig.tight_layout()
 fig.savefig('gamma.eps')
 
 # h
+wsample_ffff = box(4, 3, return_conv='full', ravel=True)
 fig, axes = plt.subplots(2, 1)
-h_ref = non_int.h(res.h_smpl_freqs)
-print(res.h[:,0,0,0,0].real)
-print(res.h[:,0,0,0,0].imag)
-print(h_ref[:,0,0,0,0].real)
-print(h_ref[:,0,0,0,0].imag)
-axes[0].plot(res.h[:,0,0,0,0].real, marker='o', label='QMC')
-axes[0].plot(h_ref[:,0,0,0,0].real, marker='x', label='ref')
-axes[1].plot(res.h[:,0,0,0,0].imag, marker='o', label='QMC')
-axes[1].plot(h_ref[:,0,0,0,0].imag, marker='x', label='ref')
+h_qmc = res.compute_h_corr(wsample_ffff)
+h_ref = non_int.h(wsample_ffff)
+data = np.max(np.abs(h_ref), axis=0)
+axes[0].plot(h_qmc[:,0,0,1,1].real, marker='o', label='QMC')
+axes[0].plot(h_ref[:,0,0,1,1].real, marker='x', label='ref')
+axes[1].plot(h_qmc[:,0,0,1,1].imag, marker='o', label='QMC')
+axes[1].plot(h_ref[:,0,0,1,1].imag, marker='x', label='ref')
 axes[0].set_ylabel(r"Re$h$")
 axes[1].set_ylabel(r"Im$h$")
 for ax in axes:

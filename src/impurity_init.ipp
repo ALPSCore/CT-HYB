@@ -257,7 +257,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
       ConfigSpaceEnum::Two_point_PH,
       "lambda_legendre",
       new TwoPointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS, 400,
-        par["measurement.G2.matsubara.SIE.nsample_two_point"]
+        par["measurement.G2.SIE.nsample_two_point"]
       )
     );
   }
@@ -268,7 +268,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
       ConfigSpaceEnum::Two_point_PP,
       "varphi_legendre",
       new TwoPointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS, 400,
-        par["measurement.G2.matsubara.SIE.nsample_two_point"]
+        par["measurement.G2.SIE.nsample_two_point"]
       )
     );
   }
@@ -278,11 +278,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
     register_worm_meas(
       ConfigSpaceEnum::Three_point_PH,
       "eta",
-      new ThreePointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS,
-        smpl_freqs_SIE.v_eta,
-        smpl_freqs_SIE.w_eta,
-        par["measurement.G2.matsubara.SIE.nsample_three_point"]
-      )
+      new ThreePointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS)
     );
   }
 
@@ -291,11 +287,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
     register_worm_meas(
       ConfigSpaceEnum::Three_point_PP,
       "gamma",
-      new ThreePointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS,
-        smpl_freqs_SIE.v_gamma,
-        smpl_freqs_SIE.w_gamma,
-        par["measurement.G2.matsubara.SIE.nsample_three_point"]
-      )
+      new ThreePointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS)
     );
   }
 
@@ -314,17 +306,11 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
         )
       );
       */
-      if (par["measurement.G2.matsubara.SIE.on"] != 0) {
+      if (par["measurement.G2.SIE.on"] != 0) {
         register_worm_meas(
           ConfigSpaceEnum::G2,
           "h_corr",
-          new HCorrMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS,
-            smpl_freqs_SIE.v1,
-            smpl_freqs_SIE.v2,
-            smpl_freqs_SIE.v3,
-            smpl_freqs_SIE.v4,
-            par["measurement.G2.matsubara.SIE.nsample_four_point"]
-          )
+          new HCorrMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS)
         );
       }
     }

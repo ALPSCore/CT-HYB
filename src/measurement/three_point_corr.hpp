@@ -2,8 +2,8 @@
 
 #include <string>
 
-#include "../common/legendre.hpp"
 #include "worm_meas.hpp"
+#include "alps/numeric/tensors/tensor_base.hpp"
 
 template<typename CHANNEL>
 class ThreePointCorrMeasGetNameHelper {
@@ -21,21 +21,14 @@ public:
   /**
    * Constructor
    */
-  ThreePointCorrMeas(alps::random01 *p_rng, double beta, int nflavors,
-    const std::vector<int> &vsample, const std::vector<int> &wsample, int nsmpl)
-    :p_rng_(p_rng), beta_(beta), nflavors_(nflavors),
-     vsample_(vsample), wsample_(wsample), nsmpl_(nsmpl)
+  ThreePointCorrMeas(alps::random01 *p_rng, double beta, int nflavors)
+    :p_rng_(p_rng), beta_(beta), nflavors_(nflavors), worm_config_record_(3, 4)
   {
-    check_true(is_fermionic(vsample_.begin(), vsample_.end()), "vsample must be fermionic!");
-    check_true(is_bosonic(wsample_.begin(), wsample_.end()), "vsample must be bosonic!");
   }
 
   void create_alps_observable(
       alps::accumulators::accumulator_set &measurements) const
-  {
-    create_observable<std::complex<double>, SimpleRealVectorObservable>(
-      measurements, get_name().c_str());
-  }
+  {}
 
   virtual void measure(
       const MonteCarloConfiguration<SCALAR> &mc_config,
@@ -43,23 +36,36 @@ public:
       alps::accumulators::accumulator_set &measurements);
 
   virtual void save_results(const std::string &filename, const alps::mpi::communicator &comm) const {
-    if (comm.rank() != 0) {
-      return;
+    for (auto irank=0; irank<comm.size(); ++irank) {
+      if (irank == comm.rank()) {
+        alps::hdf5::archive oar(filename, "a");
+        std::string path = get_name()+"/dataset"+std::to_string(comm.rank());
+        if (comm.rank() == 0) {
+          oar[get_name()+"/num_dataset"] << comm.size();
+        }
+        worm_config_record_.save(oar, path);
+      }
+      comm.barrier();
     }
-    alps::hdf5::archive oar(filename, "a");
-    oar[get_name() + "/smpl_freqs/0"] = vsample_;
-    oar[get_name() + "/smpl_freqs/1"] = wsample_;
   }
 
+  static void eval_on_smpl_freqs(
+    const std::vector<int> &wfs,
+    const std::vector<int> &wbs,
+    const std::string &datafile,
+    const std::string &outputfile
+  );
+
 private:
-  std::string get_name() const {
+  static
+  std::string get_name() {
     return ThreePointCorrMeasGetNameHelper<CHANNEL>()();
   }
 
   alps::random01 *p_rng_;
   double beta_;
   int nflavors_;
-  std::vector<int> vsample_;
-  std::vector<int> wsample_;
-  int nsmpl_;
+
+  // Record of worm configuraitons
+  WormConfigRecord<double,double> worm_config_record_;
 };

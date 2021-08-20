@@ -116,3 +116,32 @@ fermionic_sign_time_ordering(double tau, double beta) {
   }
   return {tau, tau_sign};
 }
+
+/**
+ * Record of worm configurations
+ **/
+template<typename TIME_T, typename VAL_REAL_T>
+class WormConfigRecord {
+  public:
+  WormConfigRecord(int num_time_idx, int num_flavor_idx)
+  : num_time_idx_(num_time_idx), num_flavor_idx_(num_flavor_idx),
+    taus(num_time_idx), flavors(num_flavor_idx)
+   {}
+
+  void add(const Worm &worm, const std::complex<double> &val);
+
+  void save(alps::hdf5::archive &oar, const std::string &path) const;
+
+  void load(alps::hdf5::archive &iar, const std::string &path);
+
+  int nsmpl() const {
+    return vals_real.size();
+  }
+
+  std::vector<std::vector<TIME_T>> taus;
+  std::vector<std::vector<std::uint8_t>> flavors;
+  std::vector<VAL_REAL_T> vals_real, vals_imag;
+
+  private:
+  const int num_time_idx_, num_flavor_idx_;
+};
