@@ -1,6 +1,9 @@
 #include "h_corr.hpp"
 
 #include <boost/filesystem/operations.hpp>
+#include <alps/utilities/fs/get_dirname.hpp>
+#include <alps/utilities/fs/get_basename.hpp>
+#include <alps/utilities/fs/remove_extensions.hpp>
 
 template <typename SCALAR, typename SW_TYPE>
 void 
@@ -30,16 +33,20 @@ HCorrMeas<SCALAR,SW_TYPE>::measure(
 
 
 template <typename SCALAR, typename SW_TYPE>
-void save_results(const std::string &filename, const alps::mpi::communicator &comm) const {
-  for (auto irank=0; irank<comm.size(); ++irank) {
-    if (irank == comm.rank()) {
-      alps::hdf5::archive oar(filename, "a");
-      std::string path = get_name()+"/dataset"+std::to_string(comm.rank());
-      if (comm.rank() == 0) {
-        oar[get_name()+"/num_dataset"] << comm.size();
+void HCorrMeas<SCALAR,SW_TYPE>::save_results(const std::string &filename, const alps::mpi::communicator &comm) const {
+  std::string dirname = 
+    alps::fs::remove_extensions(filename) + "_" + get_name() + "_results";
+   if (comm.rank()==0) {
+      if (boost::filesystem::exists(dirname) && 
+        !boost::filesystem::is_directory(dirname)) {
+        throw std::runtime_error("Please remove " + dirname + "!");
+      } else {
+        boost::filesystem::create_directory(dirname);
       }
-      worm_config_record_.save(oar, path);
-    }
-    comm.barrier();
-  }
+   }
+  comm.barrier();
+
+  alps::hdf5::archive oar(
+    dirname+"/rank"+std::to_string(comm.rank())+".out.h5", "w");
+  worm_config_record_.save(oar, "");
 }

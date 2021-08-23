@@ -14,7 +14,10 @@
 
 #include <fstream>
 #include <cstdio>
+#include <boost/filesystem/operations.hpp>
 #include <alps/utilities/fs/remove_extensions.hpp>
+#include <alps/utilities/fs/get_dirname.hpp>
+#include <alps/utilities/fs/get_basename.hpp>
 
 #include "hdf5/boost_any.hpp"
 #include "solver.hpp"
@@ -98,6 +101,22 @@ int main(int argc, const char *argv[]) {
     logger_out << "Removing the old output file " << outputfile << "..." << std::endl;
     std::remove(outputfile.c_str());
   }
+
+  // Remove the exising output directory if any
+  /*
+  if (comm.rank()==0) {
+    std::string dirname = prefix_global + "_results";
+    std::cout << "Preparing output dir " << dirname << "..." << std::endl;
+    if (boost::filesystem::exists(dirname)) {
+      if (!boost::filesystem::is_directory(dirname)) {
+        throw std::runtime_error("Please remove " + dirname + "!");
+      }
+      //boost::filesystem::remove_all(dirname);
+    } else {
+      boost::filesystem::create_directory(dirname);
+    }
+  }
+  */
 
   //solve the model
   p_solver->solve();

@@ -1,5 +1,10 @@
 #include "three_point_corr.hpp"
 
+#include <boost/filesystem/operations.hpp>
+#include <alps/utilities/fs/get_dirname.hpp>
+#include <alps/utilities/fs/get_basename.hpp>
+#include <alps/utilities/fs/remove_extensions.hpp>
+
 template <typename SCALAR, typename SW_TYPE, typename CHANNEL>
 void 
 ThreePointCorrMeas<SCALAR,SW_TYPE,CHANNEL>::measure(
@@ -76,4 +81,23 @@ ThreePointCorrMeas<SCALAR,SW_TYPE,CHANNEL>::eval_on_smpl_freqs(
     alps::hdf5::archive oar(outputfile, "a");
     oar[get_name()+"_matsubara"] = matsu_data;
   }
+}
+
+template <typename SCALAR, typename SW_TYPE, typename CHANNEL>
+void ThreePointCorrMeas<SCALAR,SW_TYPE,CHANNEL>::save_results(const std::string &filename, const alps::mpi::communicator &comm) const {
+  std::string dirname = 
+    alps::fs::remove_extensions(filename) + "_" + get_name() + "_results";
+   if (comm.rank()==0) {
+      if (boost::filesystem::exists(dirname) && 
+        !boost::filesystem::is_directory(dirname)) {
+        throw std::runtime_error("Please remove " + dirname + "!");
+      } else {
+        boost::filesystem::create_directory(dirname);
+      }
+   }
+  comm.barrier();
+
+  alps::hdf5::archive oar(
+    dirname+"/rank"+std::to_string(comm.rank())+".out.h5", "w");
+  worm_config_record_.save(oar, "");
 }

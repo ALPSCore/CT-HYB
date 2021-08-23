@@ -10,24 +10,29 @@ from irbasis_x.freq import check_bosonic, check_fermionic
 from alpscthyb.util import float_to_complex_array
 
 class WormConfigRecord:
-    def __init__(self, h5, path, num_time_idx, num_flavor_idx) -> None:
-        self.num_data_set = h5[path+'/num_dataset'][()]
+    def __init__(self, dirname, num_time_idx, num_flavor_idx) -> None:
         self.datasets = []
-        for i in range(self.num_data_set):
-            taus = []
-            for t in range(num_time_idx):
-                taus.append(h5[path+f'/dataset{i}/taus/{t}'][()])
-            flavors = []
-            for f in range(num_flavor_idx):
-                flavors.append(h5[path+f'/dataset{i}/flavors/{f}'][()])
-            values = h5[path+f'/dataset{i}/vals_real'][()] + 1J* h5[path+f'/dataset{i}/vals_imag'][()]
-            self.datasets.append(
-                {
-                    'taus':    taus,
-                    'flavors': flavors,
-                    'values' : values
-                }
-            )
+        for file in os.listdir(dirname):
+            if not file.endswith(".h5"):
+              continue
+            with h5py.File(dirname+"/"+file, "r") as h5:
+                taus = []
+                for t in range(num_time_idx):
+                    taus.append(h5[f'/taus/{t}'][()])
+
+                flavors = []
+                for f in range(num_flavor_idx):
+                    flavors.append(h5[f'/flavors/{f}'][()])
+
+                values = h5[f'/vals_real'][()] + 1J* h5[f'/vals_imag'][()]
+
+                self.datasets.append(
+                    {
+                        'taus':    taus,
+                        'flavors': flavors,
+                        'values' : values
+                    }
+                )
 
 def ft_three_point_obj(worm_config_record, wsample, nflavors, beta):
     wfs, wbs = wsample
@@ -248,11 +253,11 @@ def postprocess_three_point_ph(h5, verbose=False, **kwargs):
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
     if verbose:
         print("Reading eta...")
-    res = {
+    return {
         'eta_coeff' : w_vol/(sign * z_vol),
-        'eta_datasets' : WormConfigRecord(h5, 'eta', 3, 4)
+        'eta_datasets' :
+            WormConfigRecord(kwargs['prefix'] + "_wormspace_Three_point_PH_eta_results", 3, 4)
     }
-    return res
 
 def postprocess_three_point_pp(h5, verbose=False, **kwargs):
     sign = read_mc_result(h5, 'Sign')['mean']
@@ -260,25 +265,23 @@ def postprocess_three_point_pp(h5, verbose=False, **kwargs):
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
     if verbose:
         print("Reading gamma...")
-    res = {
+    return {
         'gamma_coeff' : w_vol/(sign * z_vol),
-        'gamma_datasets' : WormConfigRecord(h5, 'gamma', 3, 4)
+        'gamma_datasets' :
+            WormConfigRecord(kwargs['prefix'] + "_wormspace_Three_point_PP_gamma_results", 3, 4)
     }
-    return res
 
 def postprocess_G2(h5, verbose=False, **kwargs):
     beta = kwargs['beta']
+    prefix = kwargs['prefix']
     sign = read_mc_result(h5, 'Sign')['mean']
     w_vol = read_mc_result(h5, 'worm_space_volume_G2')['mean']
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
-
-    res = {}
-    if "h_corr" in h5:
-        if verbose:
-            print("Reading h_corr...")
-        res['h_corr_coeff'] = w_vol/(sign * z_vol)
-        res['h_corr_datasets'] = WormConfigRecord(h5, 'h_corr', 4, 4)
-    return res
+    return {
+        'h_corr_coeff': w_vol/(sign * z_vol),
+        'h_corr_datasets':
+            WormConfigRecord(prefix + "_wormspace_G2_h_corr_results", 4, 4)
+    }
 
 
 postprocessors = {
@@ -318,7 +321,7 @@ class QMCResult:
             if not os.path.exists(fname):
                 continue
             with h5py.File(fname, 'r') as h5:
-                res_ = post_(h5, verbose, beta=self.beta, nflavors=self.nflavors)
+                res_ = post_(h5, verbose, beta=self.beta, nflavors=self.nflavors, prefix=p)
                 for k, v in res_.items():
                     self.__setattr__(k, v)
 
