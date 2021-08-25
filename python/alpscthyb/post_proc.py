@@ -536,7 +536,7 @@ class VerteXEvaluatorU0(VertexEvaluator):
         vartheta3 = self.compute_vartheta(v3)
         return (self.beta**2) * (
             np.einsum('w,wab,wcd->wabcd', (v1==v2), vartheta1, vartheta3) -
-            np.einsum('w,wad,wcb->wabcd', (v1==v3), vartheta1, vartheta3)
+            np.einsum('w,wad,wcb->wabcd', (v1==v4), vartheta1, vartheta3)
         )
 
 
