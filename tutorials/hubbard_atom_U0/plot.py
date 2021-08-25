@@ -1,22 +1,45 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from itertools import product
 from irbasis_x.freq import box
-from numpy.core.einsumfunc import einsum
-from alpscthyb import non_interacting
-from alpscthyb.post_proc import QMCResult, compute_Tnl_sparse, legendre_to_matsubara, legendre_to_tau
-from alpscthyb import post_proc
+from alpscthyb.post_proc import QMCResult, VerteXEvaluatorU0
 from alpscthyb.non_interacting import NoninteractingLimit
+
+
+def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
+    qmc = np.moveaxis(qmc, 0, -1).ravel()
+    ref = np.moveaxis(ref, 0, -1).ravel()
+    fig, axes = plt.subplots(3, 1, figsize=(5,10))
+    #amax = 1.5*np.abs(ref).max()
+    axes[0].plot(qmc.ravel().real, marker='+', ls='', label=label1)
+    axes[0].plot(ref.ravel().real, marker='x', ls='', label=label2)
+    axes[1].plot(qmc.ravel().imag, marker='+', ls='', label=label1)
+    axes[1].plot(ref.ravel().imag, marker='x', ls='', label=label2)
+    axes[0].set_ylabel(r"Re")
+    axes[1].set_ylabel(r"Im")
+
+    axes[2].semilogy(np.abs(qmc), marker='+', ls='', label=label1)
+    axes[2].semilogy(np.abs(ref), marker='x', ls='', label=label2)
+    axes[2].semilogy(np.abs(ref-qmc), marker='', ls='--', label='diff')
+    axes[2].set_ylabel(r"Abs")
+
+    for ax in axes:
+        ax.legend()
+    fig.tight_layout()
+    fig.savefig(name+'.eps')
 
 
 res = QMCResult('input', verbose=True)
 non_int = NoninteractingLimit(res)
 beta = res.beta
 
+evalU0 = VerteXEvaluatorU0(
+    res.nflavors, res.beta, res.basis_f, res.basis_b, res.hopping, res.Delta_l)
+
+
 plt.figure(1)
 for f in range(res.nflavors):
-    plt.plot(res.Delta_tau[:,f,f], label=f'flavor{f}')
-    plt.plot(res.Delta_tau_rec[:,f,f], label=f'flavor{f}')
+    plt.plot(res.Delta_tau[:,f,f].real, label=f'flavor{f}')
+    plt.plot(res.Delta_tau_rec[:,f,f].real, label=f'flavor{f}')
 plt.legend()
 plt.savefig("Delta_tau.eps")
 plt.close(1)
@@ -33,6 +56,16 @@ mu = 0.5*U
 
 # Fermionic sampling frequencies
 vsample = res.basis_f.wsample
+wfs = res.basis_f.wsample
+wbs = res.basis_b.wsample
+
+# Fermion-boson frequency box
+def box_fb(nf, nb):
+    wf = 2*np.arange(-nf,nf)+1
+    wb = 2*np.arange(-nb,nb)
+    v, w = np.broadcast_arrays(wf[:,None], wb[None,:])
+    return v.ravel(), w.ravel()
+wsample_fb = box_fb(4, 5)
 
 #SIE
 gir_SIE = res.compute_gir_SIE()
@@ -44,148 +77,38 @@ giv_legendre = res.compute_giv_from_legendre(vsample)
 sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, vsample)
 
 # G0
-g0iv = non_int.giv(res.basis_f.wsample)
+g0iv = evalU0.compute_giv(res.basis_f.wsample)
+
+# Sigma
+plot_comparison(
+    sigma_iv,
+    sigma_iv_legendre,
+    "sigma", label1='SIE', label2='Legendre')
+
+# G(iv)
+plot_comparison(
+    giv,
+    giv_legendre,
+    "giv", label1='SIE', label2='Legendre')
 
 # vartheta
-#vartheta = res.vartheta
-vartheta_rec = legendre_to_matsubara(res.vartheta_legendre, vsample)
-vartheta_non_int = non_int.vartheta(vsample)
+plot_comparison(
+    res.compute_vartheta(wfs),
+    evalU0.compute_vartheta(wfs),
+    "vartheta")
 
-v = vsample * np.pi/res.beta
-iv = 1J * v
-
-for flavor in range(res.nflavors):
-    plt.figure(1)
-    plt.subplot(211)
-    v_ = vsample * np.pi/beta
-    plt.plot(v_, vartheta_rec[:,flavor,flavor].real, ls='', marker='x', label='SIE (legendre)')
-    plt.plot(v_, vartheta_non_int[:,flavor,flavor].real, ls='', marker='+', label='Non interacting')
-    plt.xlim([-10, 10])
-    plt.ylabel(r"Re$\vartheta(\mathrm{i}\nu)$")
-    plt.subplot(212)
-    plt.plot(v_, vartheta_rec[:,flavor,flavor].imag, ls='', marker='x', label='SIE (legendre)')
-    plt.plot(v_, vartheta_non_int[:,flavor,flavor].imag, ls='', marker='+', label='Non interacting')
-    plt.xlim([-10, 10])
-    plt.xlabel(r"$\nu$")
-    plt.ylabel(r"Im$\vartheta(\mathrm{i}\nu)$")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(f"vartheta_flavor{flavor}.eps")
-    plt.close(1)
-
-    plt.figure(1)
-    plt.subplot(211)
-    plt.plot(v, giv[:,flavor,flavor].real, label='SIE')
-    plt.plot(v, giv_legendre[:,flavor,flavor].real, label='Legendre')
-    plt.plot(v, g0iv[:,flavor,flavor].real, label='G0')
-    plt.xlim([-10, 10])
-    plt.ylabel(r"Re$G(\mathrm{i}\nu)$")
-    plt.subplot(212)
-    plt.plot(v, giv[:,flavor,flavor].imag, label='SIE')
-    plt.plot(v, giv_legendre[:,flavor,flavor].imag, marker='x', ls='', label='Legendre')
-    plt.plot(v, g0iv[:,flavor,flavor].imag, label='G0')
-    plt.xlim([-10, 10])
-    plt.xlabel(r"$\nu$")
-    plt.ylabel(r"Im$G(\mathrm{i}\nu)$")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(f"giv_flavor{flavor}.eps")
-    plt.close(1)
-
-    plt.figure(1)
-    plt.subplot(211)
-    plt.plot(v, (sigma_iv[:,flavor,flavor].real), label='SIE')
-    plt.plot(v, (sigma_iv_legendre[:,flavor,flavor].real), marker='x', ls='', label='legenre')
-    plt.ylabel(r"Re$\Sigma(\mathrm{i}\nu)$")
-    plt.subplot(212)
-    plt.plot(v, (sigma_iv[:,flavor,flavor].imag), label='SIE')
-    plt.plot(v, (sigma_iv_legendre[:,flavor,flavor].imag), marker='x', ls='', label='legenre')
-    plt.xlabel(r"$\nu$")
-    plt.ylabel(r"Im$\Sigma(\mathrm{i}\nu)$")
-    plt.legend()
-    plt.savefig(f"sigma_iv_flavor{flavor}.eps")
-    plt.close(1)
-
-
-ref_generators = {'lambda': 'lambda_tau', 'varphi': 'varphi_tau'}
+# varphi & lambda
 for name in ['varphi', 'lambda']:
-    data_l = res.__getattribute__(name+'_legendre')
-    wsample = 2 * np.arange(-10,10)
-    data_iw = legendre_to_matsubara(data_l, wsample)
-    tau = np.linspace(0, beta, 100)
-    data_tau = legendre_to_tau(data_l, tau, beta)
-    for flavors in [(0,1,0,1), (1,0,1,0), (0,0,0,0), (1,1,1,1)]:
-        plt.figure(1)
-        plt.plot(wsample, (data_iw[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), label='Re', marker='x')
-        plt.plot(wsample, (data_iw[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), label='Im', marker='x')
-        plt.legend()
-        plt.xlim([-10,10])
-        plt.savefig(name + f"_iw_flavors{flavors[0]}{flavors[1]}{flavors[2]}{flavors[3]}.eps")
-        plt.close(1)
-
-        plt.figure(1)
-        plt.plot(tau, (data_tau[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), label='Re', ls='', marker='x', color='r')
-        plt.plot(tau, (data_tau[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), label='Im', ls='', marker='x', color='b')
-        if name in ref_generators:
-            data_tau_ref = non_int.__getattribute__(ref_generators[name])(tau)
-            plt.plot(tau, (data_tau_ref[:,flavors[0],flavors[1],flavors[2],flavors[3]].real), ls='--', marker='', color='r')
-            plt.plot(tau, (data_tau_ref[:,flavors[0],flavors[1],flavors[2],flavors[3]].imag), ls='--', marker='', color='b')
-        plt.legend()
-        plt.savefig(name + f"_tau_flavors{flavors[0]}{flavors[1]}{flavors[2]}{flavors[3]}.eps")
-        plt.close(1)
-
-
-def box_fb(nf, nb):
-    wf = 2*np.arange(-nf,nf)+1
-    wb = 2*np.arange(-nb,nb)
-    v, w = np.broadcast_arrays(wf[:,None], wb[None,:])
-    return v.ravel(), w.ravel()
-
-wsample_fb = box_fb(4, 5)
+    qmc = getattr(res, f'compute_{name}')(wbs)
+    ref = getattr(evalU0, f'compute_{name}')(wbs)
+    plot_comparison(qmc, ref, name)
 
 # eta
-fig, axes = plt.subplots(2, 1)
-eta_qmc = res.compute_eta(wsample_fb)
-eta_ref = non_int.eta(wsample_fb)
-axes[0].plot(eta_qmc[:,0,0,0,0].real, marker='o', label='QMC')
-axes[0].plot(eta_ref[:,0,0,0,0].real, marker='x', label='ref')
-axes[1].plot(eta_qmc[:,0,0,0,0].imag, marker='o', label='QMC')
-axes[1].plot(eta_ref[:,0,0,0,0].imag, marker='x', label='ref')
-axes[0].set_ylabel(r"Re$\eta$")
-axes[1].set_ylabel(r"Im$\eta$")
-for ax in axes:
-    ax.legend()
-fig.tight_layout()
-fig.savefig('eta.eps')
+plot_comparison(res.compute_eta(*wsample_fb), evalU0.compute_eta(*wsample_fb), "eta")
 
 # gamma
-fig, axes = plt.subplots(2, 1)
-gamma_qmc = res.compute_gamma(wsample_fb)
-gamma_ref = non_int.gamma(wsample_fb)
-axes[0].plot(gamma_qmc[:,0,1,0,1].real, marker='o', label='QMC')
-axes[0].plot(gamma_ref[:,0,1,0,1].real, marker='x', label='ref')
-axes[1].plot(gamma_qmc[:,0,1,0,1].imag, marker='o', label='QMC')
-axes[1].plot(gamma_ref[:,0,1,0,1].imag, marker='x', label='ref')
-axes[0].set_ylabel(r"Re$\gamma$")
-axes[1].set_ylabel(r"Im$\gamma$")
-for ax in axes:
-    ax.legend()
-fig.tight_layout()
-fig.savefig('gamma.eps')
+plot_comparison(res.compute_gamma(*wsample_fb), evalU0.compute_gamma(*wsample_fb), "gamma")
 
 # h
 wsample_ffff = box(4, 3, return_conv='full', ravel=True)
-fig, axes = plt.subplots(2, 1)
-h_qmc = res.compute_h_corr(wsample_ffff)
-h_ref = non_int.h(wsample_ffff)
-data = np.max(np.abs(h_ref), axis=0)
-axes[0].plot(h_qmc[:,0,0,1,1].real, marker='o', label='QMC')
-axes[0].plot(h_ref[:,0,0,1,1].real, marker='x', label='ref')
-axes[1].plot(h_qmc[:,0,0,1,1].imag, marker='o', label='QMC')
-axes[1].plot(h_ref[:,0,0,1,1].imag, marker='x', label='ref')
-axes[0].set_ylabel(r"Re$h$")
-axes[1].set_ylabel(r"Im$h$")
-for ax in axes:
-    ax.legend()
-fig.tight_layout()
-fig.savefig('h.eps')
+plot_comparison(res.compute_h(wsample_ffff), evalU0.compute_h(wsample_ffff), "h")

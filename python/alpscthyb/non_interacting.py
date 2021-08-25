@@ -80,6 +80,8 @@ class NoninteractingLimit:
 
     def xi_iv(self, wfsample):
         """ Compute xi(iv) """
+        print("xi: ", np.sum(self.calgiv(wfsample)),
+            np.sum(self.vab), np.sum(self.vartheta(wfsample)))
         return np.einsum(
             'wai,wib->wab',
             self.calgiv(wfsample),
@@ -103,6 +105,7 @@ class NoninteractingLimit:
            self.xi_iv(wfsample),
            self.xi_iv(wbsample-wfsample).conj()
         )
+        #print("eta1,eta2", np.sum(eta1), np.sum(eta2))
         return eta1 + eta2
 
     def gamma(self, wsample):
