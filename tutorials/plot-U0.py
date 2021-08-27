@@ -3,9 +3,12 @@ import matplotlib.pyplot as plt
 from irbasis_x.freq import box
 from alpscthyb.post_proc import QMCResult, VertexEvaluatorU0
 from alpscthyb.non_interacting import NoninteractingLimit
+from alpscthyb import mpi
 
 
 def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
+    if mpi.rank != 0:
+        return
     qmc = np.moveaxis(qmc, 0, -1).ravel()
     ref = np.moveaxis(ref, 0, -1).ravel()
     fig, axes = plt.subplots(3, 1, figsize=(5,10))

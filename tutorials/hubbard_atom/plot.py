@@ -130,6 +130,7 @@ plot_comparison(res.compute_h(wsample_ffff), evalU0.compute_h(wsample_ffff), "h"
 
 # F
 wsample_ph = to_ph_convention(*wsample_ffff)
-plot_comparison(
-    res.compute_F(wsample_ffff),
-    beta * _atomic_F_ph.compute_h(U, beta), "F")
+F_ref = beta * _atomic_F_ph(U, beta, wsample_ph)
+#print(F_ref)
+plot_comparison(res.compute_F(wsample_ffff), F_ref, "F")
+#plot_comparison(np.zeros_like(F_ref), F_ref, "F")

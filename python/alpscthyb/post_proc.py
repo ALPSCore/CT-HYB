@@ -9,6 +9,7 @@ from irbasis_x.freq import check_bosonic, check_fermionic, check_full_convention
 #from alpscthyb.non_interacting import NoninteractingLimit
 
 from alpscthyb.util import float_to_complex_array
+from alpscthyb import mpi
 
 def _einsum(subscripts, *operands):
     return np.einsum(subscripts, *operands, optimize=True)
@@ -20,15 +21,17 @@ class WormConfigRecord:
             if not file.endswith(".h5"):
               continue
             with h5py.File(dirname+"/"+file, "r") as h5:
+                local_slice = mpi.get_slice(h5[f'/taus/0'].size)
                 taus = []
                 for t in range(num_time_idx):
-                    taus.append(h5[f'/taus/{t}'][()])
+                    taus.append(h5[f'/taus/{t}'][local_slice][()])
 
                 flavors = []
                 for f in range(num_flavor_idx):
-                    flavors.append(h5[f'/flavors/{f}'][()])
+                    flavors.append(h5[f'/flavors/{f}'][local_slice][()])
 
-                values = h5[f'/vals_real'][()] + 1J* h5[f'/vals_imag'][()]
+                values = h5[f'/vals_real'][local_slice][()] \
+                    + 1J* h5[f'/vals_imag'][local_slice][()]
 
                 self.datasets.append(
                     {
@@ -59,8 +62,9 @@ def ft_three_point_obj(worm_config_record, wsample, nflavors, beta):
                    flavors[2][iconfig],
                    flavors[3][iconfig],
             ] += res_[:, iconfig]
-    res /= ndata*beta
-    return res
+    res = mpi.allreduce(res)
+    ndata = mpi.allreduce(ndata)
+    return res/ndata
 
 def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
     wf1, wf2, wf3, wf4 = wsample
@@ -86,8 +90,9 @@ def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
                    flavors[2][iconfig],
                    flavors[3][iconfig],
             ] += res_[:, iconfig]
-    res /= ndata
-    return res
+    res = mpi.allreduce(res)
+    ndata = mpi.allreduce(ndata)
+    return res/ndata
 
 def load_irbasis(stat, Lambda, beta, cutoff):
     return FiniteTemperatureBasis(
