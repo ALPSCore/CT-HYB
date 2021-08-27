@@ -64,7 +64,7 @@ def ft_three_point_obj(worm_config_record, wsample, nflavors, beta):
             ] += res_[:, iconfig]
     res = mpi.allreduce(res)
     ndata = mpi.allreduce(ndata)
-    return res/ndata
+    return res/(ndata*beta)
 
 def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
     wf1, wf2, wf3, wf4 = wsample
@@ -336,8 +336,7 @@ class VertexEvaluator(object):
         raise NotImplementedError
 
     def compute_v(self):
-        #print("dm", self.get_dm())
-        return self.hopping + 0.5 * _einsum('abij,ij->ab', self.get_asymU(), self.get_dm())
+        return self.hopping + _einsum('abij,ij->ab', self.get_asymU(), self.get_dm())
 
     def compute_giv(self, wfs):
         return self._compute_giv(wfs, self.hopping)
@@ -430,21 +429,27 @@ class VertexEvaluator(object):
         F += (beta**2) * np.einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_, optimize=True)
         F -= (beta**2) * np.einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_, optimize=True)
 
+        # xi
         F += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
         F += beta * _einsum('aicd,Wbi->Wabcd', asymU, self.compute_xi(-v2).conj())
         F += beta * _einsum('abid,Wci->Wabcd', asymU, self.compute_xi(v3))
         F += beta * _einsum('abci,Wdi->Wabcd', asymU, self.compute_xi(-v4).conj())
 
+        # phi
         F += -4 * beta * self.compute_phi(v3-v4)
         F +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
+
+        # f
         F +=  2 * beta * self.compute_f(v1, v1-v2)
         F +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
         F += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
         F += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
 
-        F += -beta * self.compute_Psi(v1+v3)
+        # g
         F += -beta * self.compute_g(v1, v3)
         F += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
+
+        F += -beta * self.compute_Psi(v1+v3)
 
         F -= self.compute_h(wsample_full)
 

@@ -23,19 +23,23 @@ def _atomic_F_ph(U, beta, wsample_ph):
 
 def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
     qmc = np.moveaxis(qmc, 0, -1).ravel()
-    ref = np.moveaxis(ref, 0, -1).ravel()
+    if ref is not None:
+        ref = np.moveaxis(ref, 0, -1).ravel()
     fig, axes = plt.subplots(3, 1, figsize=(5,10))
     #amax = 1.5*np.abs(ref).max()
     axes[0].plot(qmc.ravel().real, marker='+', ls='', label=label1)
-    axes[0].plot(ref.ravel().real, marker='x', ls='', label=label2)
+    if ref is not None:
+        axes[0].plot(ref.ravel().real, marker='x', ls='', label=label2)
     axes[1].plot(qmc.ravel().imag, marker='+', ls='', label=label1)
-    axes[1].plot(ref.ravel().imag, marker='x', ls='', label=label2)
+    if ref is not None:
+        axes[1].plot(ref.ravel().imag, marker='x', ls='', label=label2)
     axes[0].set_ylabel(r"Re")
     axes[1].set_ylabel(r"Im")
 
     axes[2].semilogy(np.abs(qmc), marker='+', ls='', label=label1)
-    axes[2].semilogy(np.abs(ref), marker='x', ls='', label=label2)
-    axes[2].semilogy(np.abs(ref-qmc), marker='', ls='--', label='diff')
+    if ref is not None:
+        axes[2].semilogy(np.abs(ref), marker='x', ls='', label=label2)
+        axes[2].semilogy(np.abs(ref-qmc), marker='', ls='--', label='diff')
     axes[2].set_ylabel(r"Abs")
 
     for ax in axes:
@@ -90,6 +94,9 @@ sigma_iv = res.compute_sigma_iv(giv, vsample)
 giv_legendre = res.compute_giv_from_legendre(vsample)
 sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, vsample)
 
+# v_{ab}
+print("v_ab: ", res.compute_v())
+
 # G0
 g0iv = evalU0.compute_giv(res.basis_f.wsample)
 
@@ -108,20 +115,19 @@ plot_comparison(
 # vartheta
 plot_comparison(
     res.compute_vartheta(wfs),
-    evalU0.compute_vartheta(wfs),
+    None,
     "vartheta")
 
 # varphi & lambda
 for name in ['varphi', 'lambda']:
     qmc = getattr(res, f'compute_{name}')(wbs)
-    ref = getattr(evalU0, f'compute_{name}')(wbs)
-    plot_comparison(qmc, ref, name)
+    plot_comparison(qmc, None, name)
 
 # eta
-plot_comparison(res.compute_eta(*wsample_fb), evalU0.compute_eta(*wsample_fb), "eta")
+plot_comparison(res.compute_eta(*wsample_fb), None, "eta")
 
 # gamma
-plot_comparison(res.compute_gamma(*wsample_fb), evalU0.compute_gamma(*wsample_fb), "gamma")
+plot_comparison(res.compute_gamma(*wsample_fb), None, "gamma")
 
 # h
 wsample_ffff = box(4, 3, return_conv='full', ravel=True)
