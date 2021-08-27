@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from irbasis_x.freq import box
-from alpscthyb.post_proc import QMCResult, VerteXEvaluatorU0
+from alpscthyb.post_proc import QMCResult, VertexEvaluatorU0
 from alpscthyb.non_interacting import NoninteractingLimit
 
 
@@ -32,7 +32,7 @@ res = QMCResult('input', verbose=True)
 non_int = NoninteractingLimit(res)
 beta = res.beta
 
-evalU0 = VerteXEvaluatorU0(
+evalU0 = VertexEvaluatorU0(
     res.nflavors, res.beta, res.basis_f, res.basis_b, res.hopping, res.Delta_l)
 
 

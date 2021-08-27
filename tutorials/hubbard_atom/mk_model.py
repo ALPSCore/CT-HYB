@@ -34,8 +34,8 @@ def ft_to_tau_hyb(ntau, beta, matsubara_freq, tau, Vek, data_n, data_tau, cutoff
 n_site = 1
 nf = n_site*2
 
-Uval = 8.0
-vbeta = 20.0
+Uval = 1.0
+vbeta = 5.0
 ntau = 1000
 mu = 0.5*Uval
 V = 1.0e-3

@@ -1,94 +1,135 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from alpscthyb.post_proc import QMCResult
+from irbasis_x import atom
+from irbasis_x.freq import box, to_ph_convention
+from alpscthyb.post_proc import QMCResult, VertexEvaluatorU0
+from alpscthyb.non_interacting import NoninteractingLimit
 
-def giw_ref(beta, U, vsample):
-    assert all(vsample%2 == 1)
-    iv = 1J * vsample * np.pi/beta
-    return 0.5/(iv-0.5*U) + 0.5/(iv+0.5*U)
+def _atomic_F_ph(U, beta, wsample_ph):
+    """ Compute full vertex of Hubbard atom"""
+    nf = 2 
+    Fuu_, Fud_ = atom.full_vertex_ph(U, beta, *wsample_ph)
+    # Eq. (D4b) in PRB 86, 125114 (2012)
+    Fbarud_ = - atom.full_vertex_ph(U, beta,
+        wsample_ph[0],
+        wsample_ph[0]+wsample_ph[2],
+        wsample_ph[1]-wsample_ph[0])[1]
+    Floc = np.zeros((len(wsample_ph[0]), nf, nf, nf, nf), dtype=np.complex128)
+    Floc[:, 0, 0, 0, 0] = Floc[:, 1, 1, 1, 1] =  Fuu_
+    Floc[:, 0, 0, 1, 1] = Floc[:, 1, 1, 0, 0] =  Fud_
+    Floc[:, 1, 0, 0, 1] = Floc[:, 0, 1, 1, 0] =  Fbarud_
+    return Floc
 
-def vartheta_ref(beta, U, vsample):
-    return ((0.5*U)**2) * giw_ref(beta, U, vsample)
 
-res = QMCResult('input')
+def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
+    qmc = np.moveaxis(qmc, 0, -1).ravel()
+    ref = np.moveaxis(ref, 0, -1).ravel()
+    fig, axes = plt.subplots(3, 1, figsize=(5,10))
+    #amax = 1.5*np.abs(ref).max()
+    axes[0].plot(qmc.ravel().real, marker='+', ls='', label=label1)
+    axes[0].plot(ref.ravel().real, marker='x', ls='', label=label2)
+    axes[1].plot(qmc.ravel().imag, marker='+', ls='', label=label1)
+    axes[1].plot(ref.ravel().imag, marker='x', ls='', label=label2)
+    axes[0].set_ylabel(r"Re")
+    axes[1].set_ylabel(r"Im")
+
+    axes[2].semilogy(np.abs(qmc), marker='+', ls='', label=label1)
+    axes[2].semilogy(np.abs(ref), marker='x', ls='', label=label2)
+    axes[2].semilogy(np.abs(ref-qmc), marker='', ls='--', label='diff')
+    axes[2].set_ylabel(r"Abs")
+
+    for ax in axes:
+        ax.legend()
+    fig.tight_layout()
+    fig.savefig(name+'.eps')
+
+
+res = QMCResult('input', verbose=True)
+non_int = NoninteractingLimit(res)
 beta = res.beta
+U = 1.0
+
+evalU0 = VertexEvaluatorU0(
+    res.nflavors, res.beta, res.basis_f, res.basis_b, res.hopping, res.Delta_l)
+
 
 plt.figure(1)
-plt.semilogy(np.abs(res.Delta_tau[0,0,:]))
-plt.savefig("Delta_tau.pdf")
+for f in range(res.nflavors):
+    plt.plot(res.Delta_tau[:,f,f].real, label=f'flavor{f}')
+    plt.plot(res.Delta_tau_rec[:,f,f].real, label=f'flavor{f}')
+plt.legend()
+plt.savefig("Delta_tau.eps")
 plt.close(1)
 
 plt.figure(1)
-plt.semilogy(np.abs(res.Delta_l[:,0,0]))
-plt.savefig("Delta_l.pdf")
+for f in range(res.nflavors):
+    plt.semilogy(np.abs(res.Delta_l[:,f,f]), label=f'flavor{f}')
+plt.legend()
+plt.savefig("Delta_l.eps")
 plt.close(1)
 
-U = 8.
-mu = 0.5*U
+# Fermionic sampling frequencies
+vsample = res.basis_f.wsample
+wfs = res.basis_f.wsample
+wbs = res.basis_b.wsample
+
+# Fermion-boson frequency box
+def box_fb(nf, nb):
+    wf = 2*np.arange(-nf,nf)+1
+    wb = 2*np.arange(-nb,nb)
+    v, w = np.broadcast_arrays(wf[:,None], wb[None,:])
+    return v.ravel(), w.ravel()
+wsample_fb = box_fb(4, 5)
 
 #SIE
-vsample = res.vartheta_smpl_freq
-giv = res.compute_giv_SIE()
+gir_SIE = res.compute_gir_SIE()
+giv = res.compute_giv_SIE(vsample)
 sigma_iv = res.compute_sigma_iv(giv, vsample)
 
 #Legendre
 giv_legendre = res.compute_giv_from_legendre(vsample)
 sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, vsample)
 
-v = res.vartheta_smpl_freq * np.pi/res.beta
-iv = 1J * v
+# G0
+g0iv = evalU0.compute_giv(res.basis_f.wsample)
 
-giv_ref = 0.5/(iv - 0.5*U) + 0.5/(iv + 0.5*U)
-g0      = 1/iv
-sigma_iv_ref = 1/g0 - 1/giv_ref + mu
+# Sigma
+plot_comparison(
+    sigma_iv,
+    sigma_iv_legendre,
+    "sigma", label1='SIE', label2='Legendre')
 
-plt.figure(1)
-plt.subplot(211)
-plt.plot(v, giv[:,0,0].real, label='SIE')
-plt.plot(v, giv_legendre[:,0,0].real, label='Legendre')
-plt.plot(v, giv_ref.real, marker='+', ls='', label='ref')
-plt.xlim([-20, 20])
-plt.ylabel(r"Re$G(\mathrm{i}\nu)$")
-plt.subplot(212)
-plt.plot(v, giv[:,0,0].imag, label='SIE')
-plt.plot(v, giv_legendre[:,0,0].imag, marker='x', ls='', label='Legendre')
-plt.plot(v, giv_ref.imag, marker='+', ls='', label='ref')
-#plt.plot(v, (1/iv).imag, marker='x', ls='', label='1/iv')
-plt.xlim([-20, 20])
-plt.ylim([-0.2,0.2])
-plt.xlabel(r"$\nu$")
-plt.ylabel(r"Im$G(\mathrm{i}\nu)$")
-plt.legend()
-plt.savefig("giv.pdf")
-plt.close(1)
+# G(iv)
+plot_comparison(
+    giv,
+    giv_legendre,
+    "giv", label1='SIE', label2='Legendre')
 
-plt.figure(1)
-plt.subplot(211)
-plt.plot(v, np.abs(sigma_iv[:,0,0].real), label='SIE')
-plt.plot(v, np.abs(sigma_iv_legendre[:,0,0].real), marker='x', ls='', label='legenre')
-plt.plot(v, np.abs(sigma_iv_ref.real), marker='+', ls='', label='ref')
-plt.ylabel(r"|Re$\Sigma(\mathrm{i}\nu)$|")
-plt.xscale("log")
-plt.yscale("log")
-plt.subplot(212)
-plt.plot(v, np.abs(sigma_iv[:,0,0].imag), label='SIE')
-plt.plot(v, np.abs(sigma_iv_legendre[:,0,0].imag), marker='x', ls='', label='legenre')
-plt.plot(v, np.abs(sigma_iv_ref.imag), marker='+', ls='', label='ref')
-plt.xlabel(r"$\nu$")
-plt.ylabel(r"|Im$\Sigma(\mathrm{i}\nu)$|")
-plt.xscale("log")
-plt.yscale("log")
-plt.legend()
-plt.savefig("sigma_iv.pdf")
-plt.close(1)
+# vartheta
+plot_comparison(
+    res.compute_vartheta(wfs),
+    evalU0.compute_vartheta(wfs),
+    "vartheta")
 
-plt.figure(1)
-plt.plot(v, np.abs(sigma_iv[:,0,0] - sigma_iv_ref), marker='x', label='SIE')
-plt.plot(v, np.abs(sigma_iv_legendre[:,0,0] - sigma_iv_ref), marker='+', label='Legendre')
-plt.xlabel(r"$\nu$")
-plt.ylabel(r"Absolute error in $\Sigma(\mathrm{i}\nu)$")
-plt.xscale("log")
-plt.yscale("log")
-plt.legend()
-plt.savefig("error_sigma_iv.pdf")
-plt.close(1)
+# varphi & lambda
+for name in ['varphi', 'lambda']:
+    qmc = getattr(res, f'compute_{name}')(wbs)
+    ref = getattr(evalU0, f'compute_{name}')(wbs)
+    plot_comparison(qmc, ref, name)
+
+# eta
+plot_comparison(res.compute_eta(*wsample_fb), evalU0.compute_eta(*wsample_fb), "eta")
+
+# gamma
+plot_comparison(res.compute_gamma(*wsample_fb), evalU0.compute_gamma(*wsample_fb), "gamma")
+
+# h
+wsample_ffff = box(4, 3, return_conv='full', ravel=True)
+
+plot_comparison(res.compute_h(wsample_ffff), evalU0.compute_h(wsample_ffff), "h")
+
+# F
+wsample_ph = to_ph_convention(*wsample_ffff)
+plot_comparison(
+    res.compute_F(wsample_ffff),
+    beta * _atomic_F_ph.compute_h(U, beta), "F")

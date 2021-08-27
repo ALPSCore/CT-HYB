@@ -369,8 +369,8 @@ class VertexEvaluator(object):
         phi = 0.25 * self.compute_lambda(wbs)
         const = 0.25 * self.beta * (
             np.einsum('ab,cd->abcd', self.hopping, self.hopping) +
-            np.einsum('ab,cdkl,kl->abcd', self.hopping, self.get_asymU(), self.dm, optimize=True) +
-            np.einsum('cd,abij,ij->abcd', self.hopping, self.get_asymU(), self.dm, optimize=True)
+            np.einsum('ab,cdkl,kl->abcd', self.hopping, self.get_asymU(), self.get_dm(), optimize=True) +
+            np.einsum('cd,abij,ij->abcd', self.hopping, self.get_asymU(), self.get_dm(), optimize=True)
         )
         phi[wbs==0] += const[None,:,:,:,:]
         return phi
@@ -384,15 +384,16 @@ class VertexEvaluator(object):
 
     def compute_f(self, wfs, wbs):
         wfs = check_fermionic(wfs)
-        wbs = check_fermionic(wbs)
+        wbs = check_bosonic(wbs)
         f = 0.5 * np.einsum(
             'Wabij,cdij->Wabcd',
             self.compute_eta(wfs, wbs),
             self.get_asymU(),
             optimize=True
         )
-        f[wbs==0] += -0.5 * self.beta * \
-            np.einsum('Wab,cd->Wabcd',
+        f += -0.5 * self.beta * \
+            np.einsum('W,Wab,cd->Wabcd',
+                wbs == 0,
                 self.compute_xi(wfs),
                 self.hopping,
                 optimize=True
@@ -409,17 +410,21 @@ class VertexEvaluator(object):
         )
     
     def compute_F(self, wsample_full):
-        wsample_full = check_full_convention(wsample_full)
+        wsample_full = check_full_convention(*wsample_full)
         v1, v2, v3, v4 = wsample_full
         beta = self.beta
         asymU = self.get_asymU()
         F = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
 
+        vab = self.compute_v()
+
         F += beta * asymU[None, ...]
-        v1_ = self.compute_vartheta(v1) + self.v[None,:,:]
-        v3_ = self.compute_vartheta(v3) + self.v[None,:,:]
-        F[v1==v2, ...] += (beta**2) * np.einsum('Wab,Wcd->Wabcd', v1_, v3_, optimize=True)
-        F[v1==v4, ...] -= (beta**2) * np.einsum('Wad,Wcb->Wabcd', v1_, v3_, optimize=True)
+
+        v1_ = self.compute_vartheta(v1) + vab[None,:,:]
+        v3_ = self.compute_vartheta(v3) + vab[None,:,:]
+        F += (beta**2) * np.einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_, optimize=True)
+        F -= (beta**2) * np.einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_, optimize=True)
+
         F += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
         F += beta * _einsum('aicd,Wbi->Wabcd', asymU, self.compute_xi(-v2).conj())
         F += beta * _einsum('abid,Wci->Wabcd', asymU, self.compute_xi(v3))
@@ -440,11 +445,11 @@ class VertexEvaluator(object):
 
         return F
 
-class VerteXEvaluatorU0(VertexEvaluator):
+class VertexEvaluatorU0(VertexEvaluator):
     """
     Non-interacting limit
     """
-    def __init__(self, nflavors, beta, basis_f, basis_b, hopping, Delta_l):
+    def __init__(self, nflavors, beta, basis_f, basis_b, hopping, Delta_l, asymU=None):
         super().__init__()
         self.nflavors = nflavors
         self.beta = beta
@@ -452,11 +457,15 @@ class VerteXEvaluatorU0(VertexEvaluator):
         self.basis_b = basis_b
         self.Delta_l = Delta_l
         self.hopping = hopping
+        if asymU is None:
+            self.asymU = np.zeros(4*(self.nflavors,))
+        else:
+            self.asymU = asymU
 
         self.dm = -self.compute_gtau([self.beta]).reshape((nflavors,nflavors)).T
 
     def get_asymU(self):
-        return np.zeros(4*(self.nflavors,))
+        return self.asymU
 
     def get_dm(self):
         return self.dm
@@ -587,6 +596,12 @@ class QMCResult(VertexEvaluator):
             )[0] * regularizer[:,None]
         self.Delta_l = Delta_l.reshape((-1, self.nflavors, self.nflavors))
         self.Delta_tau_rec = np.einsum('tl,lij->tij', Ftau, self.Delta_l)
+
+    def get_asymU(self):
+        return self.asymU
+
+    def get_dm(self):
+        return self.equal_time_G1
 
     def compute_gir_SIE(self):
         """
