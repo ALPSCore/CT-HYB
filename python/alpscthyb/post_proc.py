@@ -370,7 +370,13 @@ class VertexEvaluator(object):
     
     def compute_phi(self, wbs):
         wbs = check_bosonic(wbs)
-        phi = 0.25 * self.compute_lambda(wbs)
+        phi = 0.25 * \
+            _einsum(
+                'abij,cdkl,wijkl->wabcd',
+                self.get_asymU(),
+                self.get_asymU(),
+                self.compute_lambda(wbs)
+            )
         const = 0.25 * self.beta * (
             np.einsum('ab,cd->abcd', self.hopping, self.hopping) +
             np.einsum('ab,cdkl,kl->abcd', self.hopping, self.get_asymU(), self.get_dm(), optimize=True) +
@@ -398,7 +404,7 @@ class VertexEvaluator(object):
         f += -0.5 * self.beta * \
             np.einsum('W,Wab,cd->Wabcd',
                 wbs == 0,
-                self.compute_xi(wfs),
+                self.compute_vartheta(wfs),
                 self.hopping,
                 optimize=True
             )
@@ -452,6 +458,7 @@ class VertexEvaluator(object):
         F += -beta * self.compute_Psi(v1+v3)
 
         F -= self.compute_h(wsample_full)
+        #print("h", np.abs(self.compute_h(wsample_full)).max())
 
         return F
 
