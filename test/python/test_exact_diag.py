@@ -44,6 +44,7 @@ def test_single_orb_Hubbard_atom():
     
     np.testing.assert_allclose(g_uu_iv, ref)
 
+
 def test_single_orb_Hubbard_atom_U0():
     """ Hubbard atom at half filling and U=0"""
     beta = 1.5
@@ -54,6 +55,7 @@ def test_single_orb_Hubbard_atom_U0():
 
     _, cdag_ops = construct_cdagger_ops(nflavors)
     c_ops = [op.transpose(copy=True) for op in cdag_ops]
+    n_ops = [cdag_ops[i]@c_ops[i] for i in range(nflavors)]
     ham = construct_ham(
         hopping, np.zeros(4*(nflavors,)),
         cdag_ops)
@@ -67,10 +69,11 @@ def test_single_orb_Hubbard_atom_U0():
     evalU0 = VertexEvaluatorU0(nflavors, beta, basis_f, basis_b, 
         hopping, np.zeros((basis_f.dim(), nflavors, nflavors)))
 
-    # fermionic sampling frequencies
+    # Sampling frequencies
     wfs = 2*np.arange(-10,10)+1
+    wbs = 2*np.arange(-10,10)
 
-    # up, up
+    # G_{uu}(iv)
     g_uu_iv = compute_fermionic_2pt_corr_func(
         cdag_ops[0].transpose(),
         cdag_ops[0], beta, wfs, evals, evecs)
@@ -78,18 +81,25 @@ def test_single_orb_Hubbard_atom_U0():
     ref = 1/(iv + mu)
     np.testing.assert_allclose(g_uu_iv, ref)
 
+    # int_0^\beta d tau e^{iw tau) <T n_{ab}(tau) n_{cd}(0)>
+    lambda_iw_ref = evalU0.compute_lambda(wbs)
+    lambda_iw = np.zeros_like(lambda_iw_ref)
+    for i, j, k, l in product(range(nflavors),repeat=4):
+        lambda_iw[:,i,j,k,l] = \
+            compute_bosonic_2pt_corr_func(
+                cdag_ops[i]@c_ops[j],
+                cdag_ops[k]@c_ops[l],
+                beta, wbs, evals, evecs)
+    assert np.abs(lambda_iw_ref-lambda_iw).max() < 1e-8
+
     # eta(v, w)_{uudd}
-    #wsample_fb = box_fb(2, 3)
-    wsample_fb = np.array([1]), np.array([2])
+    wsample_fb = box_fb(2, 3)
     q_ops = [c@ham-ham@c for c in c_ops]
     qdag_ops = [ham@cdag-cdag@ham for cdag in cdag_ops]
     
-    print(evalU0.compute_eta(*wsample_fb).shape)
-    print(evalU0.compute_eta(*wsample_fb)[:,0,0,1,1])
     eta_ref = evalU0.compute_eta(*wsample_fb)
     for i,j,k,l in product(range(nflavors), repeat=4):
         eta = compute_3pt_corr_func(
             q_ops[i], qdag_ops[j], cdag_ops[k]@c_ops[l],
             beta, wsample_fb, evals, evecs)
-        print(i, j, k, l, eta_ref[:, i, j, k, l], eta)
-        #print(np.abs(evalU0.compute_eta(*wsample_fb)).max())
+        assert all(np.abs(eta_ref[:, i, j, k, l]-eta) < 1e-8)

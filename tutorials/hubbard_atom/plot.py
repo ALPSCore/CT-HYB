@@ -1,10 +1,11 @@
 import numpy as np
+from itertools import product
 import matplotlib.pyplot as plt
 from irbasis_x import atom
 from irbasis_x.freq import box, to_ph_convention, from_ph_convention
-from alpscthyb.post_proc import QMCResult, VertexEvaluatorU0
+from alpscthyb.post_proc import QMCResult, VertexEvaluatorAtomED
+from alpscthyb.exact_diag import compute_3pt_corr_func, compute_fermionic_2pt_corr_func
 from alpscthyb import mpi
-from alpscthyb.non_interacting import NoninteractingLimit
 
 def _atomic_F_ph(U, beta, wsample_ph):
     """ Compute full vertex of Hubbard atom"""
@@ -52,13 +53,10 @@ def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
 
 
 res = QMCResult('input', verbose=True)
-non_int = NoninteractingLimit(res)
 beta = res.beta
 U = 1.0
 
-#evalU0 = VertexEvaluatorU0(
-    #res.nflavors, res.beta, res.basis_f, res.basis_b, res.hopping, res.Delta_l)
-
+ed = VertexEvaluatorAtomED(res.nflavors, res.beta, res.hopping, res.get_asymU())
 
 plt.figure(1)
 for f in range(res.nflavors):
@@ -100,9 +98,6 @@ sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, vsample)
 # v_{ab}
 print("v_ab: ", res.compute_v())
 
-# G0
-#g0iv = evalU0.compute_giv(res.basis_f.wsample)
-
 # Sigma
 plot_comparison(
     sigma_iv,
@@ -110,10 +105,23 @@ plot_comparison(
     "sigma", label1='SIE', label2='Legendre')
 
 # G(iv)
+nflavors = res.nflavors
+
+# ED data
+giv_ref = ed.compute_giv(vsample)
+lambda_ref = ed.compute_lambda(wbs)
+eta_ref = ed.compute_eta(*wsample_fb)
+gamma_ref = ed.compute_gamma(*wsample_fb)
+
 plot_comparison(
     giv,
     giv_legendre,
     "giv", label1='SIE', label2='Legendre')
+
+plot_comparison(
+    giv,
+    giv_ref,
+    "giv_ed", label1='SIE', label2='ED')
 
 # vartheta
 plot_comparison(
@@ -124,13 +132,14 @@ plot_comparison(
 # varphi & lambda
 for name in ['varphi', 'lambda']:
     qmc = getattr(res, f'compute_{name}')(wbs)
-    plot_comparison(qmc, None, name)
+    ref = getattr(ed,  f'compute_{name}')(wbs)
+    plot_comparison(qmc, ref, name)
 
 # eta
-plot_comparison(res.compute_eta(*wsample_fb), None, "eta")
+plot_comparison(res.compute_eta(*wsample_fb), eta_ref, "eta")
 
 # gamma
-plot_comparison(res.compute_gamma(*wsample_fb), None, "gamma")
+plot_comparison(res.compute_gamma(*wsample_fb), gamma_ref, "gamma")
 
 # h
 wsample_ffff = box(4, 3, return_conv='full', ravel=True)

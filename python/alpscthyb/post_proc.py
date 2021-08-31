@@ -1,3 +1,4 @@
+from itertools import product
 import numpy as np
 from numpy.polynomial.legendre import legval
 import scipy
@@ -6,7 +7,8 @@ import os
 import irbasis
 from irbasis_x.twopoint import FiniteTemperatureBasis, TruncatedBasis
 from irbasis_x.freq import check_bosonic, check_fermionic, check_full_convention
-#from alpscthyb.non_interacting import NoninteractingLimit
+from alpscthyb.exact_diag import construct_cdagger_ops, compute_fermionic_2pt_corr_func, \
+    compute_3pt_corr_func, construct_ham, compute_bosonic_2pt_corr_func
 
 from alpscthyb.util import float_to_complex_array
 from alpscthyb import mpi
@@ -542,7 +544,7 @@ class VertexEvaluatorU0(VertexEvaluator):
            self.compute_xi(wfs),
            self.compute_xi(wbs-wfs).conj()
         )
-        #print("new eta1,eta2", np.sum(eta1), np.sum(eta2))
+        print("eta1,eta2", eta1[:,0,0,0,0], eta2[:,0,0,0,0])
         return eta1 + eta2
     
     def compute_gamma(self, wfs, wbs):
@@ -563,6 +565,83 @@ class VertexEvaluatorU0(VertexEvaluator):
             np.einsum('w,wad,wcb->wabcd', (v1==v4), vartheta1, vartheta3)
         )
 
+class VertexEvaluatorAtomED(VertexEvaluator):
+    """
+    Exact diagonalization for atom
+    """
+    def __init__(self, nflavors, beta, hopping, asymU):
+        super().__init__()
+        self.nflavors = nflavors
+        self.beta = beta
+        self.hopping = hopping
+        self.asymU = asymU
+
+        _, self.cdag_ops = construct_cdagger_ops(nflavors)
+        self.c_ops = [op.transpose(copy=True) for op in self.cdag_ops]
+        self.ham = construct_ham(hopping, self.asymU, self.cdag_ops)
+        self.evals, self.evecs = np.linalg.eigh(self.ham.toarray())
+        self.q_ops = [c@self.ham-self.ham@c for c in self.c_ops]
+        self.qdag_ops = [self.ham@cdag-cdag@self.ham for cdag in self.cdag_ops]
+
+    def get_asymU(self):
+        return self.asymU
+
+    def get_dm(self):
+        return self.dm
+
+    def compute_giv(self, wfs):
+        wfs = check_fermionic(wfs)
+        giv = np.zeros((wfs.size,self.nflavors, self.nflavors), dtype=np.complex128)
+        for i, j in product(range(self.nflavors), repeat=2):
+            giv[:,i,j] = compute_fermionic_2pt_corr_func(
+                self.c_ops[i], self.cdag_ops[j], self.beta, wfs, self.evals, self.evecs)
+        return giv
+
+    def compute_lambda(self, wbs):
+        """ Compute lambda(wbs) """
+        wbs = check_bosonic(wbs)
+        lambda_wb = np.zeros((wbs.size,)+ 4*(self.nflavors,), dtype=np.complex128)
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
+            lambda_wb[:,i,j,k,l] = \
+                compute_bosonic_2pt_corr_func(
+                    self.cdag_ops[i]@self.c_ops[j],
+                    self.cdag_ops[k]@self.c_ops[l],
+                    self.beta, wbs, self.evals, self.evecs)
+        return lambda_wb                
+
+    def compute_varphi(self, wbs):
+        """ Compute varphi(wbs) """
+        wbs = check_bosonic(wbs)
+        varphi_wb = np.zeros((wbs.size,) + 4*(self.nflavors,), dtype=np.complex128)
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
+            varphi_wb[:,i,j,k,l] = \
+                compute_bosonic_2pt_corr_func(
+                    self.c_ops[i]@self.c_ops[j],
+                    self.cdag_ops[k]@self.cdag_ops[l],
+                    self.beta, wbs, self.evals, self.evecs)
+        return varphi_wb                
+
+    def compute_eta(self, wfs, wbs):
+        """ Compute eta(wfs, wbs) """
+        wfs = check_fermionic(wfs)
+        wbs = check_bosonic(wbs)
+        eta = np.zeros((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
+        for i,j,k,l in product(range(self.nflavors), repeat=4):
+            eta[:,i,j,k,l] = compute_3pt_corr_func(
+                self.q_ops[i], self.qdag_ops[j], self.cdag_ops[k]@self.c_ops[l],
+                self.beta, (wfs,wbs), self.evals, self.evecs)
+        return eta
+
+    def compute_gamma(self, wfs, wbs):
+        """ Compute eta(wfs, wbs) """
+        wfs = check_fermionic(wfs)
+        wbs = check_bosonic(wbs)
+        gamma = np.zeros((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
+        for i,j,k,l in product(range(self.nflavors), repeat=4):
+            gamma[:,i,j,k,l] = compute_3pt_corr_func(
+                self.q_ops[i], self.q_ops[j], self.cdag_ops[k]@self.cdag_ops[l],
+                self.beta, (wfs,wbs), self.evals, self.evecs)
+        return gamma
 
 class QMCResult(VertexEvaluator):
     def __init__(self, p, verbose=False, Lambda=1E+5, cutoff=1e-8) -> None:
