@@ -2,8 +2,8 @@ import numpy as np
 from scipy.sparse import coo_matrix
 from alpscthyb.interaction import check_asymm
 from alpscthyb.occupation_basis import construct_cdagger_ops
-from itertools import product
-from irbasis_x.freq import check_bosonic, check_fermionic
+from itertools import product, permutations
+from irbasis_x.freq import check_bosonic, check_fermionic, check_full_convention
 
 def construct_ham(hopping, asymmU, cdag_ops):
     """
@@ -192,3 +192,76 @@ def _frac_b(wb, beta, enes):
             res[idx_w, m, n] = beta * np.exp(-beta*enes[m])
     
     return res
+
+def _sign(p):
+    p = np.array(p, copy=True)
+    num_perm = 0
+    while True:
+        flag = False
+        for i in range(p.size-1):
+            if p[i] > p[i+1]:
+                p[i], p[i+1] = p[i+1], p[i]
+                num_perm += 1
+                flag = True
+        if not flag:
+            break
+    return (-1)**num_perm
+
+
+def compute_4pt_corr_func(F1, F2, F3, F4, beta, wsample_full, eigen_enes, eigen_vecs):
+    wsample_full = check_full_convention(*wsample_full)
+
+    enes_ = eigen_enes - np.min(eigen_enes)
+    res = np.zeros((wsample_full[0].size,), dtype=np.complex128)
+    wsample_plus = ( wsample_full[0],
+                    -wsample_full[1],
+                     wsample_full[2],
+                    -wsample_full[3])
+    Fs = [_to_eigenbasis(F1, eigen_vecs),
+          _to_eigenbasis(F2, eigen_vecs),
+          _to_eigenbasis(F3, eigen_vecs),
+          _to_eigenbasis(F4, eigen_vecs)]
+    for p in permutations([0,1,2]):
+        vs_p = [wsample_plus[i] for i in p]
+        Fp = [Fs[i] for i in p] + [Fs[3]]
+        sign = _sign(p)
+        for i, j, k, l in product(range(enes_.size), repeat=4):
+            prod_F = Fp[0][i,j] * Fp[1][j,k] * Fp[2][k,l] * Fp[3][l,i]
+            if prod_F == 0.0:
+                continue
+            res += sign * prod_F * _compute_phi(enes_[i], enes_[j], enes_[k], enes_[l], *vs_p, beta)
+    return beta * res/np.sum(np.exp(-beta * enes_))
+
+
+
+def _compute_phi(Ei, Ej, Ek, El, v1, v2, v3, beta, eps=1e-10):
+    """
+    Implements Eq. (A4) in EPL 85, 27007 (2009)
+    """
+    delta = lambda E, Ep:int(np.abs(E-Ep) < eps)
+    small_rnd_num = 1e-14
+
+    iv1 = 1J*(v1+small_rnd_num)*np.pi/beta
+    iv2 = 1J*(v2+np.pi*small_rnd_num)*np.pi/beta
+    iv3 = 1J*v3*np.pi/beta
+    expi = np.exp(-beta*Ei)
+    expj = np.exp(-beta*Ej)
+    expk = np.exp(-beta*Ek)
+    expl = np.exp(-beta*El)
+    Ekl = Ek - El
+    Eij = Ei - Ej
+    Eil = Ei - El
+    Eik = Ei - Ek
+    Ejk = Ej - Ek
+    Ejl = Ej - El
+
+    delta1 = (v2+v3==0)*delta(Ej,El)
+    delta2 = (v1+v2==0)*delta(Ei,Ek)
+
+    term1 = (1-delta1) * (
+            (expi + expj)/(iv1+Eij)  - (expi+expl)/(iv1+iv2+iv3+Eil)
+        )/(iv2+iv3+Ejl)
+    term2 = delta1 * ((expi+expj)/(iv1+Eij)**2 - beta * expj/(iv1 + Eij))
+    term3 = (expi+expj)/(iv1+Eij) - (1-delta2)*(expi-expk)/(iv1+iv2+Eik) + delta2 * beta * expi
+    #print(np.sum(term1), np.sum(term2), np.sum(term3))
+    return (term1 + term2 - term3/(iv2+Ejk))/(iv3+Ekl)

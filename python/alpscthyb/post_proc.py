@@ -544,7 +544,6 @@ class VertexEvaluatorU0(VertexEvaluator):
            self.compute_xi(wfs),
            self.compute_xi(wbs-wfs).conj()
         )
-        print("eta1,eta2", eta1[:,0,0,0,0], eta2[:,0,0,0,0])
         return eta1 + eta2
     
     def compute_gamma(self, wfs, wbs):

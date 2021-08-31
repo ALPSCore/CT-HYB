@@ -47,7 +47,7 @@ def test_single_orb_Hubbard_atom():
 
 def test_single_orb_Hubbard_atom_U0():
     """ Hubbard atom at half filling and U=0"""
-    beta = 1.5
+    beta = 2.0
     nflavors = 2
     mu = 0.1
 
@@ -59,6 +59,8 @@ def test_single_orb_Hubbard_atom_U0():
     ham = construct_ham(
         hopping, np.zeros(4*(nflavors,)),
         cdag_ops)
+    q_ops = [c@ham-ham@c for c in c_ops]
+    qdag_ops = [ham@cdag-cdag@ham for cdag in cdag_ops]
 
     evals, evecs = np.linalg.eigh(ham.toarray())
 
@@ -94,8 +96,6 @@ def test_single_orb_Hubbard_atom_U0():
 
     # eta(v, w)_{uudd}
     wsample_fb = box_fb(2, 3)
-    q_ops = [c@ham-ham@c for c in c_ops]
-    qdag_ops = [ham@cdag-cdag@ham for cdag in cdag_ops]
     
     eta_ref = evalU0.compute_eta(*wsample_fb)
     for i,j,k,l in product(range(nflavors), repeat=4):
@@ -103,3 +103,16 @@ def test_single_orb_Hubbard_atom_U0():
             q_ops[i], qdag_ops[j], cdag_ops[k]@c_ops[l],
             beta, wsample_fb, evals, evecs)
         assert all(np.abs(eta_ref[:, i, j, k, l]-eta) < 1e-8)
+
+    # h(v1, v2, v3, v4)
+    wsample_full = box(2,3, return_conv='full')
+    h_ref = evalU0.compute_h(wsample_full)
+    h_ed = np.zeros_like(h_ref)
+    for i, j, k, l in product(range(nflavors),repeat=4):
+        h_ed[:,i,j,k,l] = compute_4pt_corr_func(
+            q_ops[i], qdag_ops[j], q_ops[k], qdag_ops[l],
+            beta, wsample_full, evals, evecs
+        )
+    print(h_ref[:,0,0,0,0])
+    print(h_ed[:,0,0,0,0])
+    assert np.abs(h_ed-h_ref).max() < 1e-8
