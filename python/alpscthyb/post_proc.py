@@ -364,8 +364,8 @@ class VertexEvaluator(object):
         wfs = check_fermionic(wfs)
         return _einsum(
             'wai,wib->wab',
-            self.compute_calgiv(wfs),
-            (self.compute_v()[None,:,:] + self.compute_vartheta(wfs))
+            (self.compute_v()[None,:,:] + self.compute_vartheta(wfs)),
+            self.compute_calgiv(wfs)
         )
     
     def compute_phi(self, wbs):
@@ -388,9 +388,9 @@ class VertexEvaluator(object):
     def compute_Psi(self, wbs):
         wbs = check_bosonic(wbs)
         return 0.25 * \
-            np.einsum('ajci,kbld,Wijkl->Wabcd',
+            _einsum('ajci,kbld,Wijkl->Wabcd',
                 self.get_asymU(), self.get_asymU(),
-                self.compute_varphi(wbs), optimize=True)
+                self.compute_varphi(wbs))
 
     def compute_f(self, wfs, wbs):
         wfs = check_fermionic(wfs)
@@ -402,21 +402,19 @@ class VertexEvaluator(object):
             optimize=True
         )
         f += -0.5 * self.beta * \
-            np.einsum('W,Wab,cd->Wabcd',
+            _einsum('W,Wab,cd->Wabcd',
                 wbs == 0,
                 self.compute_vartheta(wfs),
-                self.hopping,
-                optimize=True
+                self.hopping
             )
         return f
     
     def compute_g(self, wfs, wfs_p):
         wfs = check_fermionic(wfs)
         wfs_p = check_fermionic(wfs_p)
-        return 0.5 * np.einsum('jbkd,Wacjk->Wabcd',
+        return 0.5 * _einsum('jbkd,Wacjk->Wabcd',
            self.get_asymU(),
-           self.compute_gamma(wfs, wfs + wfs_p),
-           optimize=True
+           self.compute_gamma(wfs, wfs + wfs_p)
         )
     
     def compute_F(self, wsample_full):
@@ -442,7 +440,7 @@ class VertexEvaluator(object):
         F += beta * _einsum('abci,Wdi->Wabcd', asymU, self.compute_xi(-v4).conj())
 
         # phi
-        F += -4 * beta * self.compute_phi(v3-v4)
+        F += -4 * beta * self.compute_phi(v1-v2)
         F +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
 
         # f

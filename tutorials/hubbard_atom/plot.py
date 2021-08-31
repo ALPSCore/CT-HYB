@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from irbasis_x import atom
-from irbasis_x.freq import box, to_ph_convention
+from irbasis_x.freq import box, to_ph_convention, from_ph_convention
 from alpscthyb.post_proc import QMCResult, VertexEvaluatorU0
+from alpscthyb import mpi
 from alpscthyb.non_interacting import NoninteractingLimit
 
 def _atomic_F_ph(U, beta, wsample_ph):
@@ -22,6 +23,8 @@ def _atomic_F_ph(U, beta, wsample_ph):
 
 
 def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
+    if mpi.rank != 0:
+        return
     qmc = np.moveaxis(qmc, 0, -1).ravel()
     if ref is not None:
         ref = np.moveaxis(ref, 0, -1).ravel()
@@ -53,8 +56,8 @@ non_int = NoninteractingLimit(res)
 beta = res.beta
 U = 1.0
 
-evalU0 = VertexEvaluatorU0(
-    res.nflavors, res.beta, res.basis_f, res.basis_b, res.hopping, res.Delta_l)
+#evalU0 = VertexEvaluatorU0(
+    #res.nflavors, res.beta, res.basis_f, res.basis_b, res.hopping, res.Delta_l)
 
 
 plt.figure(1)
@@ -98,7 +101,7 @@ sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, vsample)
 print("v_ab: ", res.compute_v())
 
 # G0
-g0iv = evalU0.compute_giv(res.basis_f.wsample)
+#g0iv = evalU0.compute_giv(res.basis_f.wsample)
 
 # Sigma
 plot_comparison(
@@ -132,11 +135,40 @@ plot_comparison(res.compute_gamma(*wsample_fb), None, "gamma")
 # h
 wsample_ffff = box(4, 3, return_conv='full', ravel=True)
 
-plot_comparison(res.compute_h(wsample_ffff), evalU0.compute_h(wsample_ffff), "h")
+plot_comparison(res.compute_h(wsample_ffff), None, "h")
 
 # F
+#v  = np.array([1,  11, 101, 1001, 10001])
+#vp = np.array([11, 11,  11,   11,    11])
+#w  = np.array([10, 10,  10,   10,    10])
+#wsample_ph = (v, vp, w)
+#wsample_ffff = from_ph_convention(*wsample_ph)
+
+wsample_ffff = box(4, 3, return_conv='full', ravel=True)
 wsample_ph = to_ph_convention(*wsample_ffff)
+
+#v1 = np.array([1, 11, 101, 1001, 10001])
+#v2 = np.array([100001, 100001, 100001, 100001, 100001])
+#v3 = np.array([200001, 200001, 200001, 200001, 200001])
+#v4 = v1 - v2 + v3
+#wsample_ffff = (v1, v2, v3, v4)
+#wsample_ph = to_ph_convention(*wsample_ffff)
+if mpi.rank == 0:
+    print(wsample_ph)
 F_ref = beta * _atomic_F_ph(U, beta, wsample_ph)
-#print(F_ref)
-plot_comparison(res.compute_F(wsample_ffff), F_ref, "F")
-#plot_comparison(np.zeros_like(F_ref), F_ref, "F")
+F = res.compute_F(wsample_ffff)
+plot_comparison(F, F_ref, "F")
+
+if mpi.rank == 0:
+    for idx_w in range(F.shape[0]):
+        print(wsample_ffff[0][idx_w],
+              wsample_ffff[1][idx_w],
+              wsample_ffff[2][idx_w],
+              wsample_ffff[3][idx_w],
+              F[idx_w,0,0,1,1].real,
+              F[idx_w,0,0,1,1].imag,
+              F_ref[idx_w,0,0,1,1].real,
+              F_ref[idx_w,0,0,1,1].imag
+          )
+              #np.sum(np.abs(F[idx_w,...])),
+              #np.sum(np.abs(F_ref[idx_w,...]))
