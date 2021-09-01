@@ -426,63 +426,68 @@ class VertexEvaluator(object):
         v1, v2, v3, v4 = wsample_full
         beta = self.beta
         asymU = self.get_asymU()
-        F = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
+        scrF = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
 
         vab = self.compute_v()
 
-        F += beta * asymU[None, ...]
+        scrF += beta * asymU[None, ...]
 
         v1_ = self.compute_vartheta(v1) + vab[None,:,:]
         v3_ = self.compute_vartheta(v3) + vab[None,:,:]
-        F += (beta**2) * np.einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_, optimize=True)
-        if verbose:
-            print("debug1", F[:,0,0,1,1])
-        F -= (beta**2) * np.einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_, optimize=True)
-        if verbose:
-            print("debug2", F[:,0,0,1,1])
+        scrF += (beta**2) * np.einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_, optimize=True)
+        scrF -= (beta**2) * np.einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_, optimize=True)
 
         # xi
-        F += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
-        F += beta * _einsum('aicd,Wbi->Wabcd', asymU, self.compute_xi(-v2).conj())
-        F += beta * _einsum('abid,Wci->Wabcd', asymU, self.compute_xi(v3))
-        F += beta * _einsum('abci,Wdi->Wabcd', asymU, self.compute_xi(-v4).conj())
-        if verbose:
-            print("debug3", F[:,0,0,1,1])
+        scrF += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
+        scrF += beta * _einsum('aicd,Wbi->Wabcd', asymU, self.compute_xi(-v2).conj())
+        scrF += beta * _einsum('abid,Wci->Wabcd', asymU, self.compute_xi(v3))
+        scrF += beta * _einsum('abci,Wdi->Wabcd', asymU, self.compute_xi(-v4).conj())
 
         # phi
-        F += -4 * beta * self.compute_phi(v1-v2)
-        if verbose:
-            print("debug4", F[:,0,0,1,1])
-        F +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
-        if verbose:
-            print("debug4", F[:,0,0,1,1])
+        scrF += -4 * beta * self.compute_phi(v1-v2)
+        scrF +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
 
         # f
-        F +=  2 * beta * self.compute_f(v1, v1-v2)
-        F +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
-        F += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
-        F += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
-        if verbose:
-            print("debug5", F[:,0,0,1,1])
+        scrF +=  2 * beta * self.compute_f(v1, v1-v2)
+        scrF +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
+        scrF += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
+        scrF += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
 
         # g
-        F += -beta * self.compute_g(v1, v3)
-        if verbose:
-            print("debug6", F[:,0,0,1,1])
-        F += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
-        if verbose:
-            print("debug7", F[:,0,0,1,1])
+        scrF += -beta * self.compute_g(v1, v3)
+        scrF += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
 
-        F += -beta * self.compute_Psi(v1+v3)
-        if verbose:
-            print("debug8", F[:,0,0,1,1])
+        # Psi
+        scrF += -beta * self.compute_Psi(v1+v3)
 
-        F -= self.compute_h(wsample_full)
-        #print("h", np.abs(self.compute_h(wsample_full)).max())
-        if verbose:
-            print("debug9", F[:,0,0,1,1])
+        # h
+        scrF -= self.compute_h(wsample_full)
 
-        return F
+        # Replace legs from calG to G
+        r1 = self._invG_calG(v1)
+        r2 = self._calG_invG(v2)
+        r3 = self._invG_calG(v3)
+        r4 = self._calG_invG(v4)
+        return _einsum('waA,wcC,wABCD,wBb,wDd->wabcd', r1, r2, scrF, r3, r4)
+
+    def _invG_calG(self, wfs):
+        wfs_unique, wfs_where = np.unique(wfs, return_inverse=True)
+        res_unique = np.empty((wfs_unique.size, self.nflavors, self.nflavors), dtype=np.complex128)
+        giv = self.compute_giv(wfs_unique)
+        calgiv = self.compute_calgiv(wfs_unique)
+        for i in range(wfs_unique.size):
+            res_unique[i,:,:] = np.linalg.inv(giv[i,...]) @ calgiv[i,...]
+        return res_unique[wfs_where, ...]
+
+    def _calG_invG(self, wfs):
+        wfs_unique, wfs_where = np.unique(wfs, return_inverse=True)
+        res_unique = np.empty((wfs_unique.size, self.nflavors, self.nflavors), dtype=np.complex128)
+        giv = self.compute_giv(wfs_unique)
+        calgiv = self.compute_calgiv(wfs_unique)
+        for i in range(wfs_unique.size):
+            res_unique[i,:,:] = calgiv[i,...] @ np.linalg.inv(giv[i,...])
+        return res_unique[wfs_where, ...]
+
 
 class VertexEvaluatorU0(VertexEvaluator):
     """
