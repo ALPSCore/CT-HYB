@@ -35,6 +35,15 @@ def construct_ham(hopping, asymmU, cdag_ops):
 def _to_eigenbasis(A, eigen_vecs):
     return (eigen_vecs.T.conj() @ A.toarray() @ eigen_vecs)
 
+def compute_expval(A, beta, eigen_enes, eigen_vecs):
+    """
+    Compute the expectation value of operator A
+    """
+    # Partition function
+    enes_ = eigen_enes - np.min(eigen_enes)
+    Z = np.sum(np.exp(-beta * enes_))
+    return np.trace(np.einsum('i,ij->ij', np.exp(-beta*enes_), _to_eigenbasis(A, eigen_vecs)))/Z
+
 def compute_fermionic_2pt_corr_func(A, B, beta, wfs, eigen_enes, eigen_vecs):
     """
     Compute fermionic two-point correlation function:

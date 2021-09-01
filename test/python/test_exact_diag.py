@@ -113,6 +113,4 @@ def test_single_orb_Hubbard_atom_U0():
             q_ops[i], qdag_ops[j], q_ops[k], qdag_ops[l],
             beta, wsample_full, evals, evecs
         )
-    print(h_ref[:,0,0,0,0])
-    print(h_ed[:,0,0,0,0])
     assert np.abs(h_ed-h_ref).max() < 1e-8

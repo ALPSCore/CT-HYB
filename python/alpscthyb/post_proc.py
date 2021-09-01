@@ -7,8 +7,10 @@ import os
 import irbasis
 from irbasis_x.twopoint import FiniteTemperatureBasis, TruncatedBasis
 from irbasis_x.freq import check_bosonic, check_fermionic, check_full_convention
+from scipy.sparse import coo
 from alpscthyb.exact_diag import construct_cdagger_ops, compute_fermionic_2pt_corr_func, \
-    compute_3pt_corr_func, construct_ham, compute_bosonic_2pt_corr_func
+    compute_3pt_corr_func, construct_ham, compute_bosonic_2pt_corr_func, compute_4pt_corr_func, \
+        compute_expval
 
 from alpscthyb.util import float_to_complex_array
 from alpscthyb import mpi
@@ -419,7 +421,7 @@ class VertexEvaluator(object):
            self.compute_gamma(wfs, wfs + wfs_p)
         )
     
-    def compute_F(self, wsample_full):
+    def compute_F(self, wsample_full, verbose=False):
         wsample_full = check_full_convention(*wsample_full)
         v1, v2, v3, v4 = wsample_full
         beta = self.beta
@@ -433,32 +435,52 @@ class VertexEvaluator(object):
         v1_ = self.compute_vartheta(v1) + vab[None,:,:]
         v3_ = self.compute_vartheta(v3) + vab[None,:,:]
         F += (beta**2) * np.einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_, optimize=True)
+        if verbose:
+            print("debug1", F[:,0,0,1,1])
         F -= (beta**2) * np.einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_, optimize=True)
+        if verbose:
+            print("debug2", F[:,0,0,1,1])
 
         # xi
         F += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
         F += beta * _einsum('aicd,Wbi->Wabcd', asymU, self.compute_xi(-v2).conj())
         F += beta * _einsum('abid,Wci->Wabcd', asymU, self.compute_xi(v3))
         F += beta * _einsum('abci,Wdi->Wabcd', asymU, self.compute_xi(-v4).conj())
+        if verbose:
+            print("debug3", F[:,0,0,1,1])
 
         # phi
         F += -4 * beta * self.compute_phi(v1-v2)
+        if verbose:
+            print("debug4", F[:,0,0,1,1])
         F +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
+        if verbose:
+            print("debug4", F[:,0,0,1,1])
 
         # f
         F +=  2 * beta * self.compute_f(v1, v1-v2)
         F +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
         F += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
         F += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
+        if verbose:
+            print("debug5", F[:,0,0,1,1])
 
         # g
         F += -beta * self.compute_g(v1, v3)
+        if verbose:
+            print("debug6", F[:,0,0,1,1])
         F += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
+        if verbose:
+            print("debug7", F[:,0,0,1,1])
 
         F += -beta * self.compute_Psi(v1+v3)
+        if verbose:
+            print("debug8", F[:,0,0,1,1])
 
         F -= self.compute_h(wsample_full)
         #print("h", np.abs(self.compute_h(wsample_full)).max())
+        if verbose:
+            print("debug9", F[:,0,0,1,1])
 
         return F
 
@@ -582,6 +604,18 @@ class VertexEvaluatorAtomED(VertexEvaluator):
         self.q_ops = [c@self.ham-self.ham@c for c in self.c_ops]
         self.qdag_ops = [self.ham@cdag-cdag@self.ham for cdag in self.cdag_ops]
 
+        self.dm = np.zeros((nflavors,nflavors), dtype=np.complex128)
+        for i, j in product(range(nflavors), repeat=2):
+            self.dm[i,j] = compute_expval(
+                self.cdag_ops[i]@self.c_ops[j], beta, self.evals, self.evecs)
+
+        self.vab = np.empty((self.nflavors, self.nflavors), dtype=object)
+        for a, b in product(range(self.nflavors), repeat=2):
+            self.vab[a,b] = hopping[a,b] * \
+                    scipy.sparse.identity(2**self.nflavors, dtype=np.complex128, format='coo')
+            for i, j in product(range(self.nflavors), repeat=2):
+                self.vab[a,b]+= self.asymU[a,b,i,j] * (self.cdag_ops[i]@self.c_ops[j])
+
     def get_asymU(self):
         return self.asymU
 
@@ -595,6 +629,44 @@ class VertexEvaluatorAtomED(VertexEvaluator):
             giv[:,i,j] = compute_fermionic_2pt_corr_func(
                 self.c_ops[i], self.cdag_ops[j], self.beta, wfs, self.evals, self.evecs)
         return giv
+
+    def compute_vartheta(self, wfs):
+        """ Compute vartheta(wfs) """
+        wfs = check_fermionic(wfs)
+        vartheta = np.zeros((wfs.size, self.nflavors, self.nflavors), dtype=np.complex128)
+        for i, j in product(range(self.nflavors), repeat=2):
+            vartheta[:,i,j] = compute_fermionic_2pt_corr_func(
+                self.q_ops[i], self.qdag_ops[j], self.beta, wfs, self.evals, self.evecs)
+        return vartheta
+
+    def compute_phi(self, wbs):
+        wbs = check_bosonic(wbs)
+        phi = np.zeros((wbs.size,)+ 4*(self.nflavors,), dtype=np.complex128)
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
+            phi[:,i,j,k,l] = \
+                0.25 * compute_bosonic_2pt_corr_func(
+                    self.vab[i,j], self.vab[k,l], self.beta, wbs, self.evals, self.evecs)
+        return phi                
+
+    """
+    def compute_Psi(self, wbs):
+        wbs = check_bosonic(wbs)
+        tmp = np.zeros((wbs.size,)+ 4*(self.nflavors,), dtype=np.complex128)
+        #print("wbs", wbs)
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
+            tmp[:,i,j,k,l] = \
+                compute_bosonic_2pt_corr_func(
+                    self.c_ops[i]@self.c_ops[j],
+                    self.cdag_ops[k]@self.cdag_ops[l],
+                    self.beta, wbs, self.evals, self.evecs)
+            #print(i, j, k, l, tmp[:,i,j,k,l])
+
+        #print()
+        #print("tmp", tmp)
+        #print(-0.25 * _einsum('ajck,JbKd,WkjJK->Wabcd', self.get_asymU(), self.get_asymU(), tmp))
+        return -0.25 * _einsum('ajck,JbKd,WkjJK->Wabcd', self.get_asymU(), self.get_asymU(), tmp)                
+        #return 0.0 * _einsum('ajck,JbKd,WkjJK->Wabcd', self.get_asymU(), self.get_asymU(), tmp)                
+    """
 
     def compute_lambda(self, wbs):
         """ Compute lambda(wbs) """
@@ -641,6 +713,27 @@ class VertexEvaluatorAtomED(VertexEvaluator):
                 self.q_ops[i], self.q_ops[j], self.cdag_ops[k]@self.cdag_ops[l],
                 self.beta, (wfs,wbs), self.evals, self.evecs)
         return gamma
+    
+    def compute_h(self, wsample_full):
+        wsample_full = check_full_convention(*wsample_full)
+        h = np.empty((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
+            h[:,i,j,k,l] = compute_4pt_corr_func(
+                self.q_ops[i], self.qdag_ops[j], self.q_ops[k], self.qdag_ops[l],
+                self.beta, wsample_full, self.evals, self.evecs
+            )
+        return h
+
+    def _compute_giv(self, wfs, hopping):
+        # Compute non-interacting Green's function
+        wfs = check_fermionic(wfs)
+        nfreqs = wfs.size
+        G0 = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)
+        I = np.identity(self.nflavors)
+        for ifreq, v in enumerate(wfs):
+            iv = 1J * v * np.pi/self.beta
+            G0[ifreq, ...] = np.linalg.inv(iv * I - hopping[None,:,:])
+        return G0
 
 class QMCResult(VertexEvaluator):
     def __init__(self, p, verbose=False, Lambda=1E+5, cutoff=1e-8) -> None:
