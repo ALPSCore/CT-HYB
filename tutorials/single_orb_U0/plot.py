@@ -3,23 +3,30 @@ import matplotlib.pyplot as plt
 from irbasis_x.freq import box
 from alpscthyb.post_proc import QMCResult, VertexEvaluatorU0
 from alpscthyb.non_interacting import NoninteractingLimit
+from alpscthyb import mpi
 
 
 def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
+    if mpi.rank != 0:
+        return
     qmc = np.moveaxis(qmc, 0, -1).ravel()
-    ref = np.moveaxis(ref, 0, -1).ravel()
+    if ref is not None:
+        ref = np.moveaxis(ref, 0, -1).ravel()
     fig, axes = plt.subplots(3, 1, figsize=(5,10))
     #amax = 1.5*np.abs(ref).max()
     axes[0].plot(qmc.ravel().real, marker='+', ls='', label=label1)
-    axes[0].plot(ref.ravel().real, marker='x', ls='', label=label2)
+    if ref is not None:
+        axes[0].plot(ref.ravel().real, marker='x', ls='', label=label2)
     axes[1].plot(qmc.ravel().imag, marker='+', ls='', label=label1)
-    axes[1].plot(ref.ravel().imag, marker='x', ls='', label=label2)
+    if ref is not None:
+        axes[1].plot(ref.ravel().imag, marker='x', ls='', label=label2)
     axes[0].set_ylabel(r"Re")
     axes[1].set_ylabel(r"Im")
 
     axes[2].semilogy(np.abs(qmc), marker='+', ls='', label=label1)
-    axes[2].semilogy(np.abs(ref), marker='x', ls='', label=label2)
-    axes[2].semilogy(np.abs(ref-qmc), marker='', ls='--', label='diff')
+    if ref is not None:
+        axes[2].semilogy(np.abs(ref), marker='x', ls='', label=label2)
+        axes[2].semilogy(np.abs(ref-qmc), marker='', ls='--', label='diff')
     axes[2].set_ylabel(r"Abs")
 
     for ax in axes:
@@ -29,7 +36,6 @@ def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
 
 
 res = QMCResult('input', verbose=True)
-non_int = NoninteractingLimit(res)
 beta = res.beta
 
 evalU0 = VertexEvaluatorU0(
@@ -112,3 +118,7 @@ plot_comparison(res.compute_gamma(*wsample_fb), evalU0.compute_gamma(*wsample_fb
 # h
 wsample_ffff = box(4, 3, return_conv='full', ravel=True)
 plot_comparison(res.compute_h(wsample_ffff), evalU0.compute_h(wsample_ffff), "h")
+
+# F
+F_qmc = res.compute_F(wsample_ffff)
+plot_comparison(F_qmc, np.zeros_like(F_qmc), "F")

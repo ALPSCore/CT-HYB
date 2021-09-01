@@ -32,8 +32,10 @@ def construct_ham(hopping, asymmU, cdag_ops):
     
     return ham
 
-def _to_eigenbasis(A, eigen_vecs):
-    return (eigen_vecs.T.conj() @ A.toarray() @ eigen_vecs)
+def _to_eigenbasis(A, eigen_vecs, cutoff=1e-10):
+    A_ = (eigen_vecs.T.conj() @ A.toarray() @ eigen_vecs)
+    A_[np.abs(A_) < cutoff * np.abs(A_).max()] = 0.0
+    return A_
 
 def compute_expval(A, beta, eigen_enes, eigen_vecs):
     """
@@ -157,6 +159,7 @@ def _eval_first_term_g(F1, F2, B, beta, wsample, eigen_enes, eigen_vecs):
     """
     v = check_fermionic(wsample[0])
     vp = check_fermionic(wsample[1])
+    print("AA")
 
     enes_ = eigen_enes - np.min(eigen_enes)
 
@@ -171,6 +174,7 @@ def _eval_first_term_g(F1, F2, B, beta, wsample, eigen_enes, eigen_vecs):
     # (iv, m, n): (e^{-beta*E_n} + exp^{-beta*E_m})/(iv + E_m - E_n)
     exp_frac_f = lambda iv: (expE[None,:,None] + expE[None,None,:])\
         /(iv[:,None,None] + Ediff[None,:,:])
+    print("BB")
 
     # First term in (C4)
     frac11 = 1/(ivp[:,None,None] + Ediff) # wnl
@@ -179,6 +183,7 @@ def _eval_first_term_g(F1, F2, B, beta, wsample, eigen_enes, eigen_vecs):
     term1 = \
         np.einsum('mn,nl,lm,wnl,wml->w', F1, F2, B, frac11, frac12, optimize=True) + \
         np.einsum('mn,nl,lm,wnl,wmn->w', F1, F2, B, frac11, frac13, optimize=True)
+    print("CC")
 
     return term1/Z
 
@@ -238,6 +243,7 @@ def compute_4pt_corr_func(F1, F2, F3, F4, beta, wsample_full, eigen_enes, eigen_
             prod_F = Fp[0][i,j] * Fp[1][j,k] * Fp[2][k,l] * Fp[3][l,i]
             if prod_F == 0.0:
                 continue
+            print(i, j, k, l, prod_F)
             res += sign * prod_F * _compute_phi(enes_[i], enes_[j], enes_[k], enes_[l], *vs_p, beta)
     return beta * res/np.sum(np.exp(-beta * enes_))
 

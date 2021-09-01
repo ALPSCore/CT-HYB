@@ -470,7 +470,7 @@ class VertexEvaluator(object):
         r2 = self._calG_invG(v2)
         r3 = self._invG_calG(v3)
         r4 = self._calG_invG(v4)
-        return _einsum('waA,wcC,wABCD,wBb,wDd->wabcd', r1, r2, scrF, r3, r4)
+        return _einsum('waA,wBb,wcC,wDd,wABCD->wabcd', r1, r2, r3, r4, scrF)
 
     def _invG_calG(self, wfs):
         wfs_unique, wfs_where = np.unique(wfs, return_inverse=True)
@@ -509,6 +509,8 @@ class VertexEvaluatorU0(VertexEvaluator):
             self.asymU = asymU
 
         self.dm = -self.compute_gtau([self.beta]).reshape((nflavors,nflavors)).T
+
+        assert (self.hopping == self.hopping.T.conj()).all()
 
     def get_asymU(self):
         return self.asymU
@@ -733,6 +735,17 @@ class VertexEvaluatorAtomED(VertexEvaluator):
                 self.beta, wsample_full, self.evals, self.evecs
             )
         return h
+    
+    def compute_g4pt(self, wsample_full):
+        wsample_full = _check_full_convention(*wsample_full)
+        g4pt = np.empty((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
+            g4pt[:,i,j,k,l] = compute_4pt_corr_func(
+                self.c_ops[i], self.cdag_ops[j], self.c_ops[k], self.cdag_ops[l],
+                self.beta, wsample_full, self.evals, self.evecs
+            )
+        return g4pt
+
 
     def _compute_non_int_giv(self, wfs, hopping):
         # Compute non-interacting Green's function
