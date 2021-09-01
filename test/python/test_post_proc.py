@@ -105,7 +105,8 @@ def test_F_U0(nflavors):
 
     asymU = np.zeros((nflavors,)*4)
 
-    hopping = np.random.randn(nflavors, nflavors)
+    hopping = \
+        np.random.randn(nflavors, nflavors) + 1J*np.random.randn(nflavors, nflavors)
     hopping = hopping + hopping.T.conj()
 
     # Hybridization function
@@ -121,12 +122,17 @@ def test_F_U0(nflavors):
 
 def test_Hubbard_atom():
     nflavors = 2
-    beta = 5.0
-    U = 1.5
+    beta = 1.0
+    U = 1.0
+    #beta = 5.0
+    #U = 1.5
+
+    asymU = hubbard_asymmU(U)
 
     mu = 0.5*U
-    asymU = hubbard_asymmU(U)
-    hopping = -mu * np.identity(nflavors)
+    #hopping = -mu * np.identity(nflavors)
+    hopping = np.random.randn(nflavors, nflavors)
+    hopping = hopping + hopping.T.conj()
 
     evalatom = VertexEvaluatorAtomED(nflavors, beta, hopping, asymU)
 
@@ -145,7 +151,9 @@ def test_Hubbard_atom():
     g4pt_ref = (beta**2) * (
         np.einsum('w,wab,wcd->wabcd', v1==v2, g1, g3, optimize=True) -
         np.einsum('w,wad,wcb->wabcd', v1==v4, g1, g3, optimize=True)
-    ) - np.einsum('waA,wBb,wcC,wDd,wABCD->wabcd', g1, g2, g3, g4, F_ed)
+    ) - np.einsum('waA,wBb,wcC,wDd,wABCD->wabcd', g1, g2, g3, g4, F_ed, optimize=True)
 
     g4pt_ed = evalatom.compute_g4pt(wsample_full)
+    print(g4pt_ed)
+    print(g4pt_ref)
     assert np.abs(g4pt_ed-g4pt_ref).max()/np.abs(g4pt_ref).max() < 1e-8

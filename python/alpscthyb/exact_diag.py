@@ -159,7 +159,6 @@ def _eval_first_term_g(F1, F2, B, beta, wsample, eigen_enes, eigen_vecs):
     """
     v = check_fermionic(wsample[0])
     vp = check_fermionic(wsample[1])
-    print("AA")
 
     enes_ = eigen_enes - np.min(eigen_enes)
 
@@ -174,7 +173,6 @@ def _eval_first_term_g(F1, F2, B, beta, wsample, eigen_enes, eigen_vecs):
     # (iv, m, n): (e^{-beta*E_n} + exp^{-beta*E_m})/(iv + E_m - E_n)
     exp_frac_f = lambda iv: (expE[None,:,None] + expE[None,None,:])\
         /(iv[:,None,None] + Ediff[None,:,:])
-    print("BB")
 
     # First term in (C4)
     frac11 = 1/(ivp[:,None,None] + Ediff) # wnl
@@ -183,7 +181,6 @@ def _eval_first_term_g(F1, F2, B, beta, wsample, eigen_enes, eigen_vecs):
     term1 = \
         np.einsum('mn,nl,lm,wnl,wml->w', F1, F2, B, frac11, frac12, optimize=True) + \
         np.einsum('mn,nl,lm,wnl,wmn->w', F1, F2, B, frac11, frac13, optimize=True)
-    print("CC")
 
     return term1/Z
 
@@ -243,7 +240,6 @@ def compute_4pt_corr_func(F1, F2, F3, F4, beta, wsample_full, eigen_enes, eigen_
             prod_F = Fp[0][i,j] * Fp[1][j,k] * Fp[2][k,l] * Fp[3][l,i]
             if prod_F == 0.0:
                 continue
-            print(i, j, k, l, prod_F)
             res += sign * prod_F * _compute_phi(enes_[i], enes_[j], enes_[k], enes_[l], *vs_p, beta)
     return beta * res/np.sum(np.exp(-beta * enes_))
 
@@ -278,5 +274,4 @@ def _compute_phi(Ei, Ej, Ek, El, v1, v2, v3, beta, eps=1e-10):
         )/(iv2+iv3+Ejl)
     term2 = delta1 * ((expi+expj)/(iv1+Eij)**2 - beta * expj/(iv1 + Eij))
     term3 = (expi+expj)/(iv1+Eij) - (1-delta2)*(expi-expk)/(iv1+iv2+Eik) + delta2 * beta * expi
-    #print(np.sum(term1), np.sum(term2), np.sum(term3))
     return (term1 + term2 - term3/(iv2+Ejk))/(iv3+Ekl)
