@@ -54,7 +54,6 @@ def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
 
 res = QMCResult('input', verbose=True)
 beta = res.beta
-U = 1.0
 
 ed = VertexEvaluatorAtomED(res.nflavors, res.beta, res.hopping, res.get_asymU())
 
@@ -77,6 +76,8 @@ plt.close(1)
 vsample = res.basis_f.wsample
 wfs = res.basis_f.wsample
 wbs = res.basis_b.wsample
+wsample_ffff = box(4, 3, return_conv='full', ravel=True)
+wsample_ph = to_ph_convention(*wsample_ffff)
 
 # Fermion-boson frequency box
 def box_fb(nf, nb):
@@ -84,7 +85,7 @@ def box_fb(nf, nb):
     wb = 2*np.arange(-nb,nb)
     v, w = np.broadcast_arrays(wf[:,None], wb[None,:])
     return v.ravel(), w.ravel()
-wsample_fb = box_fb(4, 5)
+wsample_fb = box_fb(4, 3)
 
 #SIE
 gir_SIE = res.compute_gir_SIE()
@@ -110,8 +111,11 @@ nflavors = res.nflavors
 # ED data
 giv_ref = ed.compute_giv(vsample)
 lambda_ref = ed.compute_lambda(wbs)
+vartheta_ref = ed.compute_vartheta(wfs)
 eta_ref = ed.compute_eta(*wsample_fb)
 gamma_ref = ed.compute_gamma(*wsample_fb)
+h_ref = ed.compute_h(wsample_ffff)
+F_ref = ed.compute_F(wsample_ffff)
 
 plot_comparison(
     giv,
@@ -126,7 +130,7 @@ plot_comparison(
 # vartheta
 plot_comparison(
     res.compute_vartheta(wfs),
-    None,
+    vartheta_ref,
     "vartheta")
 
 # varphi & lambda
@@ -142,40 +146,27 @@ plot_comparison(res.compute_eta(*wsample_fb), eta_ref, "eta")
 plot_comparison(res.compute_gamma(*wsample_fb), gamma_ref, "gamma")
 
 # h
-wsample_ffff = box(4, 3, return_conv='full', ravel=True)
-
-plot_comparison(res.compute_h(wsample_ffff), None, "h")
+plot_comparison(res.compute_h(wsample_ffff), h_ref, "h")
 
 # F
-#v  = np.array([1,  11, 101, 1001, 10001])
-#vp = np.array([11, 11,  11,   11,    11])
-#w  = np.array([10, 10,  10,   10,    10])
-#wsample_ph = (v, vp, w)
-#wsample_ffff = from_ph_convention(*wsample_ph)
-
-wsample_ffff = box(4, 3, return_conv='full', ravel=True)
-wsample_ph = to_ph_convention(*wsample_ffff)
-
 #v1 = np.array([1, 11, 101, 1001, 10001])
 #v2 = np.array([100001, 100001, 100001, 100001, 100001])
 #v3 = np.array([200001, 200001, 200001, 200001, 200001])
 #v4 = v1 - v2 + v3
 #wsample_ffff = (v1, v2, v3, v4)
 #wsample_ph = to_ph_convention(*wsample_ffff)
-if mpi.rank == 0:
-    print(wsample_ph)
-F_ref = beta * _atomic_F_ph(U, beta, wsample_ph)
-F = res.compute_F(wsample_ffff)
-plot_comparison(F, F_ref, "F")
+#F_ref = beta * _atomic_F_ph(U, beta, wsample_ph)
+F_qmc = res.compute_F(wsample_ffff)
+plot_comparison(F_qmc, F_ref, "F")
 
 if mpi.rank == 0:
-    for idx_w in range(F.shape[0]):
+    for idx_w in range(F_qmc.shape[0]):
         print(wsample_ffff[0][idx_w],
               wsample_ffff[1][idx_w],
               wsample_ffff[2][idx_w],
               wsample_ffff[3][idx_w],
-              F[idx_w,0,0,1,1].real,
-              F[idx_w,0,0,1,1].imag,
+              F_qmc[idx_w,0,0,1,1].real,
+              F_qmc[idx_w,0,0,1,1].imag,
               F_ref[idx_w,0,0,1,1].real,
               F_ref[idx_w,0,0,1,1].imag
           )

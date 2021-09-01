@@ -18,6 +18,10 @@ from alpscthyb import mpi
 def _einsum(subscripts, *operands):
     return np.einsum(subscripts, *operands, optimize=True)
 
+def _check_full_convention(*wsample_full):
+    assert all(wsample_full[0] -wsample_full[1] + wsample_full[2] - wsample_full[3] == 0)
+    return check_full_convention(*wsample_full)
+
 class WormConfigRecord:
     def __init__(self, dirname, num_time_idx, num_flavor_idx) -> None:
         self.datasets = []
@@ -342,13 +346,11 @@ class VertexEvaluator(object):
     def compute_v(self):
         return self.hopping + _einsum('abij,ij->ab', self.get_asymU(), self.get_dm())
 
-    def compute_giv(self, wfs):
-        return self._compute_giv(wfs, self.hopping)
-
     def compute_calgiv(self, wfs):
-        return self._compute_giv(wfs, np.zeros((self.nflavors, self.nflavors)))
+        return self._compute_non_int_giv(wfs, np.zeros((self.nflavors, self.nflavors)))
 
-    def _compute_giv(self, wfs, hopping):
+    def _compute_non_int_giv(self, wfs, hopping):
+        """ Compute non-interacting Green's function for given hopping matrix"""
         wfs = check_fermionic(wfs)
         nfreqs = wfs.size
         
@@ -422,7 +424,7 @@ class VertexEvaluator(object):
         )
     
     def compute_F(self, wsample_full, verbose=False):
-        wsample_full = check_full_convention(*wsample_full)
+        wsample_full = _check_full_convention(*wsample_full)
         v1, v2, v3, v4 = wsample_full
         beta = self.beta
         asymU = self.get_asymU()
@@ -520,6 +522,9 @@ class VertexEvaluatorU0(VertexEvaluator):
         Ftau = self.basis_f.Ultau_all_l(taus).T
         return _einsum('tl,lab->tab', Ftau, gl)
 
+    def compute_giv(self, wfs):
+        return self._compute_non_int_giv(wfs, self.hopping)
+
     def compute_vartheta(self, wfs):
         """ Compute vartheta(wfs) """
         wfs = check_fermionic(wfs)
@@ -583,7 +588,7 @@ class VertexEvaluatorU0(VertexEvaluator):
 
     def compute_h(self, wsample_full):
         """ Compute h(v1, v2, v3, v4) """
-        v1, v2, v3, v4 = check_full_convention(*wsample_full)
+        v1, v2, v3, v4 = _check_full_convention(*wsample_full)
         vartheta1 = self.compute_vartheta(v1)
         vartheta3 = self.compute_vartheta(v3)
         return (self.beta**2) * (
@@ -720,7 +725,7 @@ class VertexEvaluatorAtomED(VertexEvaluator):
         return gamma
     
     def compute_h(self, wsample_full):
-        wsample_full = check_full_convention(*wsample_full)
+        wsample_full = _check_full_convention(*wsample_full)
         h = np.empty((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
         for i, j, k, l in product(range(self.nflavors),repeat=4):
             h[:,i,j,k,l] = compute_4pt_corr_func(
@@ -729,7 +734,7 @@ class VertexEvaluatorAtomED(VertexEvaluator):
             )
         return h
 
-    def _compute_giv(self, wfs, hopping):
+    def _compute_non_int_giv(self, wfs, hopping):
         # Compute non-interacting Green's function
         wfs = check_fermionic(wfs)
         nfreqs = wfs.size
@@ -793,6 +798,9 @@ class QMCResult(VertexEvaluator):
 
     def get_dm(self):
         return self.equal_time_G1
+
+    def compute_giv(self, wfs):
+        return self.compute_giv_SIE(wfs)
 
     def compute_gir_SIE(self):
         """
@@ -886,7 +894,7 @@ class QMCResult(VertexEvaluator):
             ft_three_point_obj(self.gamma_datasets, (wfs,wbs), self.nflavors, self.beta)
 
     def compute_h(self, wsample_full):
-        wsample_full = check_full_convention(*wsample_full)
+        wsample_full = _check_full_convention(*wsample_full)
         return self.h_corr_coeff * \
             ft_four_point_obj(self.h_corr_datasets, wsample_full, self.nflavors, self.beta)
 
