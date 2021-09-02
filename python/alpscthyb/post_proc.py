@@ -423,7 +423,7 @@ class VertexEvaluator(object):
            self.compute_gamma(wfs, wfs + wfs_p)
         )
     
-    def compute_F(self, wsample_full, verbose=False):
+    def _compute_scrF(self, wsample_full, verbose=False):
         wsample_full = _check_full_convention(*wsample_full)
         v1, v2, v3, v4 = wsample_full
         beta = self.beta
@@ -436,41 +436,61 @@ class VertexEvaluator(object):
 
         v1_ = self.compute_vartheta(v1) + vab[None,:,:]
         v3_ = self.compute_vartheta(v3) + vab[None,:,:]
-        scrF += (beta**2) * np.einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_, optimize=True)
-        scrF -= (beta**2) * np.einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_, optimize=True)
+        #print("debugA", scrF[:,0,0,1,1])
+        scrF += (beta**2) * _einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_)
+        scrF -= (beta**2) * _einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_)
+        #print("debugB", scrF[:,0,0,1,1])
 
         # xi
         scrF += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
         scrF += beta * _einsum('aicd,Wbi->Wabcd', asymU, self.compute_xi(-v2).conj())
         scrF += beta * _einsum('abid,Wci->Wabcd', asymU, self.compute_xi(v3))
         scrF += beta * _einsum('abci,Wdi->Wabcd', asymU, self.compute_xi(-v4).conj())
+        #print("debugC", scrF[:,0,0,1,1])
 
         # phi
         scrF += -4 * beta * self.compute_phi(v1-v2)
         scrF +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
+        #print("debugD", scrF[:,0,0,1,1])
 
         # f
         scrF +=  2 * beta * self.compute_f(v1, v1-v2)
         scrF +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
         scrF += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
         scrF += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
+        #print("debugE", scrF[:,0,0,1,1])
 
         # g
         scrF += -beta * self.compute_g(v1, v3)
         scrF += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
+        #print("debugF", scrF[:,0,0,1,1])
 
         # Psi
         scrF += -beta * self.compute_Psi(v1+v3)
+        #print("debugG", scrF[:,0,0,1,1])
 
         # h
         scrF -= self.compute_h(wsample_full)
+        #print("debugH", scrF[:,0,0,1,1])
+
+        return scrF
+
+    def compute_F(self, wsample_full):
+        scrF = self._compute_scrF(wsample_full)
 
         # Replace legs from calG to G
+        v1, v2, v3, v4 = wsample_full
         r1 = self._invG_calG(v1)
         r2 = self._calG_invG(v2)
         r3 = self._invG_calG(v3)
         r4 = self._calG_invG(v4)
-        return _einsum('waA,wBb,wcC,wDd,wABCD->wabcd', r1, r2, r3, r4, scrF)
+        #print("r1", r1)
+        #print("r2", r2)
+        #print("r3", r3)
+        #print("r4", r4)
+        F = _einsum('waA,wBb,wcC,wDd,wABCD->wabcd', r1, r2, r3, r4, scrF)
+        #print("debugI", F[:,0,0,1,1])
+        return F
 
     def _invG_calG(self, wfs):
         wfs_unique, wfs_where = np.unique(wfs, return_inverse=True)
@@ -636,7 +656,7 @@ class VertexEvaluatorAtomED(VertexEvaluator):
 
     def compute_giv(self, wfs):
         wfs = check_fermionic(wfs)
-        giv = np.zeros((wfs.size,self.nflavors, self.nflavors), dtype=np.complex128)
+        giv = np.empty((wfs.size,self.nflavors, self.nflavors), dtype=np.complex128)
         for i, j in product(range(self.nflavors), repeat=2):
             giv[:,i,j] = compute_fermionic_2pt_corr_func(
                 self.c_ops[i], self.cdag_ops[j], self.beta, wfs, self.evals, self.evecs)
@@ -645,7 +665,7 @@ class VertexEvaluatorAtomED(VertexEvaluator):
     def compute_vartheta(self, wfs):
         """ Compute vartheta(wfs) """
         wfs = check_fermionic(wfs)
-        vartheta = np.zeros((wfs.size, self.nflavors, self.nflavors), dtype=np.complex128)
+        vartheta = np.empty((wfs.size, self.nflavors, self.nflavors), dtype=np.complex128)
         for i, j in product(range(self.nflavors), repeat=2):
             vartheta[:,i,j] = compute_fermionic_2pt_corr_func(
                 self.q_ops[i], self.qdag_ops[j], self.beta, wfs, self.evals, self.evecs)
@@ -653,37 +673,17 @@ class VertexEvaluatorAtomED(VertexEvaluator):
 
     def compute_phi(self, wbs):
         wbs = check_bosonic(wbs)
-        phi = np.zeros((wbs.size,)+ 4*(self.nflavors,), dtype=np.complex128)
+        phi = np.empty((wbs.size,)+ 4*(self.nflavors,), dtype=np.complex128)
         for i, j, k, l in product(range(self.nflavors),repeat=4):
             phi[:,i,j,k,l] = \
                 0.25 * compute_bosonic_2pt_corr_func(
                     self.vab[i,j], self.vab[k,l], self.beta, wbs, self.evals, self.evecs)
         return phi                
 
-    """
-    def compute_Psi(self, wbs):
-        wbs = check_bosonic(wbs)
-        tmp = np.zeros((wbs.size,)+ 4*(self.nflavors,), dtype=np.complex128)
-        #print("wbs", wbs)
-        for i, j, k, l in product(range(self.nflavors),repeat=4):
-            tmp[:,i,j,k,l] = \
-                compute_bosonic_2pt_corr_func(
-                    self.c_ops[i]@self.c_ops[j],
-                    self.cdag_ops[k]@self.cdag_ops[l],
-                    self.beta, wbs, self.evals, self.evecs)
-            #print(i, j, k, l, tmp[:,i,j,k,l])
-
-        #print()
-        #print("tmp", tmp)
-        #print(-0.25 * _einsum('ajck,JbKd,WkjJK->Wabcd', self.get_asymU(), self.get_asymU(), tmp))
-        return -0.25 * _einsum('ajck,JbKd,WkjJK->Wabcd', self.get_asymU(), self.get_asymU(), tmp)                
-        #return 0.0 * _einsum('ajck,JbKd,WkjJK->Wabcd', self.get_asymU(), self.get_asymU(), tmp)                
-    """
-
     def compute_lambda(self, wbs):
         """ Compute lambda(wbs) """
         wbs = check_bosonic(wbs)
-        lambda_wb = np.zeros((wbs.size,)+ 4*(self.nflavors,), dtype=np.complex128)
+        lambda_wb = np.empty((wbs.size,)+ 4*(self.nflavors,), dtype=np.complex128)
         for i, j, k, l in product(range(self.nflavors),repeat=4):
             lambda_wb[:,i,j,k,l] = \
                 compute_bosonic_2pt_corr_func(
@@ -695,7 +695,7 @@ class VertexEvaluatorAtomED(VertexEvaluator):
     def compute_varphi(self, wbs):
         """ Compute varphi(wbs) """
         wbs = check_bosonic(wbs)
-        varphi_wb = np.zeros((wbs.size,) + 4*(self.nflavors,), dtype=np.complex128)
+        varphi_wb = np.empty((wbs.size,) + 4*(self.nflavors,), dtype=np.complex128)
         for i, j, k, l in product(range(self.nflavors),repeat=4):
             varphi_wb[:,i,j,k,l] = \
                 compute_bosonic_2pt_corr_func(
@@ -708,7 +708,7 @@ class VertexEvaluatorAtomED(VertexEvaluator):
         """ Compute eta(wfs, wbs) """
         wfs = check_fermionic(wfs)
         wbs = check_bosonic(wbs)
-        eta = np.zeros((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
+        eta = np.empty((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
         for i,j,k,l in product(range(self.nflavors), repeat=4):
             eta[:,i,j,k,l] = compute_3pt_corr_func(
                 self.q_ops[i], self.qdag_ops[j], self.cdag_ops[k]@self.c_ops[l],
@@ -719,7 +719,7 @@ class VertexEvaluatorAtomED(VertexEvaluator):
         """ Compute eta(wfs, wbs) """
         wfs = check_fermionic(wfs)
         wbs = check_bosonic(wbs)
-        gamma = np.zeros((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
+        gamma = np.empty((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
         for i,j,k,l in product(range(self.nflavors), repeat=4):
             gamma[:,i,j,k,l] = compute_3pt_corr_func(
                 self.q_ops[i], self.q_ops[j], self.cdag_ops[k]@self.cdag_ops[l],
