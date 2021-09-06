@@ -423,7 +423,7 @@ class VertexEvaluator(object):
            self.compute_gamma(wfs, wfs + wfs_p)
         )
     
-    def _compute_scrF(self, wsample_full, verbose=False):
+    def _compute_scrF(self, wsample_full, approx=True):
         wsample_full = _check_full_convention(*wsample_full)
         v1, v2, v3, v4 = wsample_full
         beta = self.beta
@@ -446,37 +446,40 @@ class VertexEvaluator(object):
         scrF += beta * _einsum('aicd,Wbi->Wabcd', asymU, self.compute_xi(-v2).conj())
         scrF += beta * _einsum('abid,Wci->Wabcd', asymU, self.compute_xi(v3))
         scrF += beta * _einsum('abci,Wdi->Wabcd', asymU, self.compute_xi(-v4).conj())
-        #print("debugC", scrF[:,0,0,1,1])
 
         # phi
         scrF += -4 * beta * self.compute_phi(v1-v2)
         scrF +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
-        #print("debugD", scrF[:,0,0,1,1])
 
         # f
         scrF +=  2 * beta * self.compute_f(v1, v1-v2)
         scrF +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
         scrF += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
         scrF += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
-        #print("debugE", scrF[:,0,0,1,1])
 
         # g
         scrF += -beta * self.compute_g(v1, v3)
         scrF += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
-        #print("debugF", scrF[:,0,0,1,1])
 
         # Psi
         scrF += -beta * self.compute_Psi(v1+v3)
-        #print("debugG", scrF[:,0,0,1,1])
 
         # h
-        scrF -= self.compute_h(wsample_full)
-        #print("debugH", scrF[:,0,0,1,1])
+        if approx:
+            print("USING APPROX!")
+            vartheta1 = self.compute_vartheta(v1)
+            vartheta3 = self.compute_vartheta(v3)
+            scrF -= (self.beta**2) * (
+                np.einsum('w,wab,wcd->wabcd', (v1==v2), vartheta1, vartheta3) -
+                np.einsum('w,wad,wcb->wabcd', (v1==v4), vartheta1, vartheta3)
+            )
+        else:
+            scrF -= self.compute_h(wsample_full)
 
         return scrF
 
-    def compute_F(self, wsample_full):
-        scrF = self._compute_scrF(wsample_full)
+    def compute_F(self, wsample_full, approx=True):
+        scrF = self._compute_scrF(wsample_full, approx)
 
         # Replace legs from calG to G
         v1, v2, v3, v4 = wsample_full
@@ -484,12 +487,7 @@ class VertexEvaluator(object):
         r2 = self._calG_invG(v2)
         r3 = self._invG_calG(v3)
         r4 = self._calG_invG(v4)
-        #print("r1", r1)
-        #print("r2", r2)
-        #print("r3", r3)
-        #print("r4", r4)
         F = _einsum('waA,wBb,wcC,wDd,wABCD->wabcd', r1, r2, r3, r4, scrF)
-        #print("debugI", F[:,0,0,1,1])
         return F
 
     def _invG_calG(self, wfs):
@@ -510,6 +508,20 @@ class VertexEvaluator(object):
             res_unique[i,:,:] = calgiv[i,...] @ np.linalg.inv(giv[i,...])
         return res_unique[wfs_where, ...]
 
+    
+    def compute_g4pt(self, wsample_full, F=None):
+        wsample_full = _check_full_convention(*wsample_full)
+        if F is None:
+            F = self.compute_F(wsample_full)
+        v1, v2, v3, v4 = wsample_full
+        g1 = self.compute_giv(v1)
+        g2 = self.compute_giv(v2)
+        g3 = self.compute_giv(v3)
+        g4 = self.compute_giv(v4)
+        g4pt = (self.beta**2) * (
+            _einsum('w,wab,wcd->wabcd', v1==v2, g1, g3)-_einsum('w,wad,wcb->wabcd', v1==v4, g1, g3)
+        ) -_einsum('waA,wBb,wcC,wDd,wABCD->wabcd', g1, g2, g3, g4, F)
+        return g4pt
 
 class VertexEvaluatorU0(VertexEvaluator):
     """
@@ -617,6 +629,16 @@ class VertexEvaluatorU0(VertexEvaluator):
             np.einsum('w,wab,wcd->wabcd', (v1==v2), vartheta1, vartheta3) -
             np.einsum('w,wad,wcb->wabcd', (v1==v4), vartheta1, vartheta3)
         )
+
+    def compute_g4pt(self, wsample_full):
+        wsample_full = _check_full_convention(*wsample_full)
+        v1, v2, v3, v4 = wsample_full
+        g1 = self.compute_giv(v1)
+        g3 = self.compute_giv(v3)
+        g4pt = (self.beta**2) * (
+            _einsum('w,wab,wcd->wabcd', v1==v2, g1, g3)-_einsum('w,wad,wcb->wabcd', v1==v4, g1, g3)
+        ) 
+        return g4pt
 
 class VertexEvaluatorAtomED(VertexEvaluator):
     """
@@ -736,7 +758,8 @@ class VertexEvaluatorAtomED(VertexEvaluator):
             )
         return h
     
-    def compute_g4pt(self, wsample_full):
+    def compute_g4pt_direct(self, wsample_full):
+        """ Compute g4pt direct by ED """
         wsample_full = _check_full_convention(*wsample_full)
         g4pt = np.empty((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
         for i, j, k, l in product(range(self.nflavors),repeat=4):
@@ -805,6 +828,9 @@ class QMCResult(VertexEvaluator):
             )[0] * regularizer[:,None]
         self.Delta_l = Delta_l.reshape((-1, self.nflavors, self.nflavors))
         self.Delta_tau_rec = np.einsum('tl,lij->tij', Ftau, self.Delta_l)
+
+        self.evalU0 = VertexEvaluatorU0(
+            self.nflavors, self.beta, self.basis_f, self.basis_b, self.hopping, self.Delta_l)
 
     def get_asymU(self):
         return self.asymU
@@ -921,3 +947,57 @@ class QMCResult(VertexEvaluator):
         """ Compute vartheta(wfs) """
         wfs = check_fermionic(wfs)
         return legendre_to_matsubara(self.vartheta_legendre, wfs)
+
+    #def compute_vartheta(self, wfs):
+        #""" Compute vartheta(wfs) """
+        #wfs = check_fermionic(wfs)
+        #return self.evalU0.compute_vartheta(wfs)
+
+    """
+    def _compute_scrF(self, wsample_full, verbose=False):
+        wsample_full = _check_full_convention(*wsample_full)
+        v1, v2, v3, v4 = wsample_full
+        beta = self.beta
+        asymU = self.get_asymU()
+        scrF = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
+
+        vab = self.compute_v()
+
+        scrF += beta * asymU[None, ...]
+
+        v1_ = self.compute_vartheta(v1) + vab[None,:,:]
+        v3_ = self.compute_vartheta(v3) + vab[None,:,:]
+        #print("debugA", scrF[:,0,0,1,1])
+        scrF += (beta**2) * _einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_)
+        scrF -= (beta**2) * _einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_)
+        #print("debugB", scrF[:,0,0,1,1])
+
+        # xi
+        #scrF += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
+        #scrF += beta * _einsum('aicd,Wbi->Wabcd', asymU, self.compute_xi(-v2).conj())
+        #scrF += beta * _einsum('abid,Wci->Wabcd', asymU, self.compute_xi(v3))
+        #scrF += beta * _einsum('abci,Wdi->Wabcd', asymU, self.compute_xi(-v4).conj())
+
+        # phi
+        scrF += -4 * beta * self.compute_phi(v1-v2)
+        scrF +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
+
+        # f
+        scrF +=  2 * beta * self.compute_f(v1, v1-v2)
+        scrF +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
+        scrF += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
+        scrF += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
+
+        # g
+        #scrF += -beta * self.compute_g(v1, v3)
+        #scrF += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
+
+        # Psi
+        #scrF += -beta * self.compute_Psi(v1+v3)
+
+        # h
+        scrF -= self.evalU0.compute_h(wsample_full)
+        #scrF -= self.compute_h(wsample_full)
+
+        return scrF
+    """

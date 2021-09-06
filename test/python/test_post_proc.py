@@ -189,7 +189,6 @@ def test_Hubbard_atom():
         -0.0471127+1J*(-0.14122)])
     _almost_equal(giv[:,0,0], giv_uu_ref)
 
-    #wsample_full = box(4, 5, return_conv='full')
     wsample_full = \
         np.array([1,1]), \
         np.array([1,1]), \
@@ -198,111 +197,42 @@ def test_Hubbard_atom():
     g4pt_pomerol = -beta * \
         np.array([3.5050141435761, 1.2829547341506-1j*0.806476785417485]) # Where is this sign come from?
     F_ed = evalatom.compute_F(wsample_full)
-    #scrF_ed = evalatom._compute_scrF(wsample_full)
 
     # Construct G^{v1,v2,v3,v4} from F
-    v1, v2, v3, v4 = wsample_full
-    g1 = evalatom.compute_giv(v1)
-    g2 = evalatom.compute_giv(v2)
-    g3 = evalatom.compute_giv(v3)
-    g4 = evalatom.compute_giv(v4)
-    #calg1 = evalatom.compute_calgiv(v1)
-    #calg2 = evalatom.compute_calgiv(v2)
-    #calg3 = evalatom.compute_calgiv(v3)
-    #calg4 = evalatom.compute_calgiv(v4)
-    g4pt_ref = (beta**2) * (
-        _einsum('w,wab,wcd->wabcd', v1==v2, g1, g3)-_einsum('w,wad,wcb->wabcd', v1==v4, g1, g3)
-    ) -_einsum('waA,wBb,wcC,wDd,wABCD->wabcd', g1, g2, g3, g4, F_ed)
-    #g4pt_ref = (beta**2) * (
-        #_einsum('w,wab,wcd->wabcd', v1==v2, g1, g3) -_einsum('w,wad,wcb->wabcd', v1==v4, g1, g3)
-    #) -_einsum('waA,wBb,wcC,wDd,wABCD->wabcd', calg1, calg2, calg3, calg4, scrF_ed)
-#
-    g4pt_ed = evalatom.compute_g4pt(wsample_full)
-    #print(g4pt_ed)
-    #print(g4pt_ref)
-    #assert np.abs(g4pt_ed-g4pt_ref).max()/np.abs(g4pt_ref).max() < 1e-8
-    #print("G4pt")
-    #for i, j, k, l in product(range(nflavors), repeat=4):
-        #print(i, j, k, l,
-           #g4pt_ed[:,i,j,k,l],
-           #g4pt_ref[:,i,j,k,l],
-           #np.abs(g4pt_ed[:,i,j,k,l]- g4pt_ref[:,i,j,k,l])
-        #)
-    #print("")
-    #print("F")
-    #for i, j, k, l in product(range(nflavors), repeat=4):
-        #print(i, j, k, l, F_ed[:,i,j,k,l])
-
-    assert _almost_equal(g4pt_ed[:,0,0,1,1], g4pt_pomerol)
-    assert _almost_equal(g4pt_ref[:,0,0,1,1], g4pt_pomerol, rtol=1e-5)
-    #assert _almost_equal(g4pt_ed, g4pt_ref)
-
-"""
-def test_Hubbard_atom_debug():
-    np.random.seed(100)
-    nflavors = 2
-    beta = 10.0
-    U = 5.0
-
-    asymU = hubbard_asymmU(U)
-
-    mu = 0.5*U
-    h = 0.1
-    hopping = np.diag(np.array([h-mu,-h-mu]))
-
-    evalatom = VertexEvaluatorAtomED(nflavors, beta, hopping, asymU)
-
-    # First 10 matsubara freqs
-    giv = evalatom.compute_giv(2*np.arange(10)+1)
-    print("giv on first 10 freqs: (u,u): ", giv[:,0,0])
-    print("giv on first 10 freqs: (d,d): ", giv[:,1,1])
-
-    print("vab", evalatom.compute_v())
-
-    # From pomerol
-    wsample_full = \
-        np.array([1,1]), \
-        np.array([1,1]), \
-        np.array([1,3]), \
-        np.array([1,3])
-    g4pt_pomerol = -beta * \
-        np.array([3.5050141435761, 1.2829547341506-1j*0.806476785417485]) # Where is this sign come from?
-    F_ed = evalatom.compute_F(wsample_full)
-    scrF_ed = evalatom._compute_scrF(wsample_full)
-
-    # Construct G^{v1,v2,v3,v4} from F
-    v1, v2, v3, v4 = wsample_full
-    g1 = evalatom.compute_giv(v1)
-    g2 = evalatom.compute_giv(v2)
-    g3 = evalatom.compute_giv(v3)
-    g4 = evalatom.compute_giv(v4)
-    calg1 = evalatom.compute_calgiv(v1)
-    calg2 = evalatom.compute_calgiv(v2)
-    calg3 = evalatom.compute_calgiv(v3)
-    calg4 = evalatom.compute_calgiv(v4)
+    #v1, v2, v3, v4 = wsample_full
+    #g1 = evalatom.compute_giv(v1)
+    #g2 = evalatom.compute_giv(v2)
+    #g3 = evalatom.compute_giv(v3)
+    #g4 = evalatom.compute_giv(v4)
     #g4pt_ref = (beta**2) * (
         #_einsum('w,wab,wcd->wabcd', v1==v2, g1, g3)-_einsum('w,wad,wcb->wabcd', v1==v4, g1, g3)
     #) -_einsum('waA,wBb,wcC,wDd,wABCD->wabcd', g1, g2, g3, g4, F_ed)
-    g4pt_ref = (beta**2) * (
-        _einsum('w,wab,wcd->wabcd', v1==v2, g1, g3) -_einsum('w,wad,wcb->wabcd', v1==v4, g1, g3)
-    ) -_einsum('waA,wBb,wcC,wDd,wABCD->wabcd', calg1, calg2, calg3, calg4, scrF_ed)
+    g4pt_reconst = evalatom.compute_g4pt(wsample_full, F=F_ed)
+    g4pt_ed = evalatom.compute_g4pt_direct(wsample_full)
 
-    g4pt_ed = evalatom.compute_g4pt(wsample_full)
-    #print(g4pt_ed)
-    #print(g4pt_ref)
-    #assert np.abs(g4pt_ed-g4pt_ref).max()/np.abs(g4pt_ref).max() < 1e-8
-    print("G4pt")
-    for i, j, k, l in product(range(nflavors), repeat=4):
-        print(i, j, k, l,
-           g4pt_ed[:,i,j,k,l],
-           g4pt_ref[:,i,j,k,l],
-           np.abs(g4pt_ed[:,i,j,k,l]- g4pt_ref[:,i,j,k,l])
-        )
+    assert _almost_equal(g4pt_ed[:,0,0,1,1], g4pt_pomerol)
+    assert _almost_equal(g4pt_reconst[:,0,0,1,1], g4pt_pomerol, rtol=1e-5)
 
-    print("")
-    print("F")
-    for i, j, k, l in product(range(nflavors), repeat=4):
-        print(i, j, k, l, F_ed[:,i,j,k,l])
-    #assert _almost_equal(g4pt_ed[:,0,0,1,1], g4pt_pomerol) assert _almost_equal(g4pt_ref[:,0,0,1,1], g4pt_pomerol)
-    #assert _almost_equal(g4pt_ed, g4pt_ref)
-"""
+
+def test_three_orb_SOI_U0():
+    nflavors = 6
+    beta = 20.0
+    Lambda = 1e+5
+    basis_f = load_irbasis('F', Lambda, beta, 1e-10)
+    basis_b = load_irbasis('B', Lambda, beta, 1e-10)
+
+    soi = 1.0
+    hopping = soi * (-0.5)*np.array( [
+        [ 0,  0, -1J,  0,  0,  1], 
+        [ 0,  0,  0,  1J, -1,  0], 
+        [1J,  0,  0,   0,  0,-1J],
+        [ 0,-1J,  0,   0,-1J,  0], 
+        [ 0, -1,  0,  1J,  0,  0], 
+        [ 1,  0, 1J,   0,  0,  0]], dtype=np.complex128)
+    #asymU = np.zeros(6*(nflavors,), dtype=np.complex128)
+    Delta_l = np.zeros((basis_f.dim(), nflavors, nflavors), dtype=np.complex128)
+    evalU0 = VertexEvaluatorU0(nflavors, beta, basis_f, basis_b, hopping, Delta_l)
+
+    wsample_full = box(4, 3, return_conv='full')
+    F = evalU0.compute_F(wsample_full)
+    assert np.abs(F).max() < 1e-8

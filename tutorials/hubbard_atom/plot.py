@@ -85,7 +85,7 @@ def box_fb(nf, nb):
     wb = 2*np.arange(-nb,nb)
     v, w = np.broadcast_arrays(wf[:,None], wb[None,:])
     return v.ravel(), w.ravel()
-wsample_fb = box_fb(4, 3)
+wsample_fb = box_fb(8, 9)
 
 #SIE
 gir_SIE = res.compute_gir_SIE()
@@ -156,7 +156,7 @@ plot_comparison(res.compute_h(wsample_ffff), h_ref, "h")
 #wsample_ffff = (v1, v2, v3, v4)
 #wsample_ph = to_ph_convention(*wsample_ffff)
 #F_ref = beta * _atomic_F_ph(U, beta, wsample_ph)
-F_qmc = res.compute_F(wsample_ffff)
+F_qmc = res.compute_F(wsample_ffff, approx=True)
 plot_comparison(F_qmc, F_ref, "F")
 
 if mpi.rank == 0:
