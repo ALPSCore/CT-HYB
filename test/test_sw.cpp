@@ -177,7 +177,7 @@ TEST(SlidingWindow, trace) {
   
   // -G(tau) = < c_up(tau) c^\dagger_up(0)>
   //         = Tr[e^{-(beta-tau) H} c_up e^{-tau H} c^dagger_up]/Z
-  // vartheta(tau) = - <q_up(tau) q^\dagger_up(0)> = frac{d^2 G(tau)}{d tau^2}
+  // vartheta(tau) = 0.5*(U**2)*exp(-0.5*U*tau)/(1+exp(-0.5*beta*U))
   auto gtau_ref = [&half_U, &beta](double tau){
       return 0.5 * (
           std::exp(-half_U*tau)/(1+std::exp(-beta*half_U)) 
@@ -192,8 +192,8 @@ TEST(SlidingWindow, trace) {
     ASSERT_NEAR(gtau_ref(tau), gtau, 1e-8);
   }
 
-  auto vartheta_ref = [&half_U, &gtau_ref](double tau){
-    return (half_U*half_U) * gtau_ref(tau);
+  auto vartheta_ref = [&half_U, &beta, &onsite_U](double tau){
+    return 0.5*(onsite_U*onsite_U)*std::exp(-half_U*tau)/(1+std::exp(-beta*half_U));
   };
   for (auto tau : {0.0*beta, 0.1*beta, 0.5*beta, beta}) {
     operator_container_t ops;

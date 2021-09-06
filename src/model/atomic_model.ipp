@@ -196,18 +196,20 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
   }
 
   //Build sparse matrix representation of Hamiltonian
-  sparse_matrix_t ham(dim_, dim_);
+  ham_U = sparse_matrix_t(dim_, dim_);
   for (int elem = 0; elem < nonzero_U_vals.size(); ++elem) {
     auto uval = std::get<4>(nonzero_U_vals[elem]);
     if (std::abs(uval) > eps_numerics) {
-      ham += uval
+      ham_U += uval
         * ddag_ops[std::get<0>(nonzero_U_vals[elem])]
         * ddag_ops[std::get<1>(nonzero_U_vals[elem])]
         * d_ops[   std::get<2>(nonzero_U_vals[elem])]
         * d_ops[   std::get<3>(nonzero_U_vals[elem])];
     }
   }
+  //ham_U.prune(PruneHelper<SCALAR>(eps));
 
+  sparse_matrix_t ham(ham_U);
   for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
     for (int flavor1 = 0; flavor1 < flavors_; ++flavor1) {
       ham += hopping_mat(flavor1, flavor2) * ddag_ops[flavor1] * d_ops[flavor2];
@@ -237,6 +239,7 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
     merge_according_to_c_or_cdag(ddag_ops[flavor], block_mat, cl, cl2);
     merge_according_to_c_or_cdag(d_ops[flavor], block_mat, cl, cl2);
   }
+  merge_according_to_c_or_cdag(ham_U, block_mat, cl, cl2);
   cl2.finalize_labeling();
 
   if (verbose_) {
@@ -291,25 +294,27 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
 
     typedef boost::multi_array_types::index_range range;
 
-    boost::multi_array<int, 3>::array_view<1>::type myview =
-        sector_connection[boost::indices[0][flavor][range(0, num_sectors_)]];
-    split_op_into_sectors(num_sectors_,
+    {
+      auto myview = sector_connection[boost::indices[0][flavor][range(0, num_sectors_)]];
+      split_op_into_sectors(num_sectors_,
                           ddag_ops[flavor],
                           dim_sectors,
                           index_of_state_in_sector,
                           sector_of_state,
                           myview.origin(),
                           ddag_ops_sectors[flavor]);
+    }
 
-    boost::multi_array<int, 3>::array_view<1>::type myview2 =
-        sector_connection[boost::indices[1][flavor][range(0, num_sectors_)]];
-    split_op_into_sectors(num_sectors_,
+    {
+      auto myview = sector_connection[boost::indices[1][flavor][range(0, num_sectors_)]];
+      split_op_into_sectors(num_sectors_,
                           d_ops[flavor],
                           dim_sectors,
                           index_of_state_in_sector,
                           sector_of_state,
-                          myview2.origin(),
+                          myview.origin(),
                           d_ops_sectors[flavor]);
+    }
   }
 
   sector_connection_reverse.resize(boost::extents[2][flavors_][num_sectors_]);

@@ -197,6 +197,8 @@ class AtomicModel {
   typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> real_matrix_t;
   typedef Eigen::SparseMatrix<SCALAR> sparse_matrix_t;
 
+  sparse_matrix_t ham_U;
+
  public:
   //! Contruct the impurity model
   AtomicModel(const alps::params &par, bool verbose = false);
@@ -332,10 +334,10 @@ class AtomicModel {
   bool verbose_;
 
   //getter
-  const sparse_matrix_t &creation_operators_hyb(int flavor, int sector) {
+  const sparse_matrix_t &creation_operators_hyb(int flavor, int sector)  const{
     return ddag_ops_sectors[flavor][sector];
   }
-  const sparse_matrix_t &annihilation_operators_hyb(int flavor, int sector) {
+  const sparse_matrix_t &annihilation_operators_hyb(int flavor, int sector) const {
     return d_ops_sectors[flavor][sector];
   }
   const std::vector<std::vector<int> > &get_sector_members() const {
@@ -466,6 +468,8 @@ class AtomicModelEigenBasis: public AtomicModel<SCALAR, AtomicModelEigenBasis<SC
   std::vector<double> min_eigenval_sector;
   std::vector<std::vector<dense_matrix_t> > ddag_ops_eigen, d_ops_eigen;//flavor, sector
   std::vector<std::vector<dense_matrix_t> > qdag_ops_eigen, q_ops_eigen;//flavor, sector
+
+  std::vector<dense_matrix_t> ham_U_eigen;//sector
 
   int num_braket_;
   //equal to the number of active sectors

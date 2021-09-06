@@ -219,7 +219,7 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(double inner_outer_cutoff_energy
     min_eigenval_sector[sector] -= Base::reference_energy_;
   }
 
-  //transform d, d^dagger to eigenbasis
+  //transform d, d^dagger, q, q^dagger to eigenbasis
   ddag_ops_eigen.resize(flavors);
   d_ops_eigen.resize(flavors);
   for (int flavor = 0; flavor < flavors; ++flavor) {
@@ -230,27 +230,38 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(double inner_outer_cutoff_energy
       if (!is_sector_active(dst_sector) || !is_sector_active(src_sector)) {
         ddag_ops_eigen[flavor][src_sector].resize(0, 0);
       } else {
-        dense_matrix_t tmp_mat = evecs_sector[dst_sector].adjoint() * Base::creation_operators_hyb(flavor, src_sector)
-            * evecs_sector[src_sector];
-        construct_operator_object(tmp_mat, ddag_ops_eigen[flavor][src_sector]);
+        construct_operator_object(
+          static_cast<dense_matrix_t>(
+            evecs_sector[dst_sector].adjoint() * Base::creation_operators_hyb(flavor, src_sector) * evecs_sector[src_sector]
+          ), ddag_ops_eigen[flavor][src_sector]);
       }
 
       dst_sector = Base::get_dst_sector_ket(ANNIHILATION_OP, flavor, src_sector);
       if (!is_sector_active(dst_sector) || !is_sector_active(src_sector)) {
         d_ops_eigen[flavor][src_sector].resize(0, 0);
       } else {
-        dense_matrix_t tmp_mat =
-            evecs_sector[dst_sector].adjoint() * Base::annihilation_operators_hyb(flavor, src_sector)
-                * evecs_sector[src_sector];
-        construct_operator_object(tmp_mat, d_ops_eigen[flavor][src_sector]);
+        construct_operator_object(
+          static_cast<dense_matrix_t>(
+            evecs_sector[dst_sector].adjoint() * Base::annihilation_operators_hyb(flavor, src_sector) * evecs_sector[src_sector]
+          ), d_ops_eigen[flavor][src_sector]);
       }
     }
+  }
+
+  // ham_U
+  ham_U_eigen.resize(num_sectors);
+  auto offset = 0;
+  for (int sector = 0; sector < num_sectors; ++sector) {
+    auto dim = dim_sector(sector);
+    ham_U_eigen[sector] = evecs_sector[sector].adjoint() * \
+       this->ham_U.block(offset, offset, dim, dim) * evecs_sector[sector];
+    offset += dim;
   }
 }
 
 // Build matrix representations of q and q^dagger operator in eigen basis
-// q_a = - [H_loc, d_a] = d_a H_loc - H_loc d_a
-// q^dagger_a = [H_loc, d^dagger_a] = H_loc d^dagger_a - d^dagger_a H_loc
+// q_a = - [H_U, d_a] = d_a H_U - H_U d_a
+// q^dagger_a = [H_U, d^dagger_a] = H_U d^dagger_a - d^dagger_a H_U
 template<typename SCALAR>
 void AtomicModelEigenBasis<SCALAR>::build_qops() {
   q_ops_eigen.resize(this->num_flavors());
@@ -267,13 +278,10 @@ void AtomicModelEigenBasis<SCALAR>::build_qops() {
         continue;
       }
       int dst_sector = Base::get_dst_sector_ket(ANNIHILATION_OP, f, sector);
-      q_ops_eigen[f][sector].resize(rows, cols);
-      for (auto i=0; i<rows; ++i) {
-        for (auto j=0; j<cols; ++j) {
-          q_ops_eigen[f][sector](i,j) = 
-            (-eigenvals_sector[dst_sector][i] + eigenvals_sector[sector][j]) * d_ops_eigen[f][sector](i,j);
-        }
-      }
+      q_ops_eigen[f][sector] = (
+        d_ops_eigen[f][sector] * ham_U_eigen[sector] -
+        ham_U_eigen[dst_sector] * d_ops_eigen[f][sector]
+      );
     }
 
     // Build qdagger ops
@@ -283,15 +291,11 @@ void AtomicModelEigenBasis<SCALAR>::build_qops() {
       if (rows * cols == 0) {
         continue;
       }
-      // Hloc d_dagg - d_dagg Hloc
       int dst_sector = Base::get_dst_sector_ket(CREATION_OP, f, sector);
-      qdag_ops_eigen[f][sector].resize(rows, cols);
-      for (auto i=0; i<rows; ++i) {
-        for (auto j=0; j<cols; ++j) {
-          qdag_ops_eigen[f][sector](i,j) =
-              (eigenvals_sector[dst_sector][i] - eigenvals_sector[sector][j]) * ddag_ops_eigen[f][sector](i,j);
-        }
-      }
+      qdag_ops_eigen[f][sector] = (
+        ham_U_eigen[dst_sector] * ddag_ops_eigen[f][sector] - 
+        ddag_ops_eigen[f][sector] * ham_U_eigen[sector]
+      );
     }
   }
 }
