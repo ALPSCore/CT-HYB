@@ -325,6 +325,9 @@ class VertexEvaluator(object):
         """ One-particle density matrix """
         return NotImplementedError
 
+    def compute_Delta_iv(self, wfs):
+        return self.basis_f.evaluate_iw(self.Delta_l, wfs)
+
     def compute_vartheta(self, wfs):
         raise NotImplementedError
 
@@ -344,10 +347,10 @@ class VertexEvaluator(object):
         raise NotImplementedError
 
     def compute_v(self):
-        return self.hopping + _einsum('abij,ij->ab', self.get_asymU(), self.get_dm())
+        return _einsum('abij,ij->ab', self.get_asymU(), self.get_dm())
 
-    def compute_calgiv(self, wfs):
-        return self._compute_non_int_giv(wfs, np.zeros((self.nflavors, self.nflavors)))
+    def compute_g0iv(self, wfs):
+        return self._compute_non_int_giv(wfs, self.hopping)
 
     def _compute_non_int_giv(self, wfs, hopping):
         """ Compute non-interacting Green's function for given hopping matrix"""
@@ -355,7 +358,7 @@ class VertexEvaluator(object):
         nfreqs = wfs.size
         
         # Compute Delta(iv)
-        Delta_iv = self.basis_f.evaluate_iw(self.Delta_l, wfs)
+        Delta_iv = self.compute_Delta_iv(wfs)
 
         # Compute non-interacting Green's function
         G0 = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)
@@ -371,25 +374,18 @@ class VertexEvaluator(object):
         return _einsum(
             'wai,wib->wab',
             (self.compute_v()[None,:,:] + self.compute_vartheta(wfs)),
-            self.compute_calgiv(wfs)
+            self.compute_g0iv(wfs)
         )
     
     def compute_phi(self, wbs):
         wbs = check_bosonic(wbs)
-        phi = 0.25 * \
+        return 0.25 * \
             _einsum(
                 'abij,cdkl,wijkl->wabcd',
                 self.get_asymU(),
                 self.get_asymU(),
                 self.compute_lambda(wbs)
             )
-        const = 0.25 * self.beta * (
-            np.einsum('ab,cd->abcd', self.hopping, self.hopping) +
-            np.einsum('ab,cdkl,kl->abcd', self.hopping, self.get_asymU(), self.get_dm(), optimize=True) +
-            np.einsum('cd,abij,ij->abcd', self.hopping, self.get_asymU(), self.get_dm(), optimize=True)
-        )
-        phi[wbs==0] += const[None,:,:,:,:]
-        return phi
 
     def compute_Psi(self, wbs):
         wbs = check_bosonic(wbs)
@@ -407,12 +403,6 @@ class VertexEvaluator(object):
             self.get_asymU(),
             optimize=True
         )
-        f += -0.5 * self.beta * \
-            _einsum('W,Wab,cd->Wabcd',
-                wbs == 0,
-                self.compute_vartheta(wfs),
-                self.hopping
-            )
         return f
     
     def compute_g(self, wfs, wfs_p):
@@ -423,7 +413,7 @@ class VertexEvaluator(object):
            self.compute_gamma(wfs, wfs + wfs_p)
         )
     
-    def _compute_scrF(self, wsample_full, approx=True):
+    def _compute_scrF(self, wsample_full):
         wsample_full = _check_full_convention(*wsample_full)
         v1, v2, v3, v4 = wsample_full
         beta = self.beta
@@ -436,10 +426,8 @@ class VertexEvaluator(object):
 
         v1_ = self.compute_vartheta(v1) + vab[None,:,:]
         v3_ = self.compute_vartheta(v3) + vab[None,:,:]
-        #print("debugA", scrF[:,0,0,1,1])
         scrF += (beta**2) * _einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_)
         scrF -= (beta**2) * _einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_)
-        #print("debugB", scrF[:,0,0,1,1])
 
         # xi
         scrF += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
@@ -465,47 +453,38 @@ class VertexEvaluator(object):
         scrF += -beta * self.compute_Psi(v1+v3)
 
         # h
-        if approx:
-            print("USING APPROX!")
-            vartheta1 = self.compute_vartheta(v1)
-            vartheta3 = self.compute_vartheta(v3)
-            scrF -= (self.beta**2) * (
-                np.einsum('w,wab,wcd->wabcd', (v1==v2), vartheta1, vartheta3) -
-                np.einsum('w,wad,wcb->wabcd', (v1==v4), vartheta1, vartheta3)
-            )
-        else:
-            scrF -= self.compute_h(wsample_full)
+        scrF -= self.compute_h(wsample_full)
 
         return scrF
 
-    def compute_F(self, wsample_full, approx=True):
-        scrF = self._compute_scrF(wsample_full, approx)
+    def compute_F(self, wsample_full):
+        scrF = self._compute_scrF(wsample_full)
 
-        # Replace legs from calG to G
+        # Replace legs from G0 to G
         v1, v2, v3, v4 = wsample_full
-        r1 = self._invG_calG(v1)
-        r2 = self._calG_invG(v2)
-        r3 = self._invG_calG(v3)
-        r4 = self._calG_invG(v4)
+        r1 = self._invG_G0(v1)
+        r2 = self._G0_invG(v2)
+        r3 = self._invG_G0(v3)
+        r4 = self._G0_invG(v4)
         F = _einsum('waA,wBb,wcC,wDd,wABCD->wabcd', r1, r2, r3, r4, scrF)
         return F
 
-    def _invG_calG(self, wfs):
+    def _invG_G0(self, wfs):
         wfs_unique, wfs_where = np.unique(wfs, return_inverse=True)
         res_unique = np.empty((wfs_unique.size, self.nflavors, self.nflavors), dtype=np.complex128)
         giv = self.compute_giv(wfs_unique)
-        calgiv = self.compute_calgiv(wfs_unique)
+        g0iv = self.compute_g0iv(wfs_unique)
         for i in range(wfs_unique.size):
-            res_unique[i,:,:] = np.linalg.inv(giv[i,...]) @ calgiv[i,...]
+            res_unique[i,:,:] = np.linalg.inv(giv[i,...]) @ g0iv[i,...]
         return res_unique[wfs_where, ...]
 
-    def _calG_invG(self, wfs):
+    def _G0_invG(self, wfs):
         wfs_unique, wfs_where = np.unique(wfs, return_inverse=True)
         res_unique = np.empty((wfs_unique.size, self.nflavors, self.nflavors), dtype=np.complex128)
         giv = self.compute_giv(wfs_unique)
-        calgiv = self.compute_calgiv(wfs_unique)
+        g0iv = self.compute_g0iv(wfs_unique)
         for i in range(wfs_unique.size):
-            res_unique[i,:,:] = calgiv[i,...] @ np.linalg.inv(giv[i,...])
+            res_unique[i,:,:] = g0iv[i,...] @ np.linalg.inv(giv[i,...])
         return res_unique[wfs_where, ...]
 
     
@@ -557,15 +536,12 @@ class VertexEvaluatorU0(VertexEvaluator):
         return _einsum('tl,lab->tab', Ftau, gl)
 
     def compute_giv(self, wfs):
-        return self._compute_non_int_giv(wfs, self.hopping)
+        return self.compute_g0iv(wfs)
 
     def compute_vartheta(self, wfs):
         """ Compute vartheta(wfs) """
         wfs = check_fermionic(wfs)
-        return np.einsum(
-            'ai,jb,wij->wab',
-            self.hopping,
-            self.hopping, self.compute_giv(wfs))
+        return np.zeros((wfs.size, self.nflavors, self.nflavors), dtype=np.complex128)
 
     def compute_lambda(self, wbs):
         """ Compute lambda(wbs) """
@@ -600,35 +576,18 @@ class VertexEvaluatorU0(VertexEvaluator):
         """ Compute eta(wfs, wbs) """
         wfs = check_fermionic(wfs)
         wbs = check_bosonic(wbs)
-        eta1 = - self.beta * \
-           np.einsum('w,wab,cd->wabcd',
-               (wbs == 0),
-               self.compute_vartheta(wfs),
-               self.dm
-           )
-        eta2 = np.einsum('wac,wbd->wabcd',
-           self.compute_xi(wfs),
-           self.compute_xi(wbs-wfs).conj()
-        )
-        return eta1 + eta2
+        return np.zeros((wfs.size,) + 4*(self.nflavors,), dtype=np.complex128)
     
     def compute_gamma(self, wfs, wbs):
         """ Compute gamma(wfs, wbs) """
         wfs = check_fermionic(wfs)
         wbs = check_bosonic(wbs)
-        xi1 = self.compute_xi(wfs)
-        xi2 = self.compute_xi(wbs-wfs)
-        return np.einsum('wad,wbc->wabcd', xi1, xi2) - np.einsum('wac,wbd->wabcd', xi1, xi2)
+        return np.zeros((wfs.size,) + 4*(self.nflavors,), dtype=np.complex128)
 
     def compute_h(self, wsample_full):
         """ Compute h(v1, v2, v3, v4) """
         v1, v2, v3, v4 = _check_full_convention(*wsample_full)
-        vartheta1 = self.compute_vartheta(v1)
-        vartheta3 = self.compute_vartheta(v3)
-        return (self.beta**2) * (
-            np.einsum('w,wab,wcd->wabcd', (v1==v2), vartheta1, vartheta3) -
-            np.einsum('w,wad,wcb->wabcd', (v1==v4), vartheta1, vartheta3)
-        )
+        return np.zeros((v1.size,) + 4*(self.nflavors,), dtype=np.complex128)
 
     def compute_g4pt(self, wsample_full):
         wsample_full = _check_full_convention(*wsample_full)
@@ -654,19 +613,18 @@ class VertexEvaluatorAtomED(VertexEvaluator):
         _, self.cdag_ops = construct_cdagger_ops(nflavors)
         self.c_ops = [op.transpose(copy=True) for op in self.cdag_ops]
         self.ham = construct_ham(hopping, self.asymU, self.cdag_ops)
+        self.ham_U = construct_ham(np.zeros_like(hopping), self.asymU, self.cdag_ops)
         self.evals, self.evecs = np.linalg.eigh(self.ham.toarray())
-        self.q_ops = [c@self.ham-self.ham@c for c in self.c_ops]
-        self.qdag_ops = [self.ham@cdag-cdag@self.ham for cdag in self.cdag_ops]
+        self.q_ops = [c@self.ham_U-self.ham_U@c for c in self.c_ops]
+        self.qdag_ops = [self.ham_U@cdag-cdag@self.ham_U for cdag in self.cdag_ops]
 
         self.dm = np.zeros((nflavors,nflavors), dtype=np.complex128)
         for i, j in product(range(nflavors), repeat=2):
             self.dm[i,j] = compute_expval(
                 self.cdag_ops[i]@self.c_ops[j], beta, self.evals, self.evecs)
 
-        self.vab = np.empty((self.nflavors, self.nflavors), dtype=object)
+        self.vab = np.zeros((self.nflavors, self.nflavors), dtype=object)
         for a, b in product(range(self.nflavors), repeat=2):
-            self.vab[a,b] = hopping[a,b] * \
-                    scipy.sparse.identity(2**self.nflavors, dtype=np.complex128, format='coo')
             for i, j in product(range(self.nflavors), repeat=2):
                 self.vab[a,b]+= self.asymU[a,b,i,j] * (self.cdag_ops[i]@self.c_ops[j])
 
@@ -683,6 +641,9 @@ class VertexEvaluatorAtomED(VertexEvaluator):
             giv[:,i,j] = compute_fermionic_2pt_corr_func(
                 self.c_ops[i], self.cdag_ops[j], self.beta, wfs, self.evals, self.evecs)
         return giv
+
+    def compute_Delta_iv(self, wfs):
+        return np.zeros((wfs.size, self.nflavors, self.nflavors), dtype=np.complex128)
 
     def compute_vartheta(self, wfs):
         """ Compute vartheta(wfs) """
@@ -769,18 +730,6 @@ class VertexEvaluatorAtomED(VertexEvaluator):
             )
         return g4pt
 
-
-    def _compute_non_int_giv(self, wfs, hopping):
-        # Compute non-interacting Green's function
-        wfs = check_fermionic(wfs)
-        nfreqs = wfs.size
-        G0 = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)
-        I = np.identity(self.nflavors)
-        for ifreq, v in enumerate(wfs):
-            iv = 1J * v * np.pi/self.beta
-            G0[ifreq, ...] = np.linalg.inv(iv * I - hopping[None,:,:])
-        return G0
-
 class QMCResult(VertexEvaluator):
     def __init__(self, p, verbose=False, Lambda=1E+5, cutoff=1e-8) -> None:
         if verbose:
@@ -850,25 +799,6 @@ class QMCResult(VertexEvaluator):
         giv = self.compute_giv_SIE(vsample)
         return _fit_iw(self.basis_f, giv)
 
-    def compute_g0iv(self, vsample):
-        """
-        Compute non-interacting one-particle Green's function
-        on Matsubara frequencies
-        """
-        vsample = check_fermionic(vsample)
-        nfreqs = vsample.size
-        
-        # Compute Delta(iv)
-        Delta_iv = self.basis_f.evaluate_iw(self.Delta_l, vsample)
-
-        # Compute non-interacting Green's function
-        G0 = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)
-        I = np.identity(self.nflavors)
-        for ifreq, v in enumerate(vsample):
-            iv = 1J * v * np.pi/self.beta
-            G0[ifreq, ...] = np.linalg.inv(iv * I - Delta_iv[ifreq, ...] - self.hopping[None,:,:])
-        return G0
-
     def compute_giv_SIE(self, vsample):
         """
         Reconstruct one-particle Green's function using SIE
@@ -881,44 +811,36 @@ class QMCResult(VertexEvaluator):
         vartheta = legendre_to_matsubara(self.vartheta_legendre, vsample)
 
         # Compute Delta(iv)
-        Delta_iv = self.basis_f.evaluate_iw(self.Delta_l, vsample)
+        #Delta_iv = self.basis_f.evaluate_iw(self.Delta_l, vsample)
 
         # Compute A_{ab}
-        A = self.hopping + np.einsum('abij,ij->ab', self.asymU, self.equal_time_G1)
+        A = np.einsum('abij,ij->ab', self.asymU, self.equal_time_G1)
 
-        # Compute calG = (iv - Delta(iv)), G0, full G, self-energy
+        # Compute G0, full G, self-energy
+        # FIXME: Compute self-energy directry
         G = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)
-        Sigma = np.empty_like(G)
-        I = np.identity(self.nflavors)
+        G0 = self.compute_g0iv(vsample)
         for ifreq, v in enumerate(vsample):
-            iv = 1J * v * np.pi/self.beta
-            calG = np.linalg.inv(iv * I - Delta_iv[ifreq, ...])
-            G[ifreq, ...] = calG + \
-                np.einsum('ai,ij,jb->ab', calG,  (A + vartheta[ifreq,...]), calG, optimize=True)
-            invG0 = iv * I - Delta_iv[ifreq, ...] - self.hopping
-            invG  = np.linalg.inv(G[ifreq, ...])
-            Sigma[ifreq, ...] = invG0 - invG
+            G0_ = G0[ifreq,:,:]
+            G[ifreq, ...] = G0_ + \
+                np.einsum('ai,ij,jb->ab', G0_,  (A + vartheta[ifreq,...]), G0_, optimize=True)
         
         return G 
     
     def compute_sigma_iv(self, giv, vsample):
         vsample = check_fermionic(vsample)
-        Delta_iv = self.basis_f.evaluate_iw(self.Delta_l, vsample)
+        xi = self.compute_xi(vsample)
         Sigma = np.empty((vsample.size, self.nflavors, self.nflavors), dtype=np.complex128)
-        I = np.identity(self.nflavors)
-        for ifreq, v in enumerate(vsample):
-            iv = 1J * v * np.pi/self.beta
-            invG0 = iv * I - Delta_iv[ifreq, ...] - self.hopping
-            invG  = np.linalg.inv(giv[ifreq, ...])
-            Sigma[ifreq, ...] = invG0 - invG
+        for ifreq, _ in enumerate(vsample):
+            Sigma[ifreq, ...] = xi[ifreq,:,:] @ np.linalg.inv(giv[ifreq,:,:])
         return Sigma
     
+
     def compute_giv_from_legendre(self, vsample):
         vsample = check_fermionic(vsample)
         Tnl = compute_Tnl_sparse(vsample, self.gl.shape[0])
         giv = np.einsum('nl,lij->nij', Tnl, self.gl, optimize=True)
         return giv
-
 
     def compute_eta(self, wfs, wbs):
         wfs = check_fermionic(wfs)
@@ -947,57 +869,3 @@ class QMCResult(VertexEvaluator):
         """ Compute vartheta(wfs) """
         wfs = check_fermionic(wfs)
         return legendre_to_matsubara(self.vartheta_legendre, wfs)
-
-    #def compute_vartheta(self, wfs):
-        #""" Compute vartheta(wfs) """
-        #wfs = check_fermionic(wfs)
-        #return self.evalU0.compute_vartheta(wfs)
-
-    """
-    def _compute_scrF(self, wsample_full, verbose=False):
-        wsample_full = _check_full_convention(*wsample_full)
-        v1, v2, v3, v4 = wsample_full
-        beta = self.beta
-        asymU = self.get_asymU()
-        scrF = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
-
-        vab = self.compute_v()
-
-        scrF += beta * asymU[None, ...]
-
-        v1_ = self.compute_vartheta(v1) + vab[None,:,:]
-        v3_ = self.compute_vartheta(v3) + vab[None,:,:]
-        #print("debugA", scrF[:,0,0,1,1])
-        scrF += (beta**2) * _einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_)
-        scrF -= (beta**2) * _einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_)
-        #print("debugB", scrF[:,0,0,1,1])
-
-        # xi
-        #scrF += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
-        #scrF += beta * _einsum('aicd,Wbi->Wabcd', asymU, self.compute_xi(-v2).conj())
-        #scrF += beta * _einsum('abid,Wci->Wabcd', asymU, self.compute_xi(v3))
-        #scrF += beta * _einsum('abci,Wdi->Wabcd', asymU, self.compute_xi(-v4).conj())
-
-        # phi
-        scrF += -4 * beta * self.compute_phi(v1-v2)
-        scrF +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
-
-        # f
-        scrF +=  2 * beta * self.compute_f(v1, v1-v2)
-        scrF +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
-        scrF += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
-        scrF += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
-
-        # g
-        #scrF += -beta * self.compute_g(v1, v3)
-        #scrF += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
-
-        # Psi
-        #scrF += -beta * self.compute_Psi(v1+v3)
-
-        # h
-        scrF -= self.evalU0.compute_h(wsample_full)
-        #scrF -= self.compute_h(wsample_full)
-
-        return scrF
-    """

@@ -27,9 +27,6 @@ def construct_ham(hopping, asymmU, cdag_ops):
         ham += 0.25 * asymmU[i,k,j,l] * \
             (cdag_ops[i] @ cdag_ops[j]) @ (c_ops[l] @ c_ops[k])
 
-    #assert np.abs((ham - ham.transpose().conj()).toarray()).max() < \
-        #1e-8 * (np.abs(hopping).max() + np.abs(asymmU).max())
-    
     return ham
 
 def _to_eigenbasis(A, eigen_vecs, cutoff=1e-10):

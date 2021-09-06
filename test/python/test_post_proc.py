@@ -1,9 +1,8 @@
-from itertools import product
-from irbasis_x.freq import box, check_full_convention, from_ph_convention, to_ph_convention
-from irbasis_x import atom
-from alpscthyb.post_proc import VertexEvaluatorAtomED, legendre_to_tau, VertexEvaluatorU0, load_irbasis
-from alpscthyb.interaction import hubbard_asymmU
 import numpy as np
+from irbasis_x.freq import box, from_ph_convention
+from alpscthyb.post_proc import VertexEvaluatorAtomED, legendre_to_tau, \
+    VertexEvaluatorU0, load_irbasis
+from alpscthyb.interaction import hubbard_asymmU
 from scipy.special import eval_legendre
 from scipy.linalg import expm
 import pytest
@@ -17,24 +16,6 @@ def _rotate_system(rotmat, hopping, Delta_l, asymU):
     asymU_rot = _einsum('Aa,Bb,Cc,Dd,ACBD->acbd',
         rotmat.conj(), rotmat, rotmat.conj(), rotmat, asymU)
     return hopping_rot, Delta_l_rot, asymU_rot
-
-
-def _atomic_F(U, beta, wsample_full):
-    """ Compute full vertex of Hubbard atom"""
-    wsample_full = check_full_convention(*wsample_full)
-    wsample_ph = to_ph_convention(*wsample_full)
-    nf = 2 
-    Fuu_, Fud_ = atom.full_vertex_ph(U, beta, *wsample_ph)
-    # Eq. (D4b) in PRB 86, 125114 (2012)
-    Fbarud_ = - atom.full_vertex_ph(U, beta,
-        wsample_ph[0],
-        wsample_ph[0]+wsample_ph[2],
-        wsample_ph[1]-wsample_ph[0])[1]
-    Floc = np.zeros((len(wsample_ph[0]), nf, nf, nf, nf), dtype=np.complex128)
-    Floc[:, 0, 0, 0, 0] = Floc[:, 1, 1, 1, 1] =  Fuu_
-    Floc[:, 0, 0, 1, 1] = Floc[:, 1, 1, 0, 0] =  Fud_
-    Floc[:, 1, 0, 0, 1] = Floc[:, 0, 1, 1, 0] =  Fbarud_
-    return beta * Floc
 
 def test_legendre_to_tau():
     beta = 1.25
@@ -76,12 +57,9 @@ def _mk_rnd_umat(N):
     hmat = hmat + hmat.conj().T
     return expm(1J*hmat)
 
-def _almost_equal(actural, dersired, rtol=1e-8, atol=1e-8):
-    diff = np.abs(actural - dersired)
-    print("acutual", actural)
-    print("desired", dersired)
-    print(diff.max(), rtol * np.abs(dersired).max(), atol)
-    return diff.max() < rtol * np.abs(dersired).max() + atol
+def _almost_equal(actual, desired, rtol=1e-8, atol=1e-8):
+    diff = np.abs(actual - desired)
+    return diff.max() < rtol * np.abs(desired).max() + atol
 
 @pytest.mark.parametrize("nflavors", [2, 3, 4])
 def test_F_weak_coupling(nflavors):
@@ -199,14 +177,6 @@ def test_Hubbard_atom():
     F_ed = evalatom.compute_F(wsample_full)
 
     # Construct G^{v1,v2,v3,v4} from F
-    #v1, v2, v3, v4 = wsample_full
-    #g1 = evalatom.compute_giv(v1)
-    #g2 = evalatom.compute_giv(v2)
-    #g3 = evalatom.compute_giv(v3)
-    #g4 = evalatom.compute_giv(v4)
-    #g4pt_ref = (beta**2) * (
-        #_einsum('w,wab,wcd->wabcd', v1==v2, g1, g3)-_einsum('w,wad,wcb->wabcd', v1==v4, g1, g3)
-    #) -_einsum('waA,wBb,wcC,wDd,wABCD->wabcd', g1, g2, g3, g4, F_ed)
     g4pt_reconst = evalatom.compute_g4pt(wsample_full, F=F_ed)
     g4pt_ed = evalatom.compute_g4pt_direct(wsample_full)
 
@@ -229,7 +199,6 @@ def test_three_orb_SOI_U0():
         [ 0,-1J,  0,   0,-1J,  0], 
         [ 0, -1,  0,  1J,  0,  0], 
         [ 1,  0, 1J,   0,  0,  0]], dtype=np.complex128)
-    #asymU = np.zeros(6*(nflavors,), dtype=np.complex128)
     Delta_l = np.zeros((basis_f.dim(), nflavors, nflavors), dtype=np.complex128)
     evalU0 = VertexEvaluatorU0(nflavors, beta, basis_f, basis_b, hopping, Delta_l)
 
