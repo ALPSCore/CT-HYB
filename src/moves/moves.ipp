@@ -201,6 +201,7 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     mc_config.p_worm = p_new_worm_;
     const int perm_new = compute_permutation_sign(mc_config);
     mc_config.sign *= (1. * perm_new / mc_config.perm_sign) * mysign(prob);
+    std::cout << "sign " << get_real(mc_config.sign) << " " << mc_config.p_worm << std::endl;
     mc_config.perm_sign = perm_new;
     check_true(!my_isnan(mc_config.sign));
     accepted_ = true;

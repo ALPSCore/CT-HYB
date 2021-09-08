@@ -404,6 +404,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_Z_function_space() {
     measurements["Acceptance_rate_swap"] << acc_swap;
   }
 
+  std::cout << "debug " << mycast<double>(mc_config.sign) << std::endl;
   measurements["Sign"] << mycast<double>(mc_config.sign);
 
 }
@@ -433,12 +434,14 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
     //insertion and removal of operators hybridized with the bath
     for (int update = 0; update < FLAVORS; ++update) {
       ins_rem_updater[rank_ins_rem - 1]->update(random, BETA, mc_config, sliding_window);
+      std::cout << "sign after ins_rem_updater " << mc_config.sign << std::endl;
       pert_order_sum += mc_config.pert_order();
     }
 
     if (par["update.operator_pair_flavor_update"].template as<int>() != 0) {
       for (int update = 0; update < FLAVORS; ++update) {
         operator_pair_flavor_updater.update(random, BETA, mc_config, sliding_window);
+        std::cout << "sign after operator_pair_flavor_updater " << mc_config.sign << std::endl;
       }
     }
 
@@ -446,6 +449,7 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
     if (par["update.single_operator_shift"].template as<int>() != 0) {
       for (int update = 0; update < FLAVORS * rank_ins_rem; ++update) {
         single_op_shift_updater.update(random, BETA, mc_config, sliding_window);
+        std::cout << "sign after single_op_shift " << mc_config.sign << std::endl;
       }
     }
 
@@ -486,6 +490,7 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
                                                      mc_config,
                                                      sliding_window,
                                                      worm_space_extra_weight_map);
+      std::cout << "sign after G1 " << mc_config.sign << " " << mc_config.current_config_space() << std::endl;
       adjust_worm_space_weight();
     }
 
@@ -497,6 +502,7 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
                                                      mc_config,
                                                      sliding_window,
                                                      worm_space_extra_weight_map);
+      std::cout << "sign after G1_hyb " << mc_config.sign << " " << mc_config.current_config_space() << std::endl;
       adjust_worm_space_weight();
     }
 
@@ -505,6 +511,7 @@ void HybridizationSimulation<IMP_MODEL>::transition_between_config_spaces() {
          ++it) {
       if (it->first == mc_config.current_config_space()) {
         it->second->update(random, BETA, mc_config, sliding_window, worm_space_extra_weight_map);
+        std::cout << "sign after worm_move " << mc_config.sign << " " << mc_config.current_config_space() << std::endl;
       }
     }
   }
@@ -579,6 +586,8 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
     }
     sanity_check();
   }
+
+  std::cout << "sign after global " << mc_config.sign << " " << mc_config.current_config_space() << std::endl;
 
   sliding_window.set_uniform_mesh(n_section_back, 0, ITIME_LEFT);
   sanity_check();

@@ -55,7 +55,7 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
         //Single-particle Green's function
         std::cout << "Postprocessing G1..." << std::endl;
         compute_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        compute_euqal_time_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
+        //compute_euqal_time_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
 
         //Two-particle Green's function
         if (Base::parameters_["measurement.G2.matsubara.on"] != 0) {

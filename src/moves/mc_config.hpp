@@ -68,7 +68,6 @@ struct MonteCarloConfiguration {
 template<typename SCALAR>
 template<typename SW>
 void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
-#ifndef NDEBUG
   ////operator_container_t operators2;
   //operators2.insert(M.get_cdagg_ops().begin(), M.get_cdagg_ops().end());
   //operators2.insert(M.get_c_ops().begin(), M.get_c_ops().end());
@@ -111,7 +110,7 @@ void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
   //assert(myabs(trace_recomputed - trace) < 1E-4 * myabs(trace));
 
   const int perm_sign2 = compute_permutation_sign(*this);
-  assert(perm_sign2 == perm_sign);
+  check_true(perm_sign2 == perm_sign);
 
   SCALAR sign_det = 1.0;
   for (int i = 0; i < det_new.size(); ++i) {
@@ -120,7 +119,6 @@ void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
   //const SCALAR sign2 = sign_det * convert_to_scalar(mysign(trace_recomputed)) * (1. * perm_sign2);
 
   //assert(std::abs(sign2 / sign - 1.0) < 1E-4);
-#endif
 }
 
 //compute the permutation sign (+/-) from the time-ordering of

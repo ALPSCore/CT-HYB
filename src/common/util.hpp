@@ -260,7 +260,7 @@ std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
  */
 template<class R>
 int rand_int(R &random01, int N) {
-  return static_cast<int>(random01 * N);
+  return static_cast<int>(random01() * N);
 }
 
 /*
