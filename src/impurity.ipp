@@ -257,6 +257,7 @@ void HybridizationSimulation<IMP_MODEL>::update() {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
+  /*
   check_true(is_thermalized(), "Must be thermalized!");
 
   switch (mc_config.current_config_space()) {
@@ -300,9 +301,10 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       ptr_m->measure(mc_config, sliding_window, measurements);
     }
   }
+  */
 
   //measure configuration space volume
-  num_steps_in_config_space[get_config_space_position(mc_config.current_config_space())] += 1.0;
+  //num_steps_in_config_space[get_config_space_position(mc_config.current_config_space())] += 1.0;
 }
 
 template<typename IMP_MODEL>
@@ -311,20 +313,20 @@ void HybridizationSimulation<IMP_MODEL>::measure() {
   auto start = std::chrono::high_resolution_clock::now();
 
   //Measure the volumes of the configuration spaces
-  {
-    measurements["Z_function_space_num_steps"] << num_steps_in_config_space[0];
-    for (int w = 0; w < worm_types.size(); ++w) {
-      measurements["worm_space_num_steps_" + get_config_space_name(worm_types[w])] << num_steps_in_config_space[w + 1];
-    }
+  //{
+    //measurements["Z_function_space_num_steps"] << num_steps_in_config_space[0];
+    //for (int w = 0; w < worm_types.size(); ++w) {
+      //measurements["worm_space_num_steps_" + get_config_space_name(worm_types[w])] << num_steps_in_config_space[w + 1];
+    //}
 
-    num_steps_in_config_space /= config_space_extra_weight;
-    measurements["Z_function_space_volume"] << num_steps_in_config_space[0];
-    for (int w = 0; w < worm_types.size(); ++w) {
-      measurements["worm_space_volume_" + get_config_space_name(worm_types[w])] << num_steps_in_config_space[w + 1];
-    }
+    //num_steps_in_config_space /= config_space_extra_weight;
+    //measurements["Z_function_space_volume"] << num_steps_in_config_space[0];
+    //for (int w = 0; w < worm_types.size(); ++w) {
+      //measurements["worm_space_volume_" + get_config_space_name(worm_types[w])] << num_steps_in_config_space[w + 1];
+    //}
 
-    std::fill(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
-  }
+    //std::fill(num_steps_in_config_space.begin(), num_steps_in_config_space.end(), 0.0);
+  //}
 
   //Acceptance rate
   {
