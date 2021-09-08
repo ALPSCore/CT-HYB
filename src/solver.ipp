@@ -52,40 +52,6 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
         //Average sign
         results_["Sign"] = mc_results_["Sign"].template mean<double>();
 
-        //Single-particle Green's function
-        std::cout << "Postprocessing G1..." << std::endl;
-        compute_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        compute_euqal_time_G1<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-
-        //Two-particle Green's function
-        if (Base::parameters_["measurement.G2.matsubara.on"] != 0) {
-          std::cout << "Postprocessing G2 (matsubara)..." << std::endl;
-          compute_G2_matsubara<SOLVER_TYPE>(mc_results_, Base::parameters_);
-        }
-        if (Base::parameters_["measurement.G2.legendre.on"] != 0) {
-          std::cout << "Postprocessing G2 (legendre)..." << std::endl;
-          compute_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        }
-        /**
-        if (Base::parameters_["measurement.two_time_G2.on"] != 0) {
-          std::cout << "Postprocessing two_time_G2..." << std::endl;
-          compute_two_time_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        }
-        if (Base::parameters_["measurement.equal_time_G2.on"] != 0) {
-          std::cout << "Postprocessing equal_time_G2..." << std::endl;
-          compute_equal_time_G2<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        }
-
-        //Density-density correlation
-        if (Base::parameters_["measurement.nn_corr.n_def"] != 0) {
-          std::cout << "Postprocessing nn_corr..." << std::endl;
-          compute_nn_corr<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-        }
-        **/
-
-        //Fidelity susceptibility
-        compute_fidelity_susceptibility<SOLVER_TYPE>(mc_results_, Base::parameters_, results_);
-
         if (my_rank == 0) {
           sim.show_statistics(mc_results_);
         }

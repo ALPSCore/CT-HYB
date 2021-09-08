@@ -102,64 +102,6 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_updaters() {
           )
       )
   );
-  //Via connecting or cutting hybridization lines
-  specialized_updaters["G1_ins_rem_hyb"] =
-      boost::shared_ptr<LocalUpdaterType>(
-          new G1WormInsertionRemoverType(
-              "G1_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<1>())
-          )
-      );
-  p_G1_legendre_meas.reset(
-      new GMeasurement<SCALAR, 1>(FLAVORS, par["measurement.G1.n_legendre"], 0, BETA,
-                                  par["measurement.G1.max_num_data_accumulated"])
-  );
-
-  // New measurement for G1
-  worm_meas[G1] = std::vector<std::unique_ptr<WORM_MEAS_TYPE>>();
-  worm_meas[G1].push_back(
-        std::unique_ptr<WORM_MEAS_TYPE>(
-            new EqualTimeG1Meas<SCALAR,SW_TYPE>(&random, FLAVORS, 10)
-        )
-    );
-
-  /*
-   * G2
-   */
-  if (par["measurement.G2.matsubara.on"] != 0 || par["measurement.G2.legendre.on"] != 0) {
-    worm_types.push_back(G2);
-    add_worm_mover<WormMoverType>(G2, "G2_mover");
-    add_worm_mover<WormFlavorChangerType>(G2, "G2_flavor_changer");
-    worm_insertion_removers.push_back(
-        boost::shared_ptr<WormInsertionRemoverType>(
-            new WormInsertionRemoverType(
-                "G2_ins_rem", BETA, FLAVORS, 0.0, BETA,
-                boost::shared_ptr<Worm>(new GWorm<2>())
-            )
-        )
-    );
-    if (par["measurement.G2.matsubara.on"].template as<int>() != 0) {
-      p_G2_meas.reset(
-          new G2Measurement<SCALAR>(FLAVORS, BETA,
-                                    read_matsubara_points(par["measurement.G2.matsubara.frequencies_PH"])
-          )
-      );
-    }
-    if (par["measurement.G2.legendre.on"].template as<int>() != 0) {
-      p_G2_legendre_meas.reset(
-          new GMeasurement<SCALAR, 2>(FLAVORS,
-                                      par["measurement.G2.legendre.n_legendre"],
-                                      par["measurement.G2.legendre.n_bosonic_freq"], BETA,
-                                      par["measurement.G2.legendre.max_num_data_accumulated"]
-          )
-      );
-    }
-    specialized_updaters["G2_ins_rem_hyb"] =
-        boost::shared_ptr<LocalUpdaterType>(
-            new G2WormInsertionRemoverType(
-                "G2_ins_rem_hyb", BETA, FLAVORS, boost::shared_ptr<Worm>(new GWorm<2>())
-            )
-        );
-  }
 
   //Proposal probability of worm insertion is smaller than that of removal by the number of active worm spaces.
   //We correct this here.

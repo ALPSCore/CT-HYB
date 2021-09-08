@@ -453,9 +453,11 @@ void HybridizationSimulation<IMP_MODEL>::do_one_sweep() {
       config_spaces_visited_in_measurement_steps[get_config_space_position(mc_config.current_config_space())] = true;
     }
 
-    transition_between_config_spaces();
-
     sliding_window.move_window_to_next_position();
+    std::cout << "debug "
+        << sliding_window.get_position_left_edge() << " "
+        << sliding_window.get_position_right_edge() << " "
+        << std::endl;
   }
   sanity_check();
 }
@@ -520,7 +522,7 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
   );
 
   //jump between configuration spaces without a window
-  transition_between_config_spaces();
+  //transition_between_config_spaces();
 
   std::vector<SCALAR> det_vec = mc_config.M.compute_determinant_as_product();
 
@@ -704,11 +706,11 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
   if (!is_thermalized()) {
     throw std::runtime_error("Thermalization process is not done.");
   }
-  for (int i = 0; i < config_spaces_visited_in_measurement_steps.size(); ++i) {
-    if (!config_spaces_visited_in_measurement_steps[i]) {
-      throw std::runtime_error("Some configuration space was not visited in measurement steps. Thermalization time may be too short.");
-    }
-  }
+  //for (int i = 0; i < config_spaces_visited_in_measurement_steps.size(); ++i) {
+    //if (!config_spaces_visited_in_measurement_steps[i]) {
+      //throw std::runtime_error("Some configuration space was not visited in measurement steps. Thermalization time may be too short.");
+    //}
+  //}
 
   if (p_G2_meas) {
      p_G2_meas->finalize(par["outputfile"].template as<std::string>());
