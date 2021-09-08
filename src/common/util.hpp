@@ -213,6 +213,56 @@ double open_random(RNG &rng, double t1, double t2, double eps = 1e-10) {
   return (t1 - t2) * ((1 - eps) * rng() + eps / 2) + t2;
 }
 
+
+
+
+//Compute the determinant of a matrix avoiding underflow and overflow
+//Note: This make a copy of the matrix.
+/*
+template<typename ReturnType, typename Derived>
+ReturnType
+safe_determinant(const Eigen::MatrixBase<Derived>& mat) {
+    typedef typename Derived::RealScalar RealScalar;
+    assert(mat.rows()==mat.cols());
+    const int N = mat.rows();
+    if (N==0) {
+        return ReturnType(1.0);
+    }
+    Eigen::Matrix<typename Derived::Scalar,Eigen::Dynamic,Eigen::Dynamic> mat_copy(mat);
+    const RealScalar max_coeff = mat_copy.cwiseAbs().maxCoeff();
+    if (max_coeff==0.0) {
+        return ReturnType(0.0);
+    }
+    mat_copy /= max_coeff;
+    return ReturnType(mat_copy.determinant())*mypow(EXTENDED_REAL(max_coeff), N);
+}
+
+//Compute the inverse of a matrix avoiding underflow and overflow
+//Note: This make a copy of the matrix.
+template<typename Derived>
+inline
+void
+safe_invert_in_place(Eigen::MatrixBase<Derived>& mat) {
+    typedef typename Derived::RealScalar RealScalar;
+
+    const int N = mat.rows();
+    const RealScalar max_coeff = mat.cwiseAbs().maxCoeff();
+
+    Eigen::Matrix<typename Derived::Scalar,Eigen::Dynamic,Eigen::Dynamic> mat_copy = mat/max_coeff;
+    mat = mat_copy.inverse()/max_coeff;
+}
+
+template<class SCALAR>
+inline SCALAR dsign(SCALAR s) {
+    SCALAR abs_s = myabs(s);
+    if (abs_s==SCALAR(0.0)) {
+        throw std::runtime_error("dsign: s must not be zero");
+    } else {
+        return s/abs_s;
+    }
+}
+ */
+
 template<typename T>
 struct AbsLessor {
   bool operator()(const T &t1, const T &t2) const {
@@ -253,14 +303,6 @@ std::vector<int> pickup_a_few_numbers(int N, int n, R &random01) {
   std::random_shuffle(list.begin(), list.end(), rnd);
   list.resize(n);
   return list;
-}
-
-/**
- * Pick up an integer randomly from [0, N)
- */
-template<class R>
-int rand_int(R &random01, int N) {
-  return static_cast<int>(random01 * N);
 }
 
 /*
