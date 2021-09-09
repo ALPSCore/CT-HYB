@@ -28,16 +28,6 @@ class HybridizationFunction {
     check_true(F_[0][0].size() == n_tau + 1);
     check_true(connected_.shape()[0] == n_flavors);
     check_true(connected_.shape()[1] == n_flavors);
-    for (int flavor = 0; flavor < n_flavors; ++flavor) {
-      for (int flavor2 = 0; flavor2 < n_flavors; ++flavor2) {
-        connected_[flavor][flavor2] = false;
-        for (int itau = 0; itau < n_tau + 1; ++itau) {
-          if (std::abs(F[flavor][flavor2][itau]) > eps) {
-            connected_[flavor][flavor2] = true;
-          }
-        }
-      }
-    }
     for (auto t=0; t<n_tau+1; ++t) {
       for (auto f0=0; f0 < n_flavors; ++f0) {
         for (auto f1=0; f1 < n_flavors; ++f1) {
@@ -45,6 +35,7 @@ class HybridizationFunction {
         }
       }
     }
+    construct_connected(eps);
   }
 
   HybridizationFunction(double beta, const std::string &input_file, int n_tau, int n_flavors, double eps = 1e-10);
@@ -90,6 +81,19 @@ class HybridizationFunction {
   int n_tau_, n_flavors_;
   container_t F_, Delta_;
   boost::multi_array<bool, 2> connected_;
+
+  void construct_connected(double eps) {
+    for (auto flavor = 0; flavor < n_flavors_; ++flavor) {
+      for (auto flavor2 = 0; flavor2 < n_flavors_; ++flavor2) {
+        connected_[flavor][flavor2] = false;
+        for (int itau = 0; itau < n_tau_ + 1; ++itau) {
+          if (std::abs(F_[flavor][flavor2][itau]) > eps) {
+            connected_[flavor][flavor2] = true;
+          }
+        }
+      }
+    }
+  }
 };
 
 /*
@@ -149,4 +153,5 @@ HybridizationFunction<SCALAR>::HybridizationFunction(
       }
     }
   }
+  construct_connected(eps);
 }

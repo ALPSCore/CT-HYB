@@ -691,44 +691,52 @@ class VertexEvaluatorAtomED(VertexEvaluator):
         """ Compute eta(wfs, wbs) """
         wfs = check_fermionic(wfs)
         wbs = check_bosonic(wbs)
-        eta = np.empty((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
+        eta = np.zeros((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
+        wslice = mpi.get_slice(wfs.size)
+        wsample = (wfs[wslice], wbs[wslice])
         for i,j,k,l in product(range(self.nflavors), repeat=4):
-            eta[:,i,j,k,l] = compute_3pt_corr_func(
+            eta[wslice,i,j,k,l] = compute_3pt_corr_func(
                 self.q_ops[i], self.qdag_ops[j], self.cdag_ops[k]@self.c_ops[l],
-                self.beta, (wfs,wbs), self.evals, self.evecs)
-        return eta
+                self.beta, wsample, self.evals, self.evecs)
+        return mpi.allreduce(eta)
 
     def compute_gamma(self, wfs, wbs):
         """ Compute eta(wfs, wbs) """
         wfs = check_fermionic(wfs)
         wbs = check_bosonic(wbs)
-        gamma = np.empty((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
+        gamma = np.zeros((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
+        wslice = mpi.get_slice(wfs.size)
+        wsample = (wfs[wslice], wbs[wslice])
         for i,j,k,l in product(range(self.nflavors), repeat=4):
-            gamma[:,i,j,k,l] = compute_3pt_corr_func(
+            gamma[wslice,i,j,k,l] = compute_3pt_corr_func(
                 self.q_ops[i], self.q_ops[j], self.cdag_ops[k]@self.cdag_ops[l],
-                self.beta, (wfs,wbs), self.evals, self.evecs)
-        return gamma
+                self.beta, wsample, self.evals, self.evecs)
+        return mpi.allreduce(gamma)
     
     def compute_h(self, wsample_full):
         wsample_full = _check_full_convention(*wsample_full)
-        h = np.empty((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
+        h = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
+        wslice = mpi.get_slice(wsample_full[0].size)
+        wsample_full_local = tuple((v[wslice] for v in wsample_full))
         for i, j, k, l in product(range(self.nflavors),repeat=4):
-            h[:,i,j,k,l] = compute_4pt_corr_func(
+            h[wslice,i,j,k,l] = compute_4pt_corr_func(
                 self.q_ops[i], self.qdag_ops[j], self.q_ops[k], self.qdag_ops[l],
-                self.beta, wsample_full, self.evals, self.evecs
+                self.beta, wsample_full_local, self.evals, self.evecs
             )
-        return h
+        return mpi.allreduce(h)
     
     def compute_g4pt_direct(self, wsample_full):
         """ Compute g4pt direct by ED """
         wsample_full = _check_full_convention(*wsample_full)
-        g4pt = np.empty((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
+        g4pt = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
+        wslice = mpi.get_slice(wsample_full[0].size)
+        wsample_full_local = tuple((v[wslice] for v in wsample_full))
         for i, j, k, l in product(range(self.nflavors),repeat=4):
-            g4pt[:,i,j,k,l] = compute_4pt_corr_func(
+            g4pt[wslice,i,j,k,l] = compute_4pt_corr_func(
                 self.c_ops[i], self.cdag_ops[j], self.c_ops[k], self.cdag_ops[l],
-                self.beta, wsample_full, self.evals, self.evecs
+                self.beta, wsample_full_local, self.evals, self.evecs
             )
-        return g4pt
+        return mpi.allreduce(g4pt)
 
 class QMCResult(VertexEvaluator):
     def __init__(self, p, verbose=False, Lambda=1E+5, cutoff=1e-8) -> None:
@@ -787,8 +795,12 @@ class QMCResult(VertexEvaluator):
     def get_dm(self):
         return self.equal_time_G1
 
-    def compute_giv(self, wfs):
-        return self.compute_giv_SIE(wfs)
+    def compute_giv(self, wfs, fact=1.0):
+        giv_SIE_ = self.compute_giv_SIE(wfs)
+        giv_legendre_ = self.compute_giv_from_legendre(wfs)
+        mixing = ((1.0+fact**2)/(1+np.abs(wfs)**2))[:,None,None]
+        print(mixing)
+        return mixing * giv_legendre_ + (1-mixing) * giv_SIE_
 
     def compute_gir_SIE(self):
         """
@@ -809,9 +821,6 @@ class QMCResult(VertexEvaluator):
         
         # Compute vartheta
         vartheta = legendre_to_matsubara(self.vartheta_legendre, vsample)
-
-        # Compute Delta(iv)
-        #Delta_iv = self.basis_f.evaluate_iw(self.Delta_l, vsample)
 
         # Compute A_{ab}
         A = np.einsum('abij,ij->ab', self.asymU, self.equal_time_G1)

@@ -21,18 +21,14 @@ public:
   /**
    * Constructor
    */
-  TwoPointCorrMeas(alps::random01 *p_rng, double beta, int nflavors, int nl, int nsmpl)
-    :p_rng_(p_rng), beta_(beta), nflavors_(nflavors), legendre_trans_(0, nl), nsmpl_(nsmpl)
+  TwoPointCorrMeas(alps::random01 *p_rng, double beta, int nflavors, int nl)
+    :p_rng_(p_rng), beta_(beta), nflavors_(nflavors), legendre_trans_(0, nl)
   {
-    //check_true(is_bosonic(vsample_.begin(), vsample_.end()),
-      //"Some of frequencies are not bosonic!");
   }
 
   void create_alps_observable(
       alps::accumulators::accumulator_set &measurements) const
   {
-    //create_observable<std::complex<double>, SimpleRealVectorObservable>(
-      //measurements, (get_name()+"_wsample").c_str());
     create_observable<std::complex<double>, SimpleRealVectorObservable>(
       measurements, (get_name()+"_legendre").c_str());
   }
@@ -53,9 +49,7 @@ private:
   alps::random01 *p_rng_;
   double beta_;
   int nflavors_;
-  //std::vector<int> vsample_;
   LegendreTransformer legendre_trans_;
-  int nsmpl_;
 };
 
 

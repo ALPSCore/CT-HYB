@@ -1,6 +1,8 @@
+#include "sparse_sampling.hpp"
 #include "measurement.hpp"
 #include "measurement_old.hpp"
 #include "worm_meas.hpp"
+#include "g1.hpp"
 #include "vartheta.hpp"
 #include "two_point_corr.hpp"
 #include "three_point_corr.hpp"

@@ -264,7 +264,7 @@ class HybridizationSimulation: public alps::mcbase {
 
   std::vector<bool> config_spaces_visited_in_measurement_steps;
 
-  SamplingFreqsG2SIE smpl_freqs_SIE;
+  //SamplingFreqsG2SIE smpl_freqs_SIE;
 
   void sanity_check();
 

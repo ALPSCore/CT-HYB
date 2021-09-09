@@ -96,6 +96,7 @@ HybridizationSimulation<IMP_MODEL>::get_defined_worm_spaces(const parameters_typ
     active_worm_spaces.push_back(ConfigSpaceEnum::G2);
   }
   if (parameters["measurement.G2.SIE.on"] != 0) {
+    active_worm_spaces.push_back(ConfigSpaceEnum::G2);
     active_worm_spaces.push_back(ConfigSpaceEnum::Two_point_PH);
     active_worm_spaces.push_back(ConfigSpaceEnum::Two_point_PP);
     active_worm_spaces.push_back(ConfigSpaceEnum::Three_point_PH);
@@ -139,8 +140,8 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
       verbose(p["verbose"].template as<int>() != 0),
       thermalized(false),
       pert_order_recorder(),
-      config_spaces_visited_in_measurement_steps(0),
-      smpl_freqs_SIE(load_smpl_freqs_SIE(p["measurement.G2.matsubara.frequencies_PH"]))
+      config_spaces_visited_in_measurement_steps(0)
+      //smpl_freqs_SIE(load_smpl_freqs_SIE(p["measurement.G2.matsubara.frequencies_PH"]))
 {
   if (thermalization_time < 0) {
     thermalization_time = static_cast<double>(0.1 * parameters["timelimit"].template as<double>());

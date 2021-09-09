@@ -234,6 +234,9 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
     //register_worm_meas(ConfigSpaceEnum::G1, "vartheta",
         //new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, smpl_freqs_SIE.v)
     //);
+    register_worm_meas(ConfigSpaceEnum::G1, "g1",
+      new G1Meas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, get_wsample_f())
+    );
 
     register_worm_meas(ConfigSpaceEnum::G1, "vartheta_legendre",
         new VarThetaLegendreMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, 400)
@@ -256,9 +259,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
     register_worm_meas(
       ConfigSpaceEnum::Two_point_PH,
       "lambda_legendre",
-      new TwoPointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS, 400,
-        par["measurement.G2.SIE.nsample_two_point"]
-      )
+      new TwoPointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS, 400)
     );
   }
 
@@ -267,9 +268,7 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
     register_worm_meas(
       ConfigSpaceEnum::Two_point_PP,
       "varphi_legendre",
-      new TwoPointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS, 400,
-        par["measurement.G2.SIE.nsample_two_point"]
-      )
+      new TwoPointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS, 400)
     );
   }
 
@@ -306,13 +305,13 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
         )
       );
       */
-      if (par["measurement.G2.SIE.on"] != 0) {
-        register_worm_meas(
-          ConfigSpaceEnum::G2,
-          "h_corr",
-          new HCorrMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS)
-        );
-      }
+    }
+    if (par["measurement.G2.SIE.on"] != 0) {
+      register_worm_meas(
+        ConfigSpaceEnum::G2,
+        "h_corr",
+        new HCorrMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS)
+      );
     }
   }
 }
