@@ -11,9 +11,11 @@ test_params = [
         (1, False),
         (2, False),
         (3, False),
+        (8, False),
         (1, True),
         (2, True),
         (3, True),
+        (8, True),
         ]
 @pytest.mark.parametrize("nflavors, sort", test_params)
 def test_construct_cdagger_ops(nflavors, sort):

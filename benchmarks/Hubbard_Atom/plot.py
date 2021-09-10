@@ -7,6 +7,15 @@ from alpscthyb.util import float_to_complex_array
 from alpscthyb import mpi
 import h5py
 
+def compute_vartheta(asymU, giv, g0iv, dm):
+    nfreqs = giv.shape[0]
+    v = np.einsum('abij,ij->ab', asymU, dm)
+    vartheta = np.zeros_like(giv)
+    for ifreq in range(nfreqs):
+        inv_g0iv = np.linalg.inv(g0iv[ifreq,:,:])
+        vartheta[ifreq,:,:] = inv_g0iv @ (giv[ifreq,:,:] - g0iv[ifreq,:,:]) @ inv_g0iv - v
+    return vartheta
+
 
 def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
     if mpi.rank != 0:
@@ -31,7 +40,7 @@ def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
     axes[2].set_ylabel(r"Abs")
 
     for ax in axes:
-        #ax.set_xlim([0,102])
+        ax.set_xlim([0,102])
         ax.legend()
     fig.tight_layout()
     fig.savefig(name+'.eps')
@@ -41,7 +50,7 @@ res = QMCResult('input', verbose=True)
 beta = res.beta
 norb = res.nflavors//2
 
-ed = VertexEvaluatorAtomED(res.nflavors, res.beta, res.hopping, res.get_asymU())
+#ed = VertexEvaluatorAtomED(res.nflavors, res.beta, res.hopping, res.get_asymU())
 
 # ED data
 with h5py.File('results/pyed.h5', 'r') as h5:
@@ -53,10 +62,22 @@ with h5py.File('results/pyed.h5', 'r') as h5:
     giv_ed[:, :, 1, :, 1] = gdn
     giv_ed = giv_ed.reshape((gup.shape[0], 2*norb, 2*norb))
 
+    dens_mat_ed = np.zeros((norb, 2, norb, 2), dtype=np.complex128)
+    dens_mat_ed[:, 0, :, 0] = float_to_complex_array(h5['/dens_mat/up'][()])
+    dens_mat_ed[:, 1, :, 1] = float_to_complex_array(h5['/dens_mat/dn'][()])
+    dens_mat_ed = dens_mat_ed.reshape((2*norb, 2*norb))
+
+print("Density matrix")
+print("QMC: ", res.get_dm())
+print("ED: ", dens_mat_ed)
+print("diff: ", res.get_dm()-dens_mat_ed)
+
 # Fermionic sampling frequencies
 wfs = 2*np.arange(-giv_ed.shape[0]//2, giv_ed.shape[0]//2) + 1
 sigma_iv_ed = res.compute_sigma_iv(giv_ed, wfs)
 
+
+vartheta_ed = compute_vartheta(res.get_asymU(), giv_ed, res.compute_g0iv(wfs), dens_mat_ed)
 
 #SIE
 gir_SIE = res.compute_gir_SIE()
@@ -86,6 +107,11 @@ plot_comparison(
     giv,
     giv_ed,
     "giv_SIE", label1='SIE', label2='ED')
+
+plot_comparison(
+    res.compute_vartheta(wfs),
+    vartheta_ed,
+    "vartheta_SIE", label1='SIE', label2='ED')
 
 # Sigma
 #plot_comparison(

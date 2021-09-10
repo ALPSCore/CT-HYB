@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.sparse import coo_matrix
 from alpscthyb.interaction import check_asymm
-from alpscthyb.occupation_basis import construct_cdagger_ops
 from itertools import product, permutations
 from irbasis_x.freq import check_bosonic, check_fermionic, check_full_convention
 
@@ -15,7 +14,7 @@ def construct_ham(hopping, asymmU, cdag_ops):
     asymmU = check_asymm(asymmU)
 
     # Construct c ops
-    c_ops = [op.transpose(copy=True) for op in cdag_ops]
+    c_ops = [op.transpose(copy=True).conj() for op in cdag_ops]
 
     dim = 2**nflavors
 
@@ -24,6 +23,8 @@ def construct_ham(hopping, asymmU, cdag_ops):
         ham += hopping[i,j] * (cdag_ops[i] @ c_ops[j])
 
     for i, j, k, l in product(range(nflavors), repeat=4):
+        if asymmU[i,k,j,l] == 0.0:
+            continue
         ham += 0.25 * asymmU[i,k,j,l] * \
             (cdag_ops[i] @ cdag_ops[j]) @ (c_ops[l] @ c_ops[k])
 

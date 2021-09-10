@@ -1,7 +1,6 @@
 from itertools import product
 import numpy as np
 
-
 def check_asymm(asymmU):
     assert asymmU.ndim == 4
     assert np.allclose(asymmU, -asymmU.transpose((2,1,0,3)))
@@ -19,14 +18,15 @@ def hubbard_asymmU(U):
 def mk_asymm(U):
     """ Antisymmetrize Coulomb tensor"""
     assert U.ndim == 4
-    asymmU = 0.5 * (U - U.transpose((1, 0, 2, 3)))
-    return 0.5 * (asymmU - asymmU.transpose((0, 1, 3, 2)))
+    asymmU = 0.5 * (U - U.transpose((2, 1, 0, 3)))
+    return 0.5 * (asymmU - asymmU.transpose((0, 3, 2, 1)))
 
 def slater_kanamori_asymm(norb, U, J):
     """Rotationally invariant Slater-Kanamori interaction, inner-most loop is spin"""
     nsp = 2
+    # tensorU: 1/2 U_{ijkl} c^\dagger_i c^\dagger_j c_l c_k
     tensorU = np.zeros(4*(norb,nsp,))
-    for iorb1, iorb2, iorb3, iorb4 in product(range(norb), repeat=4):#eq(2)
+    for iorb1, iorb2, iorb3, iorb4 in product(range(norb), repeat=4):
         coeff = 0.0
         if iorb1 == iorb4 and iorb2 == iorb3 and iorb1 == iorb2:#aaaa
             coeff = U
@@ -38,4 +38,5 @@ def slater_kanamori_asymm(norb, U, J):
             coeff = J
         for isp1, isp2 in product(range(nsp), repeat=2):
             tensorU[iorb1,isp1, iorb2,isp2, iorb4, isp1, iorb3,isp2] += coeff
-    return mk_asymm(tensorU.reshape(4*(nsp*norb,)))
+    tensorU = tensorU.reshape(4*(nsp*norb,))
+    return 2*mk_asymm(tensorU.transpose((0,2,1,3)))
