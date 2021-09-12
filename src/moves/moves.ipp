@@ -174,15 +174,16 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
       const SCALAR rest = (*acceptance_rate_correction_) * det_rat;
       //const EXTENDED_REAL trace_cutoff = myabs(r_th * mc_config.trace / rest);
       //std::tie(accepted, trace_new) = sliding_window.lazy_eval_trace(trace_cutoff, trace_bound);
-      auto trace_new = sliding_window.compute_trace();
+      trace_new = sliding_window.compute_trace();
       prob = rest * convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new / mc_config.trace));
-      accepted == std::abs(prob) > r_th;
+      accepted = std::abs(prob) > r_th;
+      //std::cout << " debug " << trace_new << " " << mc_config.trace << " " << rest << " " << prob << " " << r_th << " " << accepted << std::endl;
       //check_true(myabs(trace_new) < myabs(trace_bound_sum) * 1.01, "trace is wrong!");
       //check_true(accepted == std::abs(prob) > r_th, "accepted != abs(prob) > r_th");
     } else {
       trace_new = 0.0;
       prob = 0.0;
-      accepted == false;
+      accepted = false;
     }
   }
 
