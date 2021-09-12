@@ -437,8 +437,8 @@ SlidingWindowManager<MODEL>::compute_trace_bound(std::vector<EXTENDED_REAL> &bou
   std::vector<psi> ops_in_range(ops_range.first, ops_range.second);
   const int num_ops = ops_in_range.size();
 
-  assert(tau_left >= tau_right);
-  assert(bound.size() >= get_num_brakets());
+  check_true(tau_left >= tau_right);
+  check_true(bound.size() >= get_num_brakets());
   std::fill(bound.begin(), bound.end(), 0.0);
   EXTENDED_REAL trace_bound_sum = 0.0;
   for (int braket = 0; braket < num_brakets; ++braket) {

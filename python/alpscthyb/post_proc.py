@@ -196,11 +196,24 @@ def postprocess_G1(h5, verbose=False, **kwargs):
         reshape((nflavors,nflavors,-1)).transpose((2,0,1))
 
     # Equal time
+    """
     if exits_mc_result(h5, "Equal_time_G1_Re"):
         if verbose:
             print("Reading equal_time_G1...")
         results['equal_time_G1'] =  (w_vol/(sign * z_vol * beta)) * \
             read_cmplx_mc_result(h5, 'Equal_time_G1')['mean'].reshape((nflavors,nflavors))
+    """
+
+    return results
+
+def postprocess_vartheta(h5, verbose=False, **kwargs):
+    nflavors = kwargs['nflavors']
+    beta = kwargs['beta']
+
+    results = {}
+    sign = read_mc_result(h5, 'Sign')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_vartheta')['mean']
+    z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
 
     # vartheta
     if exits_mc_result(h5, "vartheta_legendre_Re"):
@@ -209,13 +222,6 @@ def postprocess_G1(h5, verbose=False, **kwargs):
         results['vartheta_legendre'] =  -(w_vol/(beta * sign * z_vol)) * \
             read_cmplx_mc_result(h5, 'vartheta_legendre')['mean'].reshape((-1,nflavors,nflavors))
 
-    if exits_mc_result(h5, "vartheta_Re"):
-        if verbose:
-            print("Reading vartheta...")
-        results['vartheta'] =  -(w_vol/(beta * sign * z_vol)) * \
-            read_cmplx_mc_result(h5, 'vartheta')['mean'].reshape((-1,nflavors,nflavors))
-        results['vartheta_smpl_freqs'] = h5['vartheta_smpl_freqs'][()]
-    
     return results
 
 def postprocess_equal_time_G1(h5, verbose=False, **kwargs):
@@ -304,12 +310,13 @@ def postprocess_G2(h5, verbose=False, **kwargs):
 
 postprocessors = {
     'G1'             : postprocess_G1,
-    'G2'             : postprocess_G2,
+    'vartheta'       : postprocess_vartheta,
     'Equal_time_G1'  : postprocess_equal_time_G1,
-    'Two_point_PH'   : postprocess_two_point_ph,
-    'Two_point_PP'   : postprocess_two_point_pp,
-    'Three_point_PH' : postprocess_three_point_ph,
-    'Three_point_PP' : postprocess_three_point_pp,
+    #'G2'             : postprocess_G2,
+    #'Two_point_PH'   : postprocess_two_point_ph,
+    #'Two_point_PP'   : postprocess_two_point_pp,
+    #'Three_point_PH' : postprocess_three_point_ph,
+    #'Three_point_PP' : postprocess_three_point_pp,
 }
 
 class VertexEvaluator(object):
@@ -745,78 +752,75 @@ class VertexEvaluatorED(VertexEvaluator):
     """
     def __init__(self, beta, hopping_imp, asymU_imp, hopping_bath=None, hopping_coup=None):
         super().__init__()
-        self.nflavors_imp = hopping_imp.shape[0]
+        self.nflavors = hopping_imp.shape[0]
         if hopping_bath is None:
             self.nflavors_bath = 0
         else:
             self.nflavors_bath = hopping_bath.shape[0]
-        self.nflavors = self.nflavors_imp + self.nflavors_bath
+        self.nflavors_all = self.nflavors + self.nflavors_bath
         self.beta = beta
-        self.hopping_imp = hopping_imp
+        self.hopping = hopping_imp
         self.asymU_imp = asymU_imp
         if self.nflavors_bath == 0:
             self.hopping_bath = np.zeros((self.nflavors_bath, self.nflavors_bath))
-            self.hopping_coup = np.zeros((self.nflavors_bath, self.nflavors_imp))
+            self.hopping_coup = np.zeros((self.nflavors_bath, self.nflavors))
         self.hopping_bath = hopping_bath
         self.hopping_coup = hopping_coup
 
-        self.nflavors = self.nflavors_imp
-        self.nflavors_all = self.nflavors_imp
-        nflavors_imp = self.nflavors_imp
-
-        self.hopping = np.block(
+        self.hopping_all = np.block(
             [[hopping_imp, hopping_coup.T.conj()],
              [hopping_coup, hopping_bath]
              ])
-        self.asymU = np.zeros(4*(self.nflavors,), dtype=np.complex128)
+        self.asymU = np.zeros(4*(self.nflavors_all,), dtype=np.complex128)
         self.asymU[
-            0:self.nflavors_imp,
-            0:self.nflavors_imp,
-            0:self.nflavors_imp,
-            0:self.nflavors_imp,
+            0:self.nflavors,
+            0:self.nflavors,
+            0:self.nflavors,
+            0:self.nflavors,
             ] = self.asymU_imp
 
         # Diagonalize the whole Hamiltonian
-        _, self.cdag_ops = construct_cdagger_ops(self.nflavors)
+        nflavors = self.nflavors
+        _, self.cdag_ops = construct_cdagger_ops(self.nflavors_all)
         self.c_ops = [op.transpose(copy=True) for op in self.cdag_ops]
-        self.ham = construct_ham(self.hopping, self.asymU, self.cdag_ops)
-        self.ham_U = construct_ham(np.zeros_like(self.hopping), self.asymU, self.cdag_ops)
+        self.ham = construct_ham(self.hopping_all, self.asymU, self.cdag_ops)
+        self.ham_U = construct_ham(np.zeros_like(self.hopping_all), self.asymU, self.cdag_ops)
         self.evals, self.evecs = np.linalg.eigh(self.ham.toarray())
         self.q_ops = [c@self.ham_U-self.ham_U@c for c in self.c_ops]
         self.qdag_ops = [self.ham_U@cdag-cdag@self.ham_U for cdag in self.cdag_ops]
 
-        self.dm = np.zeros((nflavors_imp,nflavors_imp), dtype=np.complex128)
-        for i, j in product(range(nflavors_imp), repeat=2):
+        self.dm = np.zeros((nflavors,nflavors), dtype=np.complex128)
+        for i, j in product(range(nflavors), repeat=2):
             self.dm[i,j] = compute_expval(
                 self.cdag_ops[i]@self.c_ops[j], beta, self.evals, self.evecs)
 
-        self.vab = np.zeros((nflavors_imp, self.nflavors_imp), dtype=object)
-        for a, b in product(range(nflavors_imp), repeat=2):
-            for i, j in product(range(nflavors_imp), repeat=2):
+        self.vab = np.zeros((nflavors, nflavors), dtype=object)
+        for a, b in product(range(nflavors), repeat=2):
+            for i, j in product(range(nflavors), repeat=2):
                 self.vab[a,b]+= self.asymU[a,b,i,j] * (self.cdag_ops[i]@self.c_ops[j])
         
         # Impurity (local) Hamiltonian
-        _, self.cdag_ops_imp = construct_cdagger_ops(self.nflavors_imp)
-        self.ham = construct_ham(self.hopping_imp, self.asymU_imp, self.cdag_ops_imp)
+        _, self.cdag_ops_imp = construct_cdagger_ops(nflavors)
+        self.ham = construct_ham(self.hopping, self.asymU_imp, self.cdag_ops_imp)
         self.evals_imp, self.evecs_imp = np.linalg.eigh(self.ham.toarray())
 
     def get_asymU(self):
-        return self.asymU_local
+        return self.asymU_imp
 
     def get_dm(self):
         return self.dm
 
     def compute_giv(self, wfs):
         wfs = check_fermionic(wfs)
-        giv = np.empty((wfs.size,self.nflavors_imp, self.nflavors_imp), dtype=np.complex128)
-        for i, j in product(range(self.nflavors_imp), repeat=2):
+        giv = np.empty((wfs.size,self.nflavors, self.nflavors), dtype=np.complex128)
+        for i, j in product(range(self.nflavors), repeat=2):
             giv[:,i,j] = compute_fermionic_2pt_corr_func(
                 self.c_ops[i], self.cdag_ops[j], self.beta, wfs, self.evals, self.evecs)
         return giv
 
     def compute_Delta_iv(self, wfs):
-        Delta_iv = np.empty((wfs.size, self.nflavors_imp, self.nflavors_imp), dtype=np.complex128)
-        I = np.identity(self.nflavors_imp)
+        Delta_iv = np.empty((wfs.size, self.nflavors, self.nflavors), dtype=np.complex128)
+        I = np.identity(self.nflavors)
         for ifreq, v in enumerate(wfs):
             iv = 1J * v * np.pi/self.beta
             inv = np.linalg.inv(iv * I - self.hopping_bath)
@@ -826,16 +830,16 @@ class VertexEvaluatorED(VertexEvaluator):
     def compute_vartheta(self, wfs):
         """ Compute vartheta(wfs) """
         wfs = check_fermionic(wfs)
-        vartheta = np.empty((wfs.size, self.nflavors_imp, self.nflavors_imp), dtype=np.complex128)
-        for i, j in product(range(self.nflavors_imp), repeat=2):
+        vartheta = np.empty((wfs.size, self.nflavors, self.nflavors), dtype=np.complex128)
+        for i, j in product(range(self.nflavors), repeat=2):
             vartheta[:,i,j] = compute_fermionic_2pt_corr_func(
                 self.q_ops[i], self.qdag_ops[j], self.beta, wfs, self.evals, self.evecs)
         return vartheta
 
     def compute_phi(self, wbs):
         wbs = check_bosonic(wbs)
-        phi = np.empty((wbs.size,)+ 4*(self.nflavors_imp,), dtype=np.complex128)
-        for i, j, k, l in product(range(self.nflavors_imp),repeat=4):
+        phi = np.empty((wbs.size,)+ 4*(self.nflavors,), dtype=np.complex128)
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
             phi[:,i,j,k,l] = \
                 0.25 * compute_bosonic_2pt_corr_func(
                     self.vab[i,j], self.vab[k,l], self.beta, wbs, self.evals, self.evecs)
@@ -844,8 +848,8 @@ class VertexEvaluatorED(VertexEvaluator):
     def compute_lambda(self, wbs):
         """ Compute lambda(wbs) """
         wbs = check_bosonic(wbs)
-        lambda_wb = np.empty((wbs.size,)+ 4*(self.nflavors_imp,), dtype=np.complex128)
-        for i, j, k, l in product(range(self.nflavors_imp),repeat=4):
+        lambda_wb = np.empty((wbs.size,)+ 4*(self.nflavors,), dtype=np.complex128)
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
             lambda_wb[:,i,j,k,l] = \
                 compute_bosonic_2pt_corr_func(
                     self.cdag_ops[i]@self.c_ops[j],
@@ -856,8 +860,8 @@ class VertexEvaluatorED(VertexEvaluator):
     def compute_varphi(self, wbs):
         """ Compute varphi(wbs) """
         wbs = check_bosonic(wbs)
-        varphi_wb = np.empty((wbs.size,) + 4*(self.nflavors_imp,), dtype=np.complex128)
-        for i, j, k, l in product(range(self.nflavors_imp),repeat=4):
+        varphi_wb = np.empty((wbs.size,) + 4*(self.nflavors,), dtype=np.complex128)
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
             varphi_wb[:,i,j,k,l] = \
                 compute_bosonic_2pt_corr_func(
                     self.c_ops[i]@self.c_ops[j],
@@ -869,10 +873,10 @@ class VertexEvaluatorED(VertexEvaluator):
         """ Compute eta(wfs, wbs) """
         wfs = check_fermionic(wfs)
         wbs = check_bosonic(wbs)
-        eta = np.zeros((wfs.size,)+(self.nflavors_imp,)*4, dtype=np.complex128)
+        eta = np.zeros((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
         wslice = mpi.get_slice(wfs.size)
         wsample = (wfs[wslice], wbs[wslice])
-        for i,j,k,l in product(range(self.nflavors_imp), repeat=4):
+        for i,j,k,l in product(range(self.nflavors), repeat=4):
             eta[wslice,i,j,k,l] = compute_3pt_corr_func(
                 self.q_ops[i], self.qdag_ops[j], self.cdag_ops[k]@self.c_ops[l],
                 self.beta, wsample, self.evals, self.evecs)
@@ -882,7 +886,7 @@ class VertexEvaluatorED(VertexEvaluator):
         """ Compute eta(wfs, wbs) """
         wfs = check_fermionic(wfs)
         wbs = check_bosonic(wbs)
-        gamma = np.zeros((wfs.size,)+(self.nflavors_imp,)*4, dtype=np.complex128)
+        gamma = np.zeros((wfs.size,)+(self.nflavors,)*4, dtype=np.complex128)
         wslice = mpi.get_slice(wfs.size)
         wsample = (wfs[wslice], wbs[wslice])
         for i,j,k,l in product(range(self.nflavors), repeat=4):
@@ -893,10 +897,10 @@ class VertexEvaluatorED(VertexEvaluator):
     
     def compute_h(self, wsample_full):
         wsample_full = _check_full_convention(*wsample_full)
-        h = np.zeros((wsample_full[0].size,) + 4*(self.nflavors_imp,), dtype=np.complex128)
+        h = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
         wslice = mpi.get_slice(wsample_full[0].size)
         wsample_full_local = tuple((v[wslice] for v in wsample_full))
-        for i, j, k, l in product(range(self.nflavors_imp),repeat=4):
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
             h[wslice,i,j,k,l] = compute_4pt_corr_func(
                 self.q_ops[i], self.qdag_ops[j], self.q_ops[k], self.qdag_ops[l],
                 self.beta, wsample_full_local, self.evals, self.evecs
@@ -906,10 +910,10 @@ class VertexEvaluatorED(VertexEvaluator):
     def compute_g4pt_direct(self, wsample_full):
         """ Compute g4pt direct by ED """
         wsample_full = _check_full_convention(*wsample_full)
-        g4pt = np.zeros((wsample_full[0].size,) + 4*(self.nflavors_imp,), dtype=np.complex128)
+        g4pt = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
         wslice = mpi.get_slice(wsample_full[0].size)
         wsample_full_local = tuple((v[wslice] for v in wsample_full))
-        for i, j, k, l in product(range(self.nflavors_imp),repeat=4):
+        for i, j, k, l in product(range(self.nflavors),repeat=4):
             g4pt[wslice,i,j,k,l] = compute_4pt_corr_func(
                 self.c_ops[i], self.cdag_ops[j], self.c_ops[k], self.cdag_ops[l],
                 self.beta, wsample_full_local, self.evals, self.evecs
@@ -917,7 +921,7 @@ class VertexEvaluatorED(VertexEvaluator):
         return mpi.allreduce(g4pt)
 
 class QMCResult(VertexEvaluator):
-    def __init__(self, p, verbose=False, Lambda=1E+5, cutoff=1e-8) -> None:
+    def __init__(self, p, verbose=False, Lambda=1E+5, cutoff=1e-12) -> None:
         if verbose:
             print(p+'.out.h5')
     
@@ -1049,3 +1053,20 @@ class QMCResult(VertexEvaluator):
         """ Compute vartheta(wfs) """
         wfs = check_fermionic(wfs)
         return legendre_to_matsubara(self.vartheta_legendre, wfs)
+    
+def reconst_vartheta(asymU, giv, g0iv, dm):
+    """
+    Reconstruct vartheta from asymU, giv, gi0v, and dm
+    """
+    print("giv", g0iv[0,:,:])
+    print("g0iv", g0iv[0,:,:])
+    print("asymU", asymU)
+    print("dm", dm)
+    nfreqs = giv.shape[0]
+    v = np.einsum('abij,ij->ab', asymU, dm)
+    vartheta = np.zeros_like(giv)
+    for ifreq in range(nfreqs):
+        inv_g0iv = np.linalg.inv(g0iv[ifreq,:,:])
+        vartheta[ifreq,:,:] = inv_g0iv @ (giv[ifreq,:,:] - g0iv[ifreq,:,:]) @ inv_g0iv - v
+    print("vartheta", vartheta[0,], )
+    return vartheta

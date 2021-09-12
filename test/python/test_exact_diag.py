@@ -3,7 +3,7 @@ from numpy.lib.npyio import load
 from alpscthyb.occupation_basis import *
 from alpscthyb.exact_diag import *
 from alpscthyb.interaction import *
-from alpscthyb.post_proc import VertexEvaluatorU0, load_irbasis, VertexEvaluatorED, float_to_complex_array
+from alpscthyb.post_proc import VertexEvaluatorU0, load_irbasis, VertexEvaluatorED, float_to_complex_array, reconst_vartheta
 from irbasis_x.freq import box
 from itertools import product
 import pytest
@@ -126,15 +126,6 @@ def _to_spin_full(mat):
     mat_full[:,1,:,1] = mat
     return mat_full.reshape((N1*2, N2*2))
 
-def compute_vartheta(asymU, giv, g0iv, dm):
-    nfreqs = giv.shape[0]
-    v = np.einsum('abij,ij->ab', asymU, dm)
-    vartheta = np.zeros_like(giv)
-    for ifreq in range(nfreqs):
-        inv_g0iv = np.linalg.inv(g0iv[ifreq,:,:])
-        vartheta[ifreq,:,:] = inv_g0iv @ (giv[ifreq,:,:] - g0iv[ifreq,:,:]) @ inv_g0iv - v
-    return vartheta
-
 
 def test_Dimer():
     """
@@ -190,12 +181,16 @@ def test_Dimer():
     assert np.abs(giv-giv_ref).max() < 1e-8
 
     vartheta = ed.compute_vartheta(wfs)
-    for i in range(wfs.size):
-        print(wfs[i], vartheta[i,0,0].real, vartheta[i,0,0].imag)
     #print(giv[:4,0,0])
     #print(giv_ref[:4,0,0])
 
     g0iv = ed0.compute_giv(wfs)
     g0iv_from_delta = ed0.compute_g0iv(wfs)
     assert np.abs(g0iv-g0iv_from_delta).max() < 1e-8
-    vartheta_reconst = compute_vartheta(ed.get_asymU(), giv, g0iv, ed.get_dm())
+    vartheta_reconst = reconst_vartheta(ed.get_asymU(), giv, g0iv_from_delta, ed.get_dm())
+
+    for i in range(wfs.size):
+        print(wfs[i],
+            vartheta[i,0,0].real, vartheta[i,0,0].imag,
+            vartheta_reconst[i,0,0].real, vartheta_reconst[i,0,0].imag
+            )

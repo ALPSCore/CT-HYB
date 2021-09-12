@@ -91,18 +91,32 @@ std::vector<ConfigSpaceEnum::Type>
 HybridizationSimulation<IMP_MODEL>::get_defined_worm_spaces(const parameters_type &parameters) {
   std::vector<ConfigSpaceEnum::Type> active_worm_spaces;
   active_worm_spaces.push_back(ConfigSpaceEnum::G1);
+  active_worm_spaces.push_back(ConfigSpaceEnum::vartheta);
   active_worm_spaces.push_back(ConfigSpaceEnum::Equal_time_G1);
-  if (parameters["measurement.G2.matsubara.on"] != 0 || parameters["measurement.G2.legendre.on"] != 0) {
-    active_worm_spaces.push_back(ConfigSpaceEnum::G2);
-  }
   if (parameters["measurement.G2.SIE.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::G2);
-    active_worm_spaces.push_back(ConfigSpaceEnum::Two_point_PH);
-    active_worm_spaces.push_back(ConfigSpaceEnum::Two_point_PP);
-    active_worm_spaces.push_back(ConfigSpaceEnum::Three_point_PH);
-    active_worm_spaces.push_back(ConfigSpaceEnum::Three_point_PP);
+    active_worm_spaces.push_back(ConfigSpaceEnum::vartheta);
+    active_worm_spaces.push_back(ConfigSpaceEnum::lambda);
+    active_worm_spaces.push_back(ConfigSpaceEnum::varphi);
+    active_worm_spaces.push_back(ConfigSpaceEnum::eta);
+    active_worm_spaces.push_back(ConfigSpaceEnum::gamma);
+    active_worm_spaces.push_back(ConfigSpaceEnum::h);
   }
-  return unique(active_worm_spaces);
+  active_worm_spaces =  unique(active_worm_spaces);
+  if (parameters["target_worm_space_name"] == "") {
+    return unique(active_worm_spaces);
+  } else {
+    ConfigSpaceEnum::Type target_ws = ConfigSpaceEnum::from_string(parameters["target_worm_space_name"]);
+    if (std::find(active_worm_spaces.begin(), active_worm_spaces.end(), target_ws) 
+      == active_worm_spaces.end()) {
+      std::string error_message = "Invalid target_worm_space! Options are ";
+      for (auto &ws: active_worm_spaces) {
+        error_message += ConfigSpaceEnum::to_string(ws) + " ";
+      }
+      throw std::runtime_error(error_message);
+    }
+    return {target_ws};
+  }
 }
 
 template<typename IMP_MODEL>
@@ -314,22 +328,6 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
       p_G1_legendre_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G1.max_matrix_size"],
                                  par["measurement.G1.aux_field"]
       );
-      break;
-
-    case ConfigSpaceEnum::G2:
-      /*
-      if (p_G2_legendre_meas) {
-        p_G2_legendre_meas->measure_via_hyb(mc_config, measurements, random,
-                                   par["measurement.G2.legendre.max_matrix_size"],
-                                   par["measurement.G2.aux_field"]
-        );
-      }
-      */
-      break;
-    
-    case ConfigSpaceEnum::Two_point_PP:
-      //DEBUG
-      //print_list(mc_config.p_worm->get_operators());
       break;
   }
 
@@ -780,9 +778,10 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
 
 template<typename IMP_MODEL>
 void HybridizationSimulation<IMP_MODEL>::sanity_check() {
-#ifndef NDEBUG
   mc_config.check_nan();
   mc_config.sanity_check(sliding_window);
+#ifndef NDEBUG
+  mc_config.expensive_check(sliding_window);
 #endif
 }
 

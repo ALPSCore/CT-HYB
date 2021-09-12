@@ -86,9 +86,7 @@ class LocalUpdater {
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SLIDING_WINDOW &sliding_window,
       const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
-  ) {
-    return false;
-  };
+  ) = 0;
 
   /** Will be called on the exit of update() */
   virtual void call_back() {};
@@ -128,11 +126,11 @@ class LocalUpdater {
 
   //the following variables will be set in virtual function propose();
   boost::optional<SCALAR> acceptance_rate_correction_;
-  std::vector<psi> cdagg_ops_rem_; //hybrized with bath
-  std::vector<psi> c_ops_rem_;     //hybrized with bath
-  std::vector<psi> cdagg_ops_add_; //hybrized with bath
-  std::vector<psi> c_ops_add_;     //hybrized with bath
-  std::shared_ptr<Worm> p_new_worm_; //New worm
+  std::vector<psi> cdagg_ops_rem_;   // Creation operators hybrized with bath to be removed
+  std::vector<psi> c_ops_rem_;       // Annihilation operators hybrized with bath to be removed
+  std::vector<psi> cdagg_ops_add_;   // Creation operators hybrized with bath to be added
+  std::vector<psi> c_ops_add_;       // Annihilation operators hybrized with bath
+  std::shared_ptr<Worm> p_new_worm_; // New worm
 
   //some variables set on the exit of update()
   bool valid_move_generated_;
@@ -424,8 +422,6 @@ class GWormInsertionRemover: public LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDIN
   ) : BaseType(str), p_worm_template_(p_worm_template) {
   }
 
-  //virtual void set_worm_space_weight(double weight) {weight_ = weight;};
-
  private:
   virtual bool propose(
       alps::random01 &rng,
@@ -474,3 +470,24 @@ struct WormShift {
  private:
   double beta_, shift_;
 };
+
+
+/**
+ * Figure what operators are removed and added to the trace.
+ * 
+ * Input:
+ *   hy_op_rem: bath operartors to be removed.
+ *   hy_op_add: bath operartors to be added.
+ *   worm_op_rem: worm operators to be removed.
+ *   worm_op_rem: worm operators to be added.
+ * 
+ * Output:
+ *   op_rem: operators to be removed from the trace
+ *   op_add: operators to be added to the trace
+ */
+void merge_diff(const std::vector<psi> &hyb_op_rem,
+                       const std::vector<psi> &hyb_op_add,
+                       const std::vector<psi> &worm_op_rem,
+                       const std::vector<psi> &worm_op_add,
+                       std::vector<psi> &op_rem,
+                       std::vector<psi> &op_add);

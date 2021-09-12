@@ -125,20 +125,28 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_spaces() {
     add_worm_space<GWorm<2>>();
     break;
   
-  case ConfigSpaceEnum::Two_point_PH:
+  case ConfigSpaceEnum::lambda:
     add_worm_space<TwoPointCorrWorm<PH_CHANNEL>>();
     break;
 
-  case ConfigSpaceEnum::Two_point_PP:
+  case ConfigSpaceEnum::varphi:
     add_worm_space<TwoPointCorrWorm<PP_CHANNEL>>();
     break;
 
-  case ConfigSpaceEnum::Three_point_PH:
-    add_worm_space<ThreePointCorrWorm<PH_CHANNEL>>();
+  case ConfigSpaceEnum::eta:
+    add_worm_space<ThreePointCorrWorm<PH_CHANNEL,true>>();
     break;
 
-  case ConfigSpaceEnum::Three_point_PP:
-    add_worm_space<ThreePointCorrWorm<PP_CHANNEL>>();
+  case ConfigSpaceEnum::gamma:
+    add_worm_space<ThreePointCorrWorm<PP_CHANNEL,true>>();
+    break;
+
+  case ConfigSpaceEnum::vartheta:
+    add_worm_space<GWorm<1,true>>();
+    break;
+
+  case ConfigSpaceEnum::h:
+    add_worm_space<GWorm<2,true>>();
     break;
 
   default:
@@ -231,14 +239,14 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
 
   // G1
   if (is_worm_space_active(ConfigSpaceEnum::G1)) {
-    //register_worm_meas(ConfigSpaceEnum::G1, "vartheta",
-        //new VarThetaMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, smpl_freqs_SIE.v)
-    //);
     register_worm_meas(ConfigSpaceEnum::G1, "g1",
       new G1Meas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, get_wsample_f())
     );
-
-    register_worm_meas(ConfigSpaceEnum::G1, "vartheta_legendre",
+  }
+  
+  // vartheta
+  if (is_worm_space_active(ConfigSpaceEnum::vartheta)) {
+    register_worm_meas(ConfigSpaceEnum::vartheta, "vartheta_legendre",
         new VarThetaLegendreMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, 400)
     );
   }
@@ -254,58 +262,42 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
     );
   }
 
-  //Two_point_PH
-  if (is_worm_space_active(ConfigSpaceEnum::Two_point_PH)) {
+  //Two_point_PH (lambda)
+  if (is_worm_space_active(ConfigSpaceEnum::lambda)) {
     register_worm_meas(
-      ConfigSpaceEnum::Two_point_PH,
+      ConfigSpaceEnum::lambda,
       "lambda_legendre",
       new TwoPointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS, 400)
     );
   }
 
-  //Two_point_PP
-  if (is_worm_space_active(ConfigSpaceEnum::Two_point_PP)) {
+  //Two_point_PP (varphi)
+  if (is_worm_space_active(ConfigSpaceEnum::varphi)) {
     register_worm_meas(
-      ConfigSpaceEnum::Two_point_PP,
+      ConfigSpaceEnum::varphi,
       "varphi_legendre",
       new TwoPointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS, 400)
     );
   }
 
-  //Three_point_PH
-  if (is_worm_space_active(ConfigSpaceEnum::Three_point_PH)) {
+  // eta
+  if (is_worm_space_active(ConfigSpaceEnum::eta)) {
     register_worm_meas(
-      ConfigSpaceEnum::Three_point_PH,
-      "eta",
+      ConfigSpaceEnum::eta, "eta",
       new ThreePointCorrMeas<SCALAR,SW_TYPE,PH_CHANNEL>(&random, BETA, FLAVORS)
     );
   }
 
-  //Three_point_PP
-  if (is_worm_space_active(ConfigSpaceEnum::Three_point_PP)) {
+  // gamma
+  if (is_worm_space_active(ConfigSpaceEnum::gamma)) {
     register_worm_meas(
-      ConfigSpaceEnum::Three_point_PP,
-      "gamma",
+      ConfigSpaceEnum::gamma, "gamma",
       new ThreePointCorrMeas<SCALAR,SW_TYPE,PP_CHANNEL>(&random, BETA, FLAVORS)
     );
   }
 
-
   // G2
   if (is_worm_space_active(ConfigSpaceEnum::G2)) {
-    if (par["measurement.G2.matsubara.on"].template as<int>() != 0) {
-      /*
-      register_worm_meas(
-        ConfigSpaceEnum::G2,
-        "matsubara_sparse",
-        new G2Measurement<SCALAR,SW_TYPE>(&random, FLAVORS, BETA,
-          read_matsubara_points(par["measurement.G2.matsubara.frequencies_PH"]),
-          par["measurement.G2.matsubara.max_matrix_size"],
-          par["measurement.G2.aux_field"]
-        )
-      );
-      */
-    }
     if (par["measurement.G2.SIE.on"] != 0) {
       register_worm_meas(
         ConfigSpaceEnum::G2,
@@ -313,6 +305,14 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
         new HCorrMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS)
       );
     }
+  }
+
+  // h
+  if (is_worm_space_active(ConfigSpaceEnum::h)) {
+    register_worm_meas(
+      ConfigSpaceEnum::h, "h",
+      new HCorrMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS)
+    );
   }
 }
 

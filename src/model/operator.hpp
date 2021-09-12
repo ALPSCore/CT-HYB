@@ -8,6 +8,7 @@
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
+#include <boost/operators.hpp>
 #include <boost/array.hpp>
 
 #include "../common/logger.hpp"
@@ -110,7 +111,7 @@ double operator+(const OperatorTimeTemplate<T> &t1, const double &t2) {
 
 //an operator.
 //operators are described by the time where they are inserted, as well as their site, flavor, and type (creation/annihilation).
-class psi {
+class psi : private boost::equality_comparable<psi> {
  public:
   typedef OperatorTime itime_type;
   typedef OperatorTime TIME_T;
@@ -131,6 +132,13 @@ class psi {
   void set_flavor(int flavor) { flavor_ = flavor; }
   void set_type(OPERATOR_TYPE type) { type_ = type; }
   void set_time_deriv(bool time_deriv) { time_deriv_ = time_deriv; }
+
+  // Create a new operator with time_deriv=false
+  psi convert_to_c_or_cdagg() const {
+    auto op = *this;
+    op.set_time_deriv(false);
+    return op;
+  }
 
  private:
   TIME_T t_;
@@ -210,11 +218,11 @@ inline bool operator>(const psi &t1, const psi &t2) {
 }
 
 inline bool operator==(const psi &op1, const psi &op2) {
-  return op1.time() == op2.time() && op1.type() == op2.type() && op1.flavor() == op2.flavor();
-}
-
-inline bool operator!=(const psi &op1, const psi &op2) {
-  return !(op1 == op2);
+  return
+    op1.time() == op2.time() && \
+    op1.type() == op2.type() && \
+    op1.flavor() == op2.flavor() && \
+    op1.time_deriv() == op2.time_deriv();
 }
 
 typedef boost::multi_index::multi_index_container<psi>
@@ -224,7 +232,7 @@ template<typename V>
 void print_list(const V &operators) {
   logger_out << "list: " << std::endl;
   for (typename V::const_iterator it = operators.begin(); it != operators.end(); ++it) {
-    logger_out << "time " << it->time() << "[" << it->flavor() << "]" << " ";
+    logger_out <<"time " << it->time() << "[flavor=" << it->flavor() << ", time_deriv=" << it->time_deriv() <<  " ]" << " ";
   }
   logger_out << std::endl;
 }

@@ -58,8 +58,8 @@ inline void merge_diff_impl(
     std::vector<psi> &op_add,
     const std::vector<psi> &op_add_new) {
 
-  for (std::vector<psi>::const_iterator it = op_add_new.begin(); it != op_add_new.end(); ++it) {
-    std::vector<psi>::iterator it2 = std::find(op_rem.begin(), op_rem.end(), *it);
+  for (auto it = op_add_new.begin(); it != op_add_new.end(); ++it) {
+    auto it2 = std::find(op_rem.begin(), op_rem.end(), *it);
     if (it2 == op_rem.end()) {
       op_add.push_back(*it);
     } else {
@@ -69,19 +69,6 @@ inline void merge_diff_impl(
   }
 }
 
-inline void merge_diff(const std::vector<psi> &hyb_op_rem,
-                       const std::vector<psi> &hyb_op_add,
-                       const std::vector<psi> &worm_op_rem,
-                       const std::vector<psi> &worm_op_add,
-                       std::vector<psi> &op_rem,
-                       std::vector<psi> &op_add) {
-  op_rem.resize(0);
-  op_add.resize(0);
-  std::copy(hyb_op_rem.begin(), hyb_op_rem.end(), std::back_inserter(op_rem));
-  std::copy(worm_op_rem.begin(), worm_op_rem.end(), std::back_inserter(op_rem));
-  merge_diff_impl(op_rem, op_add, hyb_op_add);
-  merge_diff_impl(op_rem, op_add, worm_op_add);
-}
 
 
 template<typename SCALAR, typename EXTENDED_SCALAR, typename SLIDING_WINDOW>
@@ -145,7 +132,8 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
   bool accepted = false;
   SCALAR prob;
   EXTENDED_SCALAR trace_new;
-  if (op_rem_tot.size() == 0 && op_add_tot.size() == 0) {
+  //if (op_rem_tot.size() == 0 && op_add_tot.size() == 0) {
+  if (false) {
     //if trace is not updated, just compute det_rat
     trace_new = mc_config.trace;
 
@@ -162,13 +150,13 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     accepted = rng() < std::abs(prob);
   } else {
     //compute the upper bound of trace
-    trace_bound.resize(sliding_window.get_num_brakets());
-    const EXTENDED_REAL trace_bound_sum = sliding_window.compute_trace_bound(trace_bound);
-    if (trace_bound_sum == 0.0) {
-      revert_changes(sliding_window, update_record);
-      finalize_update();
-      return false;
-    }
+    //trace_bound.resize(sliding_window.get_num_brakets());
+    //const EXTENDED_REAL trace_bound_sum = sliding_window.compute_trace_bound(trace_bound);
+    //if (trace_bound_sum == 0.0) {
+      //revert_changes(sliding_window, update_record);
+      //finalize_update();
+      //return false;
+    //}
 
     //compute the determinant ratio
     const SCALAR det_rat =
@@ -184,17 +172,19 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
 
     if (det_rat != 0.0) {
       const SCALAR rest = (*acceptance_rate_correction_) * det_rat;
-      const EXTENDED_REAL trace_cutoff = myabs(r_th * mc_config.trace / rest);
-      std::tie(accepted, trace_new) = sliding_window.lazy_eval_trace(trace_cutoff, trace_bound);
+      //const EXTENDED_REAL trace_cutoff = myabs(r_th * mc_config.trace / rest);
+      //std::tie(accepted, trace_new) = sliding_window.lazy_eval_trace(trace_cutoff, trace_bound);
+      auto trace_new = sliding_window.compute_trace();
       prob = rest * convert_to_scalar(static_cast<EXTENDED_SCALAR>(trace_new / mc_config.trace));
-      check_true(myabs(trace_new) < myabs(trace_bound_sum) * 1.01);
-      check_true(accepted == std::abs(prob) > r_th);
+      accepted == std::abs(prob) > r_th;
+      //check_true(myabs(trace_new) < myabs(trace_bound_sum) * 1.01, "trace is wrong!");
+      //check_true(accepted == std::abs(prob) > r_th, "accepted != abs(prob) > r_th");
     } else {
       trace_new = 0.0;
       prob = 0.0;
+      accepted == false;
     }
   }
-
 
   if (accepted) { // move accepted
     mc_config.M.perform_update();
@@ -203,7 +193,7 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
     const int perm_new = compute_permutation_sign(mc_config);
     mc_config.sign *= (1. * perm_new / mc_config.perm_sign) * mysign(prob);
     mc_config.perm_sign = perm_new;
-    check_true(!my_isnan(mc_config.sign));
+    check_true(!my_isnan(mc_config.sign), "sign is nan!");
     accepted_ = true;
   } else { // rejected
     mc_config.M.reject_update();
@@ -704,11 +694,13 @@ global_update(R &rng,
   SLIDING_WINDOW sw(1, sliding_window.get_p_model(),
     sliding_window.get_beta(), operators_new);
 
-  std::vector<EXTENDED_REAL> trace_bound(sw.get_num_brakets());
-  sw.compute_trace_bound(trace_bound);
+  //std::vector<EXTENDED_REAL> trace_bound(sw.get_num_brakets());
+  //sw.compute_trace_bound(trace_bound);
+//
+  //std::pair<bool, EXTENDED_SCALAR> r = sw.lazy_eval_trace(EXTENDED_REAL(0.0), trace_bound);
+  //const EXTENDED_SCALAR trace_new = r.second;
 
-  std::pair<bool, EXTENDED_SCALAR> r = sw.lazy_eval_trace(EXTENDED_REAL(0.0), trace_bound);
-  const EXTENDED_SCALAR trace_new = r.second;
+  const EXTENDED_SCALAR trace_new = sw.compute_trace();
 
   if (trace_new == EXTENDED_SCALAR(0.0)) {
     return false;
@@ -884,7 +876,9 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
     const std::map<ConfigSpaceEnum::Type, double> &config_space_weight
 ) {
   if (mc_config.p_worm) {
-    assert(typeid(mc_config.p_worm.get()) == typeid(p_worm_template_.get()));
+    check_true(typeid(mc_config.p_worm.get()) == typeid(p_worm_template_.get()),
+       "worm types inconsistency"
+    );
 
     //check if all the operators of the worm in the sliding window
     const double tau_low = std::max(sliding_window.get_tau_low(), BaseType::tau_lower_limit_);
@@ -895,7 +889,7 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose(
   }
 
   if (rng() < 0.5) {
-    //Insertion is done by adding operators into the trace
+    //Insertion is done by adding a worm without modifying the operators hybrized with the bath
     return propose_by_trace_impl(rng, mc_config, sliding_window, config_space_weight);
   } else {
     //Insertion is done by removing operators hybridized with the bath and adding them into the trace
@@ -1010,16 +1004,16 @@ bool WormInsertionRemover<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::propose_by_t
   count_operators(c_ops_range.first, c_ops_range.second, num_flavors, num_c_ops_in_range);
 
   if (mc_config.p_worm) {
-    //make all the operators of the worm hybridized with the bath
+    // Remove the worm by making all the operators of the worm hybridized with the bath
     const std::vector<psi> &worm_ops = mc_config.p_worm->get_operators();
     std::vector<int> num_cdagg_ops_new(BaseType::num_flavors_, 0), num_c_ops_new(BaseType::num_flavors_, 0);
-    for (std::vector<psi>::const_iterator it = worm_ops.begin(); it != worm_ops.end(); ++it) {
+    for (auto it=worm_ops.begin(); it != worm_ops.end(); ++it) {
       if (it->type() == CREATION_OP) {
-        BaseType::cdagg_ops_add_.push_back(*it);
+        BaseType::cdagg_ops_add_.push_back(it->convert_to_c_or_cdagg());
         BaseType::cdagg_ops_add_.back().set_time(OperatorTime(open_random(rng, tau_low, tau_high)));
         ++num_cdagg_ops_new[it->flavor()];
       } else {
-        BaseType::c_ops_add_.push_back(*it);
+        BaseType::c_ops_add_.push_back(it->convert_to_c_or_cdagg());
         BaseType::c_ops_add_.back().set_time(OperatorTime(open_random(rng, tau_low, tau_high)));
         ++num_c_ops_new[it->flavor()];
       }

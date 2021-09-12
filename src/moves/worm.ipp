@@ -4,20 +4,23 @@
 /**
  * Returns c c^dagger ,..., c c^dagger
  */
-template<unsigned int Rank>
-std::vector<psi> GWorm<Rank>::get_operators() const {
+template<unsigned int Rank, bool TIME_DERIV>
+std::vector<psi> GWorm<Rank,TIME_DERIV>::get_operators() const {
   std::vector<psi> ops;
   for (int it = 0; it < Rank; ++it) {
     //annihilation operator
     ops.push_back(
       psi(
-        OperatorTime(times_[2 * it], small_indices_[2 * it]), ANNIHILATION_OP, flavors_[2 * it]
+        OperatorTime(
+          times_[2 * it], small_indices_[2 * it]),
+          ANNIHILATION_OP, flavors_[2 * it], TIME_DERIV
       )
     );
     //creation operator
     ops.push_back(
       psi(
-        OperatorTime(times_[2 * it + 1], small_indices_[2 * it + 1]), CREATION_OP, flavors_[2 * it + 1]
+        OperatorTime(times_[2 * it + 1], small_indices_[2 * it + 1]),
+        CREATION_OP, flavors_[2 * it + 1], TIME_DERIV
       )
     );
   }

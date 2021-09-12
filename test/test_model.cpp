@@ -104,3 +104,11 @@ TEST(Model, ops_at_same_time) {
   ASSERT_EQ(ops.erase(op2), 1);
 }
 */
+
+TEST(Model, op_with_time_deriv) {
+  auto t1 = 0.0;
+  auto flavor = 0;
+  auto op1 = psi(OperatorTime(t1), CREATION_OP, flavor);
+  auto op2 = psi(OperatorTime(t1), CREATION_OP, flavor, true);
+  ASSERT_TRUE(op1 != op2);
+}

@@ -34,6 +34,7 @@ int main(int argc, const char *argv[]) {
   alps::params par(argc, argv);
 
   par.define<std::string>("algorithm", "complex-matrix", "Name of algorithm (real-matrix, complex-matrix)");
+  par.define<std::string>("target_worm_space_name", "", "Name of a worm space to be simulated. Leave it blank to simulate all worm spaces needed.");
 
   char **argv_tmp = const_cast<char **>(argv);//FIXME: ugly solution
   alps::mpi::environment env(argc, argv_tmp);

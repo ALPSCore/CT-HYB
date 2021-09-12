@@ -1,18 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from alpscthyb.post_proc import QMCResult
+from alpscthyb.post_proc import QMCResult, reconst_vartheta
 from alpscthyb.util import float_to_complex_array
 from alpscthyb import mpi
 import h5py
 
-def compute_vartheta(asymU, giv, g0iv, dm):
-    nfreqs = giv.shape[0]
-    v = np.einsum('abij,ij->ab', asymU, dm)
-    vartheta = np.zeros_like(giv)
-    for ifreq in range(nfreqs):
-        inv_g0iv = np.linalg.inv(g0iv[ifreq,:,:])
-        vartheta[ifreq,:,:] = inv_g0iv @ (giv[ifreq,:,:] - g0iv[ifreq,:,:]) @ inv_g0iv - v
-    return vartheta
 
 
 def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
@@ -119,7 +111,7 @@ plot_comparison(
     giv_ed,
     "giv_SIE", label1='SIE', label2='ED')
 
-vartheta_ed = compute_vartheta(res.get_asymU(), giv_ed, res.compute_g0iv(wfs), dens_mat_ed)
+vartheta_ed = reconst_vartheta(res.get_asymU(), giv_ed, res.compute_g0iv(wfs), dens_mat_ed)
 
 plot_comparison(
     res.compute_vartheta(wfs),

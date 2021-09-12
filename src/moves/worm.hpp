@@ -18,29 +18,44 @@ namespace ConfigSpaceEnum{
     G2,
     Equal_time_G1,
     Equal_time_G2,
-    Two_point_PH,
-    Two_point_PP,
+    lambda,
+    varphi,
     Three_point_PH,
     Three_point_PP,
+    vartheta,
+    eta,
+    gamma,
+    h,
     Unknown
   };
 
   static const Type AllWormSpaces[] = 
-    {G1, G2, Equal_time_G1, Equal_time_G2, Two_point_PH, Two_point_PP, Three_point_PH, Three_point_PP};
+    {G1, vartheta, G2, h, Equal_time_G1, Equal_time_G2, lambda, varphi, eta, gamma};
 
   static std::string to_string(ConfigSpaceEnum::Type config_space) {
     switch (config_space) {
       case ConfigSpaceEnum::Z_FUNCTION:      return "Z_FUNCTION";
       case ConfigSpaceEnum::G1:              return "G1";
+      case ConfigSpaceEnum::vartheta:        return "vartheta";
       case ConfigSpaceEnum::G2:              return "G2";
       case ConfigSpaceEnum::Equal_time_G1:   return "Equal_time_G1";
       case ConfigSpaceEnum::Equal_time_G2:   return "Equal_time_G2";
-      case ConfigSpaceEnum::Two_point_PH:    return "Two_point_PH";
-      case ConfigSpaceEnum::Two_point_PP:    return "Two_point_PP";
-      case ConfigSpaceEnum::Three_point_PH:  return "Three_point_PH";
-      case ConfigSpaceEnum::Three_point_PP:  return "Three_point_PP";
+      case ConfigSpaceEnum::lambda:          return "lambda";
+      case ConfigSpaceEnum::varphi:          return "varphi";
+      case ConfigSpaceEnum::eta:             return "eta";
+      case ConfigSpaceEnum::gamma:           return "gamma";
+      case ConfigSpaceEnum::h:               return "h";
       default: throw std::runtime_error("Unknown configuration space");
     }
+  }
+
+  static ConfigSpaceEnum::Type from_string(const std::string &config_space_name) {
+    for (auto &ws: AllWormSpaces) {
+      if (to_string(ws) == config_space_name) {
+        return ws;
+      }
+    }
+    return Unknown; 
   }
 }
 
@@ -148,7 +163,7 @@ inline bool operator!=(const Worm &worm1, const Worm &worm2) {
  * Rank = 2: two-particle Green's function
  *
  */
-template<unsigned int Rank>
+template<unsigned int Rank, bool TIME_DERIV=false>
 class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
  public:
   GWorm() : time_index_(2 * Rank) {
@@ -161,7 +176,7 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
   }
 
   virtual std::shared_ptr<Worm> clone() const {
-    return std::shared_ptr<Worm>(new GWorm<Rank>(*this));
+    return std::shared_ptr<Worm>(new GWorm<Rank,TIME_DERIV>(*this));
   }
 
   virtual int num_operators() const { return 2 * Rank; };
@@ -205,19 +220,11 @@ class GWorm: public Worm, private boost::equality_comparable<GWorm<Rank> > {
     return time_index_[flavor_index];
   }
 
-  virtual bool operator==(const GWorm<Rank> &other_worm) const {
+  virtual bool operator==(const GWorm<Rank,TIME_DERIV> &other_worm) const {
     return (times_ == other_worm.times_ && flavors_ == other_worm.flavors_);
   }
 
-  ConfigSpaceEnum::Type get_config_space() const {
-    if (Rank == 1) {
-      return ConfigSpaceEnum::G1;
-    } else if (Rank == 2) {
-      return ConfigSpaceEnum::G2;
-    } else {
-      throw std::runtime_error("get_config_space is not implemented");
-    }
-  }
+  ConfigSpaceEnum::Type get_config_space() const;
 
  private:
   std::array<double, 2 * Rank> times_;
@@ -354,14 +361,20 @@ class TwoPointCorrWorm: public Worm, private boost::equality_comparable<TwoPoint
 /**
  * Measure
  * 
- * PH:
+ * PH (TIME_DERIV=False):
  *  <T c_a(tau_1) c^\dagger_b(tau_2) n_{cd}(tau_3)>
  * 
- * PP:
+ * PP (TIME_DERIV=False):
  *  <T c_a(tau_1) c_b(tau_2) (d^\dagger_c d^\dagger_d)(tau_3)>
+ * 
+ * PH (TIME_DERIV=True):
+ *  <T q_a(tau_1) q^\dagger_b(tau_2) n_{cd}(tau_3)>
+ * 
+ * PP (TIME_DERIV=True):
+ *  <T q_a(tau_1) q_b(tau_2) (d^\dagger_c d^\dagger_d)(tau_3)>
  */
-template<class CHANNEL>
-class ThreePointCorrWorm: public Worm, private boost::equality_comparable<ThreePointCorrWorm<CHANNEL>> {
+template<class CHANNEL, bool TIME_DERIV>
+class ThreePointCorrWorm: public Worm, private boost::equality_comparable<ThreePointCorrWorm<CHANNEL,TIME_DERIV>> {
  public:
   ThreePointCorrWorm() : time_index_{{0}, {1}, {2}, {2}} {}
 
@@ -387,16 +400,9 @@ class ThreePointCorrWorm: public Worm, private boost::equality_comparable<ThreeP
 
   virtual const std::vector<int> &get_time_index(int flavor_index) const {
     return time_index_[flavor_index];
-    //if (flavor_index == 0) {
-      //return time_index_.at(0);
-    //} elif (flavor_index == 1) {
-      //return time_index_.at(1);
-    //} else {
-      //return time_index_.at(2);
-    //}
   }
 
-  virtual bool operator==(const ThreePointCorrWorm<CHANNEL> &other_worm) const {
+  virtual bool operator==(const ThreePointCorrWorm<CHANNEL,TIME_DERIV> &other_worm) const {
     return (times_ == other_worm.times_ && flavors_ == other_worm.flavors_);
   }
 
@@ -407,3 +413,6 @@ class ThreePointCorrWorm: public Worm, private boost::equality_comparable<ThreeP
   std::array<int,4> flavors_;
   std::vector<std::vector<int>> time_index_;
 };
+
+//using ThreePointPHWorm = ThreePointCorrWorm<PH_CHANNEL,true>;
+//using ThreePointPPWorm = ThreePointCorrWorm<PH_CHANNEL,true>;

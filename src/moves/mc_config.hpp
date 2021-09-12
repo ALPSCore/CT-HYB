@@ -70,6 +70,9 @@ struct MonteCarloConfiguration {
   template<typename SW>
   void sanity_check(SW &sliding_window);
 
+  template<typename SW>
+  void expensive_check(SW &sliding_window);
+
   SCALAR sign; // the sign of w=Z_k_up*Z_k'_down*trace
   EXTENDED_SCALAR trace;  // matrix trace
   DeterminantMatrixType M;
@@ -84,23 +87,17 @@ struct MonteCarloConfiguration {
 template<typename SCALAR>
 template<typename SW>
 void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
-#ifndef NDEBUG
-  ////operator_container_t operators2;
-  //operators2.insert(M.get_cdagg_ops().begin(), M.get_cdagg_ops().end());
-  //operators2.insert(M.get_c_ops().begin(), M.get_c_ops().end());
-  //if (p_worm) {
-    //std::vector<psi> worm_ops = p_worm->get_operators();
-    //operators2.insert(worm_ops.begin(), worm_ops.end());
-  //}
-  //if (operators2 != operators) {
-    //std::cout << "debug1 size " << operators.size() << std::endl;
-    //std::cout << "debug2 size " << operators2.size() << std::endl;
-    //std::cout << "debug1 " << operators << std::endl;
-    //std::cout << "debug2 " << operators2 << std::endl;
-    //throw std::runtime_error("operators is wrong!");
-  //}
-  //assert(operators2 == operators);
+  for (const auto &op: M.get_cdagg_ops()) {
+    check_true(!op.time_deriv());
+  }
+  for (const auto &op: M.get_c_ops()) {
+    check_true(!op.time_deriv());
+  }
+}
 
+template<typename SCALAR>
+template<typename SW>
+void MonteCarloConfiguration<SCALAR>::expensive_check(SW &sliding_window) {
   //check determinant
   std::vector<SCALAR> det_old = M.compute_determinant_as_product();
   M.rebuild_inverse_matrix();
@@ -136,7 +133,6 @@ void MonteCarloConfiguration<SCALAR>::sanity_check(SW &sliding_window) {
   //const SCALAR sign2 = sign_det * convert_to_scalar(mysign(trace_recomputed)) * (1. * perm_sign2);
 
   //assert(std::abs(sign2 / sign - 1.0) < 1E-4);
-#endif
 }
 
 //compute the permutation sign (+/-) from the time-ordering of
