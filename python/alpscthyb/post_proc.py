@@ -242,11 +242,11 @@ def postprocess_equal_time_G1(h5, verbose=False, **kwargs):
 
     return results
 
-def postprocess_two_point_ph(h5, verbose=False, **kwargs):
+def postprocess_lambda(h5, verbose=False, **kwargs):
     nflavors = kwargs['nflavors']
     beta = kwargs['beta']
     sign = read_mc_result(h5, 'Sign')['mean']
-    w_vol = read_mc_result(h5, 'worm_space_volume_Two_point_PH')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_lambda')['mean']
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
     return {
         'lambda_legendre':
@@ -255,12 +255,12 @@ def postprocess_two_point_ph(h5, verbose=False, **kwargs):
             reshape((-1,nflavors,nflavors,nflavors,nflavors))
     }
 
-def postprocess_two_point_pp(h5, verbose=False, **kwargs):
+def postprocess_varphi(h5, verbose=False, **kwargs):
     nflavors = kwargs['nflavors']
     beta = kwargs['beta']
     sign = read_mc_result(h5, 'Sign')['mean']
     sign = read_mc_result(h5, 'Sign')['mean']
-    w_vol = read_mc_result(h5, 'worm_space_volume_Two_point_PP')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_varphi')['mean']
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
     if verbose:
         print("Reading varphi_legendre...")
@@ -271,40 +271,42 @@ def postprocess_two_point_pp(h5, verbose=False, **kwargs):
             reshape((-1,nflavors,nflavors,nflavors,nflavors))
     }
 
-def postprocess_three_point_ph(h5, verbose=False, **kwargs):
+def postprocess_eta(h5, verbose=False, **kwargs):
     sign = read_mc_result(h5, 'Sign')['mean']
-    w_vol = read_mc_result(h5, 'worm_space_volume_Three_point_PH')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_eta')['mean']
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
     if verbose:
         print("Reading eta...")
     return {
         'eta_coeff' : w_vol/(sign * z_vol),
         'eta_datasets' :
-            WormConfigRecord(kwargs['prefix'] + "_wormspace_Three_point_PH_eta_results", 3, 4)
+            WormConfigRecord(kwargs['prefix'] + "_wormspace_eta_results", 3, 4)
     }
 
-def postprocess_three_point_pp(h5, verbose=False, **kwargs):
+def postprocess_gamma(h5, verbose=False, **kwargs):
     sign = read_mc_result(h5, 'Sign')['mean']
-    w_vol = read_mc_result(h5, 'worm_space_volume_Three_point_PP')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_gamma')['mean']
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
     if verbose:
         print("Reading gamma...")
     return {
         'gamma_coeff' : w_vol/(sign * z_vol),
         'gamma_datasets' :
-            WormConfigRecord(kwargs['prefix'] + "_wormspace_Three_point_PP_gamma_results", 3, 4)
+            WormConfigRecord(kwargs['prefix'] + "_wormspace_gamma_results", 3, 4)
     }
 
-def postprocess_G2(h5, verbose=False, **kwargs):
+def postprocess_h(h5, verbose=False, **kwargs):
+    if verbose:
+        print("Reading h...")
     beta = kwargs['beta']
     prefix = kwargs['prefix']
     sign = read_mc_result(h5, 'Sign')['mean']
-    w_vol = read_mc_result(h5, 'worm_space_volume_G2')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_h')['mean']
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
     return {
         'h_corr_coeff': w_vol/(sign * z_vol),
         'h_corr_datasets':
-            WormConfigRecord(prefix + "_wormspace_G2_h_corr_results", 4, 4)
+            WormConfigRecord(prefix + "_wormspace_h_results", 4, 4)
     }
 
 
@@ -312,11 +314,12 @@ postprocessors = {
     'G1'             : postprocess_G1,
     'vartheta'       : postprocess_vartheta,
     'Equal_time_G1'  : postprocess_equal_time_G1,
+    'lambda'         : postprocess_lambda,
+    'varphi'         : postprocess_varphi,
     #'G2'             : postprocess_G2,
-    #'Two_point_PH'   : postprocess_two_point_ph,
-    #'Two_point_PP'   : postprocess_two_point_pp,
-    #'Three_point_PH' : postprocess_three_point_ph,
-    #'Three_point_PP' : postprocess_three_point_pp,
+    'eta'            : postprocess_eta,
+    'gamma'          : postprocess_gamma,
+    'h'             : postprocess_h,
 }
 
 class VertexEvaluator(object):
@@ -421,7 +424,7 @@ class VertexEvaluator(object):
            self.compute_gamma(wfs, wfs + wfs_p)
         )
     
-    def _compute_scrF(self, wsample_full):
+    def compute_scrF(self, wsample_full):
         wsample_full = _check_full_convention(*wsample_full)
         v1, v2, v3, v4 = wsample_full
         beta = self.beta
@@ -466,7 +469,7 @@ class VertexEvaluator(object):
         return scrF
 
     def compute_F(self, wsample_full):
-        scrF = self._compute_scrF(wsample_full)
+        scrF = self.compute_scrF(wsample_full)
 
         # Replace legs from G0 to G
         v1, v2, v3, v4 = wsample_full
@@ -1035,6 +1038,8 @@ class QMCResult(VertexEvaluator):
     def compute_gamma(self, wfs, wbs):
         wfs = check_fermionic(wfs)
         wbs = check_bosonic(wbs)
+        if not hasattr(self, "gamma_coeff"):
+            return np.zeros((wfs.size,) + 4*(self.nflavors,), dtype=np.complex128)
         return self.gamma_coeff * \
             ft_three_point_obj(self.gamma_datasets, (wfs,wbs), self.nflavors, self.beta)
 

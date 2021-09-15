@@ -35,7 +35,7 @@ HCorrMeas<SCALAR,SW_TYPE>::measure(
 template <typename SCALAR, typename SW_TYPE>
 void HCorrMeas<SCALAR,SW_TYPE>::save_results(const std::string &filename, const alps::mpi::communicator &comm) const {
   std::string dirname = 
-    alps::fs::remove_extensions(filename) + "_" + get_name() + "_results";
+    alps::fs::remove_extensions(filename) + "_results";
    if (comm.rank()==0) {
       if (boost::filesystem::exists(dirname) && 
         !boost::filesystem::is_directory(dirname)) {

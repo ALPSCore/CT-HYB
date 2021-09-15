@@ -1,10 +1,10 @@
 import numpy as np
+from irbasis_x.freq import box
 import matplotlib.pyplot as plt
-from alpscthyb.post_proc import QMCResult, reconst_vartheta
+from alpscthyb.post_proc import QMCResult, reconst_vartheta, VertexEvaluatorAtomED
 from alpscthyb.util import float_to_complex_array
 from alpscthyb import mpi
 import h5py
-
 
 
 def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
@@ -32,7 +32,7 @@ def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
     axes[2].set_ylim([ymin,None])
 
     for ax in axes:
-        #ax.set_xlim([40,60])
+        #ax.set_xlim([700,800])
         #ax.set_ylim([-0.5,0.5])
         #ax.set_ylim([-1,1])
         ax.legend()
@@ -44,7 +44,7 @@ res = QMCResult('input', verbose=True)
 beta = res.beta
 norb = res.nflavors//2
 
-#ed = VertexEvaluatorAtomED(res.nflavors, res.beta, res.hopping, res.get_asymU())
+ed = VertexEvaluatorAtomED(res.nflavors, res.beta, res.hopping, res.get_asymU())
 
 # ED data
 with h5py.File('results/pomerol.h5', 'r') as h5:
@@ -56,19 +56,12 @@ with h5py.File('results/pomerol.h5', 'r') as h5:
     giv_ed[:, :, 1, :, 1] = gdn
     giv_ed = giv_ed.reshape((gup.shape[0], 2*norb, 2*norb))
 
-    #dens_mat_ed = np.zeros((norb, 2, norb, 2), dtype=np.complex128)
-    #dens_mat_ed[:, 0, :, 0] = float_to_complex_array(h5['/dens_mat/up'][()])
-    #dens_mat_ed[:, 1, :, 1] = float_to_complex_array(h5['/dens_mat/dn'][()])
-    #dens_mat_ed = dens_mat_ed.reshape((2*norb, 2*norb))
-
-#print("Density matrix")
-#print("QMC: ", res.get_dm())
-#print("ED: ", dens_mat_ed)
-#print("diff: ", res.get_dm()-dens_mat_ed)
-
 # Fermionic sampling frequencies
 wfs = 2*np.arange(-giv_ed.shape[0]//2, giv_ed.shape[0]//2) + 1
 sigma_iv_ed = res.compute_sigma_iv(giv_ed, wfs)
+
+# Bosonic sampling frequencies
+wbs = res.basis_b.wsample
 
 #SIE
 gir_SIE = res.compute_gir_SIE()
@@ -78,21 +71,6 @@ sigma_iv = res.compute_sigma_iv(giv, wfs)
 #Legendre
 giv_legendre = res.compute_giv_from_legendre(wfs)
 sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, wfs)
-
-plt.figure(1)
-for f in range(res.nflavors):
-    plt.plot(res.Delta_tau[:,f,f].real, label=f'flavor{f}')
-    plt.plot(res.Delta_tau_rec[:,f,f].real, label=f'flavor{f}')
-plt.legend()
-plt.savefig("Delta_tau.eps")
-plt.close(1)
-
-plt.figure(1)
-for f in range(res.nflavors):
-    plt.semilogy(np.abs(res.Delta_l[:,f,f]), label=f'flavor{f}')
-plt.legend()
-plt.savefig("Delta_l.eps")
-plt.close(1)
 
 plot_comparison(
     sigma_iv,
@@ -117,12 +95,39 @@ plot_comparison(
 #vartheta_ed = reconst_vartheta(res.get_asymU(), giv_ed, res.compute_g0iv(wfs), dens_mat_ed)
 #vartheta_legendre = reconst_vartheta(res.get_asymU(), giv_legendre, res.compute_g0iv(wfs), dens_mat_ed)
 #
-#plot_comparison(
-    #res.compute_vartheta(wfs),
-    #vartheta_ed,
-    #"vartheta_SIE", label1='SIE', label2='ED')
-#
-#plot_comparison(
-    #vartheta_legendre,
-    #vartheta_ed,
-    #"vartheta_legendre", label1='legendre', label2='ED')
+plot_comparison(
+    res.compute_vartheta(wfs),
+    ed.compute_vartheta(wfs),
+    "vartheta_SIE", label1='SIE', label2='ED')
+
+# varphi & lambda
+for name in ['varphi', 'lambda']:
+    qmc = getattr(res, f'compute_{name}')(wbs)
+    ref = getattr(ed,  f'compute_{name}')(wbs)
+    plot_comparison(qmc, ref, name)
+
+# eta & gamma
+def box_fb(nf, nb):
+    wf = 2*np.arange(-nf,nf)+1
+    wb = 2*np.arange(-nb,nb)
+    v, w = np.broadcast_arrays(wf[:,None], wb[None,:])
+    return v.ravel(), w.ravel()
+wsample_fb = box_fb(8, 9)
+
+# eta
+eta_ref = ed.compute_eta(*wsample_fb)
+plot_comparison(res.compute_eta(*wsample_fb), eta_ref, "eta")
+
+# gamma
+gamma_ref = ed.compute_gamma(*wsample_fb)
+plot_comparison(res.compute_gamma(*wsample_fb), gamma_ref, "gamma")
+
+# h
+wsample_ffff = box(4, 3, return_conv='full', ravel=True)
+h_ref = ed.compute_h(wsample_ffff)
+plot_comparison(res.compute_h(wsample_ffff), h_ref, "h")
+
+# F
+F_ref = ed.compute_F(wsample_ffff)
+F_qmc = res.compute_F(wsample_ffff)
+plot_comparison(F_qmc, F_ref, "F")

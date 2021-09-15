@@ -42,3 +42,6 @@ def dist_w(w):
     """Distribute sampling frequencies/weights over MPI processes
     """
     return w
+
+def bcast(data, comm=None):
+    return data

@@ -86,7 +86,7 @@ ThreePointCorrMeas<SCALAR,SW_TYPE,CHANNEL>::eval_on_smpl_freqs(
 template <typename SCALAR, typename SW_TYPE, typename CHANNEL>
 void ThreePointCorrMeas<SCALAR,SW_TYPE,CHANNEL>::save_results(const std::string &filename, const alps::mpi::communicator &comm) const {
   std::string dirname = 
-    alps::fs::remove_extensions(filename) + "_" + get_name() + "_results";
+    alps::fs::remove_extensions(filename) + "_results";
    if (comm.rank()==0) {
       if (boost::filesystem::exists(dirname) && 
         !boost::filesystem::is_directory(dirname)) {
