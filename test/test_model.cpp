@@ -45,19 +45,17 @@ TEST(ModelLibrary, t2gModel) {
   auto calU = onsite_U - 3*JH;
   auto mu_half = 2.5*JH; // A. Gergoes (2013) seems to use this value. (Why?)
 
-  alps::params par;
-  par["model.sites"] = 3;
-  par["model.spins"] = 2;
+  //alps::params par;
+  //par["model.sites"] = 3;
+  //par["model.spins"] = 2;
 
   std::vector<std::tuple<int, int, SCALAR> > t_list;
   for (auto f=0; f<2*norbs; ++f) {
       t_list.push_back({f, f, -mu_half});
   }
   auto Uval_list = create_SK_Uijkl<SCALAR>(onsite_U, JH);
-  //debug
-  //Uval_list.resize(0);
 
-  AtomicModelEigenBasis<SCALAR>::define_parameters(par);
+  //AtomicModelEigenBasis<SCALAR>::define_parameters(par);
   AtomicModelEigenBasis<SCALAR> model(nflavors, t_list, Uval_list);
 
   check_eigenes(model);
@@ -75,7 +73,13 @@ TEST(ModelLibrary, t2gModel) {
       ASSERT_NEAR(lowest_enes[n], lowest_enes_ref[n], 1e-8);
   }
 
-  // Check apply exp(- tau H)
+  // ham_U
+  auto squared_norm_ham_U = model.get_ham_U().squaredNorm();
+  auto squared_norm_ham_U2 = 0.0;
+  for (auto s=0; s < model.num_sectors(); ++s) {
+    squared_norm_ham_U2 += model.get_ham_U_sectors()[s].squaredNorm();
+  }
+  ASSERT_NEAR(squared_norm_ham_U2, squared_norm_ham_U, 1e-8*squared_norm_ham_U);
 }
 
 TEST(Hyb, two_flavor) {

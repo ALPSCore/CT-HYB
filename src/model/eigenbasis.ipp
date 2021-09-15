@@ -250,12 +250,9 @@ void AtomicModelEigenBasis<SCALAR>::build_basis(double inner_outer_cutoff_energy
 
   // ham_U
   ham_U_eigen.resize(num_sectors);
-  auto offset = 0;
   for (int sector = 0; sector < num_sectors; ++sector) {
-    auto dim = dim_sector(sector);
-    ham_U_eigen[sector] = evecs_sector[sector].adjoint() * \
-       this->ham_U.block(offset, offset, dim, dim) * evecs_sector[sector];
-    offset += dim;
+    ham_U_eigen[sector] = evecs_sector[sector].adjoint() * this->ham_U_sectors[sector] * \
+     evecs_sector[sector];
   }
 }
 

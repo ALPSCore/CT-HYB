@@ -30,7 +30,8 @@ def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
     axes[2].set_ylabel(r"Abs")
 
     for ax in axes:
-        ax.set_xlim([000,100])
+        ax.set_xlim([40,60])
+        ax.set_ylim([-0.5,0.5])
         #ax.set_ylim([-1,1])
         ax.legend()
     fig.tight_layout()
@@ -112,8 +113,14 @@ plot_comparison(
     "giv_SIE", label1='SIE', label2='ED')
 
 vartheta_ed = reconst_vartheta(res.get_asymU(), giv_ed, res.compute_g0iv(wfs), dens_mat_ed)
+vartheta_legendre = reconst_vartheta(res.get_asymU(), giv_legendre, res.compute_g0iv(wfs), dens_mat_ed)
 
 plot_comparison(
     res.compute_vartheta(wfs),
     vartheta_ed,
     "vartheta_SIE", label1='SIE', label2='ED')
+
+plot_comparison(
+    vartheta_legendre,
+    vartheta_ed,
+    "vartheta_legendre", label1='legendre', label2='ED')

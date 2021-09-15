@@ -251,9 +251,6 @@ class AtomicModel {
    */
   int get_dst_sector_bra(OPERATOR_TYPE op, int flavor, int src_sector) const;
 
-  /**
-   * The following functions to be implemented in a derived class
-   **/
   double get_reference_energy() const {
       return reference_energy_;
   }
@@ -261,6 +258,9 @@ class AtomicModel {
   int dim_sector(int sector) const {
     return dim_sectors.at(sector);
   }
+
+  const Eigen::SparseMatrix<SCALAR> &get_ham_U() const {return ham_U;}
+  const std::vector<Eigen::SparseMatrix<SCALAR>> &get_ham_U_sectors() const {return ham_U_sectors;}
 
   const std::vector<std::tuple<int, int, int, int, SCALAR> > &get_nonzero_U_vals() const {
     return nonzero_U_vals;
@@ -346,6 +346,7 @@ class AtomicModel {
 
   //Hamiltonian
   std::vector<sparse_matrix_t> ham_sectors;
+  std::vector<sparse_matrix_t> ham_U_sectors;
 
   //Index: cdag, cdag, c, c
   std::vector<std::tuple<int, int, int, int, SCALAR> > nonzero_U_vals;

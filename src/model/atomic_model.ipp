@@ -71,12 +71,12 @@ int AtomicModel<SCALAR, DERIVED>::get_dst_sector_bra(OPERATOR_TYPE op, int flavo
   return sector_connection_reverse[static_cast<int>(op)][flavor][src_sector];
 }
 
-template<typename M, typename M2, typename P>
-void merge_according_to_c_or_cdag(const M &mat, M2 &block_mat, const P &p, P &p2) {
+template<typename M, typename P>
+void merge_according_to_c_or_cdag(const M &mat, const P &p, P &p2) {
   std::vector<int> rows;
 
   const int n_c = p.get_num_clusters();
-  block_mat.resize(n_c, n_c);
+  Eigen::MatrixXd block_mat(n_c, n_c);
   block_mat.setZero();
 
   const std::vector<int> &c_labels = p.get_cluster_labels();
@@ -100,6 +100,25 @@ void merge_according_to_c_or_cdag(const M &mat, M2 &block_mat, const P &p, P &p2
     }
   }
 }
+
+template<typename M, typename P>
+void merge_according_to_ham_U(const M &mat, const P &p, P &p2) {
+  std::vector<int> rows;
+
+  const int n_c = p.get_num_clusters();
+  const std::vector<int> &c_labels = p.get_cluster_labels();
+
+  for (int k = 0; k < mat.outerSize(); ++k) {
+    for (typename M::InnerIterator it(mat, k); it; ++it) {
+      auto label_row = c_labels[it.row()];
+      auto label_col = c_labels[it.col()];
+      if (label_row != label_col) {
+        p2.connect_vertices(label_row, label_col);
+      }
+    }
+  }
+}
+
 
 template<typename T, typename IT>
 void
@@ -207,7 +226,7 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
         * d_ops[   std::get<3>(nonzero_U_vals[elem])];
     }
   }
-  //ham_U.prune(PruneHelper<SCALAR>(eps));
+  ham_U.prune(PruneHelper<SCALAR>(eps));
 
   sparse_matrix_t ham(ham_U);
   for (int flavor2 = 0; flavor2 < flavors_; ++flavor2) {
@@ -234,12 +253,11 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
   //Merge some blocks according to creation and annihilation operators
   Clustering cl2(cl.get_num_clusters());
   const int num_c = cl.get_num_clusters();
-  real_matrix_t block_mat(num_c, num_c);
   for (int flavor = 0; flavor < flavors_; ++flavor) {
-    merge_according_to_c_or_cdag(ddag_ops[flavor], block_mat, cl, cl2);
-    merge_according_to_c_or_cdag(d_ops[flavor], block_mat, cl, cl2);
+    merge_according_to_c_or_cdag(ddag_ops[flavor], cl, cl2);
+    merge_according_to_c_or_cdag(d_ops[flavor], cl, cl2);
   }
-  merge_according_to_c_or_cdag(ham_U, block_mat, cl, cl2);
+  merge_according_to_ham_U(ham_U, cl, cl2);
   cl2.finalize_labeling();
 
   if (verbose_) {
@@ -272,9 +290,10 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
   }
 
   //divide Hamiltonin by sector
-  ham_sectors.resize(num_sectors_);
-  std::vector<int> dummy(num_sectors_);
-  split_op_into_sectors(num_sectors_,
+  {
+    ham_sectors.resize(num_sectors_);
+    std::vector<int> dummy(num_sectors_);
+    split_op_into_sectors(num_sectors_,
                         ham,
                         dim_sectors,
                         index_of_state_in_sector,
@@ -282,6 +301,20 @@ void AtomicModel<SCALAR, DERIVED>::hilbert_space_partioning(double cutoff_ham, d
                         dummy.begin(),
                         ham_sectors,
                         true);
+  }
+
+  {
+    ham_U_sectors.resize(num_sectors_);
+    std::vector<int> dummy(num_sectors_);
+    split_op_into_sectors(num_sectors_,
+                        ham_U,
+                        dim_sectors,
+                        index_of_state_in_sector,
+                        sector_of_state,
+                        dummy.begin(),
+                        ham_U_sectors,
+                        true);
+  }
 
   //identify which sectors are connected by a creation/annihilation operator
   sector_connection.resize(boost::extents[2][flavors_][num_sectors_]);
