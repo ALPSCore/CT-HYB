@@ -769,6 +769,8 @@ void HybridizationSimulation<IMP_MODEL>::finish_measurement() {
     }
   }
 
+  comm.barrier();
+
   if (comm.rank() == 0) {
     p_model->save_info_for_postprocessing(ofile);
     F->save_info_for_postprocessing(ofile);

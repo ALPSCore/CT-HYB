@@ -51,37 +51,29 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
 
   std::pair<bool, bool> r = sim.run(cb);
 
-  logger_out << "debug A" << std::endl;
   logger_out.flush();
 
   if (comm_.rank() == 0) {
-    logger_out << "debug B" << std::endl;
     logger_out.flush();
     if (!r.second) {
       throw std::runtime_error("Master process is not thermalized yet. Increase simulation time!");
     }
-    logger_out << "debug C" << std::endl;
     logger_out.flush();
     mc_results_ = alps::collect_results(sim);
     if (comm_.rank() == 0) {
       sim.show_statistics(mc_results_);
     }
-    logger_out << "debug D" << std::endl;
     logger_out.flush();
   } else {
-    logger_out << "debug BB" << std::endl;
     logger_out.flush();
     if (r.second) {
-      logger_out << "debug CC" << std::endl;
       logger_out.flush();
       alps::collect_results(sim);
-      logger_out << "debug DD" << std::endl;
       logger_out.flush();
     } else {
       throw std::runtime_error((boost::format(
           "Warning: MPI process %1% is not thermalized yet. Increase simulation time!") % rank).str());
     }
-      logger_out << "debug EE" << std::endl;
       logger_out.flush();
   }
 

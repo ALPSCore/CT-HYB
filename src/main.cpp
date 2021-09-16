@@ -97,27 +97,23 @@ int main(int argc, const char *argv[]) {
 
   logger_out = std::ofstream("log_" + prefix + "_rank" + std::to_string(sub_comm.rank()) + ".txt");
 
-  // Remove the exisiting old output file if any
+  // Remove the exisiting global old output file if any
   if (sub_comm.rank() == 0 && file_exists(outputfile)) {
     logger_out << "Removing the old output file " << outputfile << "..." << std::endl;
     std::remove(outputfile.c_str());
   }
 
-  // Remove the exising output directory if any
-  /*
-  if (comm.rank()==0) {
-    std::string dirname = prefix_global + "_results";
-    std::cout << "Preparing output dir " << dirname << "..." << std::endl;
-    if (boost::filesystem::exists(dirname)) {
-      if (!boost::filesystem::is_directory(dirname)) {
-        throw std::runtime_error("Please remove " + dirname + "!");
-      }
-      //boost::filesystem::remove_all(dirname);
-    } else {
-      boost::filesystem::create_directory(dirname);
+  // Write parameters to the global output file
+  if (comm.rank() == 0) {
+    auto global_output_file = prefix_global + ".out.h5";
+    if (file_exists(global_output_file)) {
+      std::cout << "Removing the old output file " << global_output_file << "..." << std::endl;
+      std::remove(global_output_file.c_str());
     }
+    alps::hdf5::archive ar(global_output_file, "w");
+    ar["/parameters"] << par;
+    ar.close();
   }
-  */
 
   //solve the model
   p_solver->solve();
@@ -141,8 +137,8 @@ int main(int argc, const char *argv[]) {
   sub_comm.barrier();
 
   if (comm.rank() == 0) {
-    alps::hdf5::archive ar(prefix_global + ".out.h5", "w");
-    ar["/parameters"] << par;
+    alps::hdf5::archive ar(prefix_global + ".out.h5", "a");
+    //ar["/parameters"] << par;
     for (auto ws: defined_worm_spaces) {
       ar["/worm_spaces/" + ConfigSpaceEnum::to_string(ws)] << 1;
     }

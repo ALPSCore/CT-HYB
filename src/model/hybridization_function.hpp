@@ -74,6 +74,7 @@ class HybridizationFunction {
     alps::hdf5::archive oar(filename, "a");
     oar["/F_tau"] << boost::any(F_);
     oar["/Delta_tau"] << boost::any(Delta_);
+    oar.close();
   }
 
  private:

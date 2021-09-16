@@ -35,6 +35,7 @@ void AtomicModel<SCALAR, DERIVED>::save_info_for_postprocessing(const std::strin
   alps::hdf5::archive oar(filename, "a");
   oar["/hopping"] << boost::any(hopping_mat);
   oar["/U_tensor"] << boost::any(U_tensor);
+  oar.close();
 }
 
 //mainly for unitest

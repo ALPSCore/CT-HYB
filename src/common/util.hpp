@@ -467,6 +467,7 @@ template<typename T>
 std::vector<T>
 unique(const std::vector<T> &v) {
   std::vector<T> v_(v);
+  std::sort(v_.begin(), v_.end());
   auto result = std::unique(v_.begin(), v_.end());
   v_.erase(result, v_.end());
   return v_;
