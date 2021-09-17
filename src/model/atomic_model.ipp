@@ -2,7 +2,7 @@
 
 template<typename SCALAR, typename DERIVED>
 AtomicModel<SCALAR, DERIVED>::AtomicModel(const alps::params &par, bool verbose)
-    : flavors_(par["model.sites"].template as<int>() * par["model.spins"].template as<int>()),
+    : flavors_(par["model.flavors"].template as<int>()),
       dim_(1 << flavors_),
       reference_energy_(-1E+100),//this should be set in a derived class,
       verbose_(verbose),

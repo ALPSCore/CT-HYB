@@ -161,8 +161,6 @@ class HybridizationSimulation: public alps::mcbase {
   //Definition of system parameters constant during simulation
   const parameters_type par;
   const double BETA;
-  const int SITES;
-  const int SPINS;
   const int FLAVORS;
   const int N;
   const int N_non_worm_meas;

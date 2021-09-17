@@ -19,9 +19,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("sliding_window.max", 1000, "Max number of windows")
       .define<int>("sliding_window.min", 1, "Min number of windows")
           //Model definition
-      .define<int>("model.flavors", "Number of flavors = model.sites * model.spins")
-      .define<int>("model.sites", "Number of sites/orbitals")
-      .define<int>("model.spins", "Number of spins")
+      .define<int>("model.flavors", "Number of flavors")
       .define<double>("model.beta", "Inverse temperature")
       .define<int>("model.n_tau_hyb",
                    "Hybridization function is defined on a uniform mesh of N_TAU + 1 imaginary points.")
@@ -124,8 +122,6 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
     : alps::mcbase(p, comm.rank()),
       par(p),
       BETA(parameters["model.beta"]),      //inverse temperature
-      SITES(parameters["model.sites"]),          //number of sites
-      SPINS(parameters["model.spins"]),          //number of spins
       FLAVORS(parameters["model.flavors"]),                             //flavors, i.e. #spins * #sites
       N(parameters["model.n_tau_hyb"]),                  //time slices
       N_non_worm_meas(parameters["measurement.n_non_worm_meas"]),
@@ -163,9 +159,6 @@ HybridizationSimulation<IMP_MODEL>::HybridizationSimulation(parameters_type cons
   if (thermalization_time > 0.9 * parameters["timelimit"].template as<double>()) {
     throw std::runtime_error("timelimit is too short in comparison with thermalization_time.");
   }
-
-  check_true(FLAVORS == SITES * SPINS, "model.flavors != model.sites * model_spins");
-
 
   /////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////

@@ -321,13 +321,8 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
   {
     swap_vector.resize(0);
     std::string input_str(par["update.swap_vector"].template as<std::string>());
+
     //When SPINS==2, a global spin flip is pre-defined
-    if (SPINS == 2) {
-      for (int site = 0; site < SITES; ++site) {
-        input_str += " " + boost::lexical_cast<std::string>(2 * site + 1);
-        input_str += " " + boost::lexical_cast<std::string>(2 * site);
-      }
-    }
     std::vector<int> flavors_vector;
     std::stringstream swapstream(input_str);
     int f;
@@ -337,6 +332,21 @@ void HybridizationSimulation<IMP_MODEL>::resize_vectors() {
         abort();
       }
       flavors_vector.push_back(f);
+    }
+
+    // Predefined spin flips
+    if (FLAVORS%2 == 0) {
+      auto SITES = FLAVORS/2;
+      for (int site = 0; site < SITES; ++site) {
+        flavors_vector.push_back(2 * site + 1);
+        flavors_vector.push_back(2 * site);
+      }
+      for (int site = 0; site < SITES; ++site) {
+        flavors_vector.push_back(site + SITES);
+      }
+      for (int site = 0; site < SITES; ++site) {
+        flavors_vector.push_back(site);
+      }
     }
 
     if (flavors_vector.size() % FLAVORS != 0) {

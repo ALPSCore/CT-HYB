@@ -20,7 +20,7 @@ void compute_two_time_G2(const typename alps::results_type<SOLVER_TYPE>::type &r
                          bool verbose = false) {
   const int n_legendre(parms["measurement.two_time_G2.n_legendre"].template as<int>());
   const double beta(parms["model.beta"]);
-  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
+  const int n_flavors = parms["model.flavors"].template as<int>();
   const double temperature(1.0 / beta);
   const double coeff =
       temperature * results["worm_space_volume_Two_time_G2"].template mean<double>() /
@@ -87,7 +87,7 @@ void compute_G1(const typename alps::results_type<SOLVER_TYPE>::type &results,
   const int n_tau(parms["measurement.G1.n_tau"]);
   const int n_matsubara(parms["measurement.G1.n_matsubara"]);
   const double beta(parms["model.beta"]);
-  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
+  const int n_flavors = parms["model.flavors"].template as<int>();
   const double temperature(1.0 / beta);
   const double sign = results["Sign"].template mean<double>();
   //The factor of temperature below comes from the extra degree of freedom for beta in the worm
@@ -176,7 +176,7 @@ void compute_G2_matsubara(const typename alps::results_type<SOLVER_TYPE>::type &
   const std::string output_file = parms["outputfile"];
 
   auto freqs = read_matsubara_points(parms["measurement.G2.matsubara.frequencies_PH"]);
-  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
+  const int n_flavors = parms["model.flavors"].template as<int>();
   const double sign = results["Sign"].template mean<double>();
 
   //The factor of temperature below comes from the extra degree of freedom for beta in the worm
@@ -250,7 +250,7 @@ void compute_G2(const typename alps::results_type<SOLVER_TYPE>::type &results,
                 bool verbose = false) {
   const int n_legendre(parms["measurement.G2.legendre.n_legendre"]);
   const int n_freq(parms["measurement.G2.legendre.n_bosonic_freq"]);
-  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
+  const int n_flavors = parms["model.flavors"].template as<int>();
   const double sign = results["Sign"].template mean<double>();
 
   //The factor of temperature below comes from the extra degree of freedom for beta in the worm
@@ -278,7 +278,7 @@ void compute_equal_time_G2(const typename alps::results_type<SOLVER_TYPE>::type 
   //typedef Eigen::Matrix<typename SOLVER_TYPE::SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   //typedef Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic> complex_matrix_t;
   const double beta(parms["model.beta"]);
-  const int n_flavors = parms["model.sites"].template as<int>() * parms["model.spins"].template as<int>();
+  const int n_flavors = parms["model.flavors"].template as<int>();
   const double temperature(1.0 / beta);
   const double sign = results["Sign"].template mean<double>();
   const double coeff =
