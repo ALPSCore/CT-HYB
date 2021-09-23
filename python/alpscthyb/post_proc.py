@@ -23,6 +23,20 @@ def _check_full_convention(*wsample_full):
     assert all(wsample_full[0] -wsample_full[1] + wsample_full[2] - wsample_full[3] == 0)
     return check_full_convention(*wsample_full)
 
+
+def _stable_fit(A, data, rcond=1e-10):
+    print("debug", np.linalg.cond(A), A.shape, data.shape, rcond)
+    U, s, Vt = np.linalg.svd(A)
+    dim = np.sum(s/s[0] > rcond)
+    U = U[:,0:dim]
+    s = s[0:dim]
+    Vt = Vt[0:dim,:]
+
+    tmp1 = np.einsum('ij,j...->i...', U.conj().T, data)
+    tmp2 = np.einsum('i,i...->i...', 1/s, tmp1)
+    return np.einsum('ij,j...->i...', Vt.conj().T, tmp2)
+
+
 class WormConfigRecord:
     def __init__(self, dirname, num_time_idx, num_flavor_idx) -> None:
         self.datasets = []
@@ -361,6 +375,7 @@ class VertexEvaluator(object):
         return _einsum('abij,ij->ab', self.get_asymU(), self.get_dm())
 
     def compute_g0iv(self, wfs):
+        print("called compute_g0iv", self.hopping)
         return self._compute_non_int_giv(wfs, self.hopping)
 
     def _compute_non_int_giv(self, wfs, hopping):
@@ -929,9 +944,9 @@ class QMCResult(VertexEvaluator):
             print(p+'.out.h5')
     
         with h5py.File(p+'.out.h5','r') as h5:
-            self.sites = read_param(h5, 'model.sites')
             self.beta = read_param(h5, 'model.beta')
-            self.nflavors = 2*self.sites
+            self.nflavors = read_param(h5, 'model.flavors')
+            self.sites = self.nflavors//2
 
         with h5py.File(p+'_wormspace_G1.out.h5','r') as h5:
             self.hopping = load_cmplx(h5, 'hopping')
@@ -956,16 +971,22 @@ class QMCResult(VertexEvaluator):
         self.basis_b = load_irbasis('B', Lambda, self.beta, cutoff)
 
         # Fit Delta(tau) with IR basis
-        taus = np.linspace(0, self.beta, self.Delta_tau.shape[0])
+        # We interpolate Delta(tau) and evaluate it on sampling points to the following problem:
+        #  If ntau is not large, we do not have data points sufficiently near tau=0, beta.
+        #  This will increase the condition number of fitting matrix significantly.
+        from scipy.interpolate import interp1d
+
+        Delta_tau_interp = interp1d(np.linspace(0, self.beta, self.Delta_tau.shape[0]),
+            self.Delta_tau, axis=0)
+
+        taus_sp = self.basis_f.sampling_points_tau(self.basis_f.dim()-1)
+        Delta_tau_sp = Delta_tau_interp(taus_sp)
         all_l = np.arange(self.basis_f.dim())
-        Ftau = self.basis_f.Ultau(all_l[:,None], taus[None,:]).T
+        Ftau = self.basis_f.Ultau(all_l[:,None], taus_sp[None,:]).T
         regularizer = self.basis_f.Sl(all_l)
-        Delta_l = np.linalg.lstsq(
-                Ftau * regularizer[None,:],
-                self.Delta_tau.reshape((-1,self.nflavors**2)),
-                rcond=None
-            )[0] * regularizer[:,None]
-        self.Delta_l = Delta_l.reshape((-1, self.nflavors, self.nflavors))
+        tol = self.basis_f.Sl(self.basis_f.dim()-1)/self.basis_f.Sl(0)
+        self.Delta_l = _stable_fit(Ftau*regularizer[None,:], Delta_tau_sp, tol)
+        self.Delta_l *= regularizer[:,None,None]
         self.Delta_tau_rec = np.einsum('tl,lij->tij', Ftau, self.Delta_l)
 
         self.evalU0 = VertexEvaluatorU0(
@@ -979,6 +1000,11 @@ class QMCResult(VertexEvaluator):
 
     def compute_giv(self, wfs):
         return self.compute_giv_SIE(wfs)
+
+    def compute_Delta_tau(self, taus):
+        all_l = np.arange(self.basis_f.dim())
+        Ftau = self.basis_f.Ultau(all_l[:,None], taus[None,:]).T
+        return _einsum('tl,lij->tij', Ftau, self.Delta_l)
 
     def compute_gir_SIE(self):
         """
@@ -1007,6 +1033,7 @@ class QMCResult(VertexEvaluator):
         # FIXME: Compute self-energy directry
         G = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)
         G0 = self.compute_g0iv(vsample)
+        print("G0 ", G0[:,0,0])
         for ifreq, v in enumerate(vsample):
             G0_ = G0[ifreq,:,:]
             G[ifreq, ...] = G0_ + \
