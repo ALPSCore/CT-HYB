@@ -25,7 +25,6 @@ def _check_full_convention(*wsample_full):
 
 
 def _stable_fit(A, data, rcond=1e-10):
-    print("debug", np.linalg.cond(A), A.shape, data.shape, rcond)
     U, s, Vt = np.linalg.svd(A)
     dim = np.sum(s/s[0] > rcond)
     U = U[:,0:dim]
@@ -89,12 +88,40 @@ def ft_three_point_obj(worm_config_record, wsample, nflavors, beta):
     ndata = mpi.allreduce(ndata)
     return res/(ndata*beta)
 
+def _eval_exp(beta, wf, taus, sign):
+    """ Exvaluate exp(1J*sign*PI*wf*taus/beta)"""
+    wf_unique, wf_where = np.unique(wf, return_inverse=True)
+    coeff = sign * 1J * np.pi/beta
+    exp_unique = np.exp(coeff * wf_unique[:,None] * taus[None,:])
+    return exp_unique[wf_where, :]
+
 def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
-    wf1, wf2, wf3, wf4 = wsample
-    wf1 = check_fermionic(wf1)
-    wf2 = check_fermionic(wf2)
-    wf3 = check_fermionic(wf3)
-    wf4 = check_fermionic(wf4)
+    wf1, wf2, wf3, wf4 = check_full_convention(*wsample)
+    res = np.zeros((wf1.size,) + 4*(nflavors,), dtype=np.complex128)
+    ndata = 0
+    for dset in worm_config_record.datasets:
+        ndata += dset['flavors'][0].size
+        for f1, f2, f3, f4 in product(range(nflavors), repeat=4):
+            flavors_data = dset['flavors']
+            where = \
+                np.logical_and(
+                    np.logical_and(flavors_data[0] == f1, flavors_data[1] == f2),
+                    np.logical_and(flavors_data[2] == f3, flavors_data[3] == f4)
+                )
+            res_ = \
+                _eval_exp(beta, wf1, dset['taus'][0][where],  1) * \
+                _eval_exp(beta, wf2, dset['taus'][1][where], -1) * \
+                _eval_exp(beta, wf3, dset['taus'][2][where],  1) * \
+                _eval_exp(beta, wf4, dset['taus'][3][where], -1)
+            res_ *= dset['values'][None, where]
+            res[:,f1,f2,f3,f4] += np.sum(res_, axis=1)
+    res = mpi.allreduce(res)
+    ndata = mpi.allreduce(ndata)
+    return res/ndata
+
+"""
+def ft_four_point_obj_old(worm_config_record, wsample, nflavors, beta):
+    wf1, wf2, wf3, wf4 = check_full_convention(*wsample)
     res = np.zeros((wf1.size,) + 4*(nflavors,), dtype=np.complex128)
     ndata = 0
     for dset in worm_config_record.datasets:
@@ -116,6 +143,7 @@ def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
     res = mpi.allreduce(res)
     ndata = mpi.allreduce(ndata)
     return res/ndata
+"""
 
 def load_irbasis(stat, Lambda, beta, cutoff):
     return FiniteTemperatureBasis(
@@ -375,7 +403,6 @@ class VertexEvaluator(object):
         return _einsum('abij,ij->ab', self.get_asymU(), self.get_dm())
 
     def compute_g0iv(self, wfs):
-        print("called compute_g0iv", self.hopping)
         return self._compute_non_int_giv(wfs, self.hopping)
 
     def _compute_non_int_giv(self, wfs, hopping):
@@ -1033,7 +1060,6 @@ class QMCResult(VertexEvaluator):
         # FIXME: Compute self-energy directry
         G = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)
         G0 = self.compute_g0iv(vsample)
-        print("G0 ", G0[:,0,0])
         for ifreq, v in enumerate(vsample):
             G0_ = G0[ifreq,:,:]
             G[ifreq, ...] = G0_ + \

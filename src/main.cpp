@@ -95,7 +95,10 @@ int main(int argc, const char *argv[]) {
     p_solver.reset(new alps::cthyb::MatrixSolver<std::complex<double> >(par, sub_comm));
   }
 
-  logger_out = std::ofstream("log_" + prefix + "_rank" + std::to_string(sub_comm.rank()) + ".txt");
+  std::string local_log_file = prefix + "_log_rank" + std::to_string(sub_comm.rank()) + ".txt";
+  logger_out = std::ofstream(local_log_file);
+  //logger_out << "Created log file!" << std::endl;
+  std::cout << "Created log file: " << local_log_file << std::endl;
 
   // Remove the exisiting global old output file if any
   if (sub_comm.rank() == 0 && file_exists(outputfile)) {
