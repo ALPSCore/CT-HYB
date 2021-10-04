@@ -15,6 +15,7 @@ from alpscthyb.occupation_basis import construct_cdagger_ops
 from alpscthyb.util import float_to_complex_array
 from alpscthyb.interaction import mk_asymm
 from alpscthyb import mpi
+from numba import njit
 
 def _einsum(subscripts, *operands):
     return np.einsum(subscripts, *operands, optimize=True)
@@ -66,16 +67,37 @@ class WormConfigRecord:
                     }
                 )
     
-    def split(self, max_config_size):
-        """ Split record in place"""
-        datasets_new = []
-        for dset in self.datasets():
-            nconfig = dset['taus'][0].size
-            if nconfig <= max_config_size:
-                datasets_new.append(dset)
-            
-            nsplit = np.ceil(nconfig / max_config_size)
+    #def split(self, max_config_size):
+        #""" Split record in place"""
+        #datasets_new = []
+        #for dset in self.datasets():
+            #nconfig = dset['taus'][0].size
+            #if nconfig <= max_config_size:
+                #datasets_new.append(dset)
+            #
+            #nsplit = np.ceil(nconfig / max_config_size)
 
+@njit
+def ft_three_point_obj__(res,
+    taus0, taus1, taus2,
+    flavors0, flavors1, flavors2, flavors3,
+    values, wfs, wbs, beta):
+    """
+    Perform Fourier transform of a two-frequency object
+    The results are accumulated in res.
+    Return the number of data set.
+    """
+    taus_f = taus0 - taus1
+    taus_b = taus1 - taus2
+    for iconfig in range(flavors0.size):
+        for w in range(wfs.size):
+            res[w, flavors0[iconfig],
+                   flavors1[iconfig],
+                   flavors2[iconfig],
+                   flavors3[iconfig],
+            ] += np.exp(1J * np.pi * (wfs[w]*taus_f[iconfig]+ wbs[w]*taus_b[iconfig])/beta) * \
+                values[iconfig]
+    return flavors0.size
 
 
 def ft_three_point_obj_(res, dset, wsample, beta):
@@ -85,20 +107,12 @@ def ft_three_point_obj_(res, dset, wsample, beta):
     Return the number of data set.
     """
     wfs, wbs = wsample
-    taus_f = dset['taus'][0] - dset['taus'][1]
-    taus_b = dset['taus'][1] - dset['taus'][2]
-    exp_ = np.exp(1J * np.pi * (
-        wfs[:,None]*taus_f[None,:]+
-        wbs[:,None]*taus_b[None,:])/beta)
-    exp_ *= dset['values'][None,:]
-    flavors = dset['flavors']
-    for iconfig in range(flavors[0].size):
-        res[:, flavors[0][iconfig],
-               flavors[1][iconfig],
-               flavors[2][iconfig],
-               flavors[3][iconfig],
-        ] += exp_[:, iconfig]
-    return flavors[0].size
+    return ft_three_point_obj__(
+        res,
+        dset['taus'][0], dset['taus'][1], dset['taus'][2],
+        dset['flavors'][0], dset['flavors'][1], dset['flavors'][2], dset['flavors'][3],
+        dset['values'], wfs, wbs, beta
+    )
 
 
 def ft_three_point_obj(worm_config_record, wsample, nflavors, beta):
@@ -146,7 +160,50 @@ def _eval_exp(beta, wf, taus, sign):
     exp_unique = np.exp(coeff * wf_unique[:,None] * taus[None,:])
     return exp_unique[wf_where, :]
 
+@njit
+def ft_four_point_obj__(res,
+    taus0, taus1, taus2, taus3,
+    flavors0, flavors1, flavors2, flavors3,
+    values,
+    wf1, wf2, wf3, wf4,
+    beta):
+    """
+    Perform Fourier transform of a four-frequency object
+    The results are accumulated in res.
+    Return the number of data set.
+    """
+    for iconfig in range(flavors0.size):
+        for w in range(wf1.size):
+            res[w, flavors0[iconfig],
+                   flavors1[iconfig],
+                   flavors2[iconfig],
+                   flavors3[iconfig]] \
+                += np.exp(
+                    1J * np.pi * (
+                        + wf1[w]*taus0[iconfig]
+                        - wf2[w]*taus1[iconfig]
+                        + wf3[w]*taus2[iconfig]
+                        - wf4[w]*taus3[iconfig]
+                        )/beta) * \
+                values[iconfig]
+    return flavors0.size
+
 def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
+    wsample = check_full_convention(*wsample)
+    res = np.zeros((wsample[0].size,) + 4*(nflavors,), dtype=np.complex128)
+    ndata = 0
+    for dset in worm_config_record.datasets:
+        ndata += ft_four_point_obj__(
+            res,
+            dset['taus'][0], dset['taus'][1], dset['taus'][2], dset['taus'][3],
+            dset['flavors'][0], dset['flavors'][1], dset['flavors'][2], dset['flavors'][3],
+            dset['values'],
+            *wsample, beta)
+    res = mpi.allreduce(res)
+    ndata = mpi.allreduce(ndata)
+    return res/ndata
+
+def ft_four_point_obj_ref(worm_config_record, wsample, nflavors, beta):
     wf1, wf2, wf3, wf4 = check_full_convention(*wsample)
     res = np.zeros((wf1.size,) + 4*(nflavors,), dtype=np.complex128)
     ndata = 0
@@ -169,32 +226,6 @@ def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
     res = mpi.allreduce(res)
     ndata = mpi.allreduce(ndata)
     return res/ndata
-
-"""
-def ft_four_point_obj_old(worm_config_record, wsample, nflavors, beta):
-    wf1, wf2, wf3, wf4 = check_full_convention(*wsample)
-    res = np.zeros((wf1.size,) + 4*(nflavors,), dtype=np.complex128)
-    ndata = 0
-    for dset in worm_config_record.datasets:
-        exp_ = np.exp(1J * np.pi * (
-                +wf1[:,None] * dset['taus'][0][None,:]
-                -wf2[:,None] * dset['taus'][1][None,:]
-                +wf3[:,None] * dset['taus'][2][None,:]
-                -wf4[:,None] * dset['taus'][3][None,:]
-                )/beta)
-        res_ = exp_ * dset['values'][None,:]
-        flavors = dset['flavors']
-        ndata += flavors[0].size
-        for iconfig in range(flavors[0].size):
-            res[:, flavors[0][iconfig],
-                   flavors[1][iconfig],
-                   flavors[2][iconfig],
-                   flavors[3][iconfig],
-            ] += res_[:, iconfig]
-    res = mpi.allreduce(res)
-    ndata = mpi.allreduce(ndata)
-    return res/ndata
-"""
 
 def load_irbasis(stat, Lambda, beta, cutoff):
     return FiniteTemperatureBasis(

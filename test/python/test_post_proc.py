@@ -1,8 +1,7 @@
 from h5py._hl import dataset
 import numpy as np
 from irbasis_x.freq import box, from_ph_convention
-from alpscthyb.post_proc import VertexEvaluatorAtomED, WormConfigRecord, ft_three_point_obj, legendre_to_tau, \
-    VertexEvaluatorU0, load_irbasis, ft_three_point_obj_ref
+from alpscthyb.post_proc import *
 from alpscthyb.interaction import hubbard_asymmU
 from scipy.special import eval_legendre
 from scipy.linalg import expm
@@ -236,5 +235,39 @@ def test_ft_three_point_obj():
     res_ref = ft_three_point_obj_ref(worm_config_record, (wfs, wbs), nflavors, beta)
 
     res = ft_three_point_obj(worm_config_record, (wfs, wbs), nflavors, beta)
+    
+    np.testing.assert_allclose(res, res_ref)
+
+
+def test_ft_four_point_obj():
+    np.random.seed(100)
+    beta = 10.0
+    nflavors = 2
+
+    nconfig = 100
+    nfreqs = 10
+    nmax = 10
+
+    taus = []
+    for _ in range(4):
+        taus.append(beta * np.random.rand(nconfig))
+
+    flavors = []
+    for _ in range(4):
+        flavors.append(np.random.randint(nflavors, size=nconfig))
+    
+    values = np.random.randn(nconfig) + 1J*np.random.randn(nconfig)
+
+    worm_config_record = WormConfigRecord(
+        [{'taus': taus, 'flavors': flavors, 'values': values}])
+
+    wsample_full = \
+        2*np.random.randint(nmax, size=nfreqs)+1, \
+        2*np.random.randint(nmax, size=nfreqs)+1, \
+        2*np.random.randint(nmax, size=nfreqs)+1, \
+        2*np.random.randint(nmax, size=nfreqs)+1
+
+    res_ref = ft_four_point_obj_ref(worm_config_record, wsample_full, nflavors, beta)
+    res = ft_four_point_obj(worm_config_record, wsample_full, nflavors, beta)
     
     np.testing.assert_allclose(res, res_ref)
