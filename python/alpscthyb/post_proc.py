@@ -41,8 +41,9 @@ class WormConfigRecord:
     def __init__(self, datasets):
         self.datasets = datasets
 
-    def load(self, dirname, num_time_idx, num_flavor_idx):
-        self.datasets = []
+    @classmethod
+    def load(cls, dirname, num_time_idx, num_flavor_idx):
+        datasets = []
         for file in os.listdir(dirname):
             if not file.endswith(".h5"):
               continue
@@ -59,13 +60,14 @@ class WormConfigRecord:
                 values = h5[f'/vals_real'][local_slice][()] \
                     + 1J* h5[f'/vals_imag'][local_slice][()]
 
-                self.datasets.append(
+                datasets.append(
                     {
                         'taus':    taus,
                         'flavors': flavors,
                         'values' : values
                     }
                 )
+        return WormConfigRecord(datasets)
     
     #def split(self, max_config_size):
         #""" Split record in place"""
@@ -404,7 +406,7 @@ def postprocess_eta(h5, verbose=False, **kwargs):
     return {
         'eta_coeff' : w_vol/(sign * z_vol),
         'eta_datasets' :
-            WormConfigRecord(kwargs['prefix'] + "_wormspace_eta_results", 3, 4)
+            WormConfigRecord.load(kwargs['prefix'] + "_wormspace_eta_results", 3, 4)
     }
 
 def postprocess_gamma(h5, verbose=False, **kwargs):
@@ -416,7 +418,7 @@ def postprocess_gamma(h5, verbose=False, **kwargs):
     return {
         'gamma_coeff' : w_vol/(sign * z_vol),
         'gamma_datasets' :
-            WormConfigRecord(kwargs['prefix'] + "_wormspace_gamma_results", 3, 4)
+            WormConfigRecord.load(kwargs['prefix'] + "_wormspace_gamma_results", 3, 4)
     }
 
 def postprocess_h(h5, verbose=False, **kwargs):
@@ -430,7 +432,7 @@ def postprocess_h(h5, verbose=False, **kwargs):
     return {
         'h_corr_coeff': w_vol/(sign * z_vol),
         'h_corr_datasets':
-            WormConfigRecord(prefix + "_wormspace_h_results", 4, 4)
+            WormConfigRecord.load(prefix + "_wormspace_h_results", 4, 4)
     }
 
 
@@ -556,7 +558,6 @@ class VertexEvaluator(object):
         scrF = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
 
         vab = self.compute_v()
-        print("debug1")
 
         scrF += beta * asymU[None, ...]
 
@@ -564,7 +565,6 @@ class VertexEvaluator(object):
         v3_ = self.compute_vartheta(v3) + vab[None,:,:]
         scrF += (beta**2) * _einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_)
         scrF -= (beta**2) * _einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_)
-        print("debug2")
 
         # xi
         scrF += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
@@ -575,27 +575,22 @@ class VertexEvaluator(object):
         # phi
         scrF += -4 * beta * self.compute_phi(v1-v2)
         scrF +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
-        print("debug3")
 
         # f
         scrF +=  2 * beta * self.compute_f(v1, v1-v2)
         scrF +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
         scrF += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
         scrF += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
-        print("debug4")
 
         # g
         scrF += -beta * self.compute_g(v1, v3)
         scrF += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
-        print("debug5")
 
         # Psi
         scrF += -beta * self.compute_Psi(v1+v3)
-        print("debug6")
 
         # h
         scrF -= self.compute_h(wsample_full)
-        print("debug8")
 
         return scrF
 
