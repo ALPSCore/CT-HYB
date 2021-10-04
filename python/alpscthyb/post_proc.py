@@ -37,7 +37,10 @@ def _stable_fit(A, data, rcond=1e-10):
 
 
 class WormConfigRecord:
-    def __init__(self, dirname, num_time_idx, num_flavor_idx) -> None:
+    def __init__(self, datasets):
+        self.datasets = datasets
+
+    def load(self, dirname, num_time_idx, num_flavor_idx):
         self.datasets = []
         for file in os.listdir(dirname):
             if not file.endswith(".h5"):
@@ -62,8 +65,56 @@ class WormConfigRecord:
                         'values' : values
                     }
                 )
+    
+    def split(self, max_config_size):
+        """ Split record in place"""
+        datasets_new = []
+        for dset in self.datasets():
+            nconfig = dset['taus'][0].size
+            if nconfig <= max_config_size:
+                datasets_new.append(dset)
+            
+            nsplit = np.ceil(nconfig / max_config_size)
+
+
+
+def ft_three_point_obj_(res, dset, wsample, beta):
+    """
+    Perform Fourier transform of a two-frequency object
+    The results are accumulated in res.
+    Return the number of data set.
+    """
+    wfs, wbs = wsample
+    taus_f = dset['taus'][0] - dset['taus'][1]
+    taus_b = dset['taus'][1] - dset['taus'][2]
+    exp_ = np.exp(1J * np.pi * (
+        wfs[:,None]*taus_f[None,:]+
+        wbs[:,None]*taus_b[None,:])/beta)
+    exp_ *= dset['values'][None,:]
+    flavors = dset['flavors']
+    for iconfig in range(flavors[0].size):
+        res[:, flavors[0][iconfig],
+               flavors[1][iconfig],
+               flavors[2][iconfig],
+               flavors[3][iconfig],
+        ] += exp_[:, iconfig]
+    return flavors[0].size
+
 
 def ft_three_point_obj(worm_config_record, wsample, nflavors, beta):
+    wfs, wbs = wsample
+    wfs = check_fermionic(wfs)
+    wbs = check_bosonic(wbs)
+    res = np.zeros((wfs.size,) + 4*(nflavors,), dtype=np.complex128)
+    ndata = 0
+    for dset in worm_config_record.datasets:
+        ndata += ft_three_point_obj_(res, dset, wsample, beta)
+    res = mpi.allreduce(res)
+    ndata = mpi.allreduce(ndata)
+    return res/(ndata*beta)
+
+
+def ft_three_point_obj_ref(worm_config_record, wsample, nflavors, beta):
     wfs, wbs = wsample
     wfs = check_fermionic(wfs)
     wbs = check_bosonic(wbs)
@@ -108,11 +159,11 @@ def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
                     np.logical_and(flavors_data[0] == f1, flavors_data[1] == f2),
                     np.logical_and(flavors_data[2] == f3, flavors_data[3] == f4)
                 )
-            res_ = \
-                _eval_exp(beta, wf1, dset['taus'][0][where],  1) * \
-                _eval_exp(beta, wf2, dset['taus'][1][where], -1) * \
-                _eval_exp(beta, wf3, dset['taus'][2][where],  1) * \
-                _eval_exp(beta, wf4, dset['taus'][3][where], -1)
+            res_ = np.ones((wf1.size, dset['taus'][0][where].size), dtype=np.complex128)
+            res_ *= _eval_exp(beta, wf1, dset['taus'][0][where],  1)
+            res_ *= _eval_exp(beta, wf2, dset['taus'][1][where], -1)
+            res_ *= _eval_exp(beta, wf3, dset['taus'][2][where],  1)
+            res_ *= _eval_exp(beta, wf4, dset['taus'][3][where], -1)
             res_ *= dset['values'][None, where]
             res[:,f1,f2,f3,f4] += np.sum(res_, axis=1)
     res = mpi.allreduce(res)
@@ -474,6 +525,7 @@ class VertexEvaluator(object):
         scrF = np.zeros((wsample_full[0].size,) + 4*(self.nflavors,), dtype=np.complex128)
 
         vab = self.compute_v()
+        print("debug1")
 
         scrF += beta * asymU[None, ...]
 
@@ -481,6 +533,7 @@ class VertexEvaluator(object):
         v3_ = self.compute_vartheta(v3) + vab[None,:,:]
         scrF += (beta**2) * _einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_)
         scrF -= (beta**2) * _einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_)
+        print("debug2")
 
         # xi
         scrF += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
@@ -491,22 +544,27 @@ class VertexEvaluator(object):
         # phi
         scrF += -4 * beta * self.compute_phi(v1-v2)
         scrF +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
+        print("debug3")
 
         # f
         scrF +=  2 * beta * self.compute_f(v1, v1-v2)
         scrF +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
         scrF += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
         scrF += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
+        print("debug4")
 
         # g
         scrF += -beta * self.compute_g(v1, v3)
         scrF += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
+        print("debug5")
 
         # Psi
         scrF += -beta * self.compute_Psi(v1+v3)
+        print("debug6")
 
         # h
         scrF -= self.compute_h(wsample_full)
+        print("debug8")
 
         return scrF
 
