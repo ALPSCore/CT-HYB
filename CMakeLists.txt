@@ -36,6 +36,16 @@ if(APPLE)
     set(CMAKE_MACOSX_RPATH ON)
 endif()
 
+# Define the two required variables before including
+# the source code for watching a git repository.
+set(PRE_CONFIGURE_FILE "git.cc.in")
+set(POST_CONFIGURE_FILE "${CMAKE_CURRENT_BINARY_DIR}/git.cc")
+include(git_watcher)
+
+# Create a library out of the compiled post-configure file.
+add_library(git STATIC ${POST_CONFIGURE_FILE})
+target_include_directories(git PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_dependencies(git check_git)
 
 # The project relies on the ALPSCore package. If ALPSCore is not found
 # automatically, specify its location using:
@@ -138,7 +148,7 @@ add_library(measurement ${MEAS_FILES})
 target_link_libraries(measurement sw model common ${ALPSCore_LIBRARIES} ${Boost_LIBRARIES} ${MPI_CXX_LIBRARIES} ${EXTRA_LIBS})
 
 add_library(hyb ${ALL_LIB_FILES})
-target_link_libraries(hyb measurement moves sw model common ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
+target_link_libraries(hyb measurement moves sw model common ${ALPSCore_LIBRARIES} ${MPI_CXX_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS} git)
 
 #executable
 add_executable(hybmat ./src/main.cpp)

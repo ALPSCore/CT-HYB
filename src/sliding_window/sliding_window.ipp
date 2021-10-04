@@ -76,8 +76,8 @@ void SlidingWindowManager<MODEL>::set_mesh(const std::vector<double> &tau_edges,
                                                   ITIME_AXIS_LEFT_OR_RIGHT new_direction_move,
                                                   int new_position_left_edge
                                                   ) {
-  check_true(tau_edges[0] == 0.0);
-  check_true(tau_edges.back() == BETA);
+  check_true(tau_edges[0] == 0.0, "First element of tau_edge must be 0!");
+  check_true(tau_edges.back() == BETA, "Last element of tau_edge must be beta!");
   for (auto t=0; t<tau_edges.size()-1; ++t) {
     check_true(tau_edges[t] < tau_edges[t+1], "tau_edges must be in strictly ascending order!");
   }
@@ -564,7 +564,7 @@ void SlidingWindowManager<MODEL>::restore_state(state_t state) {
 template<typename MODEL>
 void
 SlidingWindowManager<MODEL>::sanity_check() const {
-  check_true(operators.size()%2 == 0, "Number of operators in sw must be even!");
+  //check_true(operators.size()%2 == 0, "Number of operators in sw must be even!");
   check_true(get_position_left_edge() >= get_position_right_edge());
   for (int braket = 0; braket < num_brakets; ++braket) {
     check_true(left_states[braket].size() == depth_left_states());

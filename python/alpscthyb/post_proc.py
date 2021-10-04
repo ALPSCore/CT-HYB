@@ -1116,15 +1116,15 @@ def reconst_vartheta(asymU, giv, g0iv, dm):
     """
     Reconstruct vartheta from asymU, giv, gi0v, and dm
     """
-    print("giv", g0iv[0,:,:])
-    print("g0iv", g0iv[0,:,:])
-    print("asymU", asymU)
-    print("dm", dm)
+    #print("giv", g0iv[0,:,:])
+    #print("g0iv", g0iv[0,:,:])
+    #print("asymU", asymU)
+    #print("dm", dm)
     nfreqs = giv.shape[0]
     v = np.einsum('abij,ij->ab', asymU, dm)
     vartheta = np.zeros_like(giv)
     for ifreq in range(nfreqs):
         inv_g0iv = np.linalg.inv(g0iv[ifreq,:,:])
         vartheta[ifreq,:,:] = inv_g0iv @ (giv[ifreq,:,:] - g0iv[ifreq,:,:]) @ inv_g0iv - v
-    print("vartheta", vartheta[0,], )
+    #print("vartheta", vartheta[0,], )
     return vartheta

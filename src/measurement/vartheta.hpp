@@ -17,7 +17,7 @@ public:
    * Constructor
    */
   VarThetaLegendreMeas(alps::random01 *p_rng, double beta, int nflavors,
-    int nl): p_rng_(p_rng), beta_(beta), nflavors_(nflavors),
+    int nl, int n_meas): p_rng_(p_rng), beta_(beta), nflavors_(nflavors), n_meas_(n_meas),
       legendre_trans_(0, nl)
   {}
 
@@ -31,6 +31,22 @@ public:
   virtual void measure(
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SW_TYPE &sliding_window,
+      alps::accumulators::accumulator_set &measurements) {
+        if (n_meas_ == 1) {
+          measure_no_rw(mc_config, sliding_window, measurements);
+        } else {
+          measure_rw(mc_config, sliding_window, measurements);
+        }
+      }
+  
+  void measure_no_rw(
+      const MonteCarloConfiguration<SCALAR> &mc_config,
+      const SW_TYPE &sliding_window,
+      alps::accumulators::accumulator_set &measurements);
+
+  void measure_rw(
+      const MonteCarloConfiguration<SCALAR> &mc_config,
+      const SW_TYPE &sliding_window,
       alps::accumulators::accumulator_set &measurements);
 
   virtual void save_results(const std::string &filename) const { }
@@ -39,5 +55,6 @@ private:
   alps::random01 *p_rng_;
   double beta_;
   int nflavors_;
+  int n_meas_;
   LegendreTransformer legendre_trans_;
 };

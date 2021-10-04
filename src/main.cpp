@@ -25,7 +25,7 @@
 #include "moves/worm.hpp"
 #include "measurement/all.hpp"
 #include "postprocess.hpp"
-
+#include "git.h"
 
 
 
@@ -61,10 +61,29 @@ int main(int argc, const char *argv[]) {
   // Split MPI communicator
   int num_defined_worm_spaces = defined_worm_spaces.size();
   auto comm = alps::mpi::communicator();
+
+  // Print output
   if (comm.rank() == 0) {
+    if(GitMetadata::Populated()) {
+      std::cout << "############### ALPS/CT-HYB ###############" << std::endl;
+      if(GitMetadata::AnyUncommittedChanges()) {
+          std::cerr << "WARN: there were uncommitted changes at build-time." << std::endl;
+      }
+      std::cout << "commit " << GitMetadata::CommitSHA1() << " (HEAD)" << std::endl
+                << "describe " << GitMetadata::Describe() << std::endl
+                << "Author: " << GitMetadata::AuthorName() << " <" << GitMetadata::AuthorEmail() << std::endl
+                << "Date: " << GitMetadata::CommitDate() << std::endl << std::endl
+                << GitMetadata::CommitSubject() << std::endl << GitMetadata::CommitBody() << std::endl;
+      std::cout << "==========================================" << std::endl;
+      std::cout << std::endl;
+    } else {
+        std::cerr << "WARN: failed to get the current git state. Is this a git repo?" << std::endl;
+        return EXIT_FAILURE;
+    }
     std::cout << "Creating simulation for " << std::to_string(num_defined_worm_spaces) <<
       " worm spaces with " << std::to_string(comm.size()) << " MPI processes..." << std::endl;
   }
+
   auto rank = comm.rank();
   if (comm.size() < num_defined_worm_spaces) {
     throw std::runtime_error(

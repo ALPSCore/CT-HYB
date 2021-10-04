@@ -247,7 +247,10 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
   // vartheta
   if (is_worm_space_active(ConfigSpaceEnum::vartheta)) {
     register_worm_meas(ConfigSpaceEnum::vartheta, "vartheta_legendre",
-        new VarThetaLegendreMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, 400)
+        new VarThetaLegendreMeas<SCALAR,SW_TYPE>(
+          &random, BETA, FLAVORS, 400,
+          par["measurement.G1.vartheta.num_rw"]
+        )
     );
   }
 
