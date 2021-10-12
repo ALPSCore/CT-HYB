@@ -68,6 +68,9 @@ if(USE_QUAD_PRECISION)
     add_definitions(-DUSE_QUAD_PRECISION)
 endif()
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 #ALPSCore disable debug for gf library
 #(please do not set NDEBUG for DEBUG build. That would would disable runtime checks in the solver)
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
@@ -121,7 +124,7 @@ set(MOVES_FILES
 
 
 #Compiler dependent libraries
-set(EXTRA_LIBS "")
+set(EXTRA_LIBS "Threads::Threads")
 if (USE_QUAD_PRECISION)
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         list(APPEND EXTRA_LIBS "quadmath")
