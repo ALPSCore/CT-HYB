@@ -235,8 +235,10 @@ def test_ft_three_point_obj():
     res_ref = ft_three_point_obj_ref(worm_config_record, (wfs, wbs), nflavors, beta)
 
     res = ft_three_point_obj(worm_config_record, (wfs, wbs), nflavors, beta)
+    res2 = ft_three_point_obj_fast(worm_config_record, (wfs, wbs), nflavors, beta)
     
     np.testing.assert_allclose(res, res_ref)
+    np.testing.assert_allclose(res2, res_ref)
 
 
 def test_ft_four_point_obj():
@@ -269,5 +271,7 @@ def test_ft_four_point_obj():
 
     res_ref = ft_four_point_obj_ref(worm_config_record, wsample_full, nflavors, beta)
     res = ft_four_point_obj(worm_config_record, wsample_full, nflavors, beta)
+    res2 = ft_four_point_obj_fast(worm_config_record, wsample_full, nflavors, beta)
     
     np.testing.assert_allclose(res, res_ref)
+    np.testing.assert_allclose(res2, res_ref)

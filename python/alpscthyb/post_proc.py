@@ -155,6 +155,86 @@ def ft_three_point_obj_ref(worm_config_record, wsample, nflavors, beta):
     ndata = mpi.allreduce(ndata)
     return res/(ndata*beta)
 
+def _ft_impl2(dset, wsample, beta, phase_calc):
+    """ Naive Fourier transformation without normalization """
+    phase = phase_calc(wsample, dset['taus'])
+    res_ = dset['values'][None, ] * np.exp((1J*np.pi/beta)*phase)
+    return np.sum(res_, axis=1)
+
+def _subset_dset(dset, idx):
+    """ Exact subset of dset """
+    dset_ = {}
+    dset_['taus'] = [taus_[idx] for taus_ in dset['taus']]
+    dset_['values'] = dset['values'][idx]
+    return dset_
+
+def _ft_impl(dset, wsample, beta, phase_calc, max_work_mem=1e+9):
+    """ 
+    Naive Fourier transformation for a spefic flavor combination
+    without normalization
+
+    max_worm_mem: float
+       Max work memory in MB
+    """
+    nw = wsample[0].size
+    nmax_config = int(max_work_mem/nw/16/3)
+    nconfig = dset['values'].size
+    nsplit = np.ceil(nconfig / nmax_config)
+    res = np.zeros(nw, dtype=np.complex128)
+    for idx_ in np.array_split(np.arange(nconfig), nsplit):
+        dset_ = _subset_dset(dset, idx_)
+        res += _ft_impl2(dset_, wsample, beta, phase_calc)
+    return res
+
+def _ft(worm_config_record, wsample, nflavors, beta, phase_calc, max_work_mem=1E+9):
+    """ Fourier transform of three-point/four-point objects """
+    nw = wsample[0].size
+    res = np.zeros((nw,) + 4*(nflavors,), dtype=np.complex128)
+    ndata = 0
+    for dset in worm_config_record.datasets:
+        ndata += dset['values'].size
+        for f1, f2, f3, f4 in product(range(nflavors), repeat=4):
+            flavors_data = dset['flavors']
+            where = \
+                np.logical_and(
+                    np.logical_and(flavors_data[0] == f1, flavors_data[1] == f2),
+                    np.logical_and(flavors_data[2] == f3, flavors_data[3] == f4)
+                )
+            dset_ = _subset_dset(dset, np.where(where)[0])
+            res[:,f1,f2,f3,f4] += _ft_impl(dset_, wsample, beta, phase_calc, max_work_mem)
+
+    res = mpi.allreduce(res)
+    ndata = mpi.allreduce(ndata)
+    return res/ndata
+
+def _phase_calc_three_point(wsample, taus):
+    """ Compute phase for Fourier transform of three-point obj in ph channel """
+    wfs, wbs = wsample
+    wfs = check_fermionic(wfs)
+    wbs = check_bosonic(wbs)
+    taus_f = taus[0] - taus[1]
+    taus_b = taus[1] - taus[2]
+    return wfs[:,None]*taus_f[None,:]+ wbs[:,None]*taus_b[None,:]
+
+def _phase_calc_four_point(wsample, taus):
+    """ Compute phase for Fourier transform of three-point obj in ph channel """
+    wf1, wf2, wf3, wf4 = check_full_convention(*wsample)
+    taus1, taus2, taus3, taus4 = taus
+    return wf1[:,None]*taus1[None,:] -wf2[:,None]*taus2[None,:] \
+        + wf3[:,None]*taus3[None,:] -wf4[:,None]*taus4[None,:]
+
+
+def ft_three_point_obj_fast(worm_config_record, wsample, nflavors, beta):
+    """ Compute three-point obj in ph channel """
+    res = _ft(worm_config_record, wsample, nflavors, beta, _phase_calc_three_point)
+    res /= beta
+    return res
+
+def ft_four_point_obj_fast(worm_config_record, wsample, nflavors, beta):
+    """ Compute four-point obj in full convention """
+    return _ft(worm_config_record, wsample, nflavors, beta, _phase_calc_four_point)
+
+
 def _eval_exp(beta, wf, taus, sign):
     """ Exvaluate exp(1J*sign*PI*wf*taus/beta)"""
     wf_unique, wf_where = np.unique(wf, return_inverse=True)
