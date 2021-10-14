@@ -212,9 +212,11 @@ def test_ft_three_point_obj():
     beta = 10.0
     nflavors = 2
 
-    nconfig = 100
-    nfreqs = 10
-    nmax = 10
+    #nconfig = 100
+    #nfreqs = 10
+    freq_max = 10
+    nconfig = int(1E+4)
+    nfreqs = int(1E+4)
 
     taus = []
     for _ in range(3):
@@ -229,16 +231,76 @@ def test_ft_three_point_obj():
     worm_config_record = WormConfigRecord(
         [{'taus': taus, 'flavors': flavors, 'values': values}])
 
-    wfs = 2*np.random.randint(nmax, size=nfreqs) + 1
-    wbs = 2*np.random.randint(nmax, size=nfreqs)
+    wfs = 2*np.random.randint(freq_max, size=nfreqs) + 1
+    wbs = 2*np.random.randint(freq_max, size=nfreqs)
 
+    t1 = time.time()
     res_ref = ft_three_point_obj_ref(worm_config_record, (wfs, wbs), nflavors, beta)
+    t2 = time.time()
 
     res = ft_three_point_obj(worm_config_record, (wfs, wbs), nflavors, beta)
-    res2 = ft_three_point_obj_fast(worm_config_record, (wfs, wbs), nflavors, beta)
+    t3 = time.time()
     
+    print(t2-t1, t3-t2)
     np.testing.assert_allclose(res, res_ref)
-    np.testing.assert_allclose(res2, res_ref)
+
+
+def _eval_exp(beta, wf, taus, sign):
+    """ Exvaluate exp(1J*sign*PI*wf*taus/beta)"""
+    wf_unique, wf_where = np.unique(wf, return_inverse=True)
+    coeff = sign * 1J * np.pi/beta
+    exp_unique = np.exp(coeff * wf_unique[:,None] * taus[None,:])
+    return exp_unique[wf_where, :]
+
+
+def ft_four_point_obj_ref(worm_config_record, wsample, nflavors, beta):
+    wf1, wf2, wf3, wf4 = check_full_convention(*wsample)
+    res = np.zeros((wf1.size,) + 4*(nflavors,), dtype=np.complex128)
+    ndata = 0
+    for dset in worm_config_record.datasets:
+        ndata += dset['flavors'][0].size
+        for f1, f2, f3, f4 in product(range(nflavors), repeat=4):
+            flavors_data = dset['flavors']
+            where = \
+                np.logical_and(
+                    np.logical_and(flavors_data[0] == f1, flavors_data[1] == f2),
+                    np.logical_and(flavors_data[2] == f3, flavors_data[3] == f4)
+                )
+            res_ = np.ones((wf1.size, dset['taus'][0][where].size), dtype=np.complex128)
+            res_ *= _eval_exp(beta, wf1, dset['taus'][0][where],  1)
+            res_ *= _eval_exp(beta, wf2, dset['taus'][1][where], -1)
+            res_ *= _eval_exp(beta, wf3, dset['taus'][2][where],  1)
+            res_ *= _eval_exp(beta, wf4, dset['taus'][3][where], -1)
+            res_ *= dset['values'][None, where]
+            res[:,f1,f2,f3,f4] += np.sum(res_, axis=1)
+    res = mpi.allreduce(res)
+    ndata = mpi.allreduce(ndata)
+    return res/ndata
+
+def ft_three_point_obj_ref(worm_config_record, wsample, nflavors, beta):
+    wfs, wbs = wsample
+    wfs = check_fermionic(wfs)
+    wbs = check_bosonic(wbs)
+    res = np.zeros((wfs.size,) + 4*(nflavors,), dtype=np.complex128)
+    ndata = 0
+    for dset in worm_config_record.datasets:
+        taus_f = dset['taus'][0] - dset['taus'][1]
+        taus_b = dset['taus'][1] - dset['taus'][2]
+        exp_ = np.exp(1J * np.pi * (
+            wfs[:,None]*taus_f[None,:]+
+            wbs[:,None]*taus_b[None,:])/beta)
+        res_ = exp_ * dset['values'][None,:]
+        flavors = dset['flavors']
+        ndata += flavors[0].size
+        for iconfig in range(flavors[0].size):
+            res[:, flavors[0][iconfig],
+                   flavors[1][iconfig],
+                   flavors[2][iconfig],
+                   flavors[3][iconfig],
+            ] += res_[:, iconfig]
+    res = mpi.allreduce(res)
+    ndata = mpi.allreduce(ndata)
+    return res/(ndata*beta)
 
 
 def test_ft_four_point_obj():
@@ -248,7 +310,10 @@ def test_ft_four_point_obj():
 
     nconfig = 100
     nfreqs = 10
-    nmax = 10
+    freq_max = 10
+
+    nconfig = int(1E+4)
+    nfreqs = int(1E+4)
 
     taus = []
     for _ in range(4):
@@ -264,14 +329,17 @@ def test_ft_four_point_obj():
         [{'taus': taus, 'flavors': flavors, 'values': values}])
 
     wsample_full = \
-        2*np.random.randint(nmax, size=nfreqs)+1, \
-        2*np.random.randint(nmax, size=nfreqs)+1, \
-        2*np.random.randint(nmax, size=nfreqs)+1, \
-        2*np.random.randint(nmax, size=nfreqs)+1
+        2*np.random.randint(freq_max, size=nfreqs)+1, \
+        2*np.random.randint(freq_max, size=nfreqs)+1, \
+        2*np.random.randint(freq_max, size=nfreqs)+1, \
+        2*np.random.randint(freq_max, size=nfreqs)+1
 
+    import time
+    t1 = time.time()
     res_ref = ft_four_point_obj_ref(worm_config_record, wsample_full, nflavors, beta)
+    t2 = time.time()
     res = ft_four_point_obj(worm_config_record, wsample_full, nflavors, beta)
-    res2 = ft_four_point_obj_fast(worm_config_record, wsample_full, nflavors, beta)
+    t3 = time.time()
+    print(t2-t1, t3-t2)
     
     np.testing.assert_allclose(res, res_ref)
-    np.testing.assert_allclose(res2, res_ref)

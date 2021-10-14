@@ -15,7 +15,8 @@ from alpscthyb.occupation_basis import construct_cdagger_ops
 from alpscthyb.util import float_to_complex_array
 from alpscthyb.interaction import mk_asymm
 from alpscthyb import mpi
-from numba import njit
+
+import time
 
 def _einsum(subscripts, *operands):
     return np.einsum(subscripts, *operands, optimize=True)
@@ -69,96 +70,11 @@ class WormConfigRecord:
                 )
         return WormConfigRecord(datasets)
     
-    #def split(self, max_config_size):
-        #""" Split record in place"""
-        #datasets_new = []
-        #for dset in self.datasets():
-            #nconfig = dset['taus'][0].size
-            #if nconfig <= max_config_size:
-                #datasets_new.append(dset)
-            #
-            #nsplit = np.ceil(nconfig / max_config_size)
-
-@njit
-def ft_three_point_obj__(res,
-    taus0, taus1, taus2,
-    flavors0, flavors1, flavors2, flavors3,
-    values, wfs, wbs, beta):
-    """
-    Perform Fourier transform of a two-frequency object
-    The results are accumulated in res.
-    Return the number of data set.
-    """
-    taus_f = taus0 - taus1
-    taus_b = taus1 - taus2
-    for iconfig in range(flavors0.size):
-        for w in range(wfs.size):
-            res[w, flavors0[iconfig],
-                   flavors1[iconfig],
-                   flavors2[iconfig],
-                   flavors3[iconfig],
-            ] += np.exp(1J * np.pi * (wfs[w]*taus_f[iconfig]+ wbs[w]*taus_b[iconfig])/beta) * \
-                values[iconfig]
-    return flavors0.size
-
-
-def ft_three_point_obj_(res, dset, wsample, beta):
-    """
-    Perform Fourier transform of a two-frequency object
-    The results are accumulated in res.
-    Return the number of data set.
-    """
-    wfs, wbs = wsample
-    return ft_three_point_obj__(
-        res,
-        dset['taus'][0], dset['taus'][1], dset['taus'][2],
-        dset['flavors'][0], dset['flavors'][1], dset['flavors'][2], dset['flavors'][3],
-        dset['values'], wfs, wbs, beta
-    )
-
-
-def ft_three_point_obj(worm_config_record, wsample, nflavors, beta):
-    wfs, wbs = wsample
-    wfs = check_fermionic(wfs)
-    wbs = check_bosonic(wbs)
-    res = np.zeros((wfs.size,) + 4*(nflavors,), dtype=np.complex128)
-    ndata = 0
-    for dset in worm_config_record.datasets:
-        ndata += ft_three_point_obj_(res, dset, wsample, beta)
-    res = mpi.allreduce(res)
-    ndata = mpi.allreduce(ndata)
-    return res/(ndata*beta)
-
-
-def ft_three_point_obj_ref(worm_config_record, wsample, nflavors, beta):
-    wfs, wbs = wsample
-    wfs = check_fermionic(wfs)
-    wbs = check_bosonic(wbs)
-    res = np.zeros((wfs.size,) + 4*(nflavors,), dtype=np.complex128)
-    ndata = 0
-    for dset in worm_config_record.datasets:
-        taus_f = dset['taus'][0] - dset['taus'][1]
-        taus_b = dset['taus'][1] - dset['taus'][2]
-        exp_ = np.exp(1J * np.pi * (
-            wfs[:,None]*taus_f[None,:]+
-            wbs[:,None]*taus_b[None,:])/beta)
-        res_ = exp_ * dset['values'][None,:]
-        flavors = dset['flavors']
-        ndata += flavors[0].size
-        for iconfig in range(flavors[0].size):
-            res[:, flavors[0][iconfig],
-                   flavors[1][iconfig],
-                   flavors[2][iconfig],
-                   flavors[3][iconfig],
-            ] += res_[:, iconfig]
-    res = mpi.allreduce(res)
-    ndata = mpi.allreduce(ndata)
-    return res/(ndata*beta)
 
 def _ft_impl2(dset, wsample, beta, phase_calc):
     """ Naive Fourier transformation without normalization """
-    phase = phase_calc(wsample, dset['taus'])
-    res_ = dset['values'][None, ] * np.exp((1J*np.pi/beta)*phase)
+    phase = phase_calc(beta, wsample, dset['taus'])
+    res_ = dset['values'][None,:] * phase
     return np.sum(res_, axis=1)
 
 def _subset_dset(dset, idx):
@@ -179,7 +95,7 @@ def _ft_impl(dset, wsample, beta, phase_calc, max_work_mem=1e+9):
     nw = wsample[0].size
     nmax_config = int(max_work_mem/nw/16/3)
     nconfig = dset['values'].size
-    nsplit = np.ceil(nconfig / nmax_config)
+    nsplit = int(np.ceil(nconfig / nmax_config))
     res = np.zeros(nw, dtype=np.complex128)
     for idx_ in np.array_split(np.arange(nconfig), nsplit):
         dset_ = _subset_dset(dset, idx_)
@@ -207,34 +123,6 @@ def _ft(worm_config_record, wsample, nflavors, beta, phase_calc, max_work_mem=1E
     ndata = mpi.allreduce(ndata)
     return res/ndata
 
-def _phase_calc_three_point(wsample, taus):
-    """ Compute phase for Fourier transform of three-point obj in ph channel """
-    wfs, wbs = wsample
-    wfs = check_fermionic(wfs)
-    wbs = check_bosonic(wbs)
-    taus_f = taus[0] - taus[1]
-    taus_b = taus[1] - taus[2]
-    return wfs[:,None]*taus_f[None,:]+ wbs[:,None]*taus_b[None,:]
-
-def _phase_calc_four_point(wsample, taus):
-    """ Compute phase for Fourier transform of three-point obj in ph channel """
-    wf1, wf2, wf3, wf4 = check_full_convention(*wsample)
-    taus1, taus2, taus3, taus4 = taus
-    return wf1[:,None]*taus1[None,:] -wf2[:,None]*taus2[None,:] \
-        + wf3[:,None]*taus3[None,:] -wf4[:,None]*taus4[None,:]
-
-
-def ft_three_point_obj_fast(worm_config_record, wsample, nflavors, beta):
-    """ Compute three-point obj in ph channel """
-    res = _ft(worm_config_record, wsample, nflavors, beta, _phase_calc_three_point)
-    res /= beta
-    return res
-
-def ft_four_point_obj_fast(worm_config_record, wsample, nflavors, beta):
-    """ Compute four-point obj in full convention """
-    return _ft(worm_config_record, wsample, nflavors, beta, _phase_calc_four_point)
-
-
 def _eval_exp(beta, wf, taus, sign):
     """ Exvaluate exp(1J*sign*PI*wf*taus/beta)"""
     wf_unique, wf_where = np.unique(wf, return_inverse=True)
@@ -242,72 +130,40 @@ def _eval_exp(beta, wf, taus, sign):
     exp_unique = np.exp(coeff * wf_unique[:,None] * taus[None,:])
     return exp_unique[wf_where, :]
 
-@njit
-def ft_four_point_obj__(res,
-    taus0, taus1, taus2, taus3,
-    flavors0, flavors1, flavors2, flavors3,
-    values,
-    wf1, wf2, wf3, wf4,
-    beta):
-    """
-    Perform Fourier transform of a four-frequency object
-    The results are accumulated in res.
-    Return the number of data set.
-    """
-    for iconfig in range(flavors0.size):
-        for w in range(wf1.size):
-            res[w, flavors0[iconfig],
-                   flavors1[iconfig],
-                   flavors2[iconfig],
-                   flavors3[iconfig]] \
-                += np.exp(
-                    1J * np.pi * (
-                        + wf1[w]*taus0[iconfig]
-                        - wf2[w]*taus1[iconfig]
-                        + wf3[w]*taus2[iconfig]
-                        - wf4[w]*taus3[iconfig]
-                        )/beta) * \
-                values[iconfig]
-    return flavors0.size
+def _phase_calc_three_point(beta, wsample, taus):
+    """ Compute phase for Fourier transform of three-point obj in ph channel """
+    wfs, wbs = wsample
+    wfs = check_fermionic(wfs)
+    wbs = check_bosonic(wbs)
+    taus_f = taus[0] - taus[1]
+    taus_b = taus[1] - taus[2]
+    exp_ = np.ones((wfs.size, taus_f.size), dtype=np.complex128)
+    exp_ *= _eval_exp(beta, wfs, taus_f,  1)
+    exp_ *= _eval_exp(beta, wbs, taus_b,  1)
+    return exp_
+
+def _phase_calc_four_point(beta, wsample, taus):
+    """ Compute phase for Fourier transform of three-point obj in ph channel """
+    wf1, wf2, wf3, wf4 = check_full_convention(*wsample)
+    taus1, taus2, taus3, taus4 = taus
+    exp_ = np.ones((wf1.size, taus1.size), dtype=np.complex128)
+    exp_ *= _eval_exp(beta, wf1, taus1,  1)
+    exp_ *= _eval_exp(beta, wf2, taus2, -1)
+    exp_ *= _eval_exp(beta, wf3, taus3,  1)
+    exp_ *= _eval_exp(beta, wf4, taus4, -1)
+    return exp_
+
+def ft_three_point_obj(worm_config_record, wsample, nflavors, beta):
+    """ Compute three-point obj in ph channel """
+    res = _ft(worm_config_record, wsample, nflavors, beta, _phase_calc_three_point)
+    res /= beta
+    return res
 
 def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
-    wsample = check_full_convention(*wsample)
-    res = np.zeros((wsample[0].size,) + 4*(nflavors,), dtype=np.complex128)
-    ndata = 0
-    for dset in worm_config_record.datasets:
-        ndata += ft_four_point_obj__(
-            res,
-            dset['taus'][0], dset['taus'][1], dset['taus'][2], dset['taus'][3],
-            dset['flavors'][0], dset['flavors'][1], dset['flavors'][2], dset['flavors'][3],
-            dset['values'],
-            *wsample, beta)
-    res = mpi.allreduce(res)
-    ndata = mpi.allreduce(ndata)
-    return res/ndata
+    """ Compute four-point obj in full convention """
+    return _ft(worm_config_record, wsample, nflavors, beta, _phase_calc_four_point)
 
-def ft_four_point_obj_ref(worm_config_record, wsample, nflavors, beta):
-    wf1, wf2, wf3, wf4 = check_full_convention(*wsample)
-    res = np.zeros((wf1.size,) + 4*(nflavors,), dtype=np.complex128)
-    ndata = 0
-    for dset in worm_config_record.datasets:
-        ndata += dset['flavors'][0].size
-        for f1, f2, f3, f4 in product(range(nflavors), repeat=4):
-            flavors_data = dset['flavors']
-            where = \
-                np.logical_and(
-                    np.logical_and(flavors_data[0] == f1, flavors_data[1] == f2),
-                    np.logical_and(flavors_data[2] == f3, flavors_data[3] == f4)
-                )
-            res_ = np.ones((wf1.size, dset['taus'][0][where].size), dtype=np.complex128)
-            res_ *= _eval_exp(beta, wf1, dset['taus'][0][where],  1)
-            res_ *= _eval_exp(beta, wf2, dset['taus'][1][where], -1)
-            res_ *= _eval_exp(beta, wf3, dset['taus'][2][where],  1)
-            res_ *= _eval_exp(beta, wf4, dset['taus'][3][where], -1)
-            res_ *= dset['values'][None, where]
-            res[:,f1,f2,f3,f4] += np.sum(res_, axis=1)
-    res = mpi.allreduce(res)
-    ndata = mpi.allreduce(ndata)
-    return res/ndata
+
 
 def load_irbasis(stat, Lambda, beta, cutoff):
     return FiniteTemperatureBasis(
