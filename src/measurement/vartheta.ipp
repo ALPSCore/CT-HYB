@@ -136,7 +136,7 @@ VarThetaLegendreMeas<SCALAR,SW_TYPE>::measure_rw(
   std::transform(
     corr_l.origin(), corr_l.origin()+corr_l.num_elements(),
     corr_l.origin(),
-    [&sum_trans_prop](const auto &x) {return x/sum_trans_prop;}
+    [&sum_trans_prop](const std::complex<double> &x) {return x/sum_trans_prop;}
   );
 
   measure_simple_vector_observable<std::complex<double>>(
