@@ -5,6 +5,7 @@ import scipy
 import h5py
 import os
 import irbasis
+import irbasis_x
 from irbasis_x.twopoint import FiniteTemperatureBasis, TruncatedBasis
 from irbasis_x.freq import check_bosonic, check_fermionic, check_full_convention
 from alpscthyb.exact_diag import compute_fermionic_2pt_corr_func, \
@@ -116,12 +117,29 @@ def _ft(worm_config_record, wsample, nflavors, beta, phase_calc, max_work_mem=1E
                     np.logical_and(flavors_data[0] == f1, flavors_data[1] == f2),
                     np.logical_and(flavors_data[2] == f3, flavors_data[3] == f4)
                 )
-            dset_ = _subset_dset(dset, np.where(where)[0])
+            idx_ = np.where(where)[0]
+            if idx_.size == 0:
+                continue
+            dset_ = _subset_dset(dset, idx_)
             res[:,f1,f2,f3,f4] += _ft_impl(dset_, wsample, beta, phase_calc, max_work_mem)
 
     res = mpi.allreduce(res)
     ndata = mpi.allreduce(ndata)
     return res/ndata
+
+def _ft_unique_freqs(worm_config_record, wsample, nflavors, beta, phase_calc, max_work_mem=1E+9):
+    """
+    Fourier transform of three-point/four-point objects
+    Compute only for unique frequency combinations
+    """
+    w = irbasis_x._aux.collect(*wsample)
+    w_unique, w_where = np.unique(w, return_inverse=True)
+    print("debug", w.size, w_unique.size)
+    res_unique = _ft(
+        worm_config_record,
+        irbasis_x._aux.split(w_unique, len(wsample)),
+        nflavors, beta, phase_calc, max_work_mem)
+    return res_unique[w_where, ...]
 
 def _eval_exp(beta, wf, taus, sign):
     """ Exvaluate exp(1J*sign*PI*wf*taus/beta)"""
@@ -155,13 +173,13 @@ def _phase_calc_four_point(beta, wsample, taus):
 
 def ft_three_point_obj(worm_config_record, wsample, nflavors, beta):
     """ Compute three-point obj in ph channel """
-    res = _ft(worm_config_record, wsample, nflavors, beta, _phase_calc_three_point)
+    res = _ft_unique_freqs(worm_config_record, wsample, nflavors, beta, _phase_calc_three_point)
     res /= beta
     return res
 
 def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
     """ Compute four-point obj in full convention """
-    return _ft(worm_config_record, wsample, nflavors, beta, _phase_calc_four_point)
+    return _ft_unique_freqs(worm_config_record, wsample, nflavors, beta, _phase_calc_four_point)
 
 
 
@@ -215,8 +233,9 @@ def compute_Tnl_sparse(vsample, n_legendre):
     return Tnl
 
 def legendre_to_matsubara(gl, vsample):
-    Tnl = compute_Tnl_sparse(vsample, gl.shape[0])
-    return np.einsum('wl,l...->w...', Tnl, gl)
+    v_unique, v_where = np.unique(vsample, return_inverse=True)
+    Tnl = compute_Tnl_sparse(v_unique, gl.shape[0])
+    return np.einsum('wl,l...->w...', Tnl, gl)[v_where, :]
 
 
 def load_cmplx(h5, path):
@@ -399,7 +418,8 @@ class VertexEvaluator(object):
         return NotImplementedError
 
     def compute_Delta_iv(self, wfs):
-        return self.basis_f.evaluate_iw(self.Delta_l, wfs)
+        wfs_unique, wfs_where = np.unique(wfs, return_inverse=True)
+        return self.basis_f.evaluate_iw(self.Delta_l, wfs_unique)[wfs_where,...]
 
     def compute_vartheta(self, wfs):
         raise NotImplementedError
@@ -428,44 +448,47 @@ class VertexEvaluator(object):
     def _compute_non_int_giv(self, wfs, hopping):
         """ Compute non-interacting Green's function for given hopping matrix"""
         wfs = check_fermionic(wfs)
-        nfreqs = wfs.size
+        wfs_unique, wfs_where = np.unique(wfs, return_inverse=True)
         
         # Compute Delta(iv)
-        Delta_iv = self.compute_Delta_iv(wfs)
+        Delta_iv = self.compute_Delta_iv(wfs_unique)
 
         # Compute non-interacting Green's function
-        G0 = np.empty((nfreqs, self.nflavors, self.nflavors), dtype=np.complex128)
+        G0 = np.empty((wfs_unique.size, self.nflavors, self.nflavors), dtype=np.complex128)
         I = np.identity(self.nflavors)
-        for ifreq, v in enumerate(wfs):
+        for ifreq, v in enumerate(wfs_unique):
             iv = 1J * v * np.pi/self.beta
             G0[ifreq, ...] = np.linalg.inv(iv * I - Delta_iv[ifreq, ...] - hopping[None,:,:])
-        return G0
+        return G0[wfs_where, ...]
 
     def compute_xi(self, wfs):
         """ Compute xi(iv) """
         wfs = check_fermionic(wfs)
+        wfs_unique, wfs_where = np.unique(wfs, return_inverse=True)
         return _einsum(
             'wai,wib->wab',
-            (self.compute_v()[None,:,:] + self.compute_vartheta(wfs)),
-            self.compute_g0iv(wfs)
-        )
+            (self.compute_v()[None,:,:] + self.compute_vartheta(wfs_unique)),
+            self.compute_g0iv(wfs_unique)
+        )[wfs_where,...]
     
     def compute_phi(self, wbs):
         wbs = check_bosonic(wbs)
+        wbs_unique, wbs_where = np.unique(wbs, return_inverse=True)
         return 0.25 * \
             _einsum(
                 'abij,cdkl,wijkl->wabcd',
                 self.get_asymU(),
                 self.get_asymU(),
-                self.compute_lambda(wbs)
-            )
+                self.compute_lambda(wbs_unique)
+            )[wbs_where,...]
 
     def compute_Psi(self, wbs):
         wbs = check_bosonic(wbs)
+        wbs_unique, wbs_where = np.unique(wbs, return_inverse=True)
         return 0.25 * \
             _einsum('ajci,kbld,Wijkl->Wabcd',
                 self.get_asymU(), self.get_asymU(),
-                self.compute_varphi(wbs))
+                self.compute_varphi(wbs_unique))[wbs_where,...]
 
     def compute_f(self, wfs, wbs):
         wfs = check_fermionic(wfs)
@@ -497,36 +520,45 @@ class VertexEvaluator(object):
 
         scrF += beta * asymU[None, ...]
 
+        t1 = time.time()
+        print("p0 ", time.time()-t1)
         v1_ = self.compute_vartheta(v1) + vab[None,:,:]
         v3_ = self.compute_vartheta(v3) + vab[None,:,:]
         scrF += (beta**2) * _einsum('W,Wab,Wcd->Wabcd', v1==v2, v1_, v3_)
         scrF -= (beta**2) * _einsum('W,Wad,Wcb->Wabcd', v1==v4, v1_, v3_)
+        print("p1 ", time.time()-t1)
 
         # xi
         scrF += beta * _einsum('ibcd,Wai->Wabcd', asymU, self.compute_xi(v1))
         scrF += beta * _einsum('aicd,Wbi->Wabcd', asymU, self.compute_xi(-v2).conj())
         scrF += beta * _einsum('abid,Wci->Wabcd', asymU, self.compute_xi(v3))
         scrF += beta * _einsum('abci,Wdi->Wabcd', asymU, self.compute_xi(-v4).conj())
+        print("p2 ", time.time()-t1)
 
         # phi
         scrF += -4 * beta * self.compute_phi(v1-v2)
         scrF +=  4 * beta * _einsum('Wadcb->Wabcd', self.compute_phi(v1-v4))
+        print("p3 ", time.time()-t1)
 
         # f
         scrF +=  2 * beta * self.compute_f(v1, v1-v2)
         scrF +=  2 * beta * _einsum('Wcdab->Wabcd', self.compute_f(v3, v2-v1))
         scrF += -2 * beta * _einsum('Wadcb->Wabcd', self.compute_f(v1, v1-v4))
         scrF += -2 * beta * _einsum('Wcbad->Wabcd', self.compute_f(v3, v4-v1))
+        print("p4 ", time.time()-t1)
 
         # g
         scrF += -beta * self.compute_g(v1, v3)
         scrF += -beta * _einsum('Wdcba->Wabcd', self.compute_g(-v4, -v2).conj())
+        print("p5 ", time.time()-t1)
 
         # Psi
         scrF += -beta * self.compute_Psi(v1+v3)
+        print("p6 ", time.time()-t1)
 
         # h
         scrF -= self.compute_h(wsample_full)
+        print("p7 ", time.time()-t1)
 
         return scrF
 
@@ -539,6 +571,7 @@ class VertexEvaluator(object):
         r2 = self._G0_invG(v2)
         r3 = self._invG_G0(v3)
         r4 = self._G0_invG(v4)
+        print("Calling compute_scrF...")
         F = _einsum('waA,wBb,wcC,wDd,wABCD->wabcd', r1, r2, r3, r4, scrF)
         return F
 

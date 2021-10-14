@@ -306,7 +306,7 @@ def ft_three_point_obj_ref(worm_config_record, wsample, nflavors, beta):
 def test_ft_four_point_obj():
     np.random.seed(100)
     beta = 10.0
-    nflavors = 2
+    nflavors = 3
 
     nconfig = 100
     nfreqs = 10
@@ -321,7 +321,7 @@ def test_ft_four_point_obj():
 
     flavors = []
     for _ in range(4):
-        flavors.append(np.random.randint(nflavors, size=nconfig))
+        flavors.append(np.random.randint(nflavors-1, size=nconfig))
     
     values = np.random.randn(nconfig) + 1J*np.random.randn(nconfig)
 
