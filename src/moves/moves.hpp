@@ -277,7 +277,8 @@ global_update(R &rng,
               int num_flavors,
               const HybridizedOperatorTransformer &hyb_op_transformer,
               const WormTransformer &worm_transformer,
-              int Nwin
+              int Nwin,
+              bool force_accept=false
 );
 
 /**

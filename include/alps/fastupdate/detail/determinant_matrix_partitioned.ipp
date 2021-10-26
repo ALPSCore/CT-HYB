@@ -156,6 +156,29 @@ namespace alps {
     ) {
       int perm_sign_change = 1;
 
+      // First, we check the new determinat will be trivially zero.
+      std::vector<int> cdagg_change_sectors(num_sectors_, 0);
+      std::vector<int> c_change_sectors(num_sectors_, 0);
+      for (auto it=cdagg_rem_first; it!=cdagg_rem_last; ++it) {
+        --cdagg_change_sectors[sector_belonging_to_[operator_flavor(*it)]];
+      }
+      for (auto it=c_rem_first; it!=c_rem_last; ++it) {
+        --c_change_sectors[sector_belonging_to_[operator_flavor(*it)]];
+      }
+      for (auto it=cdagg_add_first; it!=cdagg_add_last; ++it) {
+        ++cdagg_change_sectors[sector_belonging_to_[operator_flavor(*it)]];
+      }
+      for (auto it=c_add_first; it!=c_add_last; ++it) {
+        ++c_change_sectors[sector_belonging_to_[operator_flavor(*it)]];
+      }
+      for (int sector=0; sector<num_sectors_; ++sector) {
+        if(cdagg_change_sectors[sector] != c_change_sectors[sector]) {
+          need_to_revert = false;
+          return 0.0;
+        }
+      }
+      need_to_revert = true;
+
       //Creation operators to be removed
       for (CdaggIterator it=cdagg_rem_first; it!=cdagg_rem_last; ++it) {
         const int sector = sector_belonging_to_[operator_flavor(*it)];
@@ -186,6 +209,7 @@ namespace alps {
 
       new_perm_ = perm_sign_change * permutation_;
 
+
       //Second, compute determinant ratio from each sector
       Scalar det_rat = 1.0;
       for (int sector=0; sector<num_sectors_; ++sector) {
@@ -197,6 +221,7 @@ namespace alps {
         );
       }
 
+      need_to_revert = true;
       return det_rat*(1.*perm_sign_change);
     }
 
@@ -208,6 +233,10 @@ namespace alps {
     >
     void
     DeterminantMatrixPartitioned<Scalar,GreensFunction,CdaggerOp,COp>::perform_update() {
+      if (!need_to_revert) {
+        throw std::runtime_error("Something went wrong in peform_update!");
+      }
+
       for (int sector=0; sector<num_sectors_; ++sector) {
         det_mat_[sector].perform_update();
       }
@@ -229,6 +258,10 @@ namespace alps {
       >
     void
     DeterminantMatrixPartitioned<Scalar,GreensFunction,CdaggerOp,COp>::reject_update() {
+      if (!need_to_revert) {
+        return;
+      }
+
       for (int sector=0; sector<num_sectors_; ++sector) {
         det_mat_[sector].reject_update();
       }

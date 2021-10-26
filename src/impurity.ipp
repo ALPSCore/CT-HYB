@@ -599,7 +599,8 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
                                                                  FLAVORS,
                                                                  OperatorShift(BETA, shift),
                                                                  WormShift(BETA, shift),
-                                                                 std::max(N_win_standard, 10)
+                                                                 std::max(N_win_standard, 10),
+                                                                 p_model->translationally_invariant()
     );
     if (accepted) {
       global_shift_acc_rate.accepted();
@@ -607,7 +608,7 @@ void HybridizationSimulation<IMP_MODEL>::global_updates() {
     } else {
       global_shift_acc_rate.rejected();
       if (p_model->translationally_invariant()) {
-        std::cerr << "Warning: a global shift is rejected!" << std::endl;
+         logger_out << "Warning: a global shift is rejected!" << std::endl;
       }
     }
     sanity_check();

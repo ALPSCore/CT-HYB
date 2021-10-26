@@ -31,7 +31,8 @@ global_update<PP_REAL, PP_EXTENDED_SCALAR, alps::random01, PP_SW, ExchangeFlavor
     int num_flavors,
     const ExchangeFlavor &hyb_op_transformer,
     const WormExchangeFlavor &worm_transformer,
-    int Nwin
+    int Nwin,
+    bool force_accept
 );
 
 template bool
@@ -44,5 +45,6 @@ global_update<PP_REAL, PP_EXTENDED_SCALAR, alps::random01, PP_SW, OperatorShift,
     int num_flavors,
     const OperatorShift &hyb_op_transformer,
     const WormShift &worm_transformer,
-    int Nwin
+    int Nwin,
+    bool force_accpet
 );

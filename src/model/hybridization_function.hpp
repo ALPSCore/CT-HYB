@@ -84,11 +84,25 @@ class HybridizationFunction {
   boost::multi_array<bool, 2> connected_;
 
   void construct_connected(double eps) {
+    double max_val = 0.0;
+    for (auto flavor = 0; flavor < n_flavors_; ++flavor) {
+      for (auto flavor2 = 0; flavor2 < n_flavors_; ++flavor2) {
+        for (int itau = 0; itau < n_tau_ + 1; ++itau) {
+          max_val = std::max(std::abs(F_[flavor][flavor2][itau]), max_val);
+        }
+      }
+    }
+
+    double cutoff = eps * max_val;
+
     for (auto flavor = 0; flavor < n_flavors_; ++flavor) {
       for (auto flavor2 = 0; flavor2 < n_flavors_; ++flavor2) {
         connected_[flavor][flavor2] = false;
         for (int itau = 0; itau < n_tau_ + 1; ++itau) {
-          if (std::abs(F_[flavor][flavor2][itau]) > eps) {
+          if(std::abs(F_[flavor][flavor2][itau]) < cutoff) {
+            F_[flavor][flavor2][itau] = 0.0;
+          }
+          if (F_[flavor][flavor2][itau] != 0.0) {
             connected_[flavor][flavor2] = true;
           }
         }

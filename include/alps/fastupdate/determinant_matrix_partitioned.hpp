@@ -365,6 +365,7 @@ namespace alps {
 
 
       State state_;
+      bool need_to_revert;
       bool singular_;
 
       int num_flavors_;                     //number of flavors

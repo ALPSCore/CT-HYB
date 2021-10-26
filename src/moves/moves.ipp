@@ -554,7 +554,7 @@ SCALAR compute_det_rat(
 
   SCALAR det_rat = 1.0;
   for (int i = 0; i < num_loop; ++i) {
-    if (i < det_vec_new.size() && std::abs(det_vec_new[i] / max_abs_elem) > eps) {
+    if (i < det_vec_new.size()) {
       det_rat *= det_vec_new[i];
     }
     if (i < det_vec_old.size()) {
@@ -606,6 +606,7 @@ SCALAR compute_det_rat(const std::vector<psi> &creation_operators,
   for (int ib = 0; ib < M.num_blocks(); ++ib) {
     const int mat_size = cdagg_ops[ib].size();
     if (cdagg_ops[ib].size() != c_ops[ib].size()) {
+      logger_out << " debug_A " << std::endl;
       return 0.0;
     }
     if (mat_size == 0) {
@@ -629,6 +630,7 @@ SCALAR compute_det_rat(const std::vector<psi> &creation_operators,
   }
 
   if (det_vec_new.size() == 0) {
+    logger_out << " debug_B " << std::endl;
     return 0.0;
   }
 
@@ -642,6 +644,7 @@ SCALAR compute_det_rat(const std::vector<psi> &creation_operators,
       * alps::fastupdate::comb_sort(c_times.begin(), c_times.end(), std::less<OperatorTime>());
 
   det_vec_new[0] *= 1. * perm_sign_block;
+  logger_out << " debug_C " <<  (1. * perm_sign_block) * det_rat << std::endl;
   return (1. * perm_sign_block) * det_rat;
 }
 
@@ -656,7 +659,8 @@ global_update(R &rng,
               int num_flavors,
               const HybridizedOperatorTransformer &hyb_op_transformer,
               const WormTransformer &worm_transformer,
-              int Nwin
+              int Nwin,
+              bool force_accept
 ) {
   check_true(sliding_window.get_tau_low() == 0);
   check_true(sliding_window.get_tau_high() == BETA);
@@ -720,8 +724,11 @@ global_update(R &rng,
                   EXTENDED_SCALAR(trace_new / mc_config.trace)
           )
       );
+  logger_out << "debug " <<
+      convert_to_scalar(EXTENDED_SCALAR(EXTENDED_SCALAR(det_rat))) << " " << 
+      convert_to_scalar(EXTENDED_SCALAR(EXTENDED_SCALAR(trace_new / mc_config.trace))) << std::endl;
 
-  if (rng() < std::abs(prob)) {
+  if (rng() < std::abs(prob) || force_accept) {
     std::vector<std::pair<psi, psi> > operator_pairs(pert_order);
     for (int iop = 0; iop < pert_order; ++iop) {
       operator_pairs[iop] = std::make_pair(creation_operators_new[iop], annihilation_operators_new[iop]);
@@ -744,8 +751,10 @@ global_update(R &rng,
     mc_config.sign *= (1. * perm_sign_new / mc_config.perm_sign) * prob / std::abs(prob);
     mc_config.perm_sign = perm_sign_new;
     mc_config.sanity_check(sliding_window);
+    logger_out << "accepted" << std::endl << std::endl;
     return true;
   } else {
+    logger_out << "rejected" << std::endl << std::endl;
     return false;
   }
 }
