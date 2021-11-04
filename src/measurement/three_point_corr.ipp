@@ -1,6 +1,6 @@
 #include "three_point_corr.hpp"
 
-#include <boost/filesystem/operations.hpp>
+#include <filesystem>
 #include <alps/utilities/fs/get_dirname.hpp>
 #include <alps/utilities/fs/get_basename.hpp>
 #include <alps/utilities/fs/remove_extensions.hpp>
@@ -88,11 +88,11 @@ void ThreePointCorrMeas<SCALAR,SW_TYPE,CHANNEL>::save_results(const std::string 
   std::string dirname = 
     alps::fs::remove_extensions(filename) + "_results";
    if (comm.rank()==0) {
-      if (boost::filesystem::exists(dirname) && 
-        !boost::filesystem::is_directory(dirname)) {
+      if (std::filesystem::exists(dirname) && 
+        !std::filesystem::is_directory(dirname)) {
         throw std::runtime_error("Please remove " + dirname + "!");
       } else {
-        boost::filesystem::create_directory(dirname);
+        std::filesystem::create_directory(dirname);
       }
    }
   comm.barrier();

@@ -1,6 +1,5 @@
 #include "g1.hpp"
 
-#include <boost/filesystem/operations.hpp>
 #include <alps/utilities/fs/get_dirname.hpp>
 #include <alps/utilities/fs/get_basename.hpp>
 #include <alps/utilities/fs/remove_extensions.hpp>
