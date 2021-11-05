@@ -132,8 +132,7 @@ bool LocalUpdater<SCALAR, EXTENDED_SCALAR, SLIDING_WINDOW>::update(
   bool accepted = false;
   SCALAR prob;
   EXTENDED_SCALAR trace_new;
-  //if (op_rem_tot.size() == 0 && op_add_tot.size() == 0) {
-  if (false) {
+  if (op_rem_tot.size() == 0 && op_add_tot.size() == 0) {
     //if trace is not updated, just compute det_rat
     trace_new = mc_config.trace;
 

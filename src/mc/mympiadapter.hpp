@@ -111,4 +111,27 @@ template<typename Base> class mymcmpiadapter : public Base {
     //base_type_::define_parameters(parameters);
     return parameters;
   }
+
+  typename Base::results_type collect_results() const {
+      return collect_results(this->result_names());
+  }
+
+  typename Base::results_type collect_results(typename Base::result_names_type const & names) const {
+    typename Base::results_type partial_results;
+    for(typename Base::result_names_type::const_iterator it = names.begin(); it != names.end(); ++it) {
+        size_t has_count=(this->measurements[*it].count() > 0);
+        const size_t sum_counts =
+                alps::mpi::all_reduce(comm_,
+                                      has_count,
+                                      std::plus<size_t>());
+        if (static_cast<int>(sum_counts) == comm_.size()) {
+            typename Base::observable_collection_type::value_type merged = this->measurements[*it];
+            merged.collective_merge(comm_, 0);
+            partial_results.insert(*it, merged.result());
+        } else if (sum_counts > 0 && static_cast<int>(sum_counts) < comm_.size()) {
+            throw std::runtime_error(*it + " was measured on only some of the MPI processes.");
+        }
+    }
+    return partial_results;
+  }
 };

@@ -74,7 +74,7 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
       throw std::runtime_error((boost::format(
           "Warning: MPI process %1% is not thermalized yet. Increase simulation time!") % rank).str());
     }
-      logger_out.flush();
+    logger_out.flush();
   }
 
   return 0;
