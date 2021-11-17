@@ -134,7 +134,7 @@ def _ft_unique_freqs(worm_config_record, wsample, nflavors, beta, phase_calc, ma
     """
     w = irbasis_x._aux.collect(*wsample)
     w_unique, w_where = np.unique(w, return_inverse=True)
-    print("debug", w.size, w_unique.size)
+    #print("debug", w.size, w_unique.size)
     res_unique = _ft(
         worm_config_record,
         irbasis_x._aux.split(w_unique, len(wsample)),
