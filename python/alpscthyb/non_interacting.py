@@ -1,8 +1,6 @@
 import numpy as np
-from alpscthyb.post_proc import QMCResult
-from alpscthyb import post_proc
-from irbasis_x.freq import check_fermionic, check_bosonic, check_full_convention
-
+from . import post_proc
+from .irbasis_util import check_fermionic, check_bosonic, check_full_convention
 
 class NoninteractingLimit:
     def __init__(self, res) -> None:

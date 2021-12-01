@@ -6,6 +6,7 @@ from alpscthyb.interaction import hubbard_asymmU
 from scipy.special import eval_legendre
 from scipy.linalg import expm
 import pytest
+import irbasis3
 
 def _einsum(subscripts, *operands):
     return np.einsum(subscripts, *operands, optimize=True)
@@ -44,13 +45,12 @@ def _mk_hermite(mat):
 
 def _mk_Delta_l(beta, nflavors, basis_f, nbath=10):
     # Hybridization function
+    smpl = irbasis3.MatsubaraSampling(basis_f)
     V = np.random.randn(nbath,nflavors) + 1J*np.random.randn(nbath,nflavors)
     eb = np.linspace(-1,1,nbath)
-    iv = 1J*basis_f.wsample*np.pi/beta
+    iv = 1J*smpl.sampling_points*np.pi/beta
     Delta_w = _einsum('bi,wb,bj->wij', V.conj(), 1/(iv[:,None]-eb[None,:]), V)
-    Delta_l = basis_f.fit_iw(Delta_w.reshape((-1,nflavors**2))).\
-        reshape((-1,nflavors,nflavors))
-    return Delta_l
+    return smpl.fit(Delta_w.reshape((-1,nflavors**2))).reshape((-1,nflavors,nflavors))
 
 def _mk_rnd_umat(N):
     hmat = np.random.randn(N,N) + 1J*np.random.randn(N,N)
@@ -65,16 +65,18 @@ def _almost_equal(actual, desired, rtol=1e-8, atol=1e-8):
 def test_F_weak_coupling(nflavors):
     beta = 5.0
     Lambda = 100.0
+    cutoff = 1e-10
 
     asymU = _mk_asymU(nflavors)
 
-    basis_f = load_irbasis('F', Lambda, beta, 1e-10)
-    basis_b = load_irbasis('B', Lambda, beta, 1e-10)
+    basis_f = load_irbasis('F', Lambda, beta, cutoff)
+    basis_b = load_irbasis('B', Lambda, beta, cutoff)
     wfs = np.array([1,11,101,-1,-11,-101])
 
     hopping = _mk_hermite(np.random.randn(nflavors, nflavors) + 1J*np.random.randn(nflavors, nflavors))
     Delta_l = _mk_Delta_l(beta, nflavors, basis_f)
-    evalU0 = VertexEvaluatorU0(nflavors, beta, basis_f, basis_b, hopping, Delta_l, asymU=asymU)
+    evalU0 = VertexEvaluatorU0(nflavors, beta, hopping, Delta_l=Delta_l,
+        asymU=asymU, Lambda=Lambda, cutoff=1e-10)
 
     wsample_full = box(4, 3, return_conv='full')
     F = evalU0.compute_F(wsample_full)
@@ -96,8 +98,8 @@ def test_F_weak_coupling(nflavors):
     # Rotation in spin-orbital space
     rotmat = _mk_rnd_umat(nflavors)
     hopping_rot, Delta_l_rot, asymU_rot = _rotate_system(rotmat, hopping, Delta_l, asymU)
-    evalU0_rot = VertexEvaluatorU0(nflavors, beta, basis_f, basis_b,
-        hopping_rot, Delta_l_rot, asymU=asymU_rot)
+    evalU0_rot = VertexEvaluatorU0(nflavors, beta, 
+        hopping_rot, Delta_l_rot, asymU=asymU_rot, Lambda=Lambda, cutoff=cutoff)
     
     # Rotation of one-particle GF
     _almost_equal(
@@ -126,7 +128,9 @@ def test_F_U0(nflavors):
     # Hybridization function
     Delta_l = _mk_Delta_l(beta, nflavors, basis_f)
 
-    evalU0 = VertexEvaluatorU0(nflavors, beta, basis_f, basis_b, hopping, Delta_l, asymU=asymU)
+    evalU0 = VertexEvaluatorU0(nflavors, beta,  hopping, Delta_l=Delta_l, asymU=asymU,
+        Lambda=Lambda, cutoff=1e-10
+    )
 
     wsample_ph = box(4,3, return_conv="ph")
     wsample_full = from_ph_convention(*wsample_ph)
@@ -199,8 +203,8 @@ def test_three_orb_SOI_U0():
         [ 0,-1J,  0,   0,-1J,  0], 
         [ 0, -1,  0,  1J,  0,  0], 
         [ 1,  0, 1J,   0,  0,  0]], dtype=np.complex128)
-    Delta_l = np.zeros((basis_f.dim(), nflavors, nflavors), dtype=np.complex128)
-    evalU0 = VertexEvaluatorU0(nflavors, beta, basis_f, basis_b, hopping, Delta_l)
+    Delta_l = np.zeros((basis_f.size, nflavors, nflavors), dtype=np.complex128)
+    evalU0 = VertexEvaluatorU0(nflavors, beta, hopping, Delta_l, Lambda=Lambda, cutoff=1e-10)
 
     wsample_full = box(4, 3, return_conv='full')
     F = evalU0.compute_F(wsample_full)

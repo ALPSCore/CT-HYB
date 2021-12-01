@@ -1,8 +1,9 @@
 import numpy as np
 from scipy.sparse import coo_matrix
-from alpscthyb.interaction import check_asymm
 from itertools import product, permutations
-from irbasis_x.freq import check_bosonic, check_fermionic, check_full_convention
+
+from .interaction import check_asymm
+from .irbasis_util import check_fermionic, check_bosonic, check_full_convention
 
 def construct_ham(hopping, asymmU, cdag_ops):
     """

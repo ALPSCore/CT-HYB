@@ -67,10 +67,7 @@ def test_single_orb_Hubbard_atom_U0():
 
     # Reference data
     Lambda = 1e+4
-    basis_f = load_irbasis('F', Lambda, beta, 1e-15)
-    basis_b = load_irbasis('B', Lambda, beta, 1e-15)
-    evalU0 = VertexEvaluatorU0(nflavors, beta, basis_f, basis_b, 
-        hopping, np.zeros((basis_f.dim(), nflavors, nflavors)))
+    evalU0 = VertexEvaluatorU0(nflavors, beta, hopping, Lambda=Lambda)
 
     # Sampling frequencies
     wfs = 2*np.arange(-10,10)+1

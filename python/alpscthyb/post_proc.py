@@ -4,10 +4,9 @@ from numpy.polynomial.legendre import legval
 import scipy
 import h5py
 import os
-import irbasis
-import irbasis_x
-from irbasis_x.twopoint import FiniteTemperatureBasis, TruncatedBasis
-from irbasis_x.freq import check_bosonic, check_fermionic, check_full_convention
+from .irbasis_util import check_bosonic, check_fermionic, check_full_convention
+from . import irbasis_util
+import irbasis3
 from alpscthyb.exact_diag import compute_fermionic_2pt_corr_func, \
     compute_3pt_corr_func, construct_ham, compute_bosonic_2pt_corr_func, compute_4pt_corr_func, \
         compute_expval
@@ -132,12 +131,11 @@ def _ft_unique_freqs(worm_config_record, wsample, nflavors, beta, phase_calc, ma
     Fourier transform of three-point/four-point objects
     Compute only for unique frequency combinations
     """
-    w = irbasis_x._aux.collect(*wsample)
+    w = irbasis_util.collect(*wsample)
     w_unique, w_where = np.unique(w, return_inverse=True)
-    #print("debug", w.size, w_unique.size)
     res_unique = _ft(
         worm_config_record,
-        irbasis_x._aux.split(w_unique, len(wsample)),
+        irbasis_util.split(w_unique, len(wsample)),
         nflavors, beta, phase_calc, max_work_mem)
     return res_unique[w_where, ...]
 
@@ -184,9 +182,8 @@ def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
 
 
 def load_irbasis(stat, Lambda, beta, cutoff):
-    return FiniteTemperatureBasis(
-        TruncatedBasis(irbasis.load(stat, Lambda), cutoff=cutoff),
-        beta)
+    kernel = irbasis3.KernelFFlat(lambda_=Lambda)
+    return irbasis3.FiniteTempBasis(kernel, stat, beta, eps=cutoff)
 
 
 def read_param(h5, name):
@@ -247,7 +244,8 @@ def _fit_iw(basis_ir, giw):
     else:
         rest_dim = giw.shape[1:]
         giw = giw.reshape((giw.shape[0],-1))
-        gl = basis_ir.fit_iw(giw)
+        smpl = irbasis3.MatsubaraSampling(basis_ir)
+        gl = smpl.fit(giw)
         return gl.reshape((gl.shape[0],) + rest_dim)
 
 def exits_mc_result(h5, name):
@@ -404,9 +402,31 @@ postprocessors = {
 }
 
 class VertexEvaluator(object):
-    def __init__(self):
-        pass
+    def __init__(self, beta, Lambda=None, cutoff=None):
+        if Lambda is None:
+            Lambda = 1e+5
+        if cutoff is None:
+            cutoff = 1e-12
 
+        # Set up IR basis
+        self.beta = beta
+        self.basis_f = load_irbasis('F', Lambda, self.beta, cutoff)
+        self.basis_b = load_irbasis('B', Lambda, self.beta, cutoff)
+        self.wsample_f = irbasis3.MatsubaraSampling.default_sampling_points(self.basis_f)
+        self.wsample_b = irbasis3.MatsubaraSampling.default_sampling_points(self.basis_b)
+        self.smpl_taus = irbasis3.TauSampling.default_sampling_points(self.basis_f)
+    
+    def _evaluate_iw(self, data_IR, wsample):
+        if (wsample % 2 == 1).all():
+            basis_ = self.basis_f
+        elif (wsample % 2 == 0).all():
+            basis_ = self.basis_b
+        else:
+            raise RuntimeError("Invalid wsample!")
+        uhat = basis_.uhat(wsample)
+        return np.einsum('l..., lw->w...', data_IR, uhat, optimize=True)
+
+    
     def get_asymU(self):
         return NotImplementedError
 
@@ -419,7 +439,7 @@ class VertexEvaluator(object):
 
     def compute_Delta_iv(self, wfs):
         wfs_unique, wfs_where = np.unique(wfs, return_inverse=True)
-        return self.basis_f.evaluate_iw(self.Delta_l, wfs_unique)[wfs_where,...]
+        return self._evaluate_iw(self.Delta_l, wfs_unique)[wfs_where,...]
 
     def compute_vartheta(self, wfs):
         raise NotImplementedError
@@ -612,13 +632,16 @@ class VertexEvaluatorU0(VertexEvaluator):
     """
     Non-interacting limit
     """
-    def __init__(self, nflavors, beta, basis_f, basis_b, hopping, Delta_l, asymU=None):
-        super().__init__()
+    def __init__(self, nflavors, beta, hopping, Delta_l=None, asymU=None, Lambda=None, cutoff=None):
+        super().__init__(beta, Lambda=Lambda, cutoff=cutoff)
         self.nflavors = nflavors
         self.beta = beta
-        self.basis_f = basis_f
-        self.basis_b = basis_b
+
+        assert Delta_l is None or isinstance(Delta_l, np.ndarray)
+        if Delta_l is None:
+            Delta_l = np.zeros((self.basis_f.size, nflavors, nflavors), dtype=np.complex128)
         self.Delta_l = Delta_l
+
         self.hopping = hopping
         if asymU is None:
             self.asymU = np.zeros(4*(self.nflavors,))
@@ -636,9 +659,9 @@ class VertexEvaluatorU0(VertexEvaluator):
         return self.dm
 
     def compute_gtau(self, taus):
-        giv = self.compute_giv(self.basis_f.wsample)
+        giv = self.compute_giv(self.wsample_f)
         gl = _fit_iw(self.basis_f, giv)
-        Ftau = self.basis_f.Ultau_all_l(taus).T
+        Ftau = self.basis_f.u(taus).T
         return _einsum('tl,lab->tab', Ftau, gl)
 
     def compute_giv(self, wfs):
@@ -653,29 +676,27 @@ class VertexEvaluatorU0(VertexEvaluator):
         """ Compute lambda(wbs) """
         wbs = check_bosonic(wbs)
 
-        taus = self.basis_b.sampling_points_tau(self.basis_b.dim()-1)
-        Ftau = self.basis_b.Ultau_all_l(taus).T
+        Ftau = self.basis_b.u(self.smpl_taus).T
         lambda_tau = _einsum(
             'Tda,Tbc->Tabcd',
-            self.compute_gtau(self.beta - taus),
-            self.compute_gtau(taus)
+            self.compute_gtau(self.beta - self.smpl_taus),
+            self.compute_gtau(self.smpl_taus)
         )
 
         lambda_l = _einsum('lt,t...->l...', np.linalg.pinv(Ftau), lambda_tau)
-        lambda_wb = self.basis_b.evaluate_iw(lambda_l, wsample=wbs)
+        lambda_wb = self._evaluate_iw(lambda_l, wsample=wbs)
         lambda_wb[wbs==0,...] += self.beta * _einsum('ab,cd->abcd', self.get_dm(), self.get_dm())[None,...]
         return lambda_wb
 
 
     def compute_varphi(self, wbs):
-        taus = self.basis_b.sampling_points_tau(self.basis_b.dim()-1)
-        Ftau = self.basis_b.Ultau_all_l(taus).T
-        gtau = self.compute_gtau(taus)
+        Ftau = self.basis_b.u(self.smpl_taus).T
+        gtau = self.compute_gtau(self.smpl_taus)
         varphi_tau = \
             _einsum('Tad,Tbc->Tabcd', gtau, gtau) - \
             _einsum('Tac,Tbd->Tabcd', gtau, gtau)
         varphi_l = _einsum('lt,t...->l...', np.linalg.pinv(Ftau), varphi_tau)
-        return self.basis_b.evaluate_iw(varphi_l, wsample=wbs)
+        return self._evaluate_iw(varphi_l, wsample=wbs)
 
 
     def compute_eta(self, wfs, wbs):
@@ -709,8 +730,8 @@ class VertexEvaluatorAtomED(VertexEvaluator):
     """
     Exact diagonalization for atom
     """
-    def __init__(self, nflavors, beta, hopping, asymU):
-        super().__init__()
+    def __init__(self, nflavors, beta, hopping, asymU, Lambda=None, cutoff=None):
+        super().__init__(beta, Lambda=Lambda, cutoff=cutoff)
         self.nflavors = nflavors
         self.beta = beta
         self.hopping = hopping
@@ -848,8 +869,9 @@ class VertexEvaluatorED(VertexEvaluator):
     """
     Exact diagonalization for
     """
-    def __init__(self, beta, hopping_imp, asymU_imp, hopping_bath=None, hopping_coup=None):
-        super().__init__()
+    def __init__(self, beta, hopping_imp, asymU_imp, hopping_bath=None, hopping_coup=None,
+        Lambda=None, cutoff=None):
+        super().__init__(beta, Lambda=Lambda, cutoff=cutoff)
         self.nflavors = hopping_imp.shape[0]
         if hopping_bath is None:
             self.nflavors_bath = 0
@@ -1019,14 +1041,16 @@ class VertexEvaluatorED(VertexEvaluator):
         return mpi.allreduce(g4pt)
 
 class QMCResult(VertexEvaluator):
-    def __init__(self, p, verbose=False, Lambda=1E+5, cutoff=1e-12) -> None:
+    def __init__(self, p, verbose=False) -> None:
         if verbose:
             print(p+'.out.h5')
     
         with h5py.File(p+'.out.h5','r') as h5:
-            self.beta = read_param(h5, 'model.beta')
+            beta = read_param(h5, 'model.beta')
             self.nflavors = read_param(h5, 'model.flavors')
             self.sites = self.nflavors//2
+        
+        super().__init__(beta)
 
         with h5py.File(p+'_wormspace_G1.out.h5','r') as h5:
             self.hopping = load_cmplx(h5, 'hopping')
@@ -1046,10 +1070,6 @@ class QMCResult(VertexEvaluator):
                 for k, v in res_.items():
                     self.__setattr__(k, v)
 
-        # Set up IR basis
-        self.basis_f = load_irbasis('F', Lambda, self.beta, cutoff)
-        self.basis_b = load_irbasis('B', Lambda, self.beta, cutoff)
-
         # Fit Delta(tau) with IR basis
         # We interpolate Delta(tau) and evaluate it on sampling points to the following problem:
         #  If ntau is not large, we do not have data points sufficiently near tau=0, beta.
@@ -1059,18 +1079,17 @@ class QMCResult(VertexEvaluator):
         Delta_tau_interp = interp1d(np.linspace(0, self.beta, self.Delta_tau.shape[0]),
             self.Delta_tau, axis=0)
 
-        taus_sp = self.basis_f.sampling_points_tau(self.basis_f.dim()-1)
-        Delta_tau_sp = Delta_tau_interp(taus_sp)
-        all_l = np.arange(self.basis_f.dim())
-        Ftau = self.basis_f.Ultau(all_l[:,None], taus_sp[None,:]).T
-        regularizer = self.basis_f.Sl(all_l)
+        smpl_tau_f = irbasis3.TauSampling(self.basis_f)
+        Delta_tau_sp = Delta_tau_interp(smpl_tau_f.sampling_points)
+        Ftau = self.basis_f.u(smpl_tau_f.sampling_points).T
+        regularizer = self.basis_f.s
         tol = self.basis_f.Sl(self.basis_f.dim()-1)/self.basis_f.Sl(0)
         self.Delta_l = _stable_fit(Ftau*regularizer[None,:], Delta_tau_sp, tol)
         self.Delta_l *= regularizer[:,None,None]
         self.Delta_tau_rec = np.einsum('tl,lij->tij', Ftau, self.Delta_l)
 
         self.evalU0 = VertexEvaluatorU0(
-            self.nflavors, self.beta, self.basis_f, self.basis_b, self.hopping, self.Delta_l)
+            self.nflavors, self.beta, self.hopping, self.Delta_l, Lambda=Lambda, cutoff=cutoff)
 
     def get_asymU(self):
         return self.asymU
