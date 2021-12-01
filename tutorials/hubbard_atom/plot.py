@@ -1,7 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from irbasis_x import atom
-from irbasis_x.freq import box, to_ph_convention
 from alpscthyb.post_proc import QMCResult, VertexEvaluatorAtomED
 from alpscthyb import mpi
 

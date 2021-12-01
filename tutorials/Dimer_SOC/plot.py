@@ -1,7 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from irbasis_x import atom
-from irbasis_x.freq import box, to_ph_convention
 from alpscthyb.post_proc import QMCResult, VertexEvaluatorAtomED
 from alpscthyb.util import float_to_complex_array
 from alpscthyb import mpi
@@ -31,7 +29,7 @@ def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
     axes[2].set_ylabel(r"Abs")
 
     for ax in axes:
-        ax.set_xlim([000,600])
+        #ax.set_xlim([000,600])
         ax.legend()
     fig.tight_layout()
     fig.savefig(name+'.eps')
@@ -45,6 +43,9 @@ ed = VertexEvaluatorAtomED(res.nflavors, res.beta, res.hopping, res.get_asymU())
 # pyed data
 with h5py.File('results/pyed.h5', 'r') as h5:
     giv_ed = float_to_complex_array(h5['/G/bl/data'][()])
+
+# swap spin and orbital
+giv_ed = giv_ed.reshape((-1, 2, 2, 2, 2)).transpose((0, 2, 1, 4, 3)).reshape((-1, 4, 4))
 
 # Fermionic sampling frequencies
 wfs = 2*np.arange(-giv_ed.shape[0]//2, giv_ed.shape[0]//2) + 1
@@ -79,31 +80,3 @@ plot_comparison(
     giv,
     giv_ed,
     "giv_SIE", label1='SIE', label2='ED')
-
-# Sigma
-#plot_comparison(
-    #sigma_iv,
-    #sigma_iv_legendre,
-    #"sigma", label1='SIE', label2='Legendre')
-#
-## G(iv)
-#nflavors = res.nflavors
-#
-## ED data
-#giv_ref = ed.compute_giv(wfs)
-#g0iv_ref = ed.compute_g0iv(wfs)
-#
-#sigma_ref = np.zeros_like(giv_ref)
-#for i in range(sigma_ref.shape[0]):
-    #sigma_ref[i,:,:] = \
-        #np.linalg.inv(g0iv_ref[i,:,:]) - np.linalg.inv(giv_ref[i,:,:])
-
-#plot_comparison(
-    #giv,
-    #giv_legendre,
-    #"giv", label1='SIE', label2='Legendre')
-#
-#plot_comparison(
-    #giv,
-    #giv_ref,
-    #"giv_ed", label1='SIE', label2='ED')
