@@ -47,7 +47,7 @@ with open(args.seedname + "_sigma_iw.txt", "w") as f:
             print(w//2,
                 sigma_iv[idx_w,i,j].real,
                 sigma_iv[idx_w,i,j].imag,
-                sigma_iv_legendre[idx_w,i,j].real,
-                sigma_iv_legendre[idx_w,i,j].imag,
+                #sigma_iv_legendre[idx_w,i,j].real,
+                #sigma_iv_legendre[idx_w,i,j].imag,
                 file=f
             )
