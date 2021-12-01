@@ -1,0 +1,21 @@
+1) Checkout the develop_v2
+> git clone https://github.com/ALPSCore/CT-HYB.git
+> git checkout develop_v2
+
+2) Build the code (cmake options are the same as the old one)
+
+3) In the repository you have checked out, you will see two examples. For the Hubbard atom, you can generate input files and run the code as follows.
+> cd CT-HYB/tutorials/hubbard_atom
+> sbatch job.sh # Inside the job script, you can see how it works
+
+4) Evaluate the self-energy from QMC data in the output file
+>  python3 ../read_sigma.py input 100
+In the above, we evaluate the self-energy for 100 positive and 100 negative frequencies.
+Then, the evaluated result will be stored in input_sigma_iw.txt.
+
+The input parameters for the new code are slightly different from the old one.
+
+1) "model.spin" and “model.sites" have retired.
+2) “model.flavors” has been introduced (, which is equal to 2 * num of orbitals)
+3) We do not have to specify the number of Matsubara frequencies because the self-energy can be evaluated with an arbitrary number of frequencies in the post processing.
+
