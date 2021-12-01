@@ -41,9 +41,8 @@ beta = res.beta
 ed = VertexEvaluatorAtomED(res.nflavors, res.beta, res.hopping, res.get_asymU())
 
 # Fermionic sampling frequencies
-vsample = res.basis_f.wsample
-wfs = res.basis_f.wsample
-wbs = res.basis_b.wsample
+wfs = res.wsample_f
+wbs = res.wsample_b
 wsample_ffff = box(4, 3, return_conv='full', ravel=True)
 wsample_ph = to_ph_convention(*wsample_ffff)
 
@@ -57,16 +56,16 @@ wsample_fb = box_fb(8, 9)
 
 #SIE
 gir_SIE = res.compute_gir_SIE()
-giv = res.compute_giv_SIE(vsample)
-sigma_iv = res.compute_sigma_iv(giv, vsample)
+giv = res.compute_giv_SIE(wfs)
+sigma_iv = res.compute_sigma_iv(giv, wfs)
 
 #Legendre
-giv_legendre = res.compute_giv_from_legendre(vsample)
-sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, vsample)
+giv_legendre = res.compute_giv_from_legendre(wfs)
+sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, wfs)
 
 # Mixed
-giv_mix = res.compute_giv(vsample)
-sigma_iv_mix = res.compute_sigma_iv(giv_mix, vsample)
+giv_mix = res.compute_giv(wfs)
+sigma_iv_mix = res.compute_sigma_iv(giv_mix, wfs)
 
 # v_{ab}
 print("v_ab: ", res.compute_v())
@@ -75,8 +74,8 @@ print("v_ab: ", res.compute_v())
 nflavors = res.nflavors
 
 # ED data
-giv_ref = ed.compute_giv(vsample)
-g0iv_ref = ed.compute_g0iv(vsample)
+giv_ref = ed.compute_giv(wfs)
+g0iv_ref = ed.compute_g0iv(wfs)
 
 sigma_ref = np.zeros_like(giv_ref)
 for i in range(sigma_ref.shape[0]):
