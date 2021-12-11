@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from irbasis_x import atom
+from irbasis_x.freq import box, to_ph_convention
 from alpscthyb.post_proc import QMCResult, VertexEvaluatorAtomED
-from alpscthyb.util import float_to_complex_array
 from alpscthyb import mpi
-import h5py
 
 
 def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
@@ -13,12 +13,12 @@ def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
     if ref is not None:
         ref = np.moveaxis(ref, 0, -1).ravel()
     fig, axes = plt.subplots(3, 1, figsize=(5,10))
-    axes[0].plot(qmc.ravel().real, marker='+', ls='', label=label1)
+    axes[0].semilogy(np.abs(qmc.ravel().real), marker='+', ls='', label=label1)
     if ref is not None:
-        axes[0].plot(ref.ravel().real, marker='x', ls='', label=label2)
-    axes[1].plot(qmc.ravel().imag, marker='+', ls='', label=label1)
+        axes[0].semilogy(np.abs(ref.ravel().real), marker='x', ls='', label=label2)
+    axes[1].semilogy(np.abs(qmc.ravel().imag), marker='+', ls='', label=label1)
     if ref is not None:
-        axes[1].plot(ref.ravel().imag, marker='x', ls='', label=label2)
+        axes[1].semilogy(np.abs(ref.ravel().imag), marker='x', ls='', label=label2)
     axes[0].set_ylabel(r"Re")
     axes[1].set_ylabel(r"Im")
 
@@ -29,7 +29,7 @@ def plot_comparison(qmc, ref, name, label1='QMC', label2='ref'):
     axes[2].set_ylabel(r"Abs")
 
     for ax in axes:
-        #ax.set_xlim([000,600])
+        ax.set_xlim([0,100])
         ax.legend()
     fig.tight_layout()
     fig.savefig(name+'.eps')
@@ -40,17 +40,19 @@ beta = res.beta
 
 ed = VertexEvaluatorAtomED(res.nflavors, res.beta, res.hopping, res.get_asymU())
 
-# pyed data
-with h5py.File('results/pyed.h5', 'r') as h5:
-    giv_ed = float_to_complex_array(h5['/G/bl/data'][()])
-
-# swap spin and orbital
-giv_ed = giv_ed.reshape((-1, 2, 2, 2, 2)).transpose((0, 2, 1, 4, 3)).reshape((-1, 4, 4))
-
 # Fermionic sampling frequencies
-wfs = 2*np.arange(-giv_ed.shape[0]//2, giv_ed.shape[0]//2) + 1
-sigma_iv_ed = res.compute_sigma_iv(giv_ed, wfs)
+wfs = res.wsample_f
+wbs = res.wsample_b
+wsample_ffff = box(4, 3, return_conv='full', ravel=True)
+wsample_ph = to_ph_convention(*wsample_ffff)
 
+# Fermion-boson frequency box
+def box_fb(nf, nb):
+    wf = 2*np.arange(-nf,nf)+1
+    wb = 2*np.arange(-nb,nb)
+    v, w = np.broadcast_arrays(wf[:,None], wb[None,:])
+    return v.ravel(), w.ravel()
+wsample_fb = box_fb(8, 9)
 
 #SIE
 gir_SIE = res.compute_gir_SIE()
@@ -61,22 +63,41 @@ sigma_iv = res.compute_sigma_iv(giv, wfs)
 giv_legendre = res.compute_giv_from_legendre(wfs)
 sigma_iv_legendre = res.compute_sigma_iv(giv_legendre, wfs)
 
-plot_comparison(
-    sigma_iv,
-    sigma_iv_ed,
-    "sigma_SIE", label1='SIE', label2='ED')
+# Mixed
+giv_mix = res.compute_giv(wfs)
+sigma_iv_mix = res.compute_sigma_iv(giv_mix, wfs)
+
+# v_{ab}
+print("v_ab: ", res.compute_v())
+
+# G(iv)
+nflavors = res.nflavors
+
+# ED data
+giv_ref = ed.compute_giv(wfs)
+g0iv_ref = ed.compute_g0iv(wfs)
+
+sigma_ref = np.zeros_like(giv_ref)
+for i in range(sigma_ref.shape[0]):
+    sigma_ref[i,:,:] = \
+        np.linalg.inv(g0iv_ref[i,:,:]) - np.linalg.inv(giv_ref[i,:,:])
 
 plot_comparison(
-    sigma_iv_legendre,
-    sigma_iv_ed,
-    "sigma_legendre", label1='Legendre', label2='ED')
+    sigma_iv,
+    sigma_ref,
+    "sigma_ed", label1='SIE', label2='ED')
+
+plot_comparison(
+    giv_mix,
+    giv_ref,
+    "giv_mix", label1='Mix', label2='ED')
 
 plot_comparison(
     giv_legendre,
-    giv_ed,
+    giv_ref,
     "giv_legendre", label1='Legendre', label2='ED')
 
 plot_comparison(
     giv,
-    giv_ed,
+    giv_ref,
     "giv_SIE", label1='SIE', label2='ED')
