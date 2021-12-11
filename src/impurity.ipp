@@ -34,14 +34,16 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.n_non_worm_meas",
                    10,
                    "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
-          //Single-particle GF
-      .define<int>(           "measurement.G1.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
-      .define<int>(           "measurement.G1.n_tau", 2000, "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
-      .define<int>(           "measurement.G1.n_matsubara", 2000, "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
-      .define<int>(           "measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
-      .define<int>(           "measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
-      .define<int>(           "measurement.G1.vartheta.num_rw", 1, "Number of reweighting measurements (>=1)")
-      .define<double>(        "measurement.G1.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
+          //Single-particle GF (Legendre)
+      .define<int>(   "measurement.G1.legendre.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
+      .define<int>(   "measurement.G1.legendre.n_tau", 2000, "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
+      .define<int>(   "measurement.G1.legendre.n_matsubara", 2000, "G(i omega_n) is computed on a uniform mesh of measurement.G1.n_matsubara frequencies.")
+      .define<int>(   "measurement.G1.legendre.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
+      .define<int>(   "measurement.G1.legendre.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
+      .define<double>("measurement.G1.legendre.aux_field", 1e-5, "Auxially field for avoiding a singular matrix")
+      
+      .define<int>(    "measurement.G1.vartheta.num_rw", 1, "Number of reweighting measurements (>=1)")
+      .define<double>( "measurement.G1.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
           //Equal-time single-particle GF
       //.define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
       .define<int>("measurement.equal_time_G1.num_ins", 10, "Number of insertion measurements")
@@ -92,6 +94,9 @@ HybridizationSimulation<IMP_MODEL>::get_defined_worm_spaces(const parameters_typ
   active_worm_spaces.push_back(ConfigSpaceEnum::G1);
   active_worm_spaces.push_back(ConfigSpaceEnum::vartheta);
   active_worm_spaces.push_back(ConfigSpaceEnum::Equal_time_G1);
+  if (parameters["measurement.G2.legendre.on"] != 0) {
+    active_worm_spaces.push_back(ConfigSpaceEnum::G2);
+  }
   if (parameters["measurement.G2.SIE.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::G2);
     active_worm_spaces.push_back(ConfigSpaceEnum::vartheta);
@@ -318,11 +323,11 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
                                         static_cast<double>(sliding_window.get_operators().size()) * mc_config.sign);
       break;
 
-    case ConfigSpaceEnum::G1:
-      p_G1_legendre_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G1.max_matrix_size"],
-                                 par["measurement.G1.aux_field"]
-      );
-      break;
+    //case ConfigSpaceEnum::G1:
+      //p_G1_legendre_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G1.max_matrix_size"],
+                                 //par["measurement.G1.aux_field"]
+      //);
+      //break;
   }
 
   if (worm_meas.find(mc_config.current_config_space()) != worm_meas.end()) {

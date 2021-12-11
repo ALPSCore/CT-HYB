@@ -1,6 +1,6 @@
 #include "sparse_sampling.hpp"
-#include "measurement.hpp"
-#include "measurement_old.hpp"
+#include "measurement_legendre.hpp"
+#include "sparse_measurement.hpp"
 #include "worm_meas.hpp"
 #include "g1.hpp"
 #include "vartheta.hpp"

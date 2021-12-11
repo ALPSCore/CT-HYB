@@ -1,7 +1,5 @@
-#include "measurement.hpp"
-#include "measurement.ipp"
-#include "measurement_old.hpp"
-#include "measurement_old.ipp"
+#include "sparse_measurement.hpp"
+#include "sparse_measurement.ipp"
 
 typedef SlidingWindowManager<REAL_EIGEN_BASIS_MODEL> SW_REAL_MATRIX;
 typedef SlidingWindowManager<COMPLEX_EIGEN_BASIS_MODEL> SW_COMPLEX_MATRIX;
@@ -86,18 +84,5 @@ void make_two_freqs_list(
   }
 }
 
-#undef PP_SCALAR
-#undef PP_EXTENDED_SCALAR
-#undef PP_SW
-#define PP_SCALAR double
-#define PP_EXTENDED_SCALAR EXTENDED_REAL
-#define PP_SW SW_REAL_MATRIX
-#include "measurement_explicit.def"
-
-#undef PP_SCALAR
-#undef PP_EXTENDED_SCALAR
-#undef PP_SW
-#define PP_SCALAR std::complex<double>
-#define PP_EXTENDED_SCALAR EXTENDED_COMPLEX
-#define PP_SW SW_COMPLEX_MATRIX
-#include "measurement_explicit.def"
+template class G2SparseMeasurement<double, SW_REAL_MATRIX>;
+template class G2SparseMeasurement<std::complex<double>, SW_COMPLEX_MATRIX>;

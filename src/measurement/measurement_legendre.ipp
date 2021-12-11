@@ -1,11 +1,10 @@
-#include "./measurement_old.hpp"
+#include "./measurement_legendre.hpp"
 
-template<typename SCALAR, int Rank>
-void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<SCALAR> &mc_config,
-                                                 alps::accumulators::accumulator_set &measurements,
-                                                 alps::random01 &random,
-                                                 int max_num_ops,
-                                                 double eps) {
+template<typename SCALAR, typename SW_TYPE, int Rank>
+void GLegendreMeasurement<SCALAR, SW_TYPE, Rank>::measure(
+      const MonteCarloConfiguration<SCALAR> &mc_config,
+      const SW_TYPE &sliding_window,
+      alps::accumulators::accumulator_set &measurements) {
   typedef typename ExtendedScalar<SCALAR>::value_type EXTENDED_SCALAR;
   typedef operator_container_t::iterator Iterator;
   typedef Eigen::Matrix<SCALAR, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
@@ -47,7 +46,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
         D(i, j) = p_gf->operator()(worm_ops[2 * i], worm_ops[2 * j + 1]);
       } else {
         //avoid a singular matrix
-        D(i, j) = eps * random();
+        D(i, j) = eps_ * random();
       }
     }
   }
@@ -69,7 +68,7 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
   const SCALAR weight_rat = det_rat;
 
   //TO DO: move this to a separated function
-  if (pert_order + Rank > max_num_ops) {
+  if (pert_order + Rank > max_num_ops_) {
     const int num_ops = pert_order + Rank;
     std::vector<bool> is_row_active(num_ops + n_aux_lines, false), is_col_active(num_ops + n_aux_lines, false);
     //always choose the original worm position for detailed balance condition
@@ -79,15 +78,15 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
       is_row_active[is_row_active.size() - 1 - i] = true;
       is_col_active[is_col_active.size() - 1 - i] = true;
     }
-    for (int i = 0; i < max_num_ops - Rank; ++i) {
+    for (int i = 0; i < max_num_ops_ - Rank; ++i) {
       is_row_active[i] = true;
       is_col_active[i] = true;
     }
-    MyRandomNumberGenerator rnd(random);
+    MyRandomNumberGenerator rnd(*p_rng_);
     std::random_shuffle(is_row_active.begin(), is_row_active.begin() + pert_order, rnd);
     std::random_shuffle(is_col_active.begin(), is_col_active.begin() + pert_order, rnd);
-    assert(boost::count(is_col_active, true) == max_num_ops + n_aux_lines);
-    assert(boost::count(is_row_active, true) == max_num_ops + n_aux_lines);
+    assert(boost::count(is_col_active, true) == max_num_ops_ + n_aux_lines);
+    assert(boost::count(is_row_active, true) == max_num_ops_ + n_aux_lines);
 
     {
       std::vector<psi> cdagg_ops_reduced, c_ops_reduced;
@@ -101,13 +100,13 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
       }
       std::swap(cdagg_ops_reduced, cdagg_ops_new);
       std::swap(c_ops_reduced, c_ops_new);
-      assert(cdagg_ops_new.size() == max_num_ops);
-      assert(c_ops_new.size() == max_num_ops);
+      assert(cdagg_ops_new.size() == max_num_ops_);
+      assert(c_ops_new.size() == max_num_ops_);
     }
 
     {
       const int mat_size = M.size1();
-      alps::fastupdate::ResizableMatrix<SCALAR> M_reduced(max_num_ops + n_aux_lines, max_num_ops + n_aux_lines, 0.0);
+      alps::fastupdate::ResizableMatrix<SCALAR> M_reduced(max_num_ops_ + n_aux_lines, max_num_ops_ + n_aux_lines, 0.0);
       int j_reduced = 0;
       for (int j = 0; j < mat_size; ++j) {
         if (!is_col_active[j]) {
@@ -122,12 +121,12 @@ void GMeasurement<SCALAR, Rank>::measure_via_hyb(const MonteCarloConfiguration<S
           ++ i_reduced;
         }
         ++ j_reduced;
-        assert(i_reduced == max_num_ops + n_aux_lines);
+        assert(i_reduced == max_num_ops_ + n_aux_lines);
       }
-      assert(j_reduced == max_num_ops + n_aux_lines);
+      assert(j_reduced == max_num_ops_ + n_aux_lines);
       std::swap(M, M_reduced);
-      assert(M.size1() == max_num_ops + n_aux_lines);
-      assert(M.size2() == max_num_ops + n_aux_lines);
+      assert(M.size1() == max_num_ops_ + n_aux_lines);
+      assert(M.size2() == max_num_ops_ + n_aux_lines);
     }
   }
 

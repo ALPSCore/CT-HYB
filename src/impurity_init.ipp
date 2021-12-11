@@ -57,12 +57,6 @@ void HybridizationSimulation<IMP_MODEL>::create_observables() {
   if (par["measurement.two_time_G2.on"] != 0) {
     create_observable<COMPLEX, SimpleRealVectorObservable>(measurements, "Two_time_G2");
   }
-  if (p_G1_legendre_meas) {
-    p_G1_legendre_meas->create_alps_observable(measurements);
-  }
-  if (p_G2_legendre_meas) {
-    p_G2_legendre_meas->create_alps_observable(measurements);
-  }
 
   for (auto& w: worm_meas) {
     for (auto& elem: w.second) {
@@ -167,10 +161,6 @@ void HybridizationSimulation<IMP_MODEL>::create_custom_worm_updaters() {
               "G1_ins_rem_hyb", BETA, FLAVORS, std::shared_ptr<Worm>(new GWorm<1>())
           )
       );
-    p_G1_legendre_meas.reset(
-      new GMeasurement<SCALAR, 1>(FLAVORS, par["measurement.G1.n_legendre"], 0, BETA,
-                                  par["measurement.G1.max_num_data_accumulated"])
-    );
   }
 
   /*
@@ -242,6 +232,15 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
     register_worm_meas(ConfigSpaceEnum::G1, "g1",
       new G1Meas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, get_wsample_f())
     );
+
+    register_worm_meas(ConfigSpaceEnum::G1, "g1_legendre",
+      new GLegendreMeasurement<SCALAR,SW_TYPE,1>(&random, BETA, FLAVORS,
+        par["measurement.G1.legendre.n_legendre"], 0,
+        par["measurement.G1.legendre.max_matrix_size"],
+        par["measurement.G1.legendre.aux_field"],
+        par["measurement.G1.legendre.max_num_data_accumulated"]
+      )
+    );
   }
   
   // vartheta
@@ -306,6 +305,16 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
         ConfigSpaceEnum::G2,
         "h_corr",
         new HCorrMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS)
+      );
+    }
+    if (par["measurement.G2.legendre.n_legendre"] != 0) {
+      register_worm_meas(ConfigSpaceEnum::G2, "g2_legendre",
+        new GLegendreMeasurement<SCALAR,SW_TYPE,2>(
+          &random, BETA, FLAVORS,
+          par["measurement.G2.legendre.n_legendre"],
+          par["measurement.G2.legendre.n_bosonic_freq"], BETA,
+          par["measurement.G2.legendre.max_num_data_accumulated"]
+        )
       );
     }
   }

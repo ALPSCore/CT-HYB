@@ -107,7 +107,7 @@ set(SW_FILES
 )
 
 set(MEAS_FILES
-    ./src/measurement/measurement.cpp
+    ./src/measurement/sparse_measurement.cpp
     ./src/measurement/worm_meas.cpp
     ./src/measurement/g1.cpp
     ./src/measurement/vartheta.cpp
@@ -115,6 +115,7 @@ set(MEAS_FILES
     ./src/measurement/three_point_corr.cpp
     ./src/measurement/h_corr.cpp
     ./src/measurement/sparse_sampling.cpp
+    ./src/measurement/measurement_legendre.cpp
 )
 
 set(MOVES_FILES

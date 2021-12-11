@@ -233,10 +233,10 @@ class HybridizationSimulation: public alps::mcbase {
   SW_TYPE sliding_window;
 
   //Measurement of single-particle Green's functions by worm sampling
-  std::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_legendre_meas;
+  //std::shared_ptr<GMeasurement<SCALAR, 1> > p_G1_legendre_meas;
 
   //Measurement of two-particle Green's functions by worm sampling (Legendre basis)
-  std::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_legendre_meas;
+  //std::shared_ptr<GMeasurement<SCALAR, 2> > p_G2_legendre_meas;
 
   using WORM_MEAS_TYPE = WormMeas<SCALAR,SW_TYPE>;
   std::unordered_map<ConfigSpaceEnum::Type,std::unordered_map<std::string,std::unique_ptr<WORM_MEAS_TYPE>>> worm_meas;

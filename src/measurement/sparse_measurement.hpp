@@ -128,14 +128,14 @@ void make_two_freqs_list(
     std::unordered_map<std::pair<int,int>, int>& two_freqs_map);
 
 template<typename SCALAR, typename SW_TYPE>
-class G2Measurement : public WormMeas<SCALAR,SW_TYPE> {
+class G2SparseMeasurement : public WormMeas<SCALAR,SW_TYPE> {
 public:
     /**
      * Constructor
      *
      * @param num_flavors    the number of flavors
      */
-    G2Measurement(alps::random01 *p_rng, double beta, int num_flavors,
+    G2SparseMeasurement(alps::random01 *p_rng, double beta, int num_flavors,
       const std::vector<matsubara_freq_point_PH>& freqs,
       int max_matrix_size, double eps = 1E-5);
 
@@ -186,39 +186,4 @@ from_H_to_F(int freq_f1, int freq_f2, int freq_b) {
   return from_H_to_F(matsubara_freq_point_PH(freq_f1, freq_f2, freq_b));
 }
 
-
-/**
- * @brief Class for measurement of equal-time Green's function
- */
-template<typename SCALAR, int Rank>
-class EqualTimeGMeasurement {
- public:
-  /**
-   * Constructor
-   *
-   * @param num_flavors    the number of flavors
-   */
-  EqualTimeGMeasurement(int num_flavors) :
-      num_flavors_(num_flavors) {};
-
-  /**
-   * Measurement of equal-time single-particle GF
-   */
-  void measure_G1(MonteCarloConfiguration<SCALAR> &mc_config,
-              alps::accumulators::accumulator_set &measurements,
-              const std::string &str);
-
-  /**
-   * Measurement of equal-time two-particle GF
-   */
-  void measure_G2(MonteCarloConfiguration<SCALAR> &mc_config,
-               alps::accumulators::accumulator_set &measurements,
-               const std::string &str);
-
- private:
-  int num_flavors_;
-};
-
 std::vector<matsubara_freq_point_PH> read_matsubara_points(const std::string& file);
-
-//#include "measurement.ipp"

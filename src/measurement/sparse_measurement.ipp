@@ -1,4 +1,4 @@
-#include "./measurement.hpp"
+#include "./sparse_measurement.hpp"
 
 #include <boost/functional/hash.hpp>
 #include <alps/hdf5/complex.hpp>
@@ -591,7 +591,7 @@ void compute_G2(double beta,
 }
 
 template<typename SCALAR, typename SW_TYPE>
-G2Measurement<SCALAR,SW_TYPE>::G2Measurement(alps::random01 *p_rng, double beta, int num_flavors,
+G2SparseMeasurement<SCALAR,SW_TYPE>::G2SparseMeasurement(alps::random01 *p_rng, double beta, int num_flavors,
     const std::vector<matsubara_freq_point_PH>& freqs,
     int max_matrix_size, double eps):
     p_rng_(p_rng),
@@ -620,7 +620,7 @@ G2Measurement<SCALAR,SW_TYPE>::G2Measurement(alps::random01 *p_rng, double beta,
 };
 
 template<typename SCALAR, typename SW_TYPE>
-void G2Measurement<SCALAR,SW_TYPE>::measure(const MonteCarloConfiguration<SCALAR> &mc_config,
+void G2SparseMeasurement<SCALAR,SW_TYPE>::measure(const MonteCarloConfiguration<SCALAR> &mc_config,
     const SW_TYPE &sliding_window,
     alps::accumulators::accumulator_set &measurements) {
   Reconnections<SCALAR> reconnection(mc_config, *p_rng_, max_matrix_size_, 2, eps_);
@@ -631,7 +631,7 @@ void G2Measurement<SCALAR,SW_TYPE>::measure(const MonteCarloConfiguration<SCALAR
 }
 
 template<typename SCALAR, typename SW_TYPE>
-void G2Measurement<SCALAR, SW_TYPE>::save_results(const std::string& filename, const alps::mpi::communicator &comm) const {
+void G2SparseMeasurement<SCALAR, SW_TYPE>::save_results(const std::string& filename, const alps::mpi::communicator &comm) const {
   if (comm.rank() != 0) {
     return;
   }
@@ -649,33 +649,3 @@ void G2Measurement<SCALAR, SW_TYPE>::save_results(const std::string& filename, c
   oar["/G2H/wsample/1"] = vp;
   oar["/G2H/wsample/2"] = w;
 }
-
-
-template<typename SCALAR, int Rank>
-void
-EqualTimeGMeasurement<SCALAR, Rank>::measure_G1(MonteCarloConfiguration<SCALAR> &mc_config,
-                                                alps::accumulators::accumulator_set &measurements,
-                                                const std::string &str) {
-  boost::multi_array<std::complex<double>, 2> data;
-  data.resize(boost::extents[num_flavors_][num_flavors_]);
-  std::fill(data.origin(), data.origin() + data.num_elements(), 0.0);
-
-  data[mc_config.p_worm->get_flavor(0)][mc_config.p_worm->get_flavor(1)] = mc_config.sign;
-
-  measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data));
-};
-
-template<typename SCALAR, int Rank>
-void
-EqualTimeGMeasurement<SCALAR, Rank>::measure_G2(MonteCarloConfiguration<SCALAR> &mc_config,
-                                                alps::accumulators::accumulator_set &measurements,
-                                                const std::string &str) {
-  boost::multi_array<std::complex<double>, 4> data;
-  data.resize(boost::extents[num_flavors_][num_flavors_][num_flavors_][num_flavors_]);
-  std::fill(data.origin(), data.origin() + data.num_elements(), 0.0);
-
-  data[mc_config.p_worm->get_flavor(0)][mc_config.p_worm->get_flavor(1)]
-  [mc_config.p_worm->get_flavor(2)][mc_config.p_worm->get_flavor(3)] = mc_config.sign;
-
-  measure_simple_vector_observable<std::complex<double> >(measurements, str.c_str(), to_std_vector(data));
-};

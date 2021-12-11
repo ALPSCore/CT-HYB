@@ -1041,7 +1041,7 @@ class VertexEvaluatorED(VertexEvaluator):
         return mpi.allreduce(g4pt)
 
 class QMCResult(VertexEvaluator):
-    def __init__(self, p, verbose=False) -> None:
+    def __init__(self, p, verbose=False, Lambda=None, cutoff=1e-5):
         if verbose:
             print(p+'.out.h5')
     
@@ -1050,7 +1050,7 @@ class QMCResult(VertexEvaluator):
             self.nflavors = read_param(h5, 'model.flavors')
             self.sites = self.nflavors//2
         
-        super().__init__(beta)
+        super().__init__(beta, Lambda=Lambda, cutoff=cutoff)
 
         with h5py.File(p+'_wormspace_G1.out.h5','r') as h5:
             self.hopping = load_cmplx(h5, 'hopping')
@@ -1083,7 +1083,7 @@ class QMCResult(VertexEvaluator):
         Delta_tau_sp = Delta_tau_interp(smpl_tau_f.sampling_points)
         Ftau = self.basis_f.u(smpl_tau_f.sampling_points).T
         regularizer = self.basis_f.s
-        tol = self.basis_f.Sl(self.basis_f.dim()-1)/self.basis_f.Sl(0)
+        tol = self.basis_f.s[-1]/self.basis_f.s[0]
         self.Delta_l = _stable_fit(Ftau*regularizer[None,:], Delta_tau_sp, tol)
         self.Delta_l *= regularizer[:,None,None]
         self.Delta_tau_rec = np.einsum('tl,lij->tij', Ftau, self.Delta_l)
@@ -1101,7 +1101,7 @@ class QMCResult(VertexEvaluator):
         return self.compute_giv_SIE(wfs)
 
     def compute_Delta_tau(self, taus):
-        all_l = np.arange(self.basis_f.dim())
+        all_l = np.arange(self.basis_f.shape)
         Ftau = self.basis_f.Ultau(all_l[:,None], taus[None,:]).T
         return _einsum('tl,lij->tij', Ftau, self.Delta_l)
 
@@ -1110,8 +1110,7 @@ class QMCResult(VertexEvaluator):
         Reconstruct one-particle Green's function using SIE
         in fermionic IR
         """
-        vsample = self.basis_f.wsample
-        giv = self.compute_giv_SIE(vsample)
+        giv = self.compute_giv_SIE(self.wsample_f)
         return _fit_iw(self.basis_f, giv)
 
     def compute_giv_SIE(self, vsample):

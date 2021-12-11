@@ -1,6 +1,6 @@
 #include <boost/random.hpp>
-#include "../src/measurement/measurement.hpp"
-#include "../src/measurement/measurement.ipp"
+#include "../src/measurement/sparse_measurement.hpp"
+#include "../src/measurement/sparse_measurement.ipp"
 
 #include <gtest.h>
 #include "g2.hpp"
