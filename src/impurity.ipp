@@ -34,6 +34,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.n_non_worm_meas",
                    10,
                    "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
+      .define<int>(   "measurement.G1.SIE.on", 1, "Set non-zero value to activate symmetric improved estimators")
+      .define<int>(   "measurement.G1.direct.on", 1, "Set non-zero value to activate direct estimator")
           //Single-particle GF (Legendre)
       .define<int>(   "measurement.G1.legendre.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
       .define<int>(   "measurement.G1.legendre.n_tau", 2000, "G(tau) is computed on a uniform mesh of measurement.G1.n_tau + 1 points.")
@@ -45,7 +47,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>(    "measurement.G1.vartheta.num_rw", 1, "Number of reweighting measurements (>=1)")
       .define<double>( "measurement.G1.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
           //Equal-time single-particle GF
-      //.define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
+      .define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
       .define<int>("measurement.equal_time_G1.num_ins", 10, "Number of insertion measurements")
           //Two-particle GF
       .define<double>(        "measurement.G2.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
@@ -91,11 +93,20 @@ template<typename IMP_MODEL>
 std::vector<ConfigSpaceEnum::Type>
 HybridizationSimulation<IMP_MODEL>::get_defined_worm_spaces(const parameters_type &parameters) {
   std::vector<ConfigSpaceEnum::Type> active_worm_spaces;
-  active_worm_spaces.push_back(ConfigSpaceEnum::G1);
-  active_worm_spaces.push_back(ConfigSpaceEnum::vartheta);
-  active_worm_spaces.push_back(ConfigSpaceEnum::Equal_time_G1);
+  if (parameters["measurement.G1.direct.on"] != 0) {
+    active_worm_spaces.push_back(ConfigSpaceEnum::G1);
+  }
+  if (parameters["measurement.G1.SIE.on"] != 0) {
+    active_worm_spaces.push_back(ConfigSpaceEnum::vartheta);
+  }
+  if (parameters["measurement.equal_time_G1.on"] != 0 || parameters["measurement.G1.SIE.on"] != 0) {
+    active_worm_spaces.push_back(ConfigSpaceEnum::Equal_time_G1);
+  }
   if (parameters["measurement.G2.legendre.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::G2);
+  }
+  if (parameters["measurement.equal_time_G2.on"] != 0) {
+    active_worm_spaces.push_back(ConfigSpaceEnum::Equal_time_G2);
   }
   if (parameters["measurement.G2.SIE.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::G2);

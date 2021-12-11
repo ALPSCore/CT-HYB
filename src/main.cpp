@@ -24,7 +24,6 @@
 #include "common/logger.hpp"
 #include "moves/worm.hpp"
 #include "measurement/all.hpp"
-#include "postprocess.hpp"
 #include "git.h"
 
 

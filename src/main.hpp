@@ -23,7 +23,6 @@
 #include <alps/utilities/mpi.hpp>
 #include "mc/mympiadapter.hpp"
 #endif
-#include "postprocess.hpp"
 
 int global_mpi_rank;
 

@@ -107,8 +107,9 @@ set(SW_FILES
 )
 
 set(MEAS_FILES
-    ./src/measurement/sparse_measurement.cpp
     ./src/measurement/worm_meas.cpp
+    ./src/measurement/sparse_measurement.cpp
+    ./src/measurement/equal_time_G.cpp
     ./src/measurement/g1.cpp
     ./src/measurement/vartheta.cpp
     ./src/measurement/two_point_corr.cpp

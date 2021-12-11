@@ -12,7 +12,6 @@
 
 #include "impurity.hpp"
 #include "mc/mympiadapter.hpp"
-#include "postprocess.hpp"
 #include "hdf5/boost_any.hpp"
 #include "measurement/all.hpp"
 #include "common/logger.hpp"
