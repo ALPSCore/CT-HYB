@@ -137,6 +137,8 @@ if (USE_QUAD_PRECISION)
     endif()
 endif()
 
+add_definitions("-D __INSTALL_PREFIX__=${CMAKE_INSTALL_PREFIX}")
+
 # Make static library
 add_library(common ${COMMON_LIB_FILES})
 target_link_libraries(common ${ALPSCore_LIBRARIES} ${Boost_LIBRARIES} ${EXTRA_LIBS})
@@ -159,6 +161,8 @@ target_link_libraries(hyb measurement moves sw model common ${ALPSCore_LIBRARIES
 #executable
 add_executable(hybmat ./src/main.cpp)
 target_link_libraries(hybmat hyb)
+
+install(FILES data/irbasis.h5 DESTINATION share)
 
 #add_executable(eval_g2 ./src/eval_g2.cpp)
 #target_link_libraries(eval_g2 hyb)
