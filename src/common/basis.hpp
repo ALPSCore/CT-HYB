@@ -95,10 +95,15 @@ class IrBasis : public OrthogonalBasis {
     size_(0),
     coeff_(std::sqrt(2/beta))
   {
+    std::vector<double> valid_Lambda {1e+1, 1e+2, 1e+3, 1e+4, 1e+5, 1e+6, 1e+7};
+    if (std::find(valid_Lambda.begin(), valid_Lambda.end(), Lambda) == valid_Lambda.end()) {
+      throw std::runtime_error("Invalid Lambda!");
+    }
     if (data_file=="") {
       data_file = "__INSTALL_PREFIX__/share/irbasis.h5";
     }
-    p_basis_ = std::make_unique<irbasis::basis>(irbasis::load("F", Lambda, data_file));
+    auto basis = irbasis::load("F", Lambda, data_file);
+    p_basis_ = std::shared_ptr<irbasis::basis>(&basis);
     if (max_dim > p_basis_->dim()) {
       max_dim = p_basis_->dim();
     }
@@ -120,7 +125,7 @@ class IrBasis : public OrthogonalBasis {
 
  private:
   STATISTICS stat_;
-  std::unique_ptr<irbasis::basis> p_basis_;
+  std::shared_ptr<irbasis::basis> p_basis_;
   double beta_;
   int size_;
   double coeff_;

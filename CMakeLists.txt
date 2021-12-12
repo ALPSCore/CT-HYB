@@ -116,7 +116,7 @@ set(MEAS_FILES
     ./src/measurement/three_point_corr.cpp
     ./src/measurement/h_corr.cpp
     ./src/measurement/sparse_sampling.cpp
-    ./src/measurement/measurement_legendre.cpp
+    ./src/measurement/ortho_measurement.cpp
 )
 
 set(MOVES_FILES

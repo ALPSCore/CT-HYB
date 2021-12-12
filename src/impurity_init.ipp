@@ -167,17 +167,6 @@ void HybridizationSimulation<IMP_MODEL>::create_custom_worm_updaters() {
    * G2
    */
   if (is_worm_space_active(ConfigSpaceEnum::G2)) {
-    if (par["measurement.G2.legendre.on"].template as<int>() != 0) {
-      /*
-      p_G2_legendre_meas.reset(
-          new GMeasurement<SCALAR, 2>(FLAVORS,
-                                      par["measurement.G2.legendre.n_legendre"],
-                                      par["measurement.G2.legendre.n_bosonic_freq"], BETA,
-                                      par["measurement.G2.legendre.max_num_data_accumulated"]
-          )
-      );
-      */
-    }
     specialized_updaters["G2_ins_rem_hyb"] =
         std::shared_ptr<LocalUpdaterType>(
             new G2WormInsertionRemoverType(
@@ -233,14 +222,28 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
       new G1Meas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS, get_wsample_f())
     );
 
-    register_worm_meas(ConfigSpaceEnum::G1, "g1_legendre",
-      new GLegendreMeasurement<SCALAR,SW_TYPE,1>(&random, BETA, FLAVORS,
-        par["measurement.G1.legendre.n_legendre"], 0,
-        par["measurement.G1.legendre.max_matrix_size"],
-        par["measurement.G1.legendre.aux_field"],
-        par["measurement.G1.legendre.max_num_data_accumulated"]
-      )
-    );
+    if (par["measurement.G1.direct.legendre.on"] != 0) {
+      register_worm_meas(ConfigSpaceEnum::G1, "g1_legendre",
+        new GOrthoBasisMeasurement<SCALAR,SW_TYPE,1>(&random, BETA, FLAVORS,
+          std::make_shared<LegendreBasis>(FERMION, BETA, par["measurement.G1.direct.legendre.n_legendre"]),
+          par["measurement.G1.direct.max_matrix_size"],
+          par["measurement.G1.direct.aux_field"],
+          par["measurement.G1.direct.max_num_data_accumulated"]
+        )
+      );
+    }
+
+    if (par["measurement.G1.direct.IR.on"] != 0) {
+      register_worm_meas(ConfigSpaceEnum::G1, "g1_IR",
+        new GOrthoBasisMeasurement<SCALAR,SW_TYPE,1>(&random, BETA, FLAVORS,
+          std::make_shared<IrBasis>(FERMION, BETA, par["measurement.G1.IR.lambda"], par["measurement.G1.IR.max_dim"]),
+          par["measurement.G1.direct.max_matrix_size"],
+          par["measurement.G1.direct.aux_field"],
+          par["measurement.G1.direct.max_num_data_accumulated"]
+        )
+      );
+    }
+
   }
   
   // vartheta
@@ -307,16 +310,30 @@ void HybridizationSimulation<IMP_MODEL>::create_worm_meas() {
         new HCorrMeas<SCALAR,SW_TYPE>(&random, BETA, FLAVORS)
       );
     }
-    if (par["measurement.G2.legendre.n_legendre"] != 0) {
+
+    if (par["measurement.G2.direct.legendre.on"] != 0 &&
+        par["measurement.G2.direct.legendre.n_legendre"] != 0) {
       register_worm_meas(ConfigSpaceEnum::G2, "g2_legendre",
-        new GLegendreMeasurement<SCALAR,SW_TYPE,2>(
+        new GOrthoBasisMeasurement<SCALAR,SW_TYPE,2>(
           &random, BETA, FLAVORS,
-          par["measurement.G2.legendre.n_legendre"],
-          par["measurement.G2.legendre.n_bosonic_freq"], BETA,
-          par["measurement.G2.legendre.max_num_data_accumulated"]
+          std::make_shared<LegendreBasis>(FERMION, BETA, par["measurement.G2.direct.legendre.n_legendre"]),
+          par["measurement.G2.direct.IR.n_bosonic_freq"],
+          par["measurement.G2.direct.IR.legendre.max_num_data_accumulated"]
         )
       );
     }
+
+    if (par["measurement.G2.direct.IR.on"] != 0) {
+      register_worm_meas(ConfigSpaceEnum::G2, "g2_IR",
+        new GOrthoBasisMeasurement<SCALAR,SW_TYPE,2>(
+          &random, BETA, FLAVORS,
+          std::make_shared<IrBasis>(FERMION, BETA, par["measurement.G2.IR.lambda"], par["measurement.G2.IR.max_dim"]),
+          par["measurement.G2.direct.IR.n_bosonic_freq"],
+          par["measurement.G2.direct.IR.max_num_data_accumulated"]
+        )
+      );
+    }
+
   }
 
   // h

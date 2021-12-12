@@ -1,7 +1,7 @@
-#include "./measurement_legendre.hpp"
+#include "./ortho_measurement.hpp"
 
 template<typename SCALAR, typename SW_TYPE, int Rank>
-void GLegendreMeasurement<SCALAR, SW_TYPE, Rank>::measure(
+void GOrthoBasisMeasurement<SCALAR, SW_TYPE, Rank>::measure(
       const MonteCarloConfiguration<SCALAR> &mc_config,
       const SW_TYPE &sliding_window,
       alps::accumulators::accumulator_set &measurements) {
@@ -142,7 +142,7 @@ void GLegendreMeasurement<SCALAR, SW_TYPE, Rank>::measure(
 
   //measure by removal as we would do for the partition function expansion
   MeasureGHelper<SCALAR, Rank>::perform(beta_,
-                                        legendre_trans_,
+                                        p_basis_,
                                         num_freq_,
                                         mc_config.sign,
                                         weight_rat,
@@ -166,7 +166,7 @@ void GLegendreMeasurement<SCALAR, SW_TYPE, Rank>::measure(
 //Measure G1 by removal in G1 space
 template<typename SCALAR>
 void MeasureGHelper<SCALAR, 1>::perform(double beta,
-                                        LegendreTransformer &legendre_trans,
+                                        std::shared_ptr<OrthogonalBasis> p_basis,
                                         int n_freq,
                                         SCALAR sign,
                                         SCALAR weight_rat_intermediate_state,
@@ -176,9 +176,13 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
                                         boost::multi_array<std::complex<double>, 3> &result) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
-  const int num_legendre = legendre_trans.num_legendre();
+  const int basis_dim = p_basis->dim();
 
-  std::vector<double> Pl_vals(num_legendre);
+  std::vector<double> Ul_vals(basis_dim);
+  std::vector<double> inv_norm2(basis_dim);
+  for (auto l=0; l<basis_dim; ++l) {
+    inv_norm2[l] = 1/p_basis->norm2(l);
+  }
 
   std::vector<psi>::const_iterator it1, it2;
   const int mat_size = M.size1();
@@ -219,10 +223,9 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 
       const int flavor_a = it1->flavor();
       const int flavor_c = it2->flavor();
-      const double x = 2 * argument * temperature - 1.0;
-      legendre_trans.compute_legendre(x, Pl_vals);
-      for (int il = 0; il < num_legendre; ++il) {
-        result[flavor_a][flavor_c][il] += scale_fact * coeffs[k][l] * legendre_trans.get_sqrt_2l_1()[il] * Pl_vals[il];
+      p_basis->value(argument, Ul_vals);
+      for (int il = 0; il < basis_dim; ++il) {
+        result[flavor_a][flavor_c][il] += scale_fact * coeffs[k][l] * inv_norm2[il] * Ul_vals[il];
       }
     }
   }
@@ -231,7 +234,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
 //Measure G2 by removal in G2 space
 template<typename SCALAR>
 void MeasureGHelper<SCALAR, 2>::perform(double beta,
-                                        LegendreTransformer &legendre_trans,
+                                        std::shared_ptr<OrthogonalBasis> p_basis,
                                         int n_freq,
                                         SCALAR sign,
                                         SCALAR weight_rat_intermediate_state,
@@ -241,7 +244,7 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
                                         boost::multi_array<std::complex<double>, 7> &result) {
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
-  const int num_legendre = legendre_trans.num_legendre();
+  const int basis_dim = p_basis->dim();
   const int num_phys_rows = creation_ops.size();
   const int n_aux_lines = 2;
   if (creation_ops.size() != annihilation_ops.size() || creation_ops.size() != M.size1() - n_aux_lines) {
@@ -249,18 +252,21 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
   }
 
   //Compute values of P
-  std::vector<double> sqrt_2l_1 = legendre_trans.get_sqrt_2l_1();
-  std::vector<double> sqrt_2l_1_p(sqrt_2l_1);
-  for (int il = 0; il < num_legendre; il += 2) {
-    sqrt_2l_1_p[il] *= -1;
+  std::vector<double> inv_norm2(basis_dim);
+  for (auto l=0; l<basis_dim; ++l){
+    inv_norm2[l] = 1/p_basis->norm2(l);
+  }
+  std::vector<double> inv_norm2_p(inv_norm2);
+  for (int il = 0; il < basis_dim; il += 2) {
+    inv_norm2_p[il] *= -1;
   }
 
   boost::multi_array<double, 3>
-      sqrt_2l_1_Pl(boost::extents[num_phys_rows][num_phys_rows][num_legendre]);//annihilator, creator, legendre
+      norm2_Ul(boost::extents[num_phys_rows][num_phys_rows][basis_dim]);//annihilator, creator, legendre
   boost::multi_array<double, 3>
-      sqrt_2l_1_Pl_p(boost::extents[num_phys_rows][num_phys_rows][num_legendre]);//annihilator, creator, legendre
+      norm2_Ul_p(boost::extents[num_phys_rows][num_phys_rows][basis_dim]);//annihilator, creator, legendre
   {
-    std::vector<double> Pl_tmp(num_legendre);
+    std::vector<double> Ul_value(basis_dim);
     for (int k = 0; k < num_phys_rows; k++) {
       for (int l = 0; l < num_phys_rows; l++) {
         double argument = annihilation_ops[k].time() - creation_ops[l].time();
@@ -269,11 +275,10 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
           argument += beta;
           arg_sign = -1.0;
         }
-        const double x = 2 * argument * temperature - 1.0;
-        legendre_trans.compute_legendre(x, Pl_tmp);
-        for (int il = 0; il < num_legendre; ++il) {
-          sqrt_2l_1_Pl[k][l][il] = arg_sign * Pl_tmp[il] * sqrt_2l_1[il];
-          sqrt_2l_1_Pl_p[k][l][il] = arg_sign * Pl_tmp[il] * sqrt_2l_1_p[il];
+        p_basis->value(argument, Ul_value);
+        for (int il = 0; il < basis_dim; ++il) {
+          norm2_Ul[k][l][il] = arg_sign * Ul_value[il] * inv_norm2[il];
+          norm2_Ul_p[k][l][il] = arg_sign * Ul_value[il] * inv_norm2_p[il];
         }
       }
     }
@@ -362,9 +367,9 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
             continue;
           }
           const SCALAR coeff = coeffs[a][b][c][d] * scale_fact;
-          for (int il = 0; il < num_legendre; ++il) {
-            for (int il_p = 0; il_p < num_legendre; ++il_p) {
-              const SCALAR coeff2 = coeff * sqrt_2l_1_Pl[a][b][il] * sqrt_2l_1_Pl_p[c][d][il_p];
+          for (int il = 0; il < basis_dim; ++il) {
+            for (int il_p = 0; il_p < basis_dim; ++il_p) {
+              const SCALAR coeff2 = coeff * norm2_Ul[a][b][il] * norm2_Ul_p[c][d][il_p];
               for (int im = 0; im < n_freq; ++im) {
                 result[flavor_a][flavor_b][flavor_c][flavor_d][il][il_p][im] += coeff2 * expiomega[a][d][im];
               }

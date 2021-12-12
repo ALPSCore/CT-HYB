@@ -49,6 +49,7 @@
 
 #include "common/wide_scalar.hpp"
 #include "common/logger.hpp"
+#include "common/basis.hpp"
 #include "model/operator.hpp"
 #include "model/atomic_model.hpp"
 

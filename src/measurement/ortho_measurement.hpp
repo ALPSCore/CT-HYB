@@ -17,6 +17,7 @@
 #include "../common/legendre.hpp"
 #include "../model/operator.hpp"
 #include "../moves/mc_config.hpp"
+#include "../common/basis.hpp"
 #include "worm_meas.hpp"
 
 void init_work_space(boost::multi_array<std::complex<double>, 3> &data, int num_flavors, int num_legendre, int num_freq);
@@ -28,7 +29,7 @@ void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_
 template<typename SCALAR, int RANK>
 struct MeasureGHelper {
   static void perform(double beta,
-                      LegendreTransformer &legendre_trans,
+                      std::shared_ptr<OrthogonalBasis> p_basis,
                       int n_freq,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
@@ -44,7 +45,7 @@ struct MeasureGHelper {
 template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 1> {
   static void perform(double beta,
-                      LegendreTransformer &legendre_trans,
+                      std::shared_ptr<OrthogonalBasis> p_basis,
                       int n_freq,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
@@ -60,7 +61,7 @@ struct MeasureGHelper<SCALAR, 1> {
 template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 2> {
   static void perform(double beta,
-                      LegendreTransformer &legendre_trans,
+                      std::shared_ptr<OrthogonalBasis> p_basis,
                       int n_freq,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
                       const std::vector<psi> &creation_ops,
@@ -74,7 +75,7 @@ struct MeasureGHelper<SCALAR, 2> {
  * @brief Class for measurement of Green's function using Legendre basis
  */
 template<typename SCALAR, typename SW_TYPE, int Rank>
-class GLegendreMeasurement : public WormMeas<SCALAR,SW_TYPE> {
+class GOrthoBasisMeasurement : public WormMeas<SCALAR,SW_TYPE> {
  public:
   /**
    * Constructor
@@ -84,19 +85,20 @@ class GLegendreMeasurement : public WormMeas<SCALAR,SW_TYPE> {
    * @param num_freq       the number of bosonic frequencies
    * @param beta           inverse temperature
    */
-  GLegendreMeasurement(alps::random01 *p_rng, double beta, int num_flavors, int num_legendre, int num_freq,
+  GOrthoBasisMeasurement(alps::random01 *p_rng, double beta, int num_flavors,
+      std::shared_ptr<OrthogonalBasis> p_basis, int num_freq,
       int max_num_ops, double eps = 1E-5, int max_num_data = 1) :
       p_rng_(p_rng),
       str_("G"+boost::lexical_cast<std::string>(Rank)),
       num_flavors_(num_flavors),
+      p_basis_(p_basis),
       num_freq_(num_freq),
       beta_(beta),
       max_num_ops_(max_num_ops),
       eps_(eps),
-      legendre_trans_(1, num_legendre),
       num_data_(0),
       max_num_data_(max_num_data) {
-    init_work_space(data_, num_flavors, num_legendre, num_freq);
+    init_work_space(data_, num_flavors, p_basis->dim(), num_freq);
   };
 
   /**
@@ -118,11 +120,11 @@ class GLegendreMeasurement : public WormMeas<SCALAR,SW_TYPE> {
   alps::random01 *p_rng_;
   std::string str_;
   int num_flavors_, num_freq_;
+  std::shared_ptr<OrthogonalBasis> p_basis_;
   double beta_;
   int max_num_ops_;
   double eps_;
-  LegendreTransformer legendre_trans_;
-  //flavor, ..., flavor, legendre, legendre, ..., legendre
+  //flavor, ..., flavor, freq_basis, freq_basis, ..., freq_basis
   boost::multi_array<std::complex<double>, 4 * Rank - 1> data_;
   int num_data_;
   int max_num_data_;//max number of data accumlated before passing data to ALPS

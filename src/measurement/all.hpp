@@ -1,6 +1,6 @@
 #include "worm_meas.hpp"
 #include "sparse_sampling.hpp"
-#include "measurement_legendre.hpp"
+#include "ortho_measurement.hpp"
 #include "sparse_measurement.hpp"
 #include "g1.hpp"
 #include "vartheta.hpp"
