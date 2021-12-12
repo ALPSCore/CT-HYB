@@ -185,5 +185,7 @@ add_gtest(test_sw "sw;model")
 add_gtest(test_moves "moves")
 add_gtest(test_meas "measurement;moves")
 
+add_custom_command(TARGET test_common POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_SOURCE_DIR}/data/irbasis.h5" $<TARGET_FILE_DIR:test_common>)
+
 #installation
 install (TARGETS hybmat RUNTIME DESTINATION bin)
