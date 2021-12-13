@@ -66,7 +66,7 @@ measurement.G1.n_legendre=50
 measurement.G1.n_tau=1000
 measurement.G1.n_matsubara=500
 
-measurement.G2.SIE.on = 1 
+measurement.Floc.on = 1 
 """
 
 with open('input.ini', 'w') as f:

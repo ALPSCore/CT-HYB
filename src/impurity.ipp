@@ -5,14 +5,16 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
   Base::define_parameters(parameters);
 
   //alps::define_convenience_parameters(parameters);
+  using dbl = double;
+  using str = std::string;
   parameters
       .description("Continous-time hybridization expansion impurity solver")
       .define < unsigned
   long > ("timelimit", "Total simulation time (in units of second)")
-      .define<double>("thermalization_time",
+      .define<dbl>("thermalization_time",
                       -1,
                       "Thermalization time (in units of second). The default value is 10 % of timelimit.")
-      .define<std::string>("outputfile",
+      .define<str>("outputfile",
                            alps::fs::remove_extensions(origin_name(parameters)) + ".out.h5",
                            "name of the output file")
       .define<int>("verbose", 0, "Verbose output for a non-zero value")
@@ -20,13 +22,13 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("sliding_window.min", 1, "Min number of windows")
           //Model definition
       .define<int>("model.flavors", "Number of flavors")
-      .define<double>("model.beta", "Inverse temperature")
+      .define<dbl>("model.beta", "Inverse temperature")
       .define<int>("model.n_tau_hyb",
                    "Hybridization function is defined on a uniform mesh of N_TAU + 1 imaginary points.")
           //Updates
       .define<int>("update.multi_pair_ins_rem", 2, "Perform 1, 2, ..., k-pair updates.")
       .define<int>("update.n_global_updates", 10, "Global updates are performed every N_GLOBAL_UPDATES updates.")
-      .define<std::string>("update.swap_vector", "", "Definition of global flavor-exchange updates.")
+      .define<str>("update.swap_vector", "", "Definition of global flavor-exchange updates.")
       .define<int>("update.single_operator_shift", 1, "Perform shifts of a single operator if a non-zero value is specified.")
       .define<int>("update.operator_pair_flavor_update", 1, "Perform changes of flavors of a pair of operators if a non-zero value is specified.")
       .define<int>("update.rebuild_inverse_matrix", 10, "Inverse of inverse matrix is rebuild from scratch to avoid accumulation of numerical errors. This specifies the interval in units of MC steps.")
@@ -34,67 +36,62 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>("measurement.n_non_worm_meas",
                    10,
                    "Non-worm measurements are performed every N_NON_WORM_MEAS updates.")
-          //IR parameter for measureing Single-particle GF
-      .define<double>("measurement.G1.IR.Lambda", 1000, "IR parameter Lambda")
-      .define<int>(   "measurement.G1.IR.max_dim",  50, "Max size of IR basis")
-          //Single-particle GF (Direct measurement)
-      .define<int>(   "measurement.G1.direct.on", 1, "Set non-zero value to activate direct estimator")
-      .define<double>("measurement.G1.direct.aux_field", 1.0, "Auxially field for avoiding a singular matrix in reconnection")
-      .define<int>(   "measurement.G1.direct.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
-          //Single-particle GF (Legendre)
-      .define<int>(   "measurement.G1.direct.legendre.on", 1, "Set non-zero value to activate measurement in Legendre")
-      .define<int>(   "measurement.G1.direct.legendre.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
-      .define<int>(   "measurement.G1.direct.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
-          //Single-particle GF (IR)
-      .define<int>(   "measurement.G1.direct.IR.on", 1, "Set non-zero value to activate measurement in IR")
-          //Single-particle GF (SIE)
-      .define<int>(   "measurement.G1.SIE.on", 1, "Set non-zero value to activate symmetric improved estimators")
-      .define<int>(   "measurement.G1.vartheta.num_rw", 1, "Number of reweighting measurements (>=1)")
-          //Equal-time single-particle GF
+      .define<dbl>("measurement.IR.Lambda", 1000, "IR parameter Lambda")
+       //Single-particle GF (Direct measurement)
+      .define<int>("measurement.G1.on", 1, "Set non-zero value to activate direct estimator")
+      .define<dbl>("measurement.G1.aux_field", 1.0, "Auxially field for avoiding a singular matrix in reconnection")
+      .define<int>("measurement.G1.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
+      .define<int>("measurement.G1.max_num_data_accumulated", 10, "Number of measurements before accumulated data are passed to ALPS library.")
+      .define<int>("measurement.G1.legendre.on", 1, "Set non-zero value to activate measurement in Legendre")
+      .define<int>("measurement.G1.legendre.n_legendre", 100, "Number of legendre polynomials for measuring G(tau)")
+      .define<int>("measurement.G1.IR.on", 1, "Set non-zero value to activate measurement in IR")
+      .define<int>("measurement.G1.IR.max_dim",  50, "Max size of IR basis")
+      //Self-energy
+      .define<int>("measurement.self_energy.on", 1, "Set non-zero value to measure the self-energy using symmetric improved estimators")
+      .define<int>("measurement.vartheta.num_rw", 1, "Number of reweighting measurements (>=1)")
+      //Equal-time single-particle GF
       .define<int>("measurement.equal_time_G1.on", 0, "Set a non-zero value to activate measurement.")
       .define<int>("measurement.equal_time_G1.num_ins", 10, "Number of insertion measurements")
           //Two-particle GF
           //IR parameter
-      .define<double>(        "measurement.G2.IR.Lambda", 1000, "IR parameter Lambda")
-      .define<int>(           "measurement.G2.IR.max_dim",  20, "Max size of IR basis")
-      .define<double>(        "measurement.G2.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
-      .define<int>(           "measurement.G2.matsubara.on", 0, "Set a non-zero value to activate Matsubara measurement of G2.")
-      .define<std::string>(   "measurement.G2.matsubara.frequencies_PH", "", "Text file containing a list of frequencies on which G2 is measured (in particle-hole convention)")
-      .define<int>(           "measurement.G2.matsubara.max_matrix_size", 20, "Max size of inverse matrix for measurement.")
-      .define<int>(           "measurement.G2.SIE.on", 0, "Set a non-zero value to activate symmetric improve estimators")
-      .define<int>(           "measurement.G2.SIE.nsample_two_point",   10, "Number of samples at each measurement of a two-point correlation function")
-      //.define<std::string>(   "measurement.G1.SIE.sampling_frequencies", "vsample.txt", "Text file containing sampling fermionic frequencies.")
-      .define<int>(           "measurement.G2.direct.legendre.on", 0, "Set a non-zero value to activate Legendre measurement of G2.")
-      .define<int>(           "measurement.G2.direct.legendre.n_legendre", 0, "Number of legendre polynomials for measurement")
-      .define<int>(           "measurement.G2.direct.legendre.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
-      .define<int>(           "measurement.G2.direct.legendre.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
-      .define<int>(           "measurement.G2.direct.legendre.max_num_data_accumulated", 1, "Number of measurements before accumulated data are passed to ALPS library.")
-      .define<int>(           "measurement.G2.direct.IR.on", 0, "Set a non-zero value to activate IR measurement of G2.")
-      .define<int>(           "measurement.G2.direct.IR.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
-      .define<int>(           "measurement.G2.direct.IR.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
-      .define<int>(           "measurement.G2.direct.IR.max_num_data_accumulated", 1, "Number of measurements before accumulated data are passed to ALPS library.")
-          //Two-time two-particle GF
+      .define<dbl>(        "measurement.G2.aux_field", 1.0, "Auxiliary field for avoiding a singular matrix")
+      //.define<int>(           "measurement.G2.matsubara.on", 0, "Set a non-zero value to activate Matsubara measurement of G2.")
+      //.define<str>(   "measurement.G2.matsubara.frequencies_PH", "", "Text file containing a list of frequencies on which G2 is measured (in particle-hole convention)")
+      //.define<int>(           "measurement.G2.matsubara.max_matrix_size", 20, "Max size of inverse matrix for measurement.")
+      .define<int>("measurement.G2.legendre.on", 0, "Set a non-zero value to activate Legendre measurement of G2.")
+      .define<int>("measurement.G2.legendre.n_legendre", 0, "Number of legendre polynomials for measurement")
+      .define<int>("measurement.G2.legendre.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
+      .define<int>("measurement.G2.legendre.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
+      .define<int>("measurement.G2.legendre.max_num_data_accumulated", 1, "Number of measurements before accumulated data are passed to ALPS library.")
+      .define<int>("measurement.G2.IR.on", 0, "Set a non-zero value to activate IR measurement of G2.")
+      .define<int>("measurement.G2.IR.max_dim",  20, "Max size of IR basis")
+      .define<int>("measurement.G2.IR.n_bosonic_freq", 20, "Number of bosonic frequencies for measurement")
+      .define<int>("measurement.G2.IR.max_matrix_size", 5, "Max size of inverse matrix for measurement.")
+      .define<int>("measurement.G2.IR.max_num_data_accumulated", 1, "Number of measurements before accumulated data are passed to ALPS library.")
+      .define<int>("measurement.Floc.on", 0, "Set a non-zero value to measure full vertex using symmetric improve estimators")
+      .define<int>("measurement.Floc.nsample_two_point",   10, "Number of samples at each measurement of a two-point correlation function")
+      //Two-time two-particle GF
       .define<int>("measurement.two_time_G2.on", 0, "Set a non-zero value to activate measurement.")
       .define<int>("measurement.two_time_G2.n_legendre",
                    50,
                    "Number of legendre coefficients for measuring two-time two-particle Green's function.")
-          //
-          //Equal-time two-particle GF
+      //Equal-time two-particle GF
       .define<int>("measurement.equal_time_G2.on", 0, "Set a non-zero value to activate measurement.")
           //
           //Density-density correlations
-      .define<std::string>("measurement.nn_corr.def",
-                           "",
-                           "Input file for definition of density-density correlation functions")
-      .define<int>("measurement.nn_corr.n_tau",
-                   0,
-                   "Number of imaginary time points for measurement (tau=0, ...., beta/2)")
-      .define<int>("measurement.nn_corr.n_def",
-                   0,
-                   "Number of density-density correlation functions")
+      //.define<str>("measurement.nn_corr.def",
+                           //"",
+                           //"Input file for definition of density-density correlation functions")
+      //.define<int>("measurement.nn_corr.n_tau",
+                   //0,
+                   //"Number of imaginary time points for measurement (tau=0, ...., beta/2)")
+      //.define<int>("measurement.nn_corr.n_def",
+                   //0,
+                   //"Number of density-density correlation functions")
       .define<int>("measurement.max_order_histogram",
                    1000,
                    "Expansion order (per flavor) up to which histogram is measured.");
+      ;
 
   IMP_MODEL::define_parameters(parameters);
 }
@@ -104,22 +101,22 @@ template<typename IMP_MODEL>
 std::vector<ConfigSpaceEnum::Type>
 HybridizationSimulation<IMP_MODEL>::get_defined_worm_spaces(const parameters_type &parameters) {
   std::vector<ConfigSpaceEnum::Type> active_worm_spaces;
-  if (parameters["measurement.G1.direct.on"] != 0) {
+  if (parameters["measurement.G1.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::G1);
   }
-  if (parameters["measurement.G1.SIE.on"] != 0) {
+  if (parameters["measurement.self_energy.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::vartheta);
   }
-  if (parameters["measurement.equal_time_G1.on"] != 0 || parameters["measurement.G1.SIE.on"] != 0) {
+  if (parameters["measurement.equal_time_G1.on"] != 0 || parameters["measurement.self_energy.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::Equal_time_G1);
   }
-  if (parameters["measurement.G2.direct.legendre.on"] != 0) {
+  if (parameters["measurement.G2.legendre.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::G2);
   }
   if (parameters["measurement.equal_time_G2.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::Equal_time_G2);
   }
-  if (parameters["measurement.G2.SIE.on"] != 0) {
+  if (parameters["measurement.Floc.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::G2);
     active_worm_spaces.push_back(ConfigSpaceEnum::vartheta);
     active_worm_spaces.push_back(ConfigSpaceEnum::lambda);
@@ -347,7 +344,7 @@ void HybridizationSimulation<IMP_MODEL>::measure_every_step() {
 
     //case ConfigSpaceEnum::G1:
       //p_G1_legendre_meas->measure_via_hyb(mc_config, measurements, random, par["measurement.G1.max_matrix_size"],
-                                 //par["measurement.G1.direct.aux_field"]
+                                 //par["measurement.G1.aux_field"]
       //);
       //break;
   }

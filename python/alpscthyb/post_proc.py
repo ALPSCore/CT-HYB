@@ -283,7 +283,7 @@ def postprocess_G1(h5, verbose=False, **kwargs):
             print("Reading G1IR...", end=" ")
         results['gIR'] = (w_vol/(sign * z_vol)) * read_cmplx_mc_result(h5, 'G1IR')['mean'].\
             reshape((nflavors,nflavors,-1)).transpose((2,0,1))
-        results["Lambda_IR_G1"] = h5["/parameters/measurement.G1.IR.Lambda"][()]
+        results["Lambda_IR_G1"] = h5["/parameters/measurement.IR.Lambda"][()]
         if verbose:
             print("Done!")
 
