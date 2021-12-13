@@ -6,10 +6,12 @@ typedef SlidingWindowManager<COMPLEX_EIGEN_BASIS_MODEL> SW_COMPLEX_MATRIX;
 
 void init_work_space(boost::multi_array<std::complex<double>, 3> &data, int num_flavors, int num_legendre, int num_freq) {
   data.resize(boost::extents[num_flavors][num_flavors][num_legendre]);
+  std::fill(data.origin(), data.origin() + data.num_elements(), 0.0);
 }
 
 void init_work_space(boost::multi_array<std::complex<double>, 7> &data, int num_flavors, int num_legendre, int num_freq) {
   data.resize(boost::extents[num_flavors][num_flavors][num_flavors][num_flavors][num_legendre][num_legendre][num_freq]);
+  std::fill(data.origin(), data.origin() + data.num_elements(), 0.0);
 }
 
 inline int to_old_convention(int i) {

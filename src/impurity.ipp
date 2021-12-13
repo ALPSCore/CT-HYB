@@ -39,7 +39,7 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<int>(   "measurement.G1.IR.max_dim",  50, "Max size of IR basis")
           //Single-particle GF (Direct measurement)
       .define<int>(   "measurement.G1.direct.on", 1, "Set non-zero value to activate direct estimator")
-      .define<double>("measurement.G1.direct.aux_field", 1e-5, "Auxially field for avoiding a singular matrix in reconnection")
+      .define<double>("measurement.G1.direct.aux_field", 1.0, "Auxially field for avoiding a singular matrix in reconnection")
       .define<int>(   "measurement.G1.direct.max_matrix_size", 100000, "Max size of inverse matrix for measurement.")
           //Single-particle GF (Legendre)
       .define<int>(   "measurement.G1.direct.legendre.on", 1, "Set non-zero value to activate measurement in Legendre")
@@ -113,7 +113,7 @@ HybridizationSimulation<IMP_MODEL>::get_defined_worm_spaces(const parameters_typ
   if (parameters["measurement.equal_time_G1.on"] != 0 || parameters["measurement.G1.SIE.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::Equal_time_G1);
   }
-  if (parameters["measurement.G2.legendre.on"] != 0) {
+  if (parameters["measurement.G2.direct.legendre.on"] != 0) {
     active_worm_spaces.push_back(ConfigSpaceEnum::G2);
   }
   if (parameters["measurement.equal_time_G2.on"] != 0) {

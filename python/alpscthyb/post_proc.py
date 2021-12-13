@@ -269,19 +269,23 @@ def postprocess_G1(h5, verbose=False, **kwargs):
     z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
 
     # Legendre
-    if verbose:
-        print("Reading gl...")
-    results['gl'] = (w_vol/(sign * z_vol)) * read_cmplx_mc_result(h5, 'G1')['mean'].\
-        reshape((nflavors,nflavors,-1)).transpose((2,0,1))
-
-    # Equal time
-    """
-    if exits_mc_result(h5, "Equal_time_G1_Re"):
+    if exits_mc_result(h5, "G1Legendre_Re"):
         if verbose:
-            print("Reading equal_time_G1...")
-        results['equal_time_G1'] =  (w_vol/(sign * z_vol * beta)) * \
-            read_cmplx_mc_result(h5, 'Equal_time_G1')['mean'].reshape((nflavors,nflavors))
-    """
+            print("Reading G1Legendre...", end=" ")
+        results['gl'] = (w_vol/(sign * z_vol)) * read_cmplx_mc_result(h5, 'G1Legendre')['mean'].\
+            reshape((nflavors,nflavors,-1)).transpose((2,0,1))
+        if verbose:
+            print("Done!")
+
+    # IR
+    if exits_mc_result(h5, "G1IR_Re"):
+        if verbose:
+            print("Reading G1IR...", end=" ")
+        results['gIR'] = (w_vol/(sign * z_vol)) * read_cmplx_mc_result(h5, 'G1IR')['mean'].\
+            reshape((nflavors,nflavors,-1)).transpose((2,0,1))
+        results["Lambda_IR_G1"] = h5["/parameters/measurement.G1.IR.Lambda"][()]
+        if verbose:
+            print("Done!")
 
     return results
 
@@ -412,9 +416,9 @@ class VertexEvaluator(object):
         self.beta = beta
         self.basis_f = load_irbasis('F', Lambda, self.beta, cutoff)
         self.basis_b = load_irbasis('B', Lambda, self.beta, cutoff)
-        self.wsample_f = irbasis3.MatsubaraSampling.default_sampling_points(self.basis_f)
-        self.wsample_b = irbasis3.MatsubaraSampling.default_sampling_points(self.basis_b)
-        self.smpl_taus = irbasis3.TauSampling.default_sampling_points(self.basis_f)
+        self.wsample_f = self.basis_f.default_matsubara_sampling_points
+        self.wsample_b = self.basis_b.default_matsubara_sampling_points
+        self.smpl_taus = self.basis_f.default_tau_sampling_points
     
     def _evaluate_iw(self, data_IR, wsample):
         if (wsample % 2 == 1).all():
@@ -1059,6 +1063,7 @@ class QMCResult(VertexEvaluator):
             self.U_tensor = load_cmplx(h5, 'U_tensor')
             # asymU: (1/4) U_{ikjl} d^dagger_i d^dagger_j d_l d_k
             self.asymU = 2.0 * mk_asymm(self.U_tensor.copy().transpose(0, 3, 1, 2))
+            
         
         # Read Monte Carlo data
         for ws_name, post_ in postprocessors.items():
@@ -1090,6 +1095,15 @@ class QMCResult(VertexEvaluator):
 
         self.evalU0 = VertexEvaluatorU0(
             self.nflavors, self.beta, self.hopping, self.Delta_l, Lambda=Lambda, cutoff=cutoff)
+        
+        # If G1 is measured in IR, set up an IR basis.
+        if hasattr(self, "gIR"):
+            self.basis_f_G1 = \
+                irbasis3.FiniteTempBasis(
+                    irbasis3.KernelFFlat(self.Lambda_IR_G1), "F", self.beta, eps=1e-15,
+                    max_size = self.gIR.shape[0]
+                    )
+            print(self.basis_f_G1.s.size, self.basis_f_G1.u.size, self.basis_f_G1.v.size, self.basis_f_G1.size)
 
     def get_asymU(self):
         return self.asymU
@@ -1146,12 +1160,19 @@ class QMCResult(VertexEvaluator):
             Sigma[ifreq, ...] = xi[ifreq,:,:] @ np.linalg.inv(giv[ifreq,:,:])
         return Sigma
     
-
     def compute_giv_from_legendre(self, vsample):
         vsample = check_fermionic(vsample)
         Tnl = compute_Tnl_sparse(vsample, self.gl.shape[0])
         giv = np.einsum('nl,lij->nij', Tnl, self.gl, optimize=True)
         return giv
+
+    def compute_giv_from_IR(self, vsample):
+        print("compute_from_legenre...")
+        vsample = check_fermionic(vsample)
+        smpl = irbasis3.MatsubaraSampling(self.basis_f_G1, sampling_points=vsample)
+        print("smpl", smpl.regularizer.size)
+        print("gIR", self.gIR.shape)
+        return smpl.evaluate(self.gIR, axis=0)
 
     def compute_eta(self, wfs, wbs):
         wfs = check_fermionic(wfs)

@@ -44,7 +44,7 @@ struct MeasureGHelper {
  */
 template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 1> {
-  static void perform(double beta,
+  static int perform(double beta,
                       std::shared_ptr<OrthogonalBasis> p_basis,
                       int n_freq,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
@@ -60,7 +60,7 @@ struct MeasureGHelper<SCALAR, 1> {
  */
 template<typename SCALAR>
 struct MeasureGHelper<SCALAR, 2> {
-  static void perform(double beta,
+  static int perform(double beta,
                       std::shared_ptr<OrthogonalBasis> p_basis,
                       int n_freq,
                       SCALAR sign, SCALAR weight_rat_intermediate_state,
@@ -85,11 +85,18 @@ class GOrthoBasisMeasurement : public WormMeas<SCALAR,SW_TYPE> {
    * @param num_freq       the number of bosonic frequencies
    * @param beta           inverse temperature
    */
-  GOrthoBasisMeasurement(alps::random01 *p_rng, double beta, int num_flavors,
-      std::shared_ptr<OrthogonalBasis> p_basis, int num_freq,
-      int max_num_ops, double eps = 1E-5, int max_num_data = 1) :
+  GOrthoBasisMeasurement(
+      alps::random01 *p_rng,
+      double beta,
+      int num_flavors,
+      std::shared_ptr<OrthogonalBasis> p_basis,
+      int num_freq,
+      int max_num_ops,
+      double eps = 1E-5,
+      int max_num_data = 1,
+      std::string name="G"+boost::lexical_cast<std::string>(Rank)) :
       p_rng_(p_rng),
-      str_("G"+boost::lexical_cast<std::string>(Rank)),
+      str_(name),
       num_flavors_(num_flavors),
       p_basis_(p_basis),
       num_freq_(num_freq),

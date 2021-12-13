@@ -32,6 +32,8 @@ class OrthogonalBasis {
 
   /** Returns values U_l(\tau) at tau (0 <= tau <= beta) */
   virtual void value(double tau, std::vector<double> &val) const = 0;
+
+  virtual void sanity_check() const {};
 };
 
 /**
@@ -75,6 +77,8 @@ class LegendreBasis : public OrthogonalBasis {
     }
   }
 
+  virtual void sanity_check() const {};
+
  private:
   STATISTICS stat_;
   double beta_;
@@ -100,14 +104,14 @@ class IrBasis : public OrthogonalBasis {
       throw std::runtime_error("Invalid Lambda!");
     }
     if (data_file=="") {
-      data_file = "__INSTALL_PREFIX__/share/irbasis.h5";
+      data_file = std::string(INSTALLPREFIX) + "/share/irbasis.h5";
     }
-    auto basis = irbasis::load("F", Lambda, data_file);
-    p_basis_ = std::shared_ptr<irbasis::basis>(&basis);
-    if (max_dim > p_basis_->dim()) {
-      max_dim = p_basis_->dim();
+    basis_ = irbasis::load("F", Lambda, data_file);
+    if (max_dim > basis_.dim()) {
+      max_dim = basis_.dim();
     }
     size_ = max_dim;
+    sanity_check();
   }
 
   inline double norm2(int l) const {return 1.0;}
@@ -119,13 +123,17 @@ class IrBasis : public OrthogonalBasis {
       throw std::runtime_error("Invalid size of val!");
     }
     for (auto l=0; l<size_; ++l) {
-      val[l] = coeff_ * p_basis_->ulx(l, x);
+      val[l] = coeff_ * basis_.ulx(l, x);
     }
   }
 
+  inline virtual void sanity_check() const {
+    assert(basis_.ulx_.data.extent(0) < 100000);
+  };
+
  private:
   STATISTICS stat_;
-  std::shared_ptr<irbasis::basis> p_basis_;
+  irbasis::basis basis_;
   double beta_;
   int size_;
   double coeff_;

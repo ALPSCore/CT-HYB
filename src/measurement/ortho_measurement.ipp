@@ -165,7 +165,7 @@ void GOrthoBasisMeasurement<SCALAR, SW_TYPE, Rank>::measure(
 
 //Measure G1 by removal in G1 space
 template<typename SCALAR>
-void MeasureGHelper<SCALAR, 1>::perform(double beta,
+int MeasureGHelper<SCALAR, 1>::perform(double beta,
                                         std::shared_ptr<OrthogonalBasis> p_basis,
                                         int n_freq,
                                         SCALAR sign,
@@ -177,6 +177,8 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
   const double temperature = 1. / beta;
   const int num_flavors = result.shape()[0];
   const int basis_dim = p_basis->dim();
+  assert(result.shape()[2] == basis_dim);
+  p_basis->sanity_check();
 
   std::vector<double> Ul_vals(basis_dim);
   std::vector<double> inv_norm2(basis_dim);
@@ -207,6 +209,9 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
     }
   }
 
+  if (norm == 0) {
+    return 0;
+  }
   double scale_fact = -1.0/(norm * beta);
   for (int k = 0; k < mat_size - 1; k++) {//the last one is aux fields
     (k == 0 ? it1 = annihilation_ops.begin() : it1++);
@@ -219,7 +224,7 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
       if (argument < 0) {
         argument += beta;
       }
-      assert(-0.01 < argument && argument < beta + 0.01);
+      assert(0 <= argument && argument <= beta);
 
       const int flavor_a = it1->flavor();
       const int flavor_c = it2->flavor();
@@ -229,11 +234,12 @@ void MeasureGHelper<SCALAR, 1>::perform(double beta,
       }
     }
   }
+  return 1;
 };
 
 //Measure G2 by removal in G2 space
 template<typename SCALAR>
-void MeasureGHelper<SCALAR, 2>::perform(double beta,
+int MeasureGHelper<SCALAR, 2>::perform(double beta,
                                         std::shared_ptr<OrthogonalBasis> p_basis,
                                         int n_freq,
                                         SCALAR sign,
@@ -345,6 +351,9 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
+  if (norm == 0) {
+    return 0;
+  }
 
   //Then, accumulate data
   const double scale_fact = 1.0/(norm * beta);
@@ -379,4 +388,5 @@ void MeasureGHelper<SCALAR, 2>::perform(double beta,
       }
     }
   }
+  return 1;
 };

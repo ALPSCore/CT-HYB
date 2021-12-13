@@ -77,8 +77,6 @@ find_package(Threads REQUIRED)
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DBOOST_DISABLE_ASSERTS -DNDEBUG")
 
-add_definitions(-D__INSTALL_PREFIX__=${CMAKE_INSTALL_PREFIX})
-
 #include directories
 set(CHYB_LIBRARY_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${MPI_CXX_INCLUDE_PATH} ${MPI_C_INCLUDE_PATH} ${CMAKE_SOURCE_DIR}/include) #rest taken care of by libraries dependencies
 include_directories(${CHYB_LIBRARY_INCLUDE_DIRS})
@@ -137,7 +135,10 @@ if (USE_QUAD_PRECISION)
     endif()
 endif()
 
-add_definitions("-D __INSTALL_PREFIX__=${CMAKE_INSTALL_PREFIX}")
+add_definitions("-D INSTALLPREFIX=\\\"${CMAKE_INSTALL_PREFIX}\\\"")
+
+#set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+#set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
 
 # Make static library
 add_library(common ${COMMON_LIB_FILES})

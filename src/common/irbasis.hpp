@@ -19,13 +19,6 @@
 #include <boost/math/constants/constants.hpp>
 #include <boost/math/special_functions/bessel.hpp>
 
-//debug
-//#include <chrono>
-//
-//#ifdef IRBASIS_USE_EIGEN3
-//#include <Eigen/Core>
-//#endif
-
 namespace irbasis {
 namespace mp = boost::multiprecision;
 typedef mp::number<mp::cpp_dec_float<30> > mpf;
@@ -40,9 +33,21 @@ class multi_array {
   friend class multi_array;
 
 public:
-  multi_array() : owner_(true), p_data_(NULL), num_elements_(0) {
+  multi_array() : owner_(true), p_data_(), num_elements_(0) {
     for (int i = 0; i < DIM; ++i) {
       extents_[i] = 0;
+    }
+  }
+
+  multi_array(const multi_array<T,DIM>& other) {
+    owner_ = true;
+    p_data_ = new T[other.num_elements_];
+    for (auto i=0; i<other.num_elements_; ++i) {
+      *(p_data_+i) = *(other.p_data_+i);
+    }
+    num_elements_ = other.num_elements_;
+    for (auto i=0; i<DIM; ++i) {
+      extents_[i] = other.extents_[i];
     }
   }
 
@@ -68,12 +73,6 @@ public:
     resize(dims);
   }
 
-  multi_array(const multi_array<T, DIM> &other) : p_data_(NULL) {
-    owner_ = true;
-    resize(&other.extents_[0]);
-    std::copy(other.origin(), other.origin() + other.num_elements(), origin());
-  }
-
   ~multi_array() {
     if (this->owner_) {
       delete[] p_data_;
@@ -85,7 +84,6 @@ public:
       throw std::logic_error("Error: assignment to a view is not supported.");
     }
 
-    this->owner_ = other.owner_;
     for (int i = 0; i < DIM; ++i) {
       this->extents_[i] = other.extents_[i];
     }
@@ -102,6 +100,7 @@ public:
       *(this->p_data_ + i) = *(other.p_data_ + i);
     }
 
+    this->owner_ = true;
     return *this;
   }
 
@@ -142,6 +141,11 @@ public:
     multi_array<T, DIM - 1> view;
     view.owner_ = false;
     std::size_t new_size = 1;
+    for (int i = 0; i < DIM; ++i) {
+      if (this->extents_[i] > 100000) {
+        throw std::runtime_error("Invalid shape!");
+      }
+    }
     for (int i = 0; i < DIM - 1; ++i) {
       view.extents_[i] = this->extents_[i + 1];
       new_size *= view.extents_[i];
@@ -382,8 +386,10 @@ std::size_t find_section(const multi_array<mpf, 1> &section_edges, double x) {
       section_edges.origin(),
       section_edges.origin() + section_edges.num_elements(),
       x) - section_edges.origin() - 1;
-
-  return std::min(idx, section_edges.num_elements() - 2);
+  auto r = std::min(idx, section_edges.num_elements() - 2);
+  assert(r >= 0);
+  assert(r < section_edges.extent(0));
+  return r;
 }
 
 inline
@@ -551,7 +557,6 @@ public:
     for (int p=0; p<np; ++p) {
       norm_coeff_[p] = std::sqrt(p + 0.5);
     }
-
   }
 
   /**
@@ -786,7 +791,7 @@ public:
   }
 
 
-protected:
+public://debug
   double Lambda_;
   int dim_;
   std::string statistics_;
@@ -798,9 +803,12 @@ protected:
   internal::multi_array<double, 2> deriv_mat_;
   std::vector<double> norm_coeff_;
 
-private:
+public://debug
   // Evaluate the value of function at given x
   double eval(double x, const internal::multi_array<double, 2> &data, const internal::multi_array<mpf, 1> &section_edges) const {
+    if (x < section_edges(0) || x > section_edges(section_edges.extent(0)-1)) {
+      throw std::runtime_error("Invalid x!");
+    }
     std::size_t section_idx = find_section(section_edges, x);
     return eval_impl(x, section_edges(section_idx), section_edges(section_idx+1), data.make_view(section_idx));
   };
