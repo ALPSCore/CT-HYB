@@ -289,6 +289,40 @@ def postprocess_G1(h5, verbose=False, **kwargs):
 
     return results
 
+
+def postprocess_G2(h5, verbose=False, **kwargs):
+    nflavors = kwargs['nflavors']
+
+    results = {}
+    sign = read_mc_result(h5, 'Sign')['mean']
+    w_vol = read_mc_result(h5, 'worm_space_volume_G2')['mean']
+    z_vol = read_mc_result(h5, 'Z_function_space_volume')['mean']
+
+    # Legendre
+    if exits_mc_result(h5, "G2Legendre_Re"):
+        if verbose:
+            print("Reading G2Legendre...", end=" ")
+        nl = h5["/parameters/measurement.G2.legendre.n_legendre"][()]
+        nwb = h5["/parameters/measurement.G2.legendre.n_bosonic_freq"][()]
+        results['G2Legendre'] = (w_vol/(sign * z_vol)) * read_cmplx_mc_result(h5, 'G2Legendre')['mean'].\
+            reshape(4*(nflavors,)+(nl,nl,nwb)).transpose((4,5,6,0,1,2,3))
+        if verbose:
+            print("Done!")
+
+    # IR
+    if exits_mc_result(h5, "G2IR_Re"):
+        if verbose:
+            print("Reading G2IR...", end=" ")
+        nwb = h5["/parameters/measurement.G2.IR.n_bosonic_freq"][()]
+        nl = int(np.sqrt(results['G2IR'].size // (nflavors**4 * nwb)))
+        results['G2IR'] = (w_vol/(sign * z_vol)) * read_cmplx_mc_result(h5, 'G2IR')['mean'].\
+            reshape(4*(nflavors,)+(nl,nl,nwb)).transpose((4,5,6,0,1,2,3))
+        results["Lambda_IR_G2"] = h5["/parameters/measurement.IR.Lambda"][()]
+        if verbose:
+            print("Done!")
+
+    return results
+
 def postprocess_vartheta(h5, verbose=False, **kwargs):
     nflavors = kwargs['nflavors']
     beta = kwargs['beta']
@@ -399,7 +433,7 @@ postprocessors = {
     'Equal_time_G1'  : postprocess_equal_time_G1,
     'lambda'         : postprocess_lambda,
     'varphi'         : postprocess_varphi,
-    #'G2'             : postprocess_G2,
+    'G2'             : postprocess_G2,
     'eta'            : postprocess_eta,
     'gamma'          : postprocess_gamma,
     'h'             : postprocess_h,
@@ -1103,7 +1137,14 @@ class QMCResult(VertexEvaluator):
                     irbasis3.KernelFFlat(self.Lambda_IR_G1), "F", self.beta, eps=1e-15,
                     max_size = self.gIR.shape[0]
                     )
-            print(self.basis_f_G1.s.size, self.basis_f_G1.u.size, self.basis_f_G1.v.size, self.basis_f_G1.size)
+
+        # If G2 is measured in IR, set up an IR basis.
+        if hasattr(self, "G2IR"):
+            self.basis_f_G2 = \
+                irbasis3.FiniteTempBasis(
+                    irbasis3.KernelFFlat(self.Lambda_IR_G2), "F", self.beta, eps=1e-15,
+                    max_size = self.G2Legendre.shape[0]
+                    )
 
     def get_asymU(self):
         return self.asymU
@@ -1203,6 +1244,27 @@ class QMCResult(VertexEvaluator):
         """ Compute vartheta(wfs) """
         wfs = check_fermionic(wfs)
         return legendre_to_matsubara(self.vartheta_legendre, wfs)
+    
+    def compute_G2_from_Legendre(self, wfs):
+        nl = self.G2Leegendre.shape[0]
+        phase1 = np.sqrt(2*np.arange(nl)+1.0)
+        phase2 = phase1.copy()
+        phase2[::2] *= -1
+        Ul = compute_Tnl_sparse(wfs, nl)
+        return np.einsum(
+            'wL,WM,L,M,LMBpqrs->wWBpqrs', Ul, Ul, phase1, phase2, self.G2Legendre,
+            optimize=True
+        )
+
+    def compute_G2_from_IR(self, wfs):
+        nl = self.G2IR.shape[0]
+        phase = np.ones(nl)
+        phase[::2] *= -1
+        Ul = self.basis_f_G2.uhat(wfs).T
+        return np.einsum(
+            'wL,WM,M,LMpqrs->wWBpqrs', Ul, Ul, phase, self.G2IR,
+            optimize=True
+        )
     
 def reconst_vartheta(asymU, giv, g0iv, dm):
     """
