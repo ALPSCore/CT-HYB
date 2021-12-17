@@ -314,9 +314,9 @@ def postprocess_G2(h5, verbose=False, **kwargs):
         if verbose:
             print("Reading G2IR...", end=" ")
         nwb = h5["/parameters/measurement.G2.IR.n_bosonic_freq"][()]
+        results['G2IR'] = (w_vol/(sign * z_vol)) * read_cmplx_mc_result(h5, 'G2IR')['mean']
         nl = int(np.sqrt(results['G2IR'].size // (nflavors**4 * nwb)))
-        results['G2IR'] = (w_vol/(sign * z_vol)) * read_cmplx_mc_result(h5, 'G2IR')['mean'].\
-            reshape(4*(nflavors,)+(nl,nl,nwb)).transpose((4,5,6,0,1,2,3))
+        results['G2IR'] = results['G2IR'].reshape(4*(nflavors,)+(nl,nl,nwb)).transpose((4,5,6,0,1,2,3))
         results["Lambda_IR_G2"] = h5["/parameters/measurement.IR.Lambda"][()]
         if verbose:
             print("Done!")
@@ -1246,23 +1246,23 @@ class QMCResult(VertexEvaluator):
         return legendre_to_matsubara(self.vartheta_legendre, wfs)
     
     def compute_G2_from_Legendre(self, wfs):
-        nl = self.G2Leegendre.shape[0]
+        nl = self.G2Legendre.shape[0]
         phase1 = np.sqrt(2*np.arange(nl)+1.0)
         phase2 = phase1.copy()
         phase2[::2] *= -1
-        Ul = compute_Tnl_sparse(wfs, nl)
+        Tnl = compute_Tnl_sparse(wfs, nl)
         return np.einsum(
-            'wL,WM,L,M,LMBpqrs->wWBpqrs', Ul, Ul, phase1, phase2, self.G2Legendre,
+            'wL,WM,LMBpqrs->wWBpqrs', Tnl, Tnl.conjugate(), self.G2Legendre,
             optimize=True
         )
 
     def compute_G2_from_IR(self, wfs):
         nl = self.G2IR.shape[0]
-        phase = np.ones(nl)
-        phase[::2] *= -1
+        #phase = np.ones(nl)
+        #phase[::2] *= -1
         Ul = self.basis_f_G2.uhat(wfs).T
         return np.einsum(
-            'wL,WM,M,LMpqrs->wWBpqrs', Ul, Ul, phase, self.G2IR,
+            'wL,WM,LMBpqrs->wWBpqrs', Ul, Ul.conjugate(), self.G2IR,
             optimize=True
         )
     
