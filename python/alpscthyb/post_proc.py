@@ -6,7 +6,7 @@ import h5py
 import os
 from .irbasis_util import check_bosonic, check_fermionic, check_full_convention
 from . import irbasis_util
-import irbasis3
+import sparse_ir
 from alpscthyb.exact_diag import compute_fermionic_2pt_corr_func, \
     compute_3pt_corr_func, construct_ham, compute_bosonic_2pt_corr_func, compute_4pt_corr_func, \
         compute_expval
@@ -181,9 +181,12 @@ def ft_four_point_obj(worm_config_record, wsample, nflavors, beta):
 
 
 
-def load_irbasis(stat, Lambda, beta, cutoff):
-    kernel = irbasis3.KernelFFlat(lambda_=Lambda)
-    return irbasis3.FiniteTempBasis(kernel, stat, beta, eps=cutoff)
+def load_irbasis(stat, Lambda, beta, cutoff, max_size=None):
+    wmax = Lambda/beta
+    sve_result = sparse_ir.sve.compute(sparse_ir.LogisticKernel(Lambda), cutoff)
+    if max_size is not None:
+        sve_result = tuple(x[0:max_size] for x in sve_result)
+    return sparse_ir.FiniteTempBasis(stat, beta, wmax, cutoff, sve_result=sve_result)
 
 
 def read_param(h5, name):
@@ -244,7 +247,7 @@ def _fit_iw(basis_ir, giw):
     else:
         rest_dim = giw.shape[1:]
         giw = giw.reshape((giw.shape[0],-1))
-        smpl = irbasis3.MatsubaraSampling(basis_ir)
+        smpl = sparse_ir.MatsubaraSampling(basis_ir)
         gl = smpl.fit(giw)
         return gl.reshape((gl.shape[0],) + rest_dim)
 
@@ -450,9 +453,9 @@ class VertexEvaluator(object):
         self.beta = beta
         self.basis_f = load_irbasis('F', Lambda, self.beta, cutoff)
         self.basis_b = load_irbasis('B', Lambda, self.beta, cutoff)
-        self.wsample_f = self.basis_f.default_matsubara_sampling_points
-        self.wsample_b = self.basis_b.default_matsubara_sampling_points
-        self.smpl_taus = self.basis_f.default_tau_sampling_points
+        self.wsample_f = self.basis_f.default_matsubara_sampling_points()
+        self.wsample_b = self.basis_b.default_matsubara_sampling_points()
+        self.smpl_taus = self.basis_f.default_tau_sampling_points()
     
     def _evaluate_iw(self, data_IR, wsample):
         if (wsample % 2 == 1).all():
@@ -1118,7 +1121,7 @@ class QMCResult(VertexEvaluator):
         Delta_tau_interp = interp1d(np.linspace(0, self.beta, self.Delta_tau.shape[0]),
             self.Delta_tau, axis=0)
 
-        smpl_tau_f = irbasis3.TauSampling(self.basis_f)
+        smpl_tau_f = sparse_ir.TauSampling(self.basis_f)
         Delta_tau_sp = Delta_tau_interp(smpl_tau_f.sampling_points)
         Ftau = self.basis_f.u(smpl_tau_f.sampling_points).T
         regularizer = self.basis_f.s
@@ -1133,18 +1136,12 @@ class QMCResult(VertexEvaluator):
         # If G1 is measured in IR, set up an IR basis.
         if hasattr(self, "gIR"):
             self.basis_f_G1 = \
-                irbasis3.FiniteTempBasis(
-                    irbasis3.KernelFFlat(self.Lambda_IR_G1), "F", self.beta, eps=1e-15,
-                    max_size = self.gIR.shape[0]
-                    )
+                load_irbasis("F", self.Lambda_IR_G1, self.beta, 1e-15, max_size = self.gIR.shape[0])
 
         # If G2 is measured in IR, set up an IR basis.
         if hasattr(self, "G2IR"):
             self.basis_f_G2 = \
-                irbasis3.FiniteTempBasis(
-                    irbasis3.KernelFFlat(self.Lambda_IR_G2), "F", self.beta, eps=1e-15,
-                    max_size = self.G2Legendre.shape[0]
-                    )
+                load_irbasis("F", self.Lambda_IR_G2, self.beta, 1e-15, max_size = self.G2Legendre.shape[0])
 
     def get_asymU(self):
         return self.asymU
@@ -1210,8 +1207,7 @@ class QMCResult(VertexEvaluator):
     def compute_giv_from_IR(self, vsample):
         print("compute_from_legenre...")
         vsample = check_fermionic(vsample)
-        smpl = irbasis3.MatsubaraSampling(self.basis_f_G1, sampling_points=vsample)
-        print("smpl", smpl.regularizer.size)
+        smpl = sparse_ir.MatsubaraSampling(self.basis_f_G1, sampling_points=vsample)
         print("gIR", self.gIR.shape)
         return smpl.evaluate(self.gIR, axis=0)
 
