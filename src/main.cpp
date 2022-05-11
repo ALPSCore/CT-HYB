@@ -14,7 +14,6 @@
 
 #include <fstream>
 #include <cstdio>
-//#include <boost/filesystem/operations.hpp>
 #include <alps/utilities/fs/remove_extensions.hpp>
 #include <alps/utilities/fs/get_dirname.hpp>
 #include <alps/utilities/fs/get_basename.hpp>

@@ -1,6 +1,6 @@
 #include "h_corr.hpp"
 
-#include <filesystem>
+#include <filesystem.hpp>
 #include <alps/utilities/fs/get_dirname.hpp>
 #include <alps/utilities/fs/get_basename.hpp>
 #include <alps/utilities/fs/remove_extensions.hpp>
@@ -37,11 +37,11 @@ void HCorrMeas<SCALAR,SW_TYPE>::save_results(const std::string &filename, const 
   std::string dirname = 
     alps::fs::remove_extensions(filename) + "_results";
    if (comm.rank()==0) {
-      if (std::filesystem::exists(dirname) && 
-        !std::filesystem::is_directory(dirname)) {
+      if (ghc::filesystem::exists(dirname) && 
+        !ghc::filesystem::is_directory(dirname)) {
         throw std::runtime_error("Please remove " + dirname + "!");
       } else {
-        std::filesystem::create_directory(dirname);
+        ghc::filesystem::create_directory(dirname);
       }
    }
   comm.barrier();

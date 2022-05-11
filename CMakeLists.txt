@@ -55,7 +55,6 @@ find_package(ALPSCore REQUIRED)
 #Find MPI
 include(EnableMPI)
 
-#find_package(Boost 1.54.0 REQUIRED COMPONENTS filesystem)
 find_package(Boost 1.54.0 REQUIRED)
 
 # Eigen is provided by ALPSCore
