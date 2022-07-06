@@ -44,7 +44,7 @@ int main(int argc, const char *argv[]) {
   }
 
   //solve the model
-  p_solver->solve();
+  p_solver->solve(par["dump"].as<std::string>());
 
   //write the results into a hdf5 file
   if (c.rank() == 0) {

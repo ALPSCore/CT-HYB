@@ -129,20 +129,17 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
   const std::vector<std::vector<int> > &sector_members = Base::get_sector_members();
   const int flavors = Base::num_flavors();
   typedef Eigen::SelfAdjointEigenSolver<dense_matrix_t> SOLVER_TYPE;
-#ifndef NDEBUG
-  std::vector<dense_matrix_t> ham_sector;
-#endif
+  dham_sector.resize(0);
 
   //Compute eigenvectors and eigenvalues
   min_eigenval_sector.resize(num_sectors);
   eigenvals_sector.resize(num_sectors);
-  std::vector<dense_matrix_t> evecs_sector(num_sectors);
+  //std::vector<dense_matrix_t> evecs_sector(num_sectors);
+  evecs_sector.resize(num_sectors);
   for (int sector = 0; sector < num_sectors; ++sector) {
     const int dim_sector = sector_members[sector].size();
     dense_matrix_t ham_tmp(Base::ham_sectors[sector]);
-#ifndef NDEBUG
-    ham_sector.push_back(ham_tmp);
-#endif
+    dham_sector.push_back(ham_tmp);
     SOLVER_TYPE esolv(ham_tmp);
     eigenvals_sector[sector].resize(dim_sector);
     for (int ie = 0; ie < dim_sector; ++ie) {
@@ -173,10 +170,6 @@ void ImpurityModelEigenBasis<SCALAR>::build_basis(const alps::params &par) {
     std::cout << " Max eigen energy = " << eigenvalue_max << std::endl;
     std::cout << " Min eigen energy  = " << eigenvalue_min << std::endl;
   }
-
-#ifndef NDEBUG
-  check_evecs(ham_sector, evecs_sector);
-#endif
 
   //modify sector_connection
   for (int op = 0; op < 2; ++op) {

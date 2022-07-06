@@ -9,6 +9,8 @@
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/stop_callback.hpp>
 #include <alps/utilities/mpi.hpp>
+#include <alps/hdf5.hpp>
+#include <alps/numeric/tensors.hpp>
 
 #include "impurity.hpp"
 #include "mc/mympiadapter.hpp"
@@ -81,6 +83,7 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
           sim.show_statistics(mc_results_);
         }
       }
+
     } else {
       if (r.second) {
         alps::collect_results(sim);
@@ -90,18 +93,27 @@ int MatrixSolver<Scalar>::solve(const std::string& dump_file) {
       }
     }
 
-    c.barrier();
-
+    //c.barrier();
     // Dump data for debug
     if (c.rank() == 0 && dump_file != "") {
       alps::hdf5::archive ar(dump_file, "w");
-      ar["/parameters"] << Base::parameters_;
-      ar["/simulation/results"] << this->get_accumulated_results();
-      {
-        const std::map<std::string,boost::any> &results = this->get_results();
-        for (std::map<std::string,boost::any>::const_iterator it = results.begin(); it != results.end(); ++it) {
-          ar["/" + it->first] << it->second;
+      ar["/model/num_sectos"] << sim.p_model->num_sectors();
+      ar["/model/sector_of_state"] << sim.p_model->get_sector_of_state();
+      const auto& eigenvals_sector = sim.p_model->get_eigenvals_sector();
+      for (auto s=0; s<sim.p_model->num_sectors(); ++s) {
+        ar["/model/sector"+std::to_string(s)+"/eigenvals"] << eigenvals_sector[s];
+        const auto& ham = sim.p_model->get_dense_ham_sector(s);
+        const auto& evecs = sim.p_model->get_evecs_sector(s);
+        auto dim = ham.rows();
+        alps::numerics::tensor<std::complex<double>,2> ham_tmp(dim, dim), evecs_tmp(dim, dim);
+        for (auto i=0; i<dim; ++i) {
+          for (auto j=0; j<dim; ++j) {
+            ham_tmp(i, j) = ham(i, j);
+            evecs_tmp(i, j) = evecs(i, j);
+          }
         }
+        ar["/model/sector"+std::to_string(s)+"/ham"] << ham_tmp;
+        ar["/model/sector"+std::to_string(s)+"/evecs"] << evecs_tmp;
       }
     }
 

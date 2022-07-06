@@ -274,6 +274,10 @@ class ImpurityModel {
   template<int N>
   void apply_op_ket(const EqualTimeOperator<N> &op, BRAKET_T &ket) const;
 
+  inline std::vector<int> get_sector_of_state() const {
+    return sector_of_state;
+  }
+
  protected:
   const int sites_, spins_, flavors_, dim_, ntau_, Np1_;
   double reference_energy_;
@@ -320,6 +324,7 @@ class ImpurityModel {
   //key: src sector
   //value: target sector
   boost::multi_array<int, 3> sector_connection, sector_connection_reverse;
+
 
  private:
 //results of partioning of the Hilbert space
@@ -382,15 +387,29 @@ class ImpurityModelEigenBasis: public ImpurityModel<SCALAR, ImpurityModelEigenBa
 
   bool translationally_invariant() const;
 
+  inline std::vector<std::vector<double>> get_eigenvals_sector() const {
+    return eigenvals_sector;
+  }
+
+  inline dense_matrix_t get_dense_ham_sector(int sector) const {
+    return dham_sector[sector];
+  }
+
+  inline dense_matrix_t get_evecs_sector(int sector) const {
+    return evecs_sector[sector];
+  }
+
  private:
   void build_basis(const alps::params &par);
   void build_outer_braket(const alps::params &par);
   //for debug
-  void check_evecs(const std::vector<dense_matrix_t> ham_sector, const std::vector<dense_matrix_t> &evecs_sector);
+  void check_evecs(const std::vector<dense_matrix_t> dham_sector, const std::vector<dense_matrix_t> &evecs_sector);
   bool is_sector_active(int sector) const;
   std::vector<std::vector<double> > eigenvals_sector;
   std::vector<double> min_eigenval_sector;
   std::vector<std::vector<dense_matrix_t> > ddag_ops_eigen, d_ops_eigen;//flavor, sector
+  std::vector<dense_matrix_t> dham_sector; //sector
+  std::vector<dense_matrix_t> evecs_sector; //sector
 
   int num_braket_;
   //equal to the number of active sectors

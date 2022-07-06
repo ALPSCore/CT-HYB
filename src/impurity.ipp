@@ -17,6 +17,8 @@ void HybridizationSimulation<IMP_MODEL>::define_parameters(parameters_type &para
       .define<std::string>("outputfile",
                            alps::fs::remove_extensions(origin_name(parameters)) + ".out.h5",
                            "name of the output file")
+      .define<std::string>("dump", "", "name of the dump file for debugging.")
+      .define<int>("verbose", 0, "Verbose output for a non-zero value")
       .define<int>("verbose", 0, "Verbose output for a non-zero value")
       .define<int>("sliding_window.max", 1000, "Max number of windows")
       .define<int>("sliding_window.min", 1, "Min number of windows")

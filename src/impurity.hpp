@@ -119,6 +119,9 @@ class HybridizationSimulation: public alps::mcbase {
   //for postprocess
   void show_statistics(const alps::accumulators::result_set &results);
 
+  //Model object
+  boost::scoped_ptr<IMP_MODEL> p_model;
+
  private:
   //for set up
   void create_observables(); //build ALPS observables
@@ -163,8 +166,6 @@ class HybridizationSimulation: public alps::mcbase {
   double thermalization_time;
   const time_t start_time;
 
-  //Model object
-  boost::scoped_ptr<IMP_MODEL> p_model;
 
   boost::shared_ptr<HybridizationFunction<SCALAR> > F;
 
