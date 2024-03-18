@@ -5,6 +5,7 @@
 #include <alps/gf/gf.hpp>
 #include <alps/hdf5/archive.hpp>
 #include <alps/utilities/cast.hpp>
+#include <alps/hdf5/multi_array.hpp>
 
 namespace alps {
 namespace hdf5 {
