@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import simps
+from scipy.integrate import simpson as simps
 from math import pi
 
 def ft_to_tau_hyb(ndiv_tau, beta, matsubara_freq, tau, Vek, data_n, data_tau, cutoff):
@@ -48,7 +48,7 @@ for i in range(ndiv_tau+1):
     for j in range(nf):
         for k in range(nf):
             if j==k:
-                print >>f, i, j, k, g_tau[i].real, g_tau[i].imag
+                print(i, j, k, g_tau[i].real, g_tau[i].imag,file=f)
             else:
-                print >>f, i, j, k, 0.0, 0.0
+                print(i, j, k, 0.0, 0.0,file=f)
 f.close()
