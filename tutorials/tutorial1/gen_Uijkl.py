@@ -12,10 +12,10 @@ def generate_U_tensor_SK(n_orb, U, JH):
     U_tensor = np.zeros((n_orb,2,n_orb,2,n_orb,2,n_orb,2),dtype=complex)
 
     num_elem = 0
-    for iorb1 in xrange(n_orb):
-        for iorb2 in xrange(n_orb):
-            for iorb3 in xrange(n_orb):
-                for iorb4 in xrange(n_orb):
+    for iorb1 in range(n_orb):
+        for iorb2 in range(n_orb):
+            for iorb3 in range(n_orb):
+                for iorb4 in range(n_orb):
                     coeff = 0.0
                     if iorb1==iorb2 and iorb2==iorb3 and iorb3==iorb4:
                         coeff = U
@@ -26,8 +26,8 @@ def generate_U_tensor_SK(n_orb, U, JH):
                     elif iorb1==iorb2 and iorb3==iorb4 and iorb1!=iorb3:
                         coeff = JH
 
-                    for isp in xrange(2):
-                        for isp2 in xrange(2):
+                    for isp in range(2):
+                        for isp2 in range(2):
                             U_tensor[iorb1,isp,    iorb2,isp2,    iorb3,isp2,  iorb4,isp] += coeff
                             if coeff != 0.0:
                                 num_elem += 1
@@ -43,16 +43,16 @@ V_mat = np.identity(2*n_site,dtype=complex)
 U_tensor, num_elem = generate_U_tensor_SK(n_site, Uval, Jval)
 
 f = open("Uijkl.txt", "w")
-print >>f, num_elem
+print(num_elem, file=f)
 line = 0
-for iorb1 in xrange(n_site):
-    for iorb2 in xrange(n_site):
-        for iorb3 in xrange(n_site):
-            for iorb4 in xrange(n_site):
-                for isp in xrange(2):
-                    for isp2 in xrange(2):
+for iorb1 in range(n_site):
+    for iorb2 in range(n_site):
+        for iorb3 in range(n_site):
+            for iorb4 in range(n_site):
+                for isp in range(2):
+                    for isp2 in range(2):
                         if U_tensor[iorb1,isp,iorb2,isp2,iorb3,isp2,iorb4,isp] != 0.0:
-                            print >>f, line, "   ", 2*iorb1+isp, 2*iorb2+isp2, 2*iorb3+isp2, 2*iorb4+isp, U_tensor[iorb1,isp,iorb2,isp2,iorb3,isp2,iorb4,isp].real, U_tensor[iorb1,isp,iorb2,isp2,iorb3,isp2,iorb4,isp].imag
+                            print(line, "   ", 2*iorb1+isp, 2*iorb2+isp2, 2*iorb3+isp2, 2*iorb4+isp, U_tensor[iorb1,isp,iorb2,isp2,iorb3,isp2,iorb4,isp].real, U_tensor[iorb1,isp,iorb2,isp2,iorb3,isp2,iorb4,isp].imag, file=f)
                             line += 1
 
 f.close()
