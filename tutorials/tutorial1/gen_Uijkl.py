@@ -44,7 +44,6 @@ U_tensor, num_elem = generate_U_tensor_SK(n_site, Uval, Jval)
 
 f = open("Uijkl.txt", "w")
 print(num_elem, file=f)
-
 line = 0
 for iorb1 in range(n_site):
     for iorb2 in range(n_site):
