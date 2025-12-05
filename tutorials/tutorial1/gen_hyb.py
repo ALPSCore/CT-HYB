@@ -50,5 +50,5 @@ for i in range(ndiv_tau+1):
             if j==k:
                 print(i, j, k, g_tau[i].real, g_tau[i].imag,file=f)
             else:
-                print(i, j, k, 0.0, 0.0,file=f)
+                print(i, j, k, 0.0, 0.0, file=f)
 f.close()
