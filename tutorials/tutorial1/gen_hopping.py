@@ -1,6 +1,5 @@
 import sys
 import numpy as np
-from scipy.integrate import simps
 from math import pi
 
 #Lambda = 1.0
@@ -19,12 +18,12 @@ Himp = -0.5*Lambda*np.array( [
         [ 1,  0, 1J,   0,  0,  0]], dtype=complex)
 
 mu = 2.5*Uval-5*Jval
-for flavor in xrange(nf):
+for flavor in range(nf):
     Himp[flavor,flavor] -= mu
 
 f = open('hopping.txt','w')
-for iorb in xrange(nf):
-    for jorb in xrange(nf):
-        print>>f, iorb, jorb, Himp[iorb,jorb].real, Himp[iorb,jorb].imag
+for iorb in range(nf):
+    for jorb in range(nf):
+        print(iorb, jorb, Himp[iorb,jorb].real, Himp[iorb,jorb].imag, file=f)
 f.close()
 

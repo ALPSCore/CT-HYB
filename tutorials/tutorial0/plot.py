@@ -2,27 +2,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pylab
 import h5py
+import scipy.special
 
 def read_param(h5, name):
     if '/parameters/dictionary/'+name in h5:
-        return h5['/parameters/dictionary/'+name].value
+        return h5['/parameters/dictionary/'+name][()]
     elif '/parameters/'+name in h5:
-        return h5['/parameters/'+name].value
+        return h5['/parameters/'+name][()]
     else:
         raise RuntimeError("Parameter "+ name + " not found") 
 
 def compute_Tnl(n_matsubara, n_legendre):
     Tnl = np.zeros((n_matsubara, n_legendre), dtype=complex)
-    for n in xrange(n_matsubara):
-        sph_jn = numpy.array([scipy.special.spherical_jn(l, (n+0.5)*numpy.pi) for l in range(n_legendre)])
-        for il in xrange(n_legendre):
+    for n in range(n_matsubara):
+        sph_jn = np.array([scipy.special.spherical_jn(l, (n+0.5)*np.pi) for l in range(n_legendre)])
+        for il in range(n_legendre):
             Tnl[n,il] = ((-1)**n) * ((1J)**(il+1)) * np.sqrt(2*il + 1.0) * sph_jn[il]
     return Tnl
 
 def read_h5(p):
     r = {}
 
-    print p+'.out.h5'
+    print(p+'.out.h5')
     h5 = h5py.File(p+'.out.h5','r')
     
     r["SITES"] = read_param(h5, 'model.sites')
@@ -31,16 +32,16 @@ def read_h5(p):
     def load_g(path):
         N = h5[path].shape[0]
         M = h5[path].shape[1]
-        data = h5[path].value.reshape(N,M,M,2)
+        data = h5[path][()].reshape(N,M,M,2)
         return data[:,:,:,0] + 1J*data[:,:,:,1]
 
     r["Gtau"] = load_g('/gtau/data')
 
     r["Gomega"] = load_g('/gf/data')
 
-    r["Sign"] = h5['/simulation/results/Sign/mean/value'].value
+    r["Sign"] = h5['/simulation/results/Sign/mean/value'][()]
 
-    r["Sign_count"] = h5['/simulation/results/Sign/count'].value
+    r["Sign_count"] = h5['/simulation/results/Sign/count'][()]
 
     return r
 
@@ -61,7 +62,6 @@ color_list = ['r', 'g', 'b', 'y', 'k', 'm']
 params = {
     'backend': 'ps',
     'axes.labelsize': 24,
-    'text.fontsize': 24,
     'legend.fontsize': 18,
     'xtick.labelsize': 24,
     'ytick.labelsize': 24,
@@ -89,15 +89,15 @@ for i in range(len(result_list)):
     gtau = result_list[i]["Gtau"]
     giw = result_list[i]["Gomega"]
 
-    print "The number of measurements is ", result_list[i]["Sign_count"]
+    print("The number of measurements is ", result_list[i]["Sign_count"])
 
     tau_point = np.linspace(0.0, 1.0, gtau.shape[0])
     plt.subplot(211)
     for i_f in range(nf):
         plt.plot(tau_point, -gtau[:,i_f,i_f].real, color=color_list[i_f], marker='', label='flavor'+str(i_f), ls='--', markersize=0)
-        print "flavor ", i_f, "G(tau=0) = ", gtau[0,i_f,i_f].real , "G(tau=beta) = ", gtau[-1,i_f,i_f].real
+        print("flavor ", i_f, "G(tau=0) = ", gtau[0,i_f,i_f].real , "G(tau=beta) = ", gtau[-1,i_f,i_f].real)
 
-    omega_point = np.array([(2*im+1)*np.pi/beta for im in xrange(giw.shape[0])])
+    omega_point = np.array([(2*im+1)*np.pi/beta for im in range(giw.shape[0])])
     plt.subplot(212)
     for i_f in range(nf):
         plt.plot(omega_point, -giw[:,i_f,i_f].imag, color=color_list[i_f], marker='', label='flavor'+str(i_f), ls='--', markersize=0)
